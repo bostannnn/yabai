@@ -2098,6 +2098,40 @@ tags wait; a long press sorts a tag in Browse and on the book page.
       seen in the whole app: the emulator held another session's build, which was left alone.
 - [ ] Tablet, and the first Kavita sync after the update (it re-reads every series once).
 
+### Browse in its own shapes `[~]` (2026-10-31)
+
+The user: everything in Browse "looks the same, so it is just a ton of tag bubbles". Four directions were
+mocked on https://claude.ai/artifact/WLhKESR1QUfjRRq2eonvWv with the real library (Index, Covers, Doors,
+Sentence); the user chose Covers and took it through three passes there. Decisions on the way: no period
+lines or period chips under When (named periods stay reachable from search and a book's tags); Your shelves
+leaves the default rows, since Lists has them; cities fold into their country; the landscape pane draws each
+row in a compact form of its shape instead of chips.
+
+Built on branch `browse-redesign` (from main fde6e6c0):
+
+- [x] Design system first: `LibraryBrowse`'s guidelines and preview (Medium landing, Expanded with Russia and
+      1800s picked), published to the artifact.
+- [x] core:model: `LibraryPlaceCountries.kt` (`libraryPlaceCountry`, a city or state to its country, disputed
+      places left alone; `libraryPlaceCountries`, Set in folded by country with its cities and first books); a
+      country chip matches its cities' books; a pile keeps its first books (`LibraryEraBar.books`);
+      `libraryBrowseBooks` (a few books per value, for list covers); Your shelves is off by default. The
+      region panels' `libraryPlaceGroups` is gone.
+- [x] feature:library `browse/`: country cards in a rail to the window edge ending in All places
+      (`LibraryBrowsePlaces.kt`), the Places sheet (`LibraryBrowsePlacesSheet.kt`), the shelf of piles and its
+      sideways list (`LibraryBrowseShelf.kt`, spines in the title-cover colours), Fiction and Nonfiction as a
+      segmented row and the other genres as `AppListCover` tiles (`LibraryBrowseGenres.kt`), Your reading's
+      panels (`LibraryBrowseReading.kt`), each row's pane and tab form (`LibraryBrowseRowViews.kt`), the
+      result panes moved to `LibraryBrowseResults.kt`. The landing went from 349 lines to 141, the page from
+      347 to 273.
+- [x] Tests: core:model `LibraryBrowseTest` (countries, cities, pile books, value books, shelves off),
+      feature:library `LibraryBrowseViewTest`. All unit tests pass (1,704 across both lines).
+- [x] Seen on `yabai_settings_35` (a debug build over its debug build; the tags sorted with Accept all), portrait
+      and landscape: the landing, Russia and 1800s picked in the tabs and in the 320 pane, Places. Fixed from
+      it: the card's large corner clipped the start of its city line (now clipped like a list tile). Covers
+      didn't load there (the emulator can't reach the server), so the cards showed title covers.
+- [ ] Seen on the tablet with real covers; phone frames; About grouped by the tag areas (needs a theme-to-area
+      map).
+
 ## Not yet designed
 
 Section 9: each step above gets its mock when it starts. Before it, nothing was left: downloads, the

@@ -197,8 +197,13 @@ A source's library: the bar with its search field, the reading card, the shelf t
   <div id="screens"><div class="yb-caption" style="margin-bottom:8px">Medium, 800 wide (the emulator's portrait)</div>{library}</div>
 </div>""", width=832, page=True, script=TOGGLE_SCRIPT)
 
-# ------------------------------------------------------------------ Browse (Expanded landscape)
+# ------------------------------------------------------------------ Browse (Medium landing, Expanded picked)
 BW, BH = 1280, 800
+# The app's title-cover fills (LibraryCoverPlaceholder): the shelf's spines take these.
+SPINES = ["#0F6E56", "#993C1D", "#534AB7", "#185FA5", "#993556", "#854F0B", "#3B6D11", "#5F5E5A", "#0C447C", "#3C3489", "#72243E", "#085041"]
+SLOTS = [("Prehistory", 6), ("Ancient", 46), ("Middle Ages", 55), ("Renais&shy;sance", 8), ("1500s", 9), ("1600s", 22), ("1700s", 39),
+         ("1800s", 152), ("1900s", 8), ("1910s", 12), ("1920s", 52), ("1930s", 70), ("1940s", 32), ("1950s", 63), ("1960s", 72),
+         ("1970s", 70), ("1980s", 64), ("1990s", 104), ("2000s", 38), ("2010s", 35), ("21st c.", 50), ("Future", 70)]
 
 
 def chips(values, selected=()):
@@ -208,17 +213,142 @@ def chips(values, selected=()):
     )
 
 
-browse_groups = "".join(
-    f'<div style="display:flex;flex-direction:column;gap:8px"><h3 class="yb-group-label">{label}</h3><div class="yb-chip-row">{chips(values, selected)}</div></div>'
-    for label, values, selected in [
-        ("Set in", [("United Kingdom", 24), ("London", 15), ("United States", 7), ("Germany", 6)], ()),
-        ("When", [("Cold War", 29), ("21st century", 16), ("World War II", 7), ("1950s", 5)], ()),
-        ("About", [("Espionage", 59), ("Conspiracy", 7), ("Terrorism", 7), ("War", 4)], ("Espionage",)),
-        ("Genre", [("Thriller & Suspense", 44), ("Humor & Satire", 14), ("History", 9)], ()),
-        ("Your shelves", [("Spy Fiction", 24), ("European Fiction", 2)], ()),
-        ("Your reading", [("Not started", 59)], ()),
-    ]
-)
+def spine_color(seed, i):
+    return SPINES[(sum(map(ord, seed)) * 7 + i * 5) % len(SPINES)]
+
+
+def pile(label, count, top, picked=None):
+    n = max(1, round(14 * (count / top) ** 0.5))
+    widths = [86, 94, 80, 91, 98, 83, 89]
+    shift = [-2, 1, 3, -1, 0, 2, -3]
+    books = "".join(
+        f'<i style="display:block;height:7px;width:{widths[(len(label) + i) % 7]}%;margin-left:auto;margin-right:auto;'
+        f'transform:translateX({shift[(len(label) + i * 3) % 7]}px);border-radius:1.5px;background:{spine_color(label, i)}"></i>'
+        for i in range(n))
+    fade = "opacity:.3;" if picked and label != picked else ""
+    return (f'<div style="width:40px;flex:none;display:flex;flex-direction:column;align-items:center;gap:5px;{fade}">'
+            f'<span style="font:700 11px/14px var(--font-sans)">{count}</span>'
+            f'<div style="width:100%;display:flex;flex-direction:column-reverse;gap:1px">{books}</div></div>')
+
+
+def shelf(slots, picked=None, first=0):
+    shown = slots[first:]
+    top = max(c for _, c in slots)
+    piles = "".join(pile(label, count, top, picked) for label, count in shown)
+    labels = "".join(
+        f'<span style="width:40px;flex:none;text-align:center;font:{"700" if label == picked else "500"} 10px/12px var(--font-sans);height:24px;'
+        + ('background:var(--primary-container);color:var(--on-primary-container);border-radius:8px;' if label == picked else 'color:var(--on-surface-variant);' + ("opacity:.55;" if picked else ""))
+        + f'">{label.replace(" ", "<br>")}</span>'
+        for label, _ in shown)
+    return (f'<div class="yb-panel" style="padding:20px 0 14px 20px;overflow:hidden">'
+            f'<div style="display:flex;gap:4px;align-items:flex-end">{piles}</div>'
+            f'<div style="height:6px;border-radius:3px;margin:1px 0 6px;background:var(--outline-variant)"></div>'
+            f'<div style="display:flex;gap:4px">{labels}</div></div>')
+
+
+def place_card(name, count, cities, covers, picked=False):
+    stage_bg = "var(--primary-container)" if picked else "var(--surface-container)"
+    stack = "".join(
+        f'<div style="position:absolute;top:17px;left:{16 + k * 38}px;z-index:{3 - k};width:68px;border-radius:var(--radius-cover);box-shadow:0 0 0 2px {stage_bg}">{cover(c, 68, 8)}</div>'
+        for k, c in enumerate(covers))
+    check = (f'<span style="position:absolute;top:10px;right:10px;z-index:5;width:28px;height:28px;border-radius:999px;background:var(--primary);'
+             f'color:var(--on-primary);display:flex;align-items:center;justify-content:center">{ic("check", 18)}</span>') if picked else ""
+    city_line = f'<span style="font:500 13px/18px var(--font-sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{cities}</span>' if cities else ""
+    return (f'<div style="flex:none;width:176px;display:flex;flex-direction:column;gap:10px">'
+            f'<div style="position:relative;height:136px;border-radius:var(--radius-container);background:{stage_bg};overflow:hidden">{stack}{check}</div>'
+            f'<div style="display:flex;flex-direction:column;gap:1px"><span class="yb-book-title">{name}</span>'
+            f'<span class="yb-caption">{count} books</span>{city_line}</div></div>')
+
+
+def split(left, right):
+    return (f'<div class="yb-seg"><span><b style="font-weight:600;color:var(--on-surface)">{left[0]}</b>&nbsp;{left[1]}</span>'
+            f'<span><b style="font-weight:600;color:var(--on-surface)">{right[0]}</b>&nbsp;{right[1]}</span></div>')
+
+
+def genre_tile(name, count, start):
+    return (f'<div style="display:flex;flex-direction:column;gap:8px;min-width:0">{list_cover([start, start + 1, start + 2, start + 3])}'
+            f'<div style="display:flex;flex-direction:column"><span class="yb-book-title" style="font-size:14px">{name}</span><span class="yb-caption">{count} books</span></div></div>')
+
+
+def reading_panel():
+    books = "".join(
+        f'<div style="display:grid;grid-template-columns:36px minmax(0,1fr);gap:12px;align-items:center">{cover(i, 36, 5)}'
+        f'<div style="min-width:0"><div class="yb-book-title" style="font-size:14px;line-height:18px">{t}</div><div class="yb-caption">{a}</div>'
+        f'<div style="display:flex;align-items:center;gap:8px;margin-top:6px"><div class="yb-progress" style="flex:1"><i style="width:{p}%"></i></div>'
+        f'<span class="yb-caption" style="font-weight:600">{p}%</span></div></div></div>'
+        for i, (t, a, p) in enumerate([("Moths of Lisbon", "Paulo Serra", 62), ("Glass Meridian", "J. R. Okafor", 81), ("Paper Cranes", "Hana Moriya", 34)]))
+    stat = lambda n, label, i: (
+        f'<div class="yb-panel" style="flex:1;padding:16px 18px;display:flex;align-items:center;gap:14px">'
+        f'<div style="position:relative;width:60px;height:54px">{"".join(f"<div style=\"position:absolute;left:{k * 12}px;z-index:{3 - k};width:36px;box-shadow:0 0 0 2px var(--surface-container);border-radius:var(--radius-cover)\">{cover(i + k, 36, 5)}</div>" for k in range(3))}</div>'
+        f'<div><b style="display:block;font:700 22px/28px var(--font-sans)">{n}</b><span class="yb-caption">{label}</span></div></div>')
+    return (f'<div style="display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px">'
+            f'<div class="yb-panel" style="padding:20px;display:flex;flex-direction:column;gap:16px"><h3 class="yb-group-label">In progress <span class="yb-caption" style="font-size:13px;font-weight:600">23</span></h3>{books}</div>'
+            f'<div style="display:flex;flex-direction:column;gap:16px">{stat("259", "Finished", 2)}{stat("1,812", "Not started", 5)}</div></div>')
+
+
+def heading(title, count, more=None):
+    end = f'<button class="yb-btn is-text" style="margin-left:auto">{more}</button>' if more else ""
+    return f'<div style="display:flex;align-items:center"><h2 class="yb-section-heading">{title} <span class="yb-count">{count}</span></h2>{end}</div>'
+
+
+landing_places = "".join(place_card(*p) for p in [
+    ("United States", 536, "New York · Los Angeles · +3", [0, 1, 2]),
+    ("Russia", 248, "Moscow · Saint Petersburg", [3, 4, 5]),
+    ("England", 135, "London · Manchester", [6, 7, 0]),
+    ("France", 112, "Paris", [1, 3, 5]),
+])
+landing_body = f"""
+  <div style="position:absolute;left:24px;right:0;top:84px;bottom:0;display:flex;flex-direction:column;gap:24px;overflow:hidden">
+    <section style="display:flex;flex-direction:column;gap:8px;padding-right:24px">{heading("Set in", "1,486 books")}</section>
+    <div style="display:flex;gap:16px;margin-top:-16px">{landing_places}</div>
+    <section style="display:flex;flex-direction:column;gap:8px;padding-right:24px">{heading("When", "1,342 books")}{shelf(SLOTS, first=6)}</section>
+    <section style="display:flex;flex-direction:column;gap:8px;padding-right:24px">{heading("About", "1,818 books", "All 127")}<div class="yb-chip-row">{chips([("Love and relationships", 176), ("War", 123), ("Supernatural", 112), ("Magic", 95), ("Coming of age", 83), ("Detective", 77), ("Family", 76)])}</div></section>
+    <section style="display:flex;flex-direction:column;gap:8px;padding-right:24px">{heading("Genre", "2,094 books", "All 49")}{split(("Fiction", "1,342"), ("Nonfiction", "749"))}
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-top:6px">{genre_tile("Classics", 550, 0)}{genre_tile("Literary Fiction", 452, 2)}{genre_tile("Fantasy", 246, 4)}{genre_tile("History", 243, 6)}</div></section>
+    <section style="display:flex;flex-direction:column;gap:8px;padding-right:24px"><h2 class="yb-section-heading">Your reading</h2>{reading_panel()}</section>
+  </div>"""
+landing = f"""
+<div class="yb-device" style="width:600px;height:1500px">
+  {statusbar()}
+  <div class="yb-device-body"><div class="yb-pane" style="--yb-gutter:24px">
+    <div class="yb-bar"><button class="yb-icon-btn">{ic("arrow_back")}</button><span class="yb-bar-title">Browse</span><button class="yb-icon-btn">{ic("search")}</button><button class="yb-icon-btn">{ic("more_vert")}</button></div>
+    {landing_body}
+    <div class="yb-spec">{g(24)}{g(576)}{h(84)}<span class="t" style="left:300px;top:90px">84 content top · rails run to the edge</span></div>
+  </div></div>
+</div>"""
+
+
+def pane_row(name, count, lead="", picked=False, indent=False):
+    bg = "background:var(--primary-container);color:var(--on-primary-container);" if picked else ""
+    pad = "padding-left:48px;height:34px;" if indent else ""
+    tail = ic("check", 18) if picked else ""
+    return (f'<div style="display:flex;align-items:center;gap:12px;height:44px;padding:0 12px;margin:0 -12px;border-radius:var(--radius-control);{bg}{pad}">'
+            f'{lead}<span style="flex:1;font:500 {13.5 if indent else 14}px/20px var(--font-sans);{"color:var(--on-surface-variant)" if indent else ""}">{name}</span>'
+            f'<span style="font:600 13px/18px var(--font-sans);{"" if picked else "color:var(--on-surface-variant)"}">{count}</span>{tail}</div>')
+
+
+def era_row(label, count, top, picked=False):
+    n = max(1, round(26 * (count / top) ** 0.5))
+    books = "".join(f'<i style="display:block;width:4px;height:{11 + (i * 5 + len(label)) % 7}px;border-radius:1px;background:{spine_color(label, i)}"></i>' for i in range(n))
+    bg = "background:var(--primary-container);color:var(--on-primary-container);" if picked else ""
+    return (f'<div style="display:grid;grid-template-columns:92px minmax(0,1fr) 28px;align-items:center;gap:10px;height:32px;padding:0 12px;margin:0 -12px;border-radius:var(--radius-control);{bg}">'
+            f'<span style="font:500 13px/18px var(--font-sans)">{label}</span><span style="display:flex;align-items:flex-end;gap:1px;height:18px">{books}</span>'
+            f'<span style="text-align:right;font:600 12px/16px var(--font-sans)">{count}</span></div>')
+
+
+pane_set_in = (pane_row("Russia", 72, f'<span style="width:24px">{cover(3, 24, 3)}</span>', picked=True)
+               + pane_row("Saint Petersburg", 14, indent=True) + pane_row("Moscow", 6, indent=True)
+               + pane_row("France", 3, f'<span style="width:24px">{cover(1, 24, 3)}</span>')
+               + pane_row("Caucasus", 2, f'<span style="width:24px">{cover(5, 24, 3)}</span>'))
+era_counts = [("1700s", 3), ("1800s", 72), ("1910s", 2), ("Future", 1)]
+pane_when = "".join(era_row(label, count, 72, picked=label == "1800s") for label, count in era_counts)
+pane_genre = (split(("Fiction", 63), ("Nonfiction", 9))
+              + "".join(pane_row(name, count, f'<span style="width:24px">{list_cover([k, k + 1, k + 2, k + 3])}</span>') for k, (name, count) in enumerate([("Classics", 60), ("Literary Fiction", 26), ("Short Stories", 15), ("Poetry", 14)])))
+pane = f"""
+  <div style="display:flex;flex-direction:column;gap:6px"><h3 class="yb-group-label">Set in</h3>{pane_set_in}</div>
+  <div style="display:flex;flex-direction:column;gap:6px"><h3 class="yb-group-label">When</h3>{pane_when}</div>
+  <div style="display:flex;flex-direction:column;gap:8px"><h3 class="yb-group-label">About</h3><div class="yb-chip-row">{chips([("Love and relationships", 9), ("Supernatural", 8), ("Aristocracy", 7), ("Philosophical fiction", 7)])}</div></div>
+  <div style="display:flex;flex-direction:column;gap:6px"><h3 class="yb-group-label">Genre</h3>{pane_genre}</div>"""
 browse_tiles = "".join(
     f'<div style="display:flex;flex-direction:column;gap:6px;min-width:0">{cover(i)}<div class="yb-book-title" style="font-size:14px">{t}</div></div>'
     for i, t in enumerate(["The Lantern Keepers", "Дом у реки", "Quiet Engines", "Moths of Lisbon", "Glass Meridian", "Star Courier #2", "The Salt Orchard", "Paper Cranes", "The Lantern Keepers", "Дом у реки"])
@@ -230,10 +360,10 @@ browse = f"""
     {rail("Grimmory")}
     <div class="yb-pane" style="--yb-gutter:24px">
       <div class="yb-bar"><button class="yb-icon-btn">{ic("arrow_back")}</button><span class="yb-bar-title">Browse</span><button class="yb-icon-btn">{ic("search")}</button><button class="yb-icon-btn">{ic("more_vert")}</button></div>
-      <div style="position:absolute;left:24px;top:84px;width:320px;bottom:0;display:flex;flex-direction:column;gap:18px;overflow:hidden">{browse_groups}</div>
+      <div style="position:absolute;left:24px;top:84px;width:320px;bottom:0;display:flex;flex-direction:column;gap:24px;overflow:hidden">{pane}</div>
       <div style="position:absolute;left:368px;right:24px;top:84px;bottom:0;display:flex;flex-direction:column;gap:16px;overflow:hidden">
-        <div style="display:flex;gap:8px;align-items:center"><span class="yb-chip is-selected"><span style="opacity:.72;font-weight:500">About</span> Espionage{ic("close", 18)}</span><button class="yb-btn is-text">Clear</button></div>
-        <div style="display:flex;align-items:center;gap:8px"><h2 class="yb-section-heading" style="flex:1">59 books</h2><button class="yb-btn is-tonal">{ic("add")}Save as shelf</button></div>
+        <div style="display:flex;gap:8px;align-items:center"><span class="yb-chip is-selected"><span style="opacity:.72;font-weight:500">Set in</span> Russia{ic("close", 18)}</span><span class="yb-chip is-selected"><span style="opacity:.72;font-weight:500">When</span> 1800s{ic("close", 18)}</span><button class="yb-btn is-text">Clear</button></div>
+        <div style="display:flex;align-items:center;gap:8px"><h2 class="yb-section-heading" style="flex:1">72 books</h2><button class="yb-btn is-tonal">{ic("add")}Save as shelf</button></div>
         <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:16px">{browse_tiles}</div>
       </div>
       <div class="yb-spec">{g(24)}{g(344, "320 pane")}{g(368, "24")}{h(84)}<span class="t" style="left:560px;top:90px">84 content top</span></div>
@@ -241,25 +371,38 @@ browse = f"""
   </div>
 </div>"""
 
-comp("LibraryBrowse", "Screens", 900, """
+comp("LibraryBrowse", "Screens", 1640, """
 # Browse
 
-A source's books by what they are about: chips in rows, every chip narrowing the books, every count saying how many are left.
+A source's books by what they are about. Each row has the shape of what is in it: places as cards of covers, time as piles of books on a shelf, genres as list covers, your reading as the books you are in. Tags stay chips. Every pick narrows the books, every count says how many are left.
 
 - **Opening it.** The Browse chip, first in the All books row before Filters; a tag on the book page (Browse opens with that chip picked, where the tag used to filter the grid); a tag in the search suggestions. Back returns to where you came from. The bar shows Back, "Browse", Find and •••, and turns to glass only once content scrolls under it.
-- **Rows, in this order:** Set in (place tags), When (era tags), About (the other tags), Genre (categories), Mood (moods), Your shelves (the server's shelves), Your reading (Not started, In progress, Finished). Author, Series, Publisher and Language are there to switch on.
+- **Rows, in this order:** Set in (place tags), When (era tags), About (the other tags), Genre (categories), Mood (moods), Your reading (Not started, In progress, Finished). Your shelves (the server's shelves; Lists already has them), Author, Series, Publisher and Language are there to switch on.
 - **A row is a field of the books** and shows only once some book has it, so new metadata from the server (moods, say) turns up as a new row by itself. Rows (••• in the bar) is an `AppSideSheet` of `AppSettingsRow`s with switches: Shown, Off, and Waiting for metadata. It remembers what you hid, not what you showed.
-- **Tags go where you put them** (Settings › Tags; see Tags): Set in holds the tags you sorted as places and Kavita's Locations, When the ones you sorted as times, About every other tag, unsorted ones included, so Browse never shows a guess as a fact. A long press on a Set in, When or About chip opens the tag's sort sheet.
-- **Before any tag is sorted as a place or a time**, the landing page starts with a Places and times `AppPanel` (inset 20): an `AppGroupLabel`, one line ("The app guessed that 104 of your tags are places and 33 are times. Check its guesses once, and Browse shows your books by region under Set in and on a timeline under When."), Not now (hides it for that source) and **Check the guesses**, which opens Settings › Tags on that source. Later, tags waiting to be sorted say so in one line under About's heading ("3 new tags are in About until you sort them") with a Sort text button.
-- **Nothing picked: the landing page.** Set in as region panels (`AppPanel`, inset 20: Americas, Europe, Russia and around, Asia, Middle East and Africa, Oceania, Made-up places, Elsewhere) in three columns on Expanded, two on Medium, one on phones, 16 apart; each column stacks its panels at their own height, so a long region leaves no gap beside a short one. When as a timeline (one bar per decade or century, at least 40 wide, as tall as the square root of its count, the count above and the label below in two lines; where the bars don't fit, the timeline scrolls sideways and fades at an edge with more; a period like World War II or the 20th century is a chip under it). Then About, Genre, Your shelves and Your reading as chip rows, each ending in an "All N" text button.
-- **Something picked, Expanded:** the chip pane is the 320 list pane on the gutter, each row an `AppGroupLabel` over its chips, the picked chips selected. The results follow a gutter later: the picked chips (selected `AppChip`, the row's name dimmed, a close icon) and Clear, the count as `AppSectionHeading`, then the cover grid at the library's cover size. Medium and Compact: one column, the picked chips on top, the rows as `AppTabPill`s with the chosen row's chips under them, then the grid.
-- Every chip narrows, across rows and within one. A chip that would leave nothing doesn't show. Counts are digits.
+- **Tags go where you put them** (Settings › Tags; see Tags): Set in holds the tags you sorted as places and Kavita's Locations, When the ones you sorted as times, About every other tag, unsorted ones included, so Browse never shows a guess as a fact. A long press on an About chip or a place opens the tag's sort sheet.
+- **Before any tag is sorted as a place or a time**, the landing page starts with a Places and times `AppPanel` (inset 20): an `AppGroupLabel`, one line ("The app guessed that 104 of your tags are places and 33 are times. Check its guesses once, and Browse shows your books by country under Set in and on a shelf under When."), Not now (hides it for that source) and **Check the guesses**, which opens Settings › Tags on that source. Later, tags waiting to be sorted say so in one line under About's heading ("3 new tags are in About until you sort them") with a Sort text button.
+- **Cities fold into their country.** A city the app knows (New York, London, Moscow…) counts under its country, so the United States card holds the books set in New York too, and picking a country picks its cities' books with it. A city stays pickable on its own: under its country in Places, and as chips under a picked country.
+- **Nothing picked: the landing page.**
+  - **Set in:** a rail of country cards, most books first, that runs to the screen edge. A card is a 176 × 136 stage (`surface-container`, `radius-container`) holding three of the country's covers, 68 wide and 38 apart, each ringed 2 in the stage's colour so they read apart without a shadow; under it the name, "536 books" and its top cities ("New York · Los Angeles · +3"). The rail ends in an All places card that opens Places.
+  - **When:** a shelf in an `AppPanel` (inset 20): one pile per century or decade in time order, 40 wide and 4 apart, its books lying flat as 7 tall spines 1 apart, as many as the square root of its count allows (14 at most), each coloured like the title cover of a book in the pile; the count above, a 6 tall shelf line (`outline-variant`), the label under it in two lines. Where the piles don't fit, the shelf scrolls sideways and fades at an edge with more. Named periods (World War II, Soviet era) and a whole century like the 20th have no pile; search and a book's tags still reach them.
+  - **About:** chips, folded after 14, with "All N". They are the only chips on the page, so they read as tags.
+  - **Genre:** Fiction and Nonfiction as an `AppSegmentedRow` when both are there (a segment picks that genre), then the other genres as `AppListCover` tiles of four of their books with the name and "550 books": one row (3 on phones, 4 on Medium, 6 on Expanded), "All N" opens the rest.
+  - **Your reading:** an `AppPanel` (inset 20) with the books in progress, last read first (up to 3: a 36 cover, title, author, `AppProgressBar` and the percentage), beside Finished and Not started panels with three covers and the count. Each picks its status.
+  - Mood and any row you switch on show as chips.
+- **Places** is an `AppSideSheet` (`AppPanelHeader` "Places", "102 places"): an `AppSearchField` ("Find a place"), then the countries by region (`AppSheetLabel`), each a row with a 28 cover, its name and count, its cities under it indented without a cover. A tap picks the place and closes the sheet.
+- **Something picked, Expanded:** the 320 list pane on the gutter, each row an `AppGroupLabel` over a compact form of its shape. Set in: rows with a 24 cover, name and count; a picked country is selected (`primary-container`, a check) with its cities under it, indented. When: the shelf on its side, one 32 row per pile with its books standing as 4 wide spines. Genre: the segmented row, then rows with a 24 `AppListCover`. Your reading: rows. About and the rest: chips. The results follow a gutter later: the picked chips (selected `AppChip`, the row's name dimmed, a close icon) and Clear, the count as `AppSectionHeading`, then the cover grid at the library's cover size.
+- **Medium and Compact:** one column, the picked chips on top, the rows as `AppTabPill`s with the chosen row's own shape under them: the country rail (a picked card's stage turns `primary-container` with a 28 check; the picked country's cities as chips under the rail), the shelf (picked piles keep their colour and their labels turn selected, the others fade to 30%), the genre tiles as a rail, chips for the rest. Then the grid.
+- Every pick narrows, across rows and within one. A pick that would leave nothing doesn't show. Counts are digits.
 - Save as shelf keeps the chips, not the books (a Grimmory magic shelf).
 """, f"""
 <div class="yb" style="padding:16px">
   {TOGGLE}
-  <div id="screens"><div class="yb-caption" style="margin-bottom:8px">Expanded, 1280 × 800: one chip picked</div>{browse}</div>
+  <div id="screens" style="display:flex;flex-direction:column;gap:24px">
+    <div><div class="yb-caption" style="margin-bottom:8px">Medium, 600 wide: nothing picked</div>{landing}</div>
+    <div><div class="yb-caption" style="margin-bottom:8px">Expanded, 1280 × 800: Set in Russia and When 1800s picked</div>{browse}</div>
+  </div>
 </div>""", width=1312, page=True, script=TOGGLE_SCRIPT)
+
 
 # ------------------------------------------------------------------ Tags (Settings › Tags, Expanded landscape)
 
