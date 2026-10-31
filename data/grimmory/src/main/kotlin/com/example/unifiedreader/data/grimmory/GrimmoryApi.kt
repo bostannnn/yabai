@@ -310,7 +310,9 @@ class KtorGrimmoryApi(
         val response = httpClient.get("$normalizedBaseUrl/api/v1/books") {
             bearerAuth(accessToken)
             url {
-                parameters.append("withDescription", "false")
+                // Descriptions come with the list (about 3 MB for 2,000 books), so search and
+                // Browse can read them and the book page has one without asking the server.
+                parameters.append("withDescription", "true")
                 parameters.append("stripForListView", "true")
             }
         }

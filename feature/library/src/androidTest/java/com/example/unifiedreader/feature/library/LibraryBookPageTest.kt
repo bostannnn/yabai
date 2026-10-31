@@ -7,6 +7,8 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.unifiedreader.core.model.BookMetadata
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.LibraryBrowseChip
+import com.example.unifiedreader.core.model.LibraryBrowseRow
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import org.junit.Assert.assertEquals
@@ -34,7 +36,7 @@ class LibraryBookPageTest {
     fun pageShowsTheBookAndRunsItsActions() {
         var downloaded: ReadableItem? = null
         var markedRead: Boolean? = null
-        var genre: String? = null
+        var browsed: LibraryBrowseChip? = null
         var opened: ReadableItem? = null
 
         composeRule.setContent {
@@ -52,7 +54,7 @@ class LibraryBookPageTest {
                     onShowBook = {},
                     onDeleteImported = {},
                     onDismiss = {},
-                    onFilterByGenre = { genre = it },
+                    onBrowse = { browsed = it },
                 )
             }
         }
@@ -64,12 +66,12 @@ class LibraryBookPageTest {
 
         composeRule.onNodeWithText("Download").performClick()
         composeRule.onNodeWithText("Mark finished").performClick()
-        // A genre filters the library and closes the page.
+        // A genre opens Browse with it picked and closes the page.
         composeRule.onNodeWithText("Fantasy").performClick()
         composeRule.runOnIdle {
             assertEquals(book, downloaded)
             assertEquals(true, markedRead)
-            assertEquals("Fantasy", genre)
+            assertEquals(LibraryBrowseChip(LibraryBrowseRow.GENRE, "Fantasy"), browsed)
             assertEquals(null, opened)
         }
     }

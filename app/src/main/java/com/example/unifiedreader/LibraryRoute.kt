@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.paging.PagingData
 import com.example.unifiedreader.core.model.LibraryAlphabetSection
+import com.example.unifiedreader.core.model.LibraryBrowseChip
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
@@ -37,6 +38,8 @@ import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.library.LibraryWindowBadges
 import com.example.unifiedreader.feature.library.libraryCatalogKind
 import com.example.unifiedreader.feature.library.librarySeriesNextIssue
+import com.example.unifiedreader.feature.library.browse.LibraryBrowsePage
+import com.example.unifiedreader.feature.library.browse.LibraryBrowseRequest
 import com.example.unifiedreader.feature.library.librarySeriesSummary
 import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserKind
 import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserViewState
@@ -100,6 +103,12 @@ internal fun LibraryRoute(
     shelfSearchQuery: String = "",
     onShelfSearchQueryChanged: (String) -> Unit = {},
     shelfBrowserViewState: LibraryShelfBrowserViewState? = null,
+    // Browse, open with its picked chips; null while it is closed.
+    browseRequest: LibraryBrowseRequest? = null,
+    onBrowseRequestChanged: (LibraryBrowseRequest?) -> Unit = {},
+    showBrowseRows: Boolean = false,
+    onShowBrowseRowsChanged: (Boolean) -> Unit = {},
+    onBrowseScrolledChanged: (Boolean) -> Unit = {},
     // A book page asked for from elsewhere (the journal), opened once the book is in this library.
     bookPageRequest: String? = null,
     onBookPageRequestHandled: () -> Unit = {},
@@ -136,7 +145,7 @@ internal fun LibraryRoute(
         onOpenItemPage = { item -> bookPageStack = listOf(item.id) },
     )
     // One screen for See all whichever shelf it shows: its tabs switch in place.
-    val screen = libraryScreenKey(uiState, shelvesOpen = activeShelfBrowserKind != null)
+    val screen = libraryScreenKey(uiState, shelvesOpen = activeShelfBrowserKind != null, browseOpen = browseRequest != null)
     val currentFrame = LibraryRouteFrame(
         uiState = uiState,
         viewMode = viewMode,
@@ -149,6 +158,7 @@ internal fun LibraryRoute(
         showSortControl = showSortControl,
         activeShelfBrowserKind = activeShelfBrowserKind,
         shelfSearchQuery = shelfSearchQuery,
+        browseRequest = browseRequest,
     )
     AppBackground(
         modifier = modifier.fillMaxSize(),
@@ -195,6 +205,23 @@ internal fun LibraryRoute(
                         onActiveShelfBrowserKindChanged(null)
                         onItemSelected(item)
                     },
+                )
+            } else if (frame.browseRequest != null) {
+                DisposableEffect(Unit) { onDispose { onBrowseScrolledChanged(false) } }
+                LibraryBrowsePage(
+                    source = frame.uiState.selectedSource,
+                    items = frame.uiState.sourceItems,
+                    request = frame.browseRequest,
+                    onRequestChanged = onBrowseRequestChanged,
+                    showRows = showBrowseRows,
+                    onShowRowsChanged = onShowBrowseRowsChanged,
+                    actionContext = itemActionContext,
+                    coverImageUrlProvider = coverImageUrlProvider,
+                    gridCellSizeDp = frame.uiState.libraryGridCellSizeDp,
+                    contentTopInset = contentTopInset,
+                    onClose = { onBrowseRequestChanged(null) },
+                    onItemSelected = onItemSelected,
+                    onScrolledChanged = onBrowseScrolledChanged,
                 )
             } else {
                 val header = remember(
@@ -356,6 +383,11 @@ internal fun LibraryRoute(
                     seriesReaderModeFor = seriesReaderModeFor,
                     onSeriesReaderModeSelected = onSeriesReaderModeSelected,
                     onOpenItemPage = { item -> bookPageStack = listOf(item.id) },
+                    onOpenBrowse = { onBrowseRequestChanged(LibraryBrowseRequest()) }
+                        .takeUnless { frame.uiState.isSeriesBrowseActive || frame.uiState.isKavitaScopeActive },
+                    searchPool = frame.uiState.sourceItems,
+                    onBrowseTag = { chip: LibraryBrowseChip -> onBrowseRequestChanged(LibraryBrowseRequest(picked = listOf(chip))) }
+                        .takeUnless { frame.uiState.isSeriesBrowseActive || frame.uiState.isKavitaScopeActive },
                     onDownloadItem = onDownloadRemoteItem,
                     onDeleteDownloadedItem = onDeleteRemoteLocalFile,
                     onSetReadStatus = onSetReadStatus,
@@ -383,6 +415,11 @@ internal fun LibraryRoute(
             onBack = { bookPageStack = bookPageStack.dropLast(1) }.takeIf { bookPageStack.size > 1 },
             onDeleteImportedItem = onDeleteImportedItem,
             onFilterStateChanged = onFilterStateChanged,
+            // A tag opens Browse with it picked, over the library or in place of the chips there.
+            onBrowse = { chip ->
+                onActiveShelfBrowserKindChanged(null)
+                onBrowseRequestChanged(LibraryBrowseRequest(picked = listOf(chip)))
+            },
             onDismiss = { bookPageStack = emptyList() },
         )
     }
@@ -404,14 +441,17 @@ internal data class LibraryScreenKey(
     val seriesKey: String?,
     /** See all, whichever shelf its tabs show. */
     val shelves: Boolean,
+    /** Browse, whatever its chips. */
+    val browse: Boolean = false,
 ) {
     val depth: Int
-        get() = listOfNotNull(scopeId, seriesKey).size + if (shelves) 1 else 0
+        get() = listOfNotNull(scopeId, seriesKey).size + (if (shelves) 1 else 0) + (if (browse) 1 else 0)
 }
 
 internal fun libraryScreenKey(
     uiState: AppUiState,
     shelvesOpen: Boolean,
+    browseOpen: Boolean = false,
 ): LibraryScreenKey {
     val source = uiState.selectedSource
     val kavita = source == SourceType.KAVITA
@@ -429,6 +469,7 @@ internal fun libraryScreenKey(
             SourceType.LOCAL -> null
         },
         shelves = shelvesOpen,
+        browse = browseOpen,
     )
 }
 
@@ -455,6 +496,7 @@ private class LibraryRouteFrame(
     val showSortControl: Boolean,
     val activeShelfBrowserKind: LibraryShelfBrowserKind?,
     val shelfSearchQuery: String,
+    val browseRequest: LibraryBrowseRequest?,
 )
 
 /**

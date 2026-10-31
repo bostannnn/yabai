@@ -5,6 +5,7 @@ import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -42,23 +43,28 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemContentType
 import androidx.paging.compose.itemKey
 import com.example.unifiedreader.core.model.LibraryAlphabetSection
+import com.example.unifiedreader.core.model.LibraryBrowseChip
 import com.example.unifiedreader.core.model.LibraryFilterFacets
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
+import com.example.unifiedreader.core.model.LibrarySearchTagSuggestion
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.librarySearchTagSuggestions
 import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.appGutter
 import com.example.unifiedreader.ui.theme.AppMotion
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 // How many leading roots the paged-window badge resolver processes in its fast first phase — enough to
 // cover the visible cards plus a small scroll buffer, so their badges commit near-instantly before the
@@ -145,6 +151,11 @@ fun LibraryScreen(
     onSeriesReaderModeSelected: (ReadableItem, ComicReaderMode) -> Unit = { _, _ -> },
     // The "•••" under a cover opens the item's book page, which the host draws.
     onOpenItemPage: (ReadableItem) -> Unit = {},
+    // The Browse chip in the All books row; null hides it (in a series or a Kavita list).
+    onOpenBrowse: (() -> Unit)? = null,
+    // While searching: the source's books, for the tags the search names, and Browse opened with one.
+    searchPool: List<ReadableItem> = emptyList(),
+    onBrowseTag: ((LibraryBrowseChip) -> Unit)? = null,
     onDownloadItem: (ReadableItem) -> Unit = {},
     onDeleteDownloadedItem: (ReadableItem) -> Unit = {},
     onSetReadStatus: (ReadableItem, Boolean) -> Unit = { _, _ -> },
@@ -308,6 +319,14 @@ fun LibraryScreen(
         renderedItems.firstOrNull()?.id
     } else {
         null
+    }
+    // The tags a search names, counted over the whole source, off the main thread.
+    val searchTagSuggestions by produceState(emptyList<LibrarySearchTagSuggestion>(), searchQuery, searchPool, onBrowseTag != null) {
+        value = if (onBrowseTag == null || searchQuery.isBlank()) {
+            emptyList()
+        } else {
+            withContext(Dispatchers.Default) { librarySearchTagSuggestions(searchPool, searchQuery) }
+        }
     }
     val leadingContentItemCount = 1 +
         (if (header != null) 1 else 0) +
@@ -588,41 +607,49 @@ fun LibraryScreen(
                 contentType = LibraryScreenContentTypes.FilterSummary,
                 span = { GridItemSpan(maxLineSpan) },
             ) {
-                LibraryFilterRow(
-                    heading = catalogKind?.let { kind ->
-                        libraryGridHeading(
-                            kind = kind,
-                            searchActive = searchQuery.isNotBlank(),
-                            filtersActive = !filterState.isEmpty,
-                            shownCount = shownItemCount().takeIf { catalogCountKnown },
-                            totalCount = totalItemCount.takeIf { catalogCountKnown },
-                        )
-                    },
-                    filterPanels = filterPanels,
-                    filterState = filterState,
-                    filterFacets = filterFacets,
-                    libraryTitlesById = libraryTitlesById,
-                    sortMode = sortMode,
-                    // What was picked, not what the width made of it: on a phone Small and Medium
-                    // can lay out alike, and the menu still shows the pick.
-                    gridCellSizeDp = gridCellSizeDp,
-                    fadeReadItems = fadeReadItems,
-                    showSortControl = showSortControl,
-                    availableSortModes = availableSortModes,
-                    lockedSortLabel = lockedSortLabel,
-                    readingListScopeState = readingListScopeState,
-                    onOpenReadingListScope = { isReadingListDialogOpen = true },
-                    onOpenFilterPanel = { panel ->
-                        openFilterPanel = panel
-                        isFilterSheetOpen = true
-                    },
-                    onFilterStateChanged = onFilterStateChanged,
-                    onSortModeChanged = onSortModeChanged,
-                    onGridCellSizeDpChanged = onGridCellSizeDpChanged,
-                    onFadeReadItemsChanged = onFadeReadItemsChanged,
+                Column(
                     // A series' stack rises into the gap under the chips; this keeps the row's gap clear of it.
                     modifier = Modifier.padding(bottom = LibrarySeriesStackRaise),
-                )
+                    verticalArrangement = Arrangement.spacedBy(AppLayout.gridGap),
+                ) {
+                    LibraryFilterRow(
+                        heading = catalogKind?.let { kind ->
+                            libraryGridHeading(
+                                kind = kind,
+                                searchActive = searchQuery.isNotBlank(),
+                                filtersActive = !filterState.isEmpty,
+                                shownCount = shownItemCount().takeIf { catalogCountKnown },
+                                totalCount = totalItemCount.takeIf { catalogCountKnown },
+                            )
+                        },
+                        filterPanels = filterPanels,
+                        filterState = filterState,
+                        filterFacets = filterFacets,
+                        libraryTitlesById = libraryTitlesById,
+                        sortMode = sortMode,
+                        // What was picked, not what the width made of it: on a phone Small and Medium
+                        // can lay out alike, and the menu still shows the pick.
+                        gridCellSizeDp = gridCellSizeDp,
+                        fadeReadItems = fadeReadItems,
+                        showSortControl = showSortControl,
+                        availableSortModes = availableSortModes,
+                        lockedSortLabel = lockedSortLabel,
+                        readingListScopeState = readingListScopeState,
+                        onOpenReadingListScope = { isReadingListDialogOpen = true },
+                        onOpenBrowse = onOpenBrowse,
+                        onOpenFilterPanel = { panel ->
+                            openFilterPanel = panel
+                            isFilterSheetOpen = true
+                        },
+                        onFilterStateChanged = onFilterStateChanged,
+                        onSortModeChanged = onSortModeChanged,
+                        onGridCellSizeDpChanged = onGridCellSizeDpChanged,
+                        onFadeReadItemsChanged = onFadeReadItemsChanged,
+                    )
+                    if (searchTagSuggestions.isNotEmpty() && onBrowseTag != null) {
+                        LibrarySearchTagStrip(suggestions = searchTagSuggestions, onBrowse = onBrowseTag)
+                    }
+                }
             }
 
             if (gridIsEmpty) {
@@ -664,6 +691,24 @@ fun LibraryScreen(
                     // Placeholders are on for rail sorts (for the jump rail); a not-yet-loaded slot
                     // renders a sized stand-in so the row keeps its height instead of collapsing.
                     pagedItems[index]?.let { item -> gridCard(item) } ?: LibraryGridPlaceholderCard()
+                }
+            } else if (searchQuery.isNotBlank()) {
+                // Searching: each result is a row that says why it matched.
+                items(
+                    items = visibleItems,
+                    key = { it.id },
+                    span = { GridItemSpan(maxLineSpan) },
+                    contentType = { LibraryScreenContentTypes.SearchResult },
+                ) { item ->
+                    LibrarySearchResultRow(
+                        item = item,
+                        title = itemPrimaryText(item),
+                        query = searchQuery,
+                        progress = effectiveProgressByItemId[item.id],
+                        actionContext = itemActionContext,
+                        coverImageUrlProvider = coverImageUrlProvider,
+                        onClick = { onItemSelected(item) },
+                    )
                 }
             } else {
                 items(

@@ -58,6 +58,7 @@ import com.example.unifiedreader.ui.components.AppBackground
 import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppEmptyState
 import com.example.unifiedreader.ui.components.AppLayout
+import com.example.unifiedreader.ui.components.AppTabPill
 import com.example.unifiedreader.ui.components.AppTonalButton
 import com.example.unifiedreader.ui.components.AppWindowWidth
 import com.example.unifiedreader.ui.components.appGutter
@@ -290,7 +291,7 @@ private fun ShelfBrowserHeader(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             tabs.forEach { (tabKind, count) ->
-                LibraryShelfTabPill(
+                AppTabPill(
                     label = tabKind.title,
                     count = count,
                     selected = tabKind == kind,

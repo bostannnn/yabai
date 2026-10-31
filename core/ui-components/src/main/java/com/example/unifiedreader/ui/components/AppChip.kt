@@ -60,7 +60,7 @@ fun AppChip(
                     ) {
                         label()
                         Text(
-                            text = count.toString(),
+                            text = appCount(count),
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold,
