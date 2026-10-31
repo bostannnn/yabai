@@ -195,7 +195,8 @@ Use this ownership map when deciding where code goes.
 - `data:repository`
   - repository implementations that compose data sources
 - `feature:library`
-  - browse/filter/sort/presentation for the library experience
+  - browse/filter/sort/presentation for the library experience, and where you put each tag in Browse
+    (the Room-backed tag sorting store, the sort sheet and the content of Settings › Tags)
 - `feature:library-covers`
   - cover image models, cover loading UI contracts, and cover-facing library helpers
 - `feature:library-shelves`

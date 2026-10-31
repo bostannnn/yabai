@@ -2053,6 +2053,51 @@ e2c2c0fb):
       the landing's "Added in October" chip.
 - [ ] Tablet.
 
+### Tags: you sort, the app suggests `[x]` (2026-10-31)
+
+The user found Browse "not universal": Set in and When came from a list of place names and era names that ship
+with the app, so a tag the list doesn't know landed in About. Against the 31 October snapshot the list sorted
+that library's 104 places and 33 eras only because it was made from them, and it already got three wrong
+(Hollywood and Silicon Valley as places, Holocaust as a time; the user's metadata standard has them as themes).
+Weighed: only About, When by shape alone, you sort with the app suggesting (picked), a "Place:" prefix on the
+server (ruled out: Grimmory writes tags into the files). Mocked as a new section of the Browse canvas (7 boards
+and 4 notes); "Build proposed options": until you accept the guesses Browse has no Set in or When; sorting is
+per source; named periods stay chips under the timeline; made-up comic places get a region; Browse says when new
+tags wait; a long press sorts a tag in Browse and on the book page.
+
+- [x] Design system first: the `LibraryTags` screen (Settings › Tags and the sort sheet), Browse's rules (tags go
+      where you put them, the Places and times panel, the new-tags line, the long press), `AppChip`'s
+      `onLongClick`, the hub's Tags row and the `sell` icon; published to the artifact.
+- [x] core:model: `libraryTagGuess` (the old classifier, now only a suggestion), `LibraryTagSorting` (your
+      choices: a tag nobody sorted is About; a Location is Set in, in Elsewhere until it has a region),
+      `libraryTagEntries`; Browse, its timeline and regions and the search suggestions take the sorting. Regions
+      gained Made-up places. `ComicMetadata.locations`, carried into Kavita series cards.
+- [x] core:database: Room v34 (`MIGRATION_33_34`): `library_tag_choices` (source, field, lower-case name, row,
+      region) and `readable_items.comicLocationsJson`.
+- [x] data:kavita: chapters keep their Locations; the catalog fingerprint moved to v3, so Kavita reads every
+      series once more after the update. Grimmory's comic Locations were left out: the user's Grimmory has no
+      comics.
+- [x] feature:library `tags/`: the Room-backed store; `LocalLibraryTagSorting` (every source's sorting, every
+      source's books and how to change them; the app provides it); the sort sheet; Settings › Tags' content (New
+      as rows with the guess, or grouped by it with Accept all when more than 10 wait; then Set in, When and
+      About tabs with Find a tag). Browse waits for the sorting before it draws, shows the Places and times
+      panel (Not now remembered per source in `library_browse`) or the new-tags line, and opens the sheet on a
+      long press; so does the book page, whose tags follow your sorting and show Locations under Set in. Search
+      names a tag's row by your sorting. feature:library now depends on core:database, as feature:lists does.
+- [x] feature:settings: `SettingsPage.Tags`, its hub row ("264 tags to check", "3 new tags", else "Where Browse
+      shows each tag") and a slot the app fills from the library.
+- [x] app: `AppLibraryTags.kt` (the Hilt store, `AppLibraryTagsViewModel`, which shows a change at once and then
+      stores it, the context and the Settings page); a few lines in the scaffold and the route.
+- [x] Tests: all unit tests pass (1,673 across both lines), new ones included (`LibraryTagSortingTest`, the
+      store, the page model, Browse's prompts, the book page's rows, the 33 to 34 migration and Room's schema
+      check). Instrumented `LibraryBrowsePageTest` passes on `yabai_settings_35` (3, one of them: before anything
+      is sorted every tag is About, and holding China and choosing Set in puts it in Asia). Seen rendered on that
+      emulator through a throwaway screenshot test with the user's 264 real tag counts in the Paper palette (the
+      Tags page the first time and later, both sheets, Browse before and after sorting); fixed from it: the
+      sheet's book rows had no inset, and the guess read "a place in Americas" (now "Set in · Americas"). Not
+      seen in the whole app: the emulator held another session's build, which was left alone.
+- [ ] Tablet, and the first Kavita sync after the update (it re-reads every series once).
+
 ## Not yet designed
 
 Section 9: each step above gets its mock when it starts. Before it, nothing was left: downloads, the

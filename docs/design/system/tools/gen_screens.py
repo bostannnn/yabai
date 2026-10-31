@@ -55,17 +55,18 @@ def theme_tile(name, bg, a, b, c, selected=False):
 HUB_GROUPS = [
     ("Appearance", [("Theme", "Graphite", "palette", "theme")]),
     ("Sources", [("Kavita", "Connected", "collections_bookmark", None), ("Stump", "Not connected", "menu_book", None), ("Grimmory", "Connected", "cloud", None)]),
-    ("Library", [("Filter chips", "Which filters each library shows, and in what order", "filter_list", None), ("Source order", "Kavita opens on launch", "swap_vert", None), ("Reading progress sync", "Up to date", "refresh", None)]),
+    ("Library", [("Filter chips", "Which filters each library shows, and in what order", "filter_list", None), ("Tags", "3 new tags", "sell", None), ("Source order", "Kavita opens on launch", "swap_vert", None), ("Reading progress sync", "Up to date", "refresh", None)]),
 ]
 
 
-def hub(selected_theme=True):
+def hub(selected_theme=True, selected=None):
+    selected = selected or ("Theme" if selected_theme else None)
     out = []
     for label, rows in HUB_GROUPS:
         rs = []
         for title, sup, icon, extra in rows:
             tr = (theme_preview() + chev()) if extra == "theme" else "chev"
-            rs.append(row(title, sup, icon, tr, selected=(selected_theme and title == "Theme")))
+            rs.append(row(title, sup, icon, tr, selected=(title == selected)))
         out.append(group(label, rs))
     return "".join(out)
 
@@ -248,8 +249,9 @@ A source's books by what they are about: chips in rows, every chip narrowing the
 - **Opening it.** The Browse chip, first in the All books row before Filters; a tag on the book page (Browse opens with that chip picked, where the tag used to filter the grid); a tag in the search suggestions. Back returns to where you came from. The bar shows Back, "Browse", Find and •••, and turns to glass only once content scrolls under it.
 - **Rows, in this order:** Set in (place tags), When (era tags), About (the other tags), Genre (categories), Mood (moods), Your shelves (the server's shelves), Your reading (Not started, In progress, Finished). Author, Series, Publisher and Language are there to switch on.
 - **A row is a field of the books** and shows only once some book has it, so new metadata from the server (moods, say) turns up as a new row by itself. Rows (••• in the bar) is an `AppSideSheet` of `AppSettingsRow`s with switches: Shown, Off, and Waiting for metadata. It remembers what you hid, not what you showed.
-- **Tags sort themselves** with `libraryTagKind` (core:model): place names the app knows, then eras by their shape (a decade, a century) or a named period; everything else is About.
-- **Nothing picked: the landing page.** Set in as region panels (`AppPanel`, inset 20: Americas, Europe, Russia and around, Asia, Middle East and Africa, Oceania) in three columns on Expanded, two on Medium, one on phones, 16 apart; each column stacks its panels at their own height, so a long region leaves no gap beside a short one. When as a timeline (one bar per decade or century, at least 40 wide, as tall as the square root of its count, the count above and the label below in two lines; where the bars don't fit, the timeline scrolls sideways and fades at an edge with more; a period like World War II or the 20th century is a chip under it). Then About, Genre, Your shelves and Your reading as chip rows, each ending in an "All N" text button.
+- **Tags go where you put them** (Settings › Tags; see Tags): Set in holds the tags you sorted as places and Kavita's Locations, When the ones you sorted as times, About every other tag, unsorted ones included, so Browse never shows a guess as a fact. A long press on a Set in, When or About chip opens the tag's sort sheet.
+- **Before any tag is sorted as a place or a time**, the landing page starts with a Places and times `AppPanel` (inset 20): an `AppGroupLabel`, one line ("The app guessed that 104 of your tags are places and 33 are times. Check its guesses once, and Browse shows your books by region under Set in and on a timeline under When."), Not now (hides it for that source) and **Check the guesses**, which opens Settings › Tags on that source. Later, tags waiting to be sorted say so in one line under About's heading ("3 new tags are in About until you sort them") with a Sort text button.
+- **Nothing picked: the landing page.** Set in as region panels (`AppPanel`, inset 20: Americas, Europe, Russia and around, Asia, Middle East and Africa, Oceania, Made-up places, Elsewhere) in three columns on Expanded, two on Medium, one on phones, 16 apart; each column stacks its panels at their own height, so a long region leaves no gap beside a short one. When as a timeline (one bar per decade or century, at least 40 wide, as tall as the square root of its count, the count above and the label below in two lines; where the bars don't fit, the timeline scrolls sideways and fades at an edge with more; a period like World War II or the 20th century is a chip under it). Then About, Genre, Your shelves and Your reading as chip rows, each ending in an "All N" text button.
 - **Something picked, Expanded:** the chip pane is the 320 list pane on the gutter, each row an `AppGroupLabel` over its chips, the picked chips selected. The results follow a gutter later: the picked chips (selected `AppChip`, the row's name dimmed, a close icon) and Clear, the count as `AppSectionHeading`, then the cover grid at the library's cover size. Medium and Compact: one column, the picked chips on top, the rows as `AppTabPill`s with the chosen row's chips under them, then the grid.
 - Every chip narrows, across rows and within one. A chip that would leave nothing doesn't show. Counts are digits.
 - Save as shelf keeps the chips, not the books (a Grimmory magic shelf).
@@ -257,6 +259,109 @@ A source's books by what they are about: chips in rows, every chip narrowing the
 <div class="yb" style="padding:16px">
   {TOGGLE}
   <div id="screens"><div class="yb-caption" style="margin-bottom:8px">Expanded, 1280 × 800: one chip picked</div>{browse}</div>
+</div>""", width=1312, page=True, script=TOGGLE_SCRIPT)
+
+# ------------------------------------------------------------------ Tags (Settings › Tags, Expanded landscape)
+
+
+def seg(options, selected):
+    return '<div class="yb-seg">' + "".join(
+        f'<span class="{"is-selected" if o == selected else ""}">{o}</span>' for o in options) + "</div>"
+
+
+def text_btn(label):
+    return f'<button class="yb-btn is-text" style="flex:none">{label}</button>'
+
+
+def region_panel(name, caption, values, more=None):
+    extra = f'<button class="yb-btn is-text" style="height:36px;padding:0 10px">{more}</button>' if more else ""
+    return (f'<div class="yb-panel" style="padding:20px;display:flex;flex-direction:column;gap:10px">'
+            f'<h4 class="yb-group-label" style="margin:0">{name} <span class="yb-caption" style="font-size:13px;font-weight:600">{caption}</span></h4>'
+            f'<div class="yb-chip-row">{chips(values)}{extra}</div></div>')
+
+
+tags_new = group(None, [
+    row("Iceland", "3 books · Looks like a place · Europe", None, text_btn("Accept")),
+    row("Kosovo", "1 book · No guess, in About for now", None, text_btn("Keep in About")),
+    row("Weimar Republic", "2 books · No guess, in About for now", None, text_btn("Keep in About")),
+])
+tags_page = f"""
+  {seg(["Kavita", "Stump", "Grimmory", "Local"], "Grimmory")}
+  <section class="yb-group"><h3 class="yb-group-label">New <span class="yb-caption" style="font-size:13px;font-weight:600">3 tags</span></h3>{tags_new.replace('<section class="yb-group">', '').replace('</section>', '')}</section>
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;align-items:center;gap:12px"><div class="yb-tabs" style="flex:1"><span class="yb-tab is-selected">Set in <span class="yb-count">102</span></span><span class="yb-tab">When <span class="yb-count">32</span></span><span class="yb-tab">About <span class="yb-count">130</span></span></div><div class="yb-search" style="width:240px">{ic("search")}<span>Find a tag</span></div></div>
+    <div style="display:flex;gap:16px;align-items:flex-start">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:16px">{region_panel("Americas", "18 places", [("United States", 480), ("New York", 75), ("Los Angeles", 40), ("Cuba", 13), ("Mexico", 12), ("San Francisco", 10)], "All 18")}{region_panel("Russia and around", "9 places", [("Russia", 246), ("Moscow", 35), ("Saint Petersburg", 26), ("Ukraine", 9)], "All 9")}</div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:16px">{region_panel("Europe", "39 places", [("England", 103), ("France", 95), ("Germany", 60), ("Paris", 59), ("United Kingdom", 52)], "All 39")}{region_panel("Asia", "18 places", [("Japan", 96), ("China", 23), ("Tokyo", 16), ("India", 9)], "All 18")}</div>
+    </div>
+  </div>"""
+tags = f"""
+<div class="yb-device" style="width:1280px;height:800px">
+  {statusbar()}
+  <div class="yb-device-body">
+    {rail("Settings")}
+    <div class="yb-pane" style="--yb-gutter:24px">
+      <div style="position:absolute;top:84px;left:24px;width:320px;display:flex;flex-direction:column;gap:24px">{hub(selected="Tags")}</div>
+      <div style="position:absolute;top:84px;left:368px;right:24px;max-width:800px;display:flex;flex-direction:column;gap:24px">{tags_page}</div>
+      <div class="yb-spec">{g(24)}{g(344, "320 list pane")}{g(368, "24")}{h(84)}<span class="t" style="left:700px;top:62px">84 content top, both panes</span></div>
+    </div>
+  </div>
+</div>"""
+
+sort_books = "".join(
+    f'<div class="yb-book-row" style="padding:8px 0;min-height:68px">{cover(i, 40, 7)}<div style="min-width:0;display:flex;flex-direction:column"><span class="yb-book-title">{t}</span><span class="yb-book-line">{line}</span></div></div>'
+    for i, (t, line) in enumerate([
+        ("The Last Great American Picture Show", "Thomas Elsaesser · United States · 1970s"),
+        ("5001 Nights at the Movies", "Pauline Kael · 20th century"),
+        ("New Hollywood Cinema", "Geoff King · United States · 20th century"),
+    ])
+)
+sort_sheet = f"""
+<section class="yb-sheet" style="height:620px">
+  <div class="yb-panel-header"><div class="yb-panel-header-text"><h2 class="yb-panel-title">Hollywood</h2><span class="yb-panel-sub">28 books · Grimmory</span></div><button class="yb-icon-btn">{ic("close")}</button></div>
+  <div class="yb-sheet-body">
+    <p class="yb-supporting" style="margin:0">The app guessed Set in · Americas, because Hollywood is on its list of place names. Your choice holds for every book with this tag.</p>
+    <h3 class="yb-sheet-label" style="padding-top:14px">Browse shows it in</h3>
+    {seg(["Set in", "When", "About"], "About")}
+    <div class="yb-divider" style="margin:14px 0 0"></div>
+    <h3 class="yb-sheet-label" style="padding-top:14px">Books with this tag</h3>
+    {sort_books}
+    <button class="yb-btn is-text" style="align-self:flex-start;padding:0 8px;margin-left:-8px">All 28 in Browse</button>
+  </div>
+</section>"""
+region_sheet = f"""
+<section class="yb-sheet" style="height:440px">
+  <div class="yb-panel-header"><div class="yb-panel-header-text"><h2 class="yb-panel-title">Kosovo</h2><span class="yb-panel-sub">New tag · 1 book · Grimmory</span></div><button class="yb-icon-btn">{ic("close")}</button></div>
+  <div class="yb-sheet-body">
+    <p class="yb-supporting" style="margin:0">The app doesn't know this name, so it has no guess. The tag is in About until you choose.</p>
+    <h3 class="yb-sheet-label" style="padding-top:14px">Browse shows it in</h3>
+    {seg(["Set in", "When", "About"], "Set in")}
+    <h3 class="yb-sheet-label" style="padding-top:14px">Region</h3>
+    <div class="yb-chip-row">{"".join(f'<span class="yb-chip{" is-selected" if r == "Europe" else ""}">{r}</span>' for r in ["Americas", "Europe", "Russia and around", "Asia", "Middle East and Africa", "Oceania", "Made-up places", "Elsewhere"])}</div>
+  </div>
+</section>"""
+
+comp("LibraryTags", "Screens", 1560, """
+# Tags
+
+Settings › Library › Tags: where each source's tags go in Browse and on the book page. You decide; the app only suggests.
+
+- **Three rows.** Every tag is in Set in, When or About, and a place has a region. A tag nobody has sorted is in About, so Browse never shows a guess as a fact.
+- **The app's guess** (`libraryTagGuess`, core:model): about 400 place names with their regions, decades and centuries by their shape, and some named periods. It is shown beside the tag, never applied, until you accept it.
+- **The page**, opened from the hub's Tags row (on Expanded it is the page pane, the row selected; elsewhere Back and "Tags" in the bar): the sources as an `AppSegmentedRow`, as on Filter chips; it opens on the library's source, or on the source Browse sent you from.
+- **New** comes first: the tags nobody has sorted. Up to 10 are `AppSettingsRow`s with the guess as the supporting line ("3 books · Looks like a place · Europe") and one text button, Accept, or Keep in About when there is no guess; a tap on the row opens the tag's sheet. More than 10 (the first time) are grouped by the guess under one line saying what happens and an **Accept all N tags** filled button: Looks like a place (an `AppPanel` with an `AppSheetLabel` per region beside its chips), Looks like a time (On the timeline, then Periods), No guess: stays in About.
+- **The sorted tags** follow as `AppTabPill`s, Set in · When · About with their counts, and a Find a tag `AppSearchField` beside them: Set in as region panels in two columns (one on Compact), When as the timeline's tags then the periods, About as chips. A tap on any tag opens its sheet.
+- **The sort sheet** (`AppSideSheet`; `AppPanelHeader` with the tag and "28 books · Grimmory", "New tag · ..." while unsorted): one line saying the app's guess and why ("The app guessed Set in · Americas, because Hollywood is on its list of place names."); "Browse shows it in" as an `AppSegmentedRow` (Set in, When, About); for Set in, "Region" as single-choice `AppChip`s (Americas, Europe, Russia and around, Asia, Middle East and Africa, Oceania, Made-up places, Elsewhere; Elsewhere until you pick); then up to five of its books (`AppBookRow`: the author and the book's other tags) and "All N in Browse". A choice saves at once and holds for every book with that tag.
+- **A long press** on a Set in, When or About chip in Browse, or on a tag on the book page, opens the same sheet over what you were looking at.
+- **Kavita's Locations** (comics, from ComicInfo) are places already: they join Set in as they arrive, under Elsewhere until you give them a region, and New asks only for that ("Location from Kavita · 8 issues · Looks like Asia"); their sheet has no row choice. Grimmory, Stump and local books have tags only.
+- **Per source**, like Filter chips: each source's tags are sorted on their own. Choices are kept on the device by name, so a tag that leaves every book keeps its place in case it comes back.
+- **The hub row**: `sell` icon, "Tags", and "N tags to check" while nothing is sorted, "N new tags" while some wait, else "Where Browse shows each tag".
+""", f"""
+<div class="yb" style="padding:16px">
+  {TOGGLE}
+  <div id="screens"><div class="yb-caption" style="margin-bottom:8px">Expanded, 1280 × 800: three new tags, the sorted ones under Set in</div>{tags}</div>
+  <div class="yb-caption" style="margin:24px 0 8px">The sort sheet: a guess corrected, and a new place given its region</div>
+  <div class="yb-ground" style="display:flex;gap:40px;align-items:flex-start;padding:24px">{sort_sheet}{region_sheet}</div>
 </div>""", width=1312, page=True, script=TOGGLE_SCRIPT)
 
 # ------------------------------------------------------------------ Journal (Expanded landscape)
