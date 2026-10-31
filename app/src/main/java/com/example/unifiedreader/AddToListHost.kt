@@ -2,6 +2,7 @@ package com.example.unifiedreader
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,6 +31,7 @@ internal fun AddToListHost(
     items: List<ReadableItem>,
     libraryItems: List<ReadableItem>,
     grimmoryConnected: Boolean,
+    kavitaConnected: Boolean,
     listsViewModel: AppListsViewModel,
     onDismiss: () -> Unit,
     onBack: (() -> Unit)?,
@@ -39,6 +41,7 @@ internal fun AddToListHost(
     val shelvesFit = grimmoryConnected && items.isNotEmpty() && items.all { item -> item.sourceType == SourceType.GRIMMORY }
     LaunchedEffect(shelvesFit) { if (shelvesFit) listsViewModel.refreshShelves() }
     val itemsById = remember(libraryItems) { libraryItems.associateBy(ReadableItem::id) }
+    SideEffect { listsViewModel.catalog = itemsById }
     val shelves = remember(storedShelves, itemsById, shelvesFit) {
         if (shelvesFit) storedShelves.orEmpty().map { shelf -> shelf.toUserList(itemsById) } else emptyList()
     }
@@ -48,6 +51,9 @@ internal fun AddToListHost(
         items = items,
         lists = lists,
         shelves = shelves,
+        wantToReadNote = "Also on Kavita's Want to read".takeIf {
+            kavitaConnected && items.any { item -> item.sourceType == SourceType.KAVITA }
+        },
         onSetInList = { list, inList -> listsViewModel.setInList(list, items, inList, onFailure = onShelfFailure) },
         onNewList = { isNewListOpen = true },
         onDismiss = onDismiss,

@@ -36,6 +36,8 @@ fun AddToListSheet(
     onDismiss: () -> Unit,
     onBack: (() -> Unit)? = null,
     shelves: List<UserList> = emptyList(),
+    // Said under Want to read when ticking it also changes a server's Want to read.
+    wantToReadNote: String? = null,
 ) {
     val ownShelves = shelves.filter(UserList::isEditable)
     val shelfSource = ownShelves.firstOrNull()?.server?.sourceType?.displayName()
@@ -50,7 +52,7 @@ fun AddToListSheet(
             onClose = { dismiss() },
         )
         Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            wantToRead.forEach { list -> ListCheckRow(list, items, onSetInList) }
+            wantToRead.forEach { list -> ListCheckRow(list, items, onSetInList, note = wantToReadNote) }
             AppSheetDivider()
             AppSheetLabel(text = "Your lists")
             own.forEach { list -> ListCheckRow(list, items, onSetInList) }
@@ -84,11 +86,12 @@ private fun ListCheckRow(
     list: UserList,
     items: List<ReadableItem>,
     onSetInList: (UserList, Boolean) -> Unit,
+    note: String? = null,
 ) {
     val inList = items.isNotEmpty() && items.all { item -> list.contains(item.id) }
     AppSettingsRow(
         title = list.name,
-        supporting = list.checkRowLine(items),
+        supporting = note ?: list.checkRowLine(items),
         onClick = { onSetInList(list, !inList) },
         showChevron = false,
         trailing = {

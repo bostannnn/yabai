@@ -10,12 +10,14 @@ import com.example.unifiedreader.feature.lists.RoomServerShelfStore
 import com.example.unifiedreader.feature.lists.RoomUserListStore
 import com.example.unifiedreader.feature.lists.ServerShelf
 import com.example.unifiedreader.feature.lists.ServerShelfStore
+import com.example.unifiedreader.feature.lists.ServerWantToRead
 import com.example.unifiedreader.feature.lists.UserList
 import com.example.unifiedreader.feature.lists.UserListDraft
 import com.example.unifiedreader.feature.lists.UserListKind
 import com.example.unifiedreader.feature.lists.UserListOrder
 import com.example.unifiedreader.feature.lists.UserListStore
 import com.example.unifiedreader.feature.lists.shelfChangeFailedMessage
+import com.example.unifiedreader.feature.lists.wantToReadSeriesChange
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -45,6 +47,9 @@ object AppListsModule {
         database: UnifiedReaderDatabase,
         client: GrimmoryShelfClientAdapter,
     ): ServerShelfStore = RoomServerShelfStore(dao = database.serverListDao(), client = client)
+
+    @Provides
+    fun provideServerWantToRead(adapter: KavitaWantToReadAdapter): ServerWantToRead = adapter
 }
 
 /**
@@ -56,9 +61,16 @@ object AppListsModule {
 class AppListsViewModel @Inject constructor(
     private val store: UserListStore,
     private val shelfStore: ServerShelfStore,
+    private val serverWantToRead: ServerWantToRead,
 ) : ViewModel() {
     /** Where the Lists screen is; kept here so it is still there after a book from a list closes. */
     val routeState = ListsRouteState()
+
+    /**
+     * The library's books as the screen showing the lists last saw them, so a book taken out of
+     * Want to read can tell whether another book of its series is still there.
+     */
+    var catalog: Map<String, ReadableItem> = emptyMap()
 
     val lists: StateFlow<List<UserList>> = store.lists.stateIn(
         scope = viewModelScope,
@@ -93,6 +105,30 @@ class AppListsViewModel @Inject constructor(
         }
         viewModelScope.launch {
             if (inList) store.addItems(list.id, items) else store.removeItems(list.id, items.map(ReadableItem::id))
+        }
+        if (list.kind == UserListKind.WantToRead) mirrorWantToRead(list, items, inList, onFailure)
+    }
+
+    /** Kavita's Want to read follows the app's for Kavita books; the app's list has changed either way. */
+    private fun mirrorWantToRead(
+        list: UserList,
+        changed: List<ReadableItem>,
+        added: Boolean,
+        onFailure: (String) -> Unit,
+    ) {
+        val changedIds = changed.mapTo(HashSet(), ReadableItem::id)
+        val remaining = list.entries.filter { it.itemId !in changedIds }.mapNotNull { entry -> catalog[entry.itemId] }
+        val seriesIds = wantToReadSeriesChange(changed, added, remaining, serverWantToRead::seriesIdOf)
+        if (seriesIds.isEmpty()) return
+        viewModelScope.launch {
+            try {
+                if (added) serverWantToRead.add(seriesIds) else serverWantToRead.remove(seriesIds)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                val source = serverWantToRead.sourceType.displayName()
+                onFailure("$source's Want to read didn't change: ${error.message ?: "$source couldn't be reached"}")
+            }
         }
     }
 
@@ -145,6 +181,10 @@ class AppListsViewModel @Inject constructor(
             store.setOrder(draft.listId, draft.order)
             if (draft.removedItemIds.isNotEmpty()) store.removeItems(draft.listId, draft.removedItemIds.toList())
             store.reorder(draft.listId, draft.itemIds)
+        }
+        lists.value.firstOrNull { it.id == draft.listId && it.kind == UserListKind.WantToRead }?.let { wantToRead ->
+            val removed = draft.removedItemIds.mapNotNull(catalog::get)
+            if (removed.isNotEmpty()) mirrorWantToRead(wantToRead, removed, added = false, onFailure = onFailure)
         }
     }
 

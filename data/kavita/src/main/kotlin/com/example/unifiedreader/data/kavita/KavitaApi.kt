@@ -59,6 +59,10 @@ interface KavitaApi {
         accessToken: String,
     ): List<KavitaSeriesUpdateEntry> = emptyList()
 
+    /** The lists the app writes to on Kavita, at the same server and session. */
+    val lists: KavitaListsApi
+        get() = error("Kavita lists are not implemented.")
+
     suspend fun getReadingLists(
         accessToken: String,
         apiKey: String? = null,
@@ -247,6 +251,8 @@ class KtorKavitaApi(
 
     private val normalizedBaseUrl = baseUrl.trimEnd('/')
     private var activeApiKey: String? = null
+
+    override val lists: KavitaListsApi = KtorKavitaListsApi(httpClient, normalizedBaseUrl)
 
     override suspend fun login(
         username: String,
@@ -753,7 +759,7 @@ class KtorKavitaApi(
     }
 }
 
-private suspend fun <T> authenticatedRequest(
+internal suspend fun <T> authenticatedRequest(
     block: suspend () -> T,
 ): T = try {
     block()
@@ -764,7 +770,7 @@ private suspend fun <T> authenticatedRequest(
     throw exception
 }
 
-private suspend fun HttpResponse.throwIfKavitaError(
+internal suspend fun HttpResponse.throwIfKavitaError(
     unauthorizedMessage: String = KAVITA_ACCESS_TOKEN_REJECTED_MESSAGE,
 ) {
     if (status == HttpStatusCode.Unauthorized) {

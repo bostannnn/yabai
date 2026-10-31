@@ -590,6 +590,7 @@ fun UnifiedReaderScaffold(
                         items = addToList,
                         libraryItems = uiState.items,
                         grimmoryConnected = uiState.grimmoryConnection.hasStoredSession,
+                        kavitaConnected = uiState.kavitaConnection.hasStoredSession,
                         listsViewModel = listsViewModel,
                         onDismiss = { addToListItems = null },
                         onBack = if (addToListFromBookPage) {
