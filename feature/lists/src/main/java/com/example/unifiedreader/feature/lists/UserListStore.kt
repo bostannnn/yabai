@@ -25,6 +25,9 @@ interface UserListStore {
     /** Makes a list in Your order, with [items] in it, and returns its id. */
     suspend fun createList(name: String, items: List<ReadableItem> = emptyList()): String
 
+    /** Makes a smart list that keeps [filter], newest first, and returns its id. */
+    suspend fun createSmartList(name: String, filter: SmartListFilter): String
+
     suspend fun updateDetails(listId: String, name: String, description: String?)
 
     suspend fun setOrder(listId: String, order: UserListOrder)
@@ -82,6 +85,26 @@ class RoomUserListStore(
             ),
         )
         if (items.isNotEmpty()) dao.addEntries(id, items.map { it.toEntity(at) }, at)
+        id
+    }
+
+    override suspend fun createSmartList(name: String, filter: SmartListFilter): String = io {
+        val at = now()
+        val id = UserListIds.newId()
+        dao.upsertList(
+            UserListEntity(
+                id = id,
+                name = name.trim(),
+                description = null,
+                kind = UserListKind.Smart.name,
+                orderMode = UserListOrder.DateAdded.name,
+                hideFinished = false,
+                createdAtEpochMillis = at,
+                updatedAtEpochMillis = at,
+                lastOpenedAtEpochMillis = 0L,
+                smartFilter = filter.encode(),
+            ),
+        )
         id
     }
 
@@ -181,6 +204,7 @@ internal fun UserListEntity.toModel(entries: List<UserListEntryEntity>): UserLis
     lastOpenedAtEpochMillis = lastOpenedAtEpochMillis,
     entries = entries.sortedBy(UserListEntryEntity::position).mapNotNull { it.toModel() },
     keepNextDownloaded = keepNextDownloaded,
+    smartFilter = decodeSmartListFilter(smartFilter),
 )
 
 private fun UserListEntryEntity.toModel(): UserListEntry? {

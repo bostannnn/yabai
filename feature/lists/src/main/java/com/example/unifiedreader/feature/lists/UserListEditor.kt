@@ -75,6 +75,8 @@ fun UserListEditor(
     serverName: String? = null,
     // Whether its books can be moved: a server's reading list can, a shelf (no order of its own) can't.
     canReorder: Boolean = serverName == null,
+    // A smart list's books come from its filters: nothing to move or take out.
+    showsBooks: Boolean = true,
 ) {
     val onServer = serverName != null
     val isShelf = onServer && !canReorder
@@ -141,7 +143,7 @@ fun UserListEditor(
             )
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap)) {
+        if (showsBooks) Column(verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap)) {
             AppSectionHeading(text = "Books", count = draft.itemIds.size.toString())
             if (draft.itemIds.isNotEmpty()) {
                 AppPanel(modifier = Modifier.fillMaxWidth()) {

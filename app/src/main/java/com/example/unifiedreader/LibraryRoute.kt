@@ -110,6 +110,8 @@ internal fun LibraryRoute(
     onOpenList: (String) -> Unit = {},
     // The home's card when it follows a reading order.
     readingOrderCard: LibraryReadingOrderCard? = null,
+    // Save as list in Filters.
+    onSaveFiltersAsList: ((LibraryFilterState) -> Unit)? = null,
     bookPageRequest: String? = null,
     onBookPageRequestHandled: () -> Unit = {},
     contentTopInset: Dp = 0.dp,
@@ -343,6 +345,7 @@ internal fun LibraryRoute(
                     },
                     onFilterStateChanged = onFilterStateChanged,
                     onClearFilters = onClearFilters,
+                    onSaveFiltersAsList = onSaveFiltersAsList,
                     sourceUnreachable = frame.uiState.selectedSource != SourceType.LOCAL &&
                         frame.uiState.selectedSourceConnectivity == SourceConnectivityState.Offline,
                     sourceNotConnected = !frame.uiState.hasStoredSessionFor(frame.uiState.selectedSource),

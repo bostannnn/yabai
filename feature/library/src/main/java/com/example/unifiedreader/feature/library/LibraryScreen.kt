@@ -116,6 +116,8 @@ fun LibraryScreen(
     contentTopInset: Dp = 0.dp,
     onFilterStateChanged: (LibraryFilterState) -> Unit = {},
     onClearFilters: () -> Unit = {},
+    // Save as list in Filters: keeps the filters as a smart list. Null where lists aren't offered.
+    onSaveFiltersAsList: ((LibraryFilterState) -> Unit)? = null,
     // The empty library's actions; null leaves an action out.
     sourceUnreachable: Boolean = false,
     // A server source with no stored session: the empty state offers Connect instead of a sync.
@@ -742,6 +744,7 @@ fun LibraryScreen(
             onFilterStateChanged = onFilterStateChanged,
             onClearFilters = onClearFilters,
             onDismiss = { isFilterSheetOpen = false },
+            onSaveAsList = onSaveFiltersAsList?.takeIf { !filterState.isEmpty }?.let { save -> { save(filterState) } },
         )
     }
     if (isReadingListDialogOpen) {

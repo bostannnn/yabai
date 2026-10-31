@@ -149,6 +149,7 @@ fun UserListPage(
                         text = when {
                             books.isNotEmpty() -> "Every book here is finished."
                             list.kind == UserListKind.Stalled -> "Nothing has stalled: every book you started was opened in the last three weeks."
+                            list.kind == UserListKind.Smart -> "Nothing in your library matches these filters now."
                             list.kind == UserListKind.ServerShelf -> "Nothing on this shelf yet. Add a ${list.server?.sourceType?.displayName()} book from its page with Add to list."
                             list.kind == UserListKind.ServerReadingList -> "Nothing here yet, or nothing your library holds. Add a ${list.server?.sourceType?.displayName()} issue from its page with Add to list."
                             else -> "Nothing here yet. Add a book from its page with Add to list, or select covers in the library."
@@ -312,6 +313,7 @@ private fun UserListBookRow(
 /** "Your list · Kavita and Local", "Built in", "Updates itself · every source", "Grimmory shelf · on the server". */
 private fun UserList.headerCaption(books: List<UserListBook>): String = when (kind) {
     UserListKind.Stalled -> "Updates itself · every source"
+    UserListKind.Smart -> "Updates itself · from your ${smartFilter?.sourceType?.displayName().orEmpty()} filters"
     UserListKind.WantToRead -> "Built in · on this tablet"
     UserListKind.ServerShelf, UserListKind.ServerReadingList -> {
         val what = "${server?.sourceType?.displayName().orEmpty()} ${if (kind == UserListKind.ServerShelf) "shelf" else "reading list"}"

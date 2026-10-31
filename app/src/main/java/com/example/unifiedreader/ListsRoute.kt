@@ -43,6 +43,7 @@ import com.example.unifiedreader.feature.lists.sortedEntries
 import com.example.unifiedreader.feature.lists.stalledList
 import com.example.unifiedreader.feature.lists.toDraft
 import com.example.unifiedreader.feature.lists.toUserList
+import com.example.unifiedreader.feature.lists.withSmartBooks
 import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
@@ -70,7 +71,9 @@ internal fun ListsRoute(
     val stalled = remember(uiState.items, progress) {
         stalledList(uiState.items, progress, nowEpochMillis = System.currentTimeMillis())
     }
-    val lists = remember(stored, stalled) { orderedForScreen(stored, stalled) }
+    val onDevice = uiState.locallyAvailableRemoteItemIds
+    val resolved = remember(stored, uiState.items, progress, onDevice) { stored.withSmartBooks(uiState.items, progress, onDevice) }
+    val lists = remember(resolved, stalled) { orderedForScreen(resolved, stalled) }
     val storedShelves by listsViewModel.shelves.collectAsStateWithLifecycle()
     val connected = connectedListServers(uiState)
     val shelves = remember(storedShelves, itemsById, connected) {
@@ -106,7 +109,7 @@ internal fun ListsRoute(
             onDraftChange = { state.editDraft = it },
             entriesById = remember(openList) { openList.entries.associateBy { entry -> entry.itemId } },
             itemsById = itemsById,
-            canDelete = openList.kind == UserListKind.User || openList.server != null,
+            canDelete = openList.kind == UserListKind.User || openList.kind == UserListKind.Smart || openList.server != null,
             cover = cover,
             onDelete = {
                 listsViewModel.deleteList(openList, onFailure = onShelfFailure)
@@ -118,6 +121,7 @@ internal fun ListsRoute(
             orders = openList.orders,
             serverName = openList.server?.sourceType?.displayName(),
             canReorder = openList.kind != UserListKind.ServerShelf,
+            showsBooks = openList.kind != UserListKind.Smart,
         )
         openList != null -> {
             val books = remember(openList, itemsById, progress) { openList.books(itemsById, progress) }
@@ -132,7 +136,7 @@ internal fun ListsRoute(
                 contentTopInset = contentTopInset,
                 onScrolledChanged = { scrolled -> state.scrolled = scrolled },
                 modifier = modifier,
-                keepDownloadedLine = if (openList.server == null && openList.kind != UserListKind.Stalled) {
+                keepDownloadedLine = if (openList.kind == UserListKind.User || openList.kind == UserListKind.WantToRead) {
                     keepDownloadedLine(
                         next = remember(openList, itemsById, progress) { openList.nextToKeepDownloaded(itemsById, progress) },
                         onDevice = uiState.locallyAvailableRemoteItemIds,

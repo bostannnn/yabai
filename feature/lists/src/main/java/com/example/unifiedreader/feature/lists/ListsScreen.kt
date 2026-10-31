@@ -229,7 +229,7 @@ private fun UserListTile(
     ListTileFrame(name = list.name, caption = list.tileCaption(progressByItemId), onClick = onClick) {
         Box {
             AppListCover(count = coverItems.size) { index, cellModifier -> cover(coverItems[index], cellModifier) }
-            if (list.kind == UserListKind.Stalled) {
+            if (list.kind == UserListKind.Stalled || list.kind == UserListKind.Smart) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)

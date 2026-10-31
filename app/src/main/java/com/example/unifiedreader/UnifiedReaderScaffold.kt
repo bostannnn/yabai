@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.unifiedreader.core.model.LibraryFilterPanel
+import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
@@ -35,7 +36,6 @@ import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
 import com.example.unifiedreader.data.repository.RemoteSyncArtifact
 import com.example.unifiedreader.feature.downloads.DownloadsSheet
 import com.example.unifiedreader.feature.journal.JournalScreen
-import com.example.unifiedreader.feature.lists.rememberListsRouteState
 import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.library.libraryDownloadSelectableItems
 import com.example.unifiedreader.feature.library.rememberLibrarySelectionTip
@@ -45,6 +45,7 @@ import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserTopB
 import com.example.unifiedreader.feature.library.shelves.browserState
 import com.example.unifiedreader.feature.library.shelves.rememberLibraryShelfBrowserSearchQuery
 import com.example.unifiedreader.feature.library.shelves.rememberLibraryShelfBrowserViewState
+import com.example.unifiedreader.feature.lists.rememberListsRouteState
 import com.example.unifiedreader.feature.navigation.SourceNavigationDestination
 import com.example.unifiedreader.feature.navigation.SourceNavigationFrame
 import com.example.unifiedreader.feature.navigation.canAddNavigationSource
@@ -61,23 +62,23 @@ import com.example.unifiedreader.feature.settings.SourceStartMode
 import com.example.unifiedreader.feature.settings.SyncSettingsItemRow
 import com.example.unifiedreader.feature.settings.SyncSettingsSourceGroup
 import com.example.unifiedreader.feature.settings.SyncSettingsUiState
-import com.example.unifiedreader.feature.settings.formatSettingsDay
-import com.example.unifiedreader.feature.settings.formatSettingsMoment
-import com.example.unifiedreader.feature.settings.parent
 import com.example.unifiedreader.feature.settings.direction.ReadingDirectionLibraryUiState
 import com.example.unifiedreader.feature.settings.direction.buildComicReadingDirectionLibraryRows
+import com.example.unifiedreader.feature.settings.formatSettingsDay
+import com.example.unifiedreader.feature.settings.formatSettingsMoment
 import com.example.unifiedreader.feature.settings.mode.ReaderModeLibraryUiState
 import com.example.unifiedreader.feature.settings.mode.buildComicReaderModeLibraryRows
+import com.example.unifiedreader.feature.settings.parent
 import com.example.unifiedreader.feature.settings.settingsUsesSidePane
 import com.example.unifiedreader.feature.updates.AppUpdateActions
 import com.example.unifiedreader.feature.updates.AppUpdateState
 import com.example.unifiedreader.ui.components.AppBackground
 import com.example.unifiedreader.ui.components.AppScreenHost
-import com.example.unifiedreader.ui.components.AppTopBarDefaults
 import com.example.unifiedreader.ui.components.AppToastHost
+import com.example.unifiedreader.ui.components.AppTopBarDefaults
+import com.example.unifiedreader.ui.components.AppWindowWidth
 import com.example.unifiedreader.ui.components.LocalAppGlassState
 import com.example.unifiedreader.ui.components.appGlassSource
-import com.example.unifiedreader.ui.components.AppWindowWidth
 import com.example.unifiedreader.ui.components.currentAppWindowWidth
 import com.example.unifiedreader.ui.components.rememberAppGlassState
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
@@ -136,6 +137,7 @@ fun UnifiedReaderScaffold(
     var settingsScrolled by remember { mutableStateOf(false) }
     var journalScrolled by remember { mutableStateOf(false) }
     val listsState = listsViewModel?.routeState ?: rememberListsRouteState()
+    var filtersToSave by remember { mutableStateOf<LibraryFilterState?>(null) }
     val openListOnLists: (String) -> Unit = { listId ->
         listsState.openList(listId)
         viewModel.onTopLevelSelected(TopLevelDestination.Lists)
@@ -428,6 +430,7 @@ fun UnifiedReaderScaffold(
                                 readingOrderCard = listsViewModel?.let {
                                     rememberHomeReadingOrderCard(it, viewModel, uiState, onOpenList = openListOnLists)
                                 },
+                                onSaveFiltersAsList = listsViewModel?.let { { filters -> filtersToSave = filters } },
                                 bookPageRequest = pendingBookPageItemId,
                                 onBookPageRequestHandled = { pendingBookPageItemId = null },
                                 contentTopInset = AppTopBarDefaults.contentInset,
@@ -592,6 +595,16 @@ fun UnifiedReaderScaffold(
                 }
                 if (listsViewModel != null) {
                     KeepListBooksDownloaded(listsViewModel, uiState, onQueue = viewModel::onKeepDownloaded)
+                }
+                val saving = filtersToSave
+                if (saving != null && listsViewModel != null) {
+                    SaveFiltersAsListDialog(
+                        filters = saving,
+                        uiState = uiState,
+                        listsViewModel = listsViewModel,
+                        onOpenList = openListOnLists,
+                        onDismiss = { filtersToSave = null },
+                    )
                 }
                 val addToList = addToListItems
                 if (addToList != null && listsViewModel != null) {

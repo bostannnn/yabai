@@ -113,11 +113,11 @@ fun readingOrderUnderWay(
         )
     }
 
-/** Lists on the Lists screen: Want to read, Stalled, then the user's, most recently opened or changed first. */
+/** Lists on the Lists screen: Want to read, Stalled, then the user's and the smart ones, most recently opened or changed first. */
 fun orderedForScreen(stored: List<UserList>, stalled: UserList): List<UserList> {
     val wantToRead = stored.filter { it.kind == UserListKind.WantToRead }
     val own = stored
-        .filter { it.kind == UserListKind.User }
+        .filter { it.kind == UserListKind.User || it.kind == UserListKind.Smart }
         .sortedByDescending { maxOf(it.lastOpenedAtEpochMillis, it.updatedAtEpochMillis) }
     return wantToRead + stalled + own
 }
@@ -134,6 +134,7 @@ fun UserList.tileCaption(progressByItemId: Map<String, ItemProgressSummary>): St
     val count = entries.size
     return when {
         kind == UserListKind.Stalled -> if (count == 0) "Nothing stalled" else "Updates itself · $count"
+        kind == UserListKind.Smart -> if (count == 0) "Updates itself · nothing now" else "Updates itself · $count"
         kind == UserListKind.ServerShelf && count > 0 ->
             "${bookCountLabel(count)} · ${if (order == UserListOrder.Title) "by title" else "date added"}"
         kind == UserListKind.ServerReadingList -> {
@@ -154,7 +155,7 @@ fun UserList.tileCaption(progressByItemId: Map<String, ItemProgressSummary>): St
  * servers' lists, never Stalled. In an order the line says where the book is.
  */
 fun bookListMemberships(itemId: String, lists: List<UserList>): List<LibraryItemListMembership> = lists
-    .filter { list -> list.kind != UserListKind.Stalled && list.contains(itemId) }
+    .filter { list -> list.kind != UserListKind.Stalled && list.kind != UserListKind.Smart && list.contains(itemId) }
     .sortedBy { list -> if (list.kind == UserListKind.WantToRead) 0 else if (list.server == null) 1 else 2 }
     .map { list ->
         val count = list.entries.size

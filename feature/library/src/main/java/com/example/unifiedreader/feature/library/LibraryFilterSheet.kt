@@ -49,6 +49,7 @@ import com.example.unifiedreader.ui.components.AppSheetDivider
 import com.example.unifiedreader.ui.components.AppSheetLabel
 import com.example.unifiedreader.ui.components.AppSideSheet
 import com.example.unifiedreader.ui.components.AppTextButton
+import com.example.unifiedreader.ui.components.AppTonalButton
 
 /**
  * Every library filter in one side sheet (a bottom sheet on phones). Reading status, format and
@@ -68,6 +69,8 @@ internal fun LibraryFilterSheet(
     onFilterStateChanged: (LibraryFilterState) -> Unit,
     onClearFilters: () -> Unit,
     onDismiss: () -> Unit,
+    // Save as list, beside Show: keeps these filters as a smart list. Null where it isn't offered.
+    onSaveAsList: (() -> Unit)? = null,
 ) {
     // The facet page on screen; null is the overview.
     var page by rememberSaveable {
@@ -107,14 +110,40 @@ internal fun LibraryFilterSheet(
                 )
             }
         }
-        AppButton(
-            onClick = { dismiss() },
+        // The sheet's dismiss, for the buttons inside the row below.
+        val close = { dismiss() }
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = AppLayout.inset, vertical = 12.dp)
-                .height(LibraryFilterSheetButtonHeight),
+                .padding(horizontal = AppLayout.inset, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap),
         ) {
-            Text(text = libraryFilterShowButtonLabel(shownCount), fontWeight = FontWeight.SemiBold)
+            if (onSaveAsList != null) {
+                Text(
+                    text = "Save as list keeps these filters, so the list changes as your library does.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(AppLayout.headingGap)) {
+                if (onSaveAsList != null) {
+                    AppTonalButton(
+                        onClick = {
+                            onSaveAsList()
+                            close()
+                        },
+                        modifier = Modifier.weight(1f).height(LibraryFilterSheetButtonHeight),
+                    ) {
+                        Text(text = "Save as list", fontWeight = FontWeight.SemiBold)
+                    }
+                }
+                AppButton(
+                    onClick = close,
+                    modifier = Modifier.weight(1f).height(LibraryFilterSheetButtonHeight),
+                ) {
+                    Text(text = libraryFilterShowButtonLabel(shownCount), fontWeight = FontWeight.SemiBold)
+                }
+            }
         }
     }
 }

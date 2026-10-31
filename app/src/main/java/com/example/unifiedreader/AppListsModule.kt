@@ -13,6 +13,7 @@ import com.example.unifiedreader.feature.lists.RoomUserListStore
 import com.example.unifiedreader.feature.lists.ServerListStores
 import com.example.unifiedreader.feature.lists.ServerShelf
 import com.example.unifiedreader.feature.lists.ServerShelfStore
+import com.example.unifiedreader.feature.lists.SmartListFilter
 import com.example.unifiedreader.feature.lists.ServerWantToRead
 import com.example.unifiedreader.feature.lists.UserList
 import com.example.unifiedreader.feature.lists.UserListDraft
@@ -167,6 +168,10 @@ class AppListsViewModel @Inject constructor(
 
     fun createList(name: String, items: List<ReadableItem>, onCreated: (String) -> Unit = {}) {
         viewModelScope.launch { onCreated(store.createList(name, items)) }
+    }
+
+    fun createSmartList(name: String, filter: SmartListFilter, onCreated: (String) -> Unit = {}) {
+        viewModelScope.launch { onCreated(store.createSmartList(name, filter)) }
     }
 
     /** Makes a list on [sourceType]'s server (a Kavita reading list, a Grimmory shelf) with [items] in it. */

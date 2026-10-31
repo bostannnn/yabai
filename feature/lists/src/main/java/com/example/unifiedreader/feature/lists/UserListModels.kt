@@ -18,6 +18,9 @@ enum class UserListKind {
     Stalled,
     ServerShelf,
     ServerReadingList,
+
+    /** Saved from a library's filters: its books are whatever the filters pick out now. */
+    Smart,
 }
 
 /**
@@ -64,6 +67,8 @@ data class UserList(
     val server: ServerListRef? = null,
     /** Its next three unread server books are kept downloaded. */
     val keepNextDownloaded: Boolean = false,
+    /** A smart list's filters; null for every other list. */
+    val smartFilter: SmartListFilter? = null,
 ) {
     val isReadingOrder: Boolean
         get() = order == UserListOrder.Custom
@@ -81,7 +86,7 @@ data class UserList(
      */
     val orders: List<UserListOrder>
         get() = when (kind) {
-            UserListKind.ServerShelf -> ShelfOrders
+            UserListKind.ServerShelf, UserListKind.Smart -> ShelfOrders
             UserListKind.ServerReadingList -> listOf(UserListOrder.Custom)
             else -> UserListOrder.entries
         }
