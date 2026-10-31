@@ -25,6 +25,7 @@ import com.example.unifiedreader.ui.theme.AppCoverColors
 internal fun ReaderFinishedHost(
     uiState: AppUiState,
     viewModel: AppViewModel,
+    listsViewModel: AppListsViewModel? = null,
 ) {
     val completionState = uiState.readerCompletionState ?: return
     val item = uiState.items.firstOrNull { it.id == completionState.itemId }
@@ -124,6 +125,7 @@ internal fun ReaderFinishedHost(
             )
         },
     )
+    if (listsViewModel != null) ListFinishedOverFinished(uiState, item, listsViewModel, viewModel)
 }
 
 private fun ReadableItem.toJournalItemRef(): JournalItemRef = JournalItemRef(

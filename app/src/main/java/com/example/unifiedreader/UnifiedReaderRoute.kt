@@ -228,6 +228,7 @@ fun UnifiedReaderAppContent(
                     ReaderFinishedHost(
                         uiState = uiState,
                         viewModel = viewModel,
+                        listsViewModel = listsViewModel,
                     )
                     if (updateController != null) {
                         AppUpdateHost(

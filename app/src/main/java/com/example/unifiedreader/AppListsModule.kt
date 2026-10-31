@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.unifiedreader.core.database.UnifiedReaderDatabase
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.displayName
+import com.example.unifiedreader.feature.lists.FinishedList
 import com.example.unifiedreader.feature.lists.ListsRouteState
 import com.example.unifiedreader.feature.lists.RoomServerShelfStore
 import com.example.unifiedreader.feature.lists.RoomUserListStore
@@ -87,6 +88,17 @@ class AppListsViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
         initialValue = null,
     )
+
+    /** The lists read to the end, as the journal keeps them; null until the database has answered. */
+    val finishedLists: StateFlow<List<FinishedList>?> = store.finishedLists.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+        initialValue = null,
+    )
+
+    fun recordFinished(finished: FinishedList) {
+        viewModelScope.launch { store.recordFinished(finished) }
+    }
 
     /** Reads the shelves again unless that was done a few minutes ago; a failure keeps the last copy. */
     fun refreshShelves() {

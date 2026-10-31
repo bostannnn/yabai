@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.lists
 
 import com.example.unifiedreader.core.database.dao.UserListDao
+import com.example.unifiedreader.core.database.entity.FinishedListEntity
 import com.example.unifiedreader.core.database.entity.UserListEntity
 import com.example.unifiedreader.core.database.entity.UserListEntryEntity
 import com.example.unifiedreader.core.model.FormatType
@@ -12,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.withContext
 
@@ -43,6 +45,11 @@ interface UserListStore {
 
     /** A book was opened from the list: it becomes the reading order under way. */
     suspend fun markOpened(listId: String)
+
+    /** The lists read to the end, newest first, as the journal keeps them. */
+    val finishedLists: Flow<List<FinishedList>>
+
+    suspend fun recordFinished(finished: FinishedList)
 }
 
 class RoomUserListStore(
@@ -116,6 +123,14 @@ class RoomUserListStore(
         dao.markOpened(listId, now())
     }
 
+    override val finishedLists: Flow<List<FinishedList>> = dao.observeFinishedLists()
+        .map { rows -> rows.map(FinishedListEntity::toModel) }
+        .flowOn(ioDispatcher)
+
+    override suspend fun recordFinished(finished: FinishedList) = io {
+        dao.insertFinishedList(finished.toEntity())
+    }
+
     private suspend fun updateList(listId: String, change: (UserListEntity) -> UserListEntity) = io {
         val list = dao.getList(listId) ?: return@io
         dao.upsertList(change(list).copy(updatedAtEpochMillis = now()))
@@ -185,6 +200,30 @@ private fun UserListEntryEntity.toModel(): UserListEntry? {
         format = format,
     )
 }
+
+private fun FinishedListEntity.toModel(): FinishedList = FinishedList(
+    id = id,
+    listId = listId,
+    name = name,
+    startedAtEpochMillis = startedAtEpochMillis,
+    finishedAtEpochMillis = finishedAtEpochMillis,
+    bookCount = bookCount,
+    seriesCount = seriesCount,
+    readMillis = readMillis,
+    itemIds = itemIds.split('\n').filter(String::isNotEmpty),
+)
+
+private fun FinishedList.toEntity(): FinishedListEntity = FinishedListEntity(
+    id = id,
+    listId = listId,
+    name = name,
+    startedAtEpochMillis = startedAtEpochMillis,
+    finishedAtEpochMillis = finishedAtEpochMillis,
+    bookCount = bookCount,
+    seriesCount = seriesCount,
+    readMillis = readMillis,
+    itemIds = itemIds.joinToString("\n"),
+)
 
 private inline fun <reified T : Enum<T>> enumOrDefault(name: String, default: T): T =
     enumValues<T>().firstOrNull { it.name == name } ?: default

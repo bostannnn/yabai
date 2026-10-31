@@ -31,6 +31,9 @@ fun JournalScreen(
     // Whether anything has scrolled under the bar (it then needs its glass).
     onScrolledChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
+    // Lists read to the end, kept by the journal, and how their covers are drawn.
+    finishedLists: List<JournalFinishedList> = emptyList(),
+    listCover: JournalListCover? = null,
 ) {
     var deleteTarget by remember { mutableStateOf<JournalDeleteTarget?>(null) }
     JournalStatsContent(
@@ -43,6 +46,8 @@ fun JournalScreen(
         contentTopInset = contentTopInset,
         onScrolledChanged = onScrolledChanged,
         modifier = modifier,
+        finishedLists = finishedLists,
+        listCover = listCover,
     )
     val toasts = LocalAppToastState.current
     deleteTarget?.let { target ->

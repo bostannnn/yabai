@@ -464,6 +464,8 @@ fun UnifiedReaderScaffold(
                                     contentTopInset = AppTopBarDefaults.contentInset,
                                     onScrolledChanged = { scrolled -> journalScrolled = scrolled },
                                     modifier = Modifier.fillMaxSize(),
+                                    finishedLists = listsViewModel?.let { rememberJournalFinishedLists(it, uiState) }.orEmpty(),
+                                    listCover = rememberJournalListCover(viewModel),
                                 )
                             }
 

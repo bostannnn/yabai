@@ -74,6 +74,9 @@ fun JournalStatsContent(
     // Whether anything has scrolled under the bar (it then needs its glass).
     onScrolledChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
+    // Lists read to the end; the period's show under its finished books.
+    finishedLists: List<JournalFinishedList> = emptyList(),
+    listCover: JournalListCover? = null,
 ) {
     val now = rememberJournalNowEpochMillis()
     val firstJournalAt = remember(snapshot) { snapshot.firstJournalAtEpochMillis() }
@@ -199,6 +202,14 @@ fun JournalStatsContent(
                         onOpenItem = openItem,
                         onSeeAll = { sheetPages = listOf(JournalSheetPage.Finished(waitingOnly = false)) },
                     )
+                }
+            }
+            val periodLists = finishedLists.filter { list ->
+                periodBounds(period, selected).let { (start, end) -> list.finishedAtEpochMillis in start until end }
+            }
+            if (periodLists.isNotEmpty() && listCover != null) {
+                section("finished-lists") {
+                    JournalFinishedListsPanel(lists = periodLists, periodName = overview.periodName(), cover = listCover)
                 }
             }
             if (finishedItemsNeedingRating(overview).isNotEmpty()) {
