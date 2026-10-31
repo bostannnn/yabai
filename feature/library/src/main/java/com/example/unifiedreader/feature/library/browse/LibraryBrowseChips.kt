@@ -48,28 +48,11 @@ import com.example.unifiedreader.feature.library.shouldShowCoverProgress
 import com.example.unifiedreader.ui.components.AppChip
 import com.example.unifiedreader.ui.components.AppChipDefaults
 import com.example.unifiedreader.ui.components.AppEmptyState
-import com.example.unifiedreader.ui.components.AppGroupLabel
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.AppTabPill
 import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.components.appCount
-
-/** A row of the chip pane: its name over its chips, most books first, folded after a dozen. */
-@Composable
-internal fun LibraryBrowseChipGroup(
-    row: LibraryBrowseRow,
-    facets: List<LibraryBrowseFacet>,
-    picked: List<LibraryBrowseChip>,
-    onToggle: (LibraryBrowseChip) -> Unit,
-    modifier: Modifier = Modifier,
-    onSortTag: ((LibraryBrowseChip) -> Unit)? = null,
-) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap)) {
-        AppGroupLabel(text = row.label)
-        LibraryBrowseChipFlow(row = row, facets = facets, picked = picked, onToggle = onToggle, onSortTag = onSortTag)
-    }
-}
 
 /**
  * A row's chips with counts; the picked ones selected. "N more" unfolds the rest. A tag row's chip
@@ -179,14 +162,15 @@ private fun LibraryBrowsePickedChip(
 
 /**
  * Browse on a phone or a portrait tablet: the picked chips, then the rows as tabs with the chosen
- * row's chips under them, then the count. The grid follows.
+ * row under them in its own shape, then the count. The grid follows.
  */
 @Composable
 internal fun LibraryBrowseRowTabs(
-    view: LibraryBrowseView,
     rows: List<LibraryBrowseRow>,
-    actions: LibraryBrowseActions,
+    context: LibraryBrowseRowContext,
 ) {
+    val view = context.view
+    val actions = context.actions
     val rowsWithChips = rows.filter { row -> view.result.facets[row].orEmpty().isNotEmpty() }
     var chosenName by rememberSaveable { mutableStateOf<String?>(null) }
     val chosen = rowsWithChips.firstOrNull { it.name == chosenName } ?: rowsWithChips.firstOrNull()
@@ -212,13 +196,7 @@ internal fun LibraryBrowseRowTabs(
                             )
                         }
                     }
-                    LibraryBrowseChipFlow(
-                        row = chosen,
-                        facets = view.result.facets[chosen].orEmpty(),
-                        picked = view.picked,
-                        onToggle = actions.onToggle,
-                        onSortTag = actions.onSortTag,
-                    )
+                    LibraryBrowseTabContent(row = chosen, context = context)
                 }
             }
         },

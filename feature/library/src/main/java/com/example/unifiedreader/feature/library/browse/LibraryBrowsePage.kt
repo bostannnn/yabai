@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
@@ -33,7 +34,7 @@ import com.example.unifiedreader.core.model.LibraryBrowseChip
 import com.example.unifiedreader.core.model.LibraryBrowseResult
 import com.example.unifiedreader.core.model.LibraryBrowseRow
 import com.example.unifiedreader.core.model.LibraryEraBar
-import com.example.unifiedreader.core.model.LibraryPlaceGroup
+import com.example.unifiedreader.core.model.LibraryPlaceCountry
 import com.example.unifiedreader.core.model.LibraryReadingStatus
 import com.example.unifiedreader.core.model.LibraryTagSorting
 import com.example.unifiedreader.core.model.ReadableItem
@@ -41,7 +42,9 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.libraryBrowse
 import com.example.unifiedreader.core.model.libraryBrowseValues
 import com.example.unifiedreader.core.model.libraryEraTimeline
-import com.example.unifiedreader.core.model.libraryPlaceGroups
+import com.example.unifiedreader.core.model.libraryPlaceCountries
+import com.example.unifiedreader.core.model.libraryBrowseBooks
+import com.example.unifiedreader.core.model.libraryBrowseLabel
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
 import com.example.unifiedreader.feature.library.isSeriesContainer
@@ -58,10 +61,10 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withContext
 
 /**
- * A source's books by what they are about. With nothing picked, the landing page: places by
- * region, a timeline, then the other rows' chips. With chips picked, the books that have all of
- * them, and each row's chips counted among those books: a 320 dp pane beside the grid on Expanded
- * windows, one column with the rows as tabs on narrower ones.
+ * A source's books by what they are about. With nothing picked, the landing page: each row in the
+ * shape of what is in it (country cards, a shelf of piles, genre covers, your reading, chips). With
+ * something picked, the books that have all of it, and each row counted among those books: a 320 dp
+ * pane beside the grid on Expanded windows, one column with the rows as tabs on narrower ones.
  */
 @Composable
 fun LibraryBrowsePage(
@@ -91,7 +94,14 @@ fun LibraryBrowsePage(
     val view by produceState<LibraryBrowseView?>(null, items, request.picked, shownRows, progress, sorting) {
         val known = sorting ?: return@produceState
         value = withContext(Dispatchers.Default) {
-            libraryBrowseView(items, request.picked, shownRows, known) { item -> libraryBrowseReadingStatus(progress[item.id]) }
+            libraryBrowseView(
+                items = items,
+                picked = request.picked,
+                rows = shownRows,
+                sorting = known,
+                readingStatus = { item -> libraryBrowseReadingStatus(progress[item.id]) },
+                lastReadAt = { item -> progress[item.id]?.lastReadAtEpochMillis ?: 0L },
+            )
         }
     }
     // How many books have each row's field, for Rows: the source's, whatever is picked.
@@ -103,6 +113,8 @@ fun LibraryBrowsePage(
     }
     // The tag a held chip opens the sort sheet for.
     var sortTarget by remember(source) { mutableStateOf<LibraryTagSortTarget?>(null) }
+    var showPlaces by rememberSaveable(source) { mutableStateOf(false) }
+    val books = remember(coverImageUrlProvider, progress) { LibraryBrowseBooks(coverImageUrlProvider, progress) }
     val latestRequest by rememberUpdatedState(request)
     val actions = LibraryBrowseActions(
         onPick = { chip -> onRequestChanged(latestRequest.adding(chip)) },
@@ -125,20 +137,19 @@ fun LibraryBrowsePage(
     )
     Box(modifier = modifier.fillMaxSize()) {
         val shown = view
+        val context = shown?.let { LibraryBrowseRowContext(view = it, books = books, actions = actions, onOpenPlaces = { showPlaces = true }) }
         when {
-            shown == null -> Unit
-            shown.picked.isEmpty() -> LibraryBrowseLanding(
-                view = shown,
+            context == null -> Unit
+            context.view.picked.isEmpty() -> LibraryBrowseLanding(
                 rows = shownRows,
+                context = context,
                 contentTopInset = contentTopInset,
-                onPick = actions.onPick,
                 onScrolledChanged = onScrolledChanged,
                 prompts = prompts,
             )
             currentAppWindowWidth() == AppWindowWidth.Expanded -> LibraryBrowseTwoPanes(
-                view = shown,
                 rows = shownRows,
-                actions = actions,
+                context = context,
                 actionContext = actionContext,
                 coverImageUrlProvider = coverImageUrlProvider,
                 gridCellSizeDp = gridCellSizeDp,
@@ -146,9 +157,8 @@ fun LibraryBrowsePage(
                 onScrolledChanged = onScrolledChanged,
             )
             else -> LibraryBrowseOnePane(
-                view = shown,
                 rows = shownRows,
-                actions = actions,
+                context = context,
                 actionContext = actionContext,
                 coverImageUrlProvider = coverImageUrlProvider,
                 gridCellSizeDp = gridCellSizeDp,
@@ -156,6 +166,16 @@ fun LibraryBrowsePage(
                 onScrolledChanged = onScrolledChanged,
             )
         }
+    }
+    val placesView = view
+    if (showPlaces && placesView != null) {
+        LibraryBrowsePlacesSheet(
+            countries = placesView.countries,
+            picked = placesView.picked,
+            books = books,
+            onToggle = actions.onToggle,
+            onDismiss = { showPlaces = false },
+        )
     }
     if (showRows) {
         LibraryBrowseRowsSheet(
@@ -174,13 +194,24 @@ fun LibraryBrowsePage(
     }
 }
 
-/** What Browse draws, worked out together from the source's books and the [picked] chips. */
+/**
+ * What Browse draws, worked out together from the source's books and the [picked] chips. The
+ * shapes (countries, piles, genre covers, your reading) count among the books shown, as the chips do.
+ */
 @Immutable
 internal data class LibraryBrowseView(
     val picked: List<LibraryBrowseChip>,
     val result: LibraryBrowseResult,
+    /** When's piles, each with the books its spines are coloured from. */
     val timeline: List<LibraryEraBar> = emptyList(),
-    val places: List<LibraryPlaceGroup> = emptyList(),
+    /** Set in with its cities folded into their countries, each with the books its card shows. */
+    val countries: List<LibraryPlaceCountry> = emptyList(),
+    /** A few books of each genre, by [com.example.unifiedreader.core.model.libraryTagKey], for its list cover. */
+    val genreBooks: Map<String, List<ReadableItem>> = emptyMap(),
+    /** The books in progress, last read first, for Your reading. */
+    val inProgress: List<ReadableItem> = emptyList(),
+    /** A few books of each reading status, by its label, for Your reading's covers. */
+    val statusBooks: Map<String, List<ReadableItem>> = emptyMap(),
     /** On the landing page, how many books have each row's field, for its headings. */
     val coverage: Map<LibraryBrowseRow, Int> = emptyMap(),
     /** On the landing page, what to say about tags nobody has sorted. */
@@ -193,17 +224,34 @@ internal fun libraryBrowseView(
     rows: List<LibraryBrowseRow>,
     sorting: LibraryTagSorting,
     readingStatus: (ReadableItem) -> LibraryReadingStatus?,
+    lastReadAt: (ReadableItem) -> Long = { 0L },
 ): LibraryBrowseView {
     val landing = picked.isEmpty()
+    val result = libraryBrowse(items, picked, sorting, rows, readingStatus)
+    val shown = result.items
+    val statuses = if (LibraryBrowseRow.READING in rows) shown.map { item -> item to readingStatus(item) } else emptyList()
     return LibraryBrowseView(
         picked = picked,
-        result = libraryBrowse(items, picked, sorting, rows, readingStatus),
-        timeline = if (landing) libraryEraTimeline(items, sorting) else emptyList(),
-        places = if (landing) libraryPlaceGroups(items, sorting) else emptyList(),
+        result = result,
+        timeline = if (LibraryBrowseRow.WHEN in rows) libraryEraTimeline(shown, sorting, bookCount = PileBookCount) else emptyList(),
+        countries = if (LibraryBrowseRow.SET_IN in rows) libraryPlaceCountries(shown, sorting) else emptyList(),
+        genreBooks = if (LibraryBrowseRow.GENRE in rows) libraryBrowseBooks(shown, LibraryBrowseRow.GENRE, sorting, CoverBookCount) else emptyMap(),
+        inProgress = statuses.filter { (_, status) -> status == LibraryReadingStatus.IN_PROGRESS }
+            .map { (item, _) -> item }
+            .sortedByDescending(lastReadAt)
+            .take(InProgressBookCount),
+        statusBooks = statuses.mapNotNull { (item, status) -> status?.let { it.libraryBrowseLabel to item } }
+            .groupBy(keySelector = { (label, _) -> label }, valueTransform = { (_, item) -> item })
+            .mapValues { (_, books) -> books.take(StatusBookCount) },
         coverage = if (landing) libraryBrowseCoverage(items, sorting, readingStatus) else emptyMap(),
         tagPrompt = if (landing) libraryBrowseTagPrompt(items, sorting) else null,
     )
 }
+
+private const val PileBookCount = 14
+private const val CoverBookCount = 4
+private const val InProgressBookCount = 3
+private const val StatusBookCount = 3
 
 /** How many of [items] have each row's field; a row at 0 waits for metadata. */
 internal fun libraryBrowseCoverage(
@@ -223,125 +271,3 @@ internal class LibraryBrowseActions(
     /** Opens the held tag chip's sort sheet. */
     val onSortTag: ((LibraryBrowseChip) -> Unit)? = null,
 )
-
-@Composable
-private fun LibraryBrowseTwoPanes(
-    view: LibraryBrowseView,
-    rows: List<LibraryBrowseRow>,
-    actions: LibraryBrowseActions,
-    actionContext: LibraryItemActionContext,
-    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
-    gridCellSizeDp: Int,
-    contentTopInset: Dp,
-    onScrolledChanged: (Boolean) -> Unit,
-) {
-    val paneState = rememberLazyListState()
-    val gridState = rememberLazyGridState()
-    val latestOnScrolledChanged by rememberUpdatedState(onScrolledChanged)
-    LaunchedEffect(paneState, gridState) {
-        snapshotFlow { paneState.canScrollBackward || gridState.canScrollBackward }
-            .distinctUntilChanged()
-            .collect { scrolled -> latestOnScrolledChanged(scrolled) }
-    }
-    val gutter = appGutter()
-    val panePadding = PaddingValues(top = contentTopInset + AppLayout.contentTop, bottom = AppLayout.contentBottom)
-    Row(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = gutter),
-        horizontalArrangement = Arrangement.spacedBy(gutter),
-    ) {
-        LazyColumn(
-            state = paneState,
-            modifier = Modifier
-                .width(AppLayout.listPaneWidth)
-                .fillMaxHeight(),
-            contentPadding = panePadding,
-            verticalArrangement = Arrangement.spacedBy(AppLayout.sectionGap),
-        ) {
-            items(items = rows.filter { row -> view.result.facets[row].orEmpty().isNotEmpty() }, key = { row -> row.name }) { row ->
-                LibraryBrowseChipGroup(
-                    row = row,
-                    facets = view.result.facets[row].orEmpty(),
-                    picked = view.picked,
-                    onToggle = actions.onToggle,
-                    onSortTag = actions.onSortTag,
-                )
-            }
-        }
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(gridCellSizeDp.dp),
-            state = gridState,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight(),
-            contentPadding = panePadding,
-            verticalArrangement = Arrangement.spacedBy(AppLayout.gridGap),
-            horizontalArrangement = Arrangement.spacedBy(AppLayout.gridGap),
-        ) {
-            item(key = "picked", span = { GridItemSpan(maxLineSpan) }) {
-                LibraryBrowsePickedHeader(view = view, actions = actions)
-            }
-            items(items = view.result.items, key = { item -> item.id }) { item ->
-                LibraryBrowseCover(
-                    item = item,
-                    actionContext = actionContext,
-                    coverImageUrlProvider = coverImageUrlProvider,
-                    imageVariant = libraryGridCoverImageVariant(gridCellSizeDp),
-                    onClick = { actions.onItemSelected(item) },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun LibraryBrowseOnePane(
-    view: LibraryBrowseView,
-    rows: List<LibraryBrowseRow>,
-    actions: LibraryBrowseActions,
-    actionContext: LibraryItemActionContext,
-    coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
-    gridCellSizeDp: Int,
-    contentTopInset: Dp,
-    onScrolledChanged: (Boolean) -> Unit,
-) {
-    val gridState = rememberLazyGridState()
-    val latestOnScrolledChanged by rememberUpdatedState(onScrolledChanged)
-    LaunchedEffect(gridState) {
-        snapshotFlow { gridState.canScrollBackward }
-            .distinctUntilChanged()
-            .collect { scrolled -> latestOnScrolledChanged(scrolled) }
-    }
-    val gutter = appGutter()
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(gridCellSizeDp.dp),
-        state = gridState,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = gutter,
-            end = gutter,
-            top = contentTopInset + AppLayout.contentTop,
-            bottom = AppLayout.contentBottom,
-        ),
-        verticalArrangement = Arrangement.spacedBy(AppLayout.gridGap),
-        horizontalArrangement = Arrangement.spacedBy(AppLayout.gridGap),
-    ) {
-        item(key = "picked", span = { GridItemSpan(maxLineSpan) }) {
-            LibraryBrowseRowTabs(
-                view = view,
-                rows = rows,
-                actions = actions,
-            )
-        }
-        items(items = view.result.items, key = { item -> item.id }) { item ->
-            LibraryBrowseCover(
-                item = item,
-                actionContext = actionContext,
-                coverImageUrlProvider = coverImageUrlProvider,
-                imageVariant = libraryGridCoverImageVariant(gridCellSizeDp),
-                onClick = { actions.onItemSelected(item) },
-            )
-        }
-    }
-}

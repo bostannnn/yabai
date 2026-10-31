@@ -17,14 +17,16 @@ enum class LibraryBrowseRow(val label: String) {
     LANGUAGE("Language"),
 }
 
-/** The rows Browse shows until you change them, in order. A row whose field no book has stays hidden. */
+/**
+ * The rows Browse shows until you change them, in order. A row whose field no book has stays hidden.
+ * Your shelves is there to switch on: Lists already has them.
+ */
 val DefaultLibraryBrowseRows: List<LibraryBrowseRow> = listOf(
     LibraryBrowseRow.SET_IN,
     LibraryBrowseRow.WHEN,
     LibraryBrowseRow.ABOUT,
     LibraryBrowseRow.GENRE,
     LibraryBrowseRow.MOOD,
-    LibraryBrowseRow.SHELF,
     LibraryBrowseRow.READING,
 )
 
@@ -47,17 +49,11 @@ data class LibraryBrowseResult(
     val facets: Map<LibraryBrowseRow, List<LibraryBrowseFacet>>,
 )
 
-/** A bar on Browse's timeline: how many books are set in that stretch of time. */
+/** A pile on Browse's shelf: how many books are set in that stretch of time, and the first few of them. */
 data class LibraryEraBar(
     val slot: LibraryEraSlot,
     val count: Int,
-)
-
-/** A region on Browse's landing page: how many books are set there and its places, most books first. */
-data class LibraryPlaceGroup(
-    val region: LibraryPlaceRegion,
-    val count: Int,
-    val places: List<LibraryBrowseFacet>,
+    val books: List<ReadableItem> = emptyList(),
 )
 
 /** The values an item has in [row], its tags placed by [sorting]. [readingStatus] answers Your reading. */
@@ -70,7 +66,8 @@ fun ReadableItem.libraryBrowseValues(
 /**
  * Browse over [items]: the ones that have every [picked] chip (each chip narrows), and the chips of
  * each of [rows] counted among them, tags placed by [sorting]. A chip on When also matches the tags
- * its timeline bar holds, so "Middle Ages" picks a book tagged "Medieval".
+ * its pile holds, so "Middle Ages" picks a book tagged "Medieval", and a country on Set in matches
+ * its cities, so "England" picks a book tagged "London".
  */
 fun libraryBrowse(
     items: List<ReadableItem>,
@@ -93,48 +90,54 @@ fun libraryBrowse(
     return LibraryBrowseResult(items = matching.map { (item, _) -> item }, facets = facets)
 }
 
-/** Browse's timeline over [items], in time order; a book counts once in each bar it falls in. */
-fun libraryEraTimeline(items: List<ReadableItem>, sorting: LibraryTagSorting): List<LibraryEraBar> {
+/**
+ * Browse's shelf over [items], in time order; a book counts once in each pile it falls in, and each
+ * pile keeps up to [bookCount] of its books.
+ */
+fun libraryEraTimeline(items: List<ReadableItem>, sorting: LibraryTagSorting, bookCount: Int = 0): List<LibraryEraBar> {
     val counts = mutableMapOf<LibraryEraSlot, Int>()
+    val books = mutableMapOf<LibraryEraSlot, MutableList<ReadableItem>>()
     items.forEach { item ->
         item.facetMetadata().browseValues(LibraryBrowseRow.WHEN, null, sorting)
             .mapNotNullTo(mutableSetOf(), ::libraryEraSlot)
-            .forEach { slot -> counts[slot] = (counts[slot] ?: 0) + 1 }
+            .forEach { slot ->
+                counts[slot] = (counts[slot] ?: 0) + 1
+                val kept = books.getOrPut(slot) { mutableListOf() }
+                if (kept.size < bookCount) kept += item
+            }
     }
-    return counts.map { (slot, count) -> LibraryEraBar(slot, count) }.sortedBy { bar -> bar.slot.order }
+    return counts.map { (slot, count) -> LibraryEraBar(slot, count, books[slot].orEmpty()) }.sortedBy { bar -> bar.slot.order }
+}
+
+/**
+ * Up to [perValue] of [items] for each value of [row], in the order given, keyed by [libraryTagKey]:
+ * the books a value's covers show.
+ */
+fun libraryBrowseBooks(
+    items: List<ReadableItem>,
+    row: LibraryBrowseRow,
+    sorting: LibraryTagSorting,
+    perValue: Int,
+): Map<String, List<ReadableItem>> {
+    val books = linkedMapOf<String, MutableList<ReadableItem>>()
+    items.forEach { item ->
+        item.facetMetadata().browseValues(row, null, sorting).forEach { value ->
+            val kept = books.getOrPut(libraryTagKey(value)) { mutableListOf() }
+            if (kept.size < perValue && kept.lastOrNull() !== item) kept += item
+        }
+    }
+    return books
 }
 
 /** The When chips that aren't a timeline bar ("World War II", "20th century"), most books first. */
 fun libraryEraPeriods(facets: List<LibraryBrowseFacet>): List<LibraryBrowseFacet> =
     facets.filter { facet -> libraryEraSlot(facet.value) == null }
 
-/**
- * Set in's places grouped by the regions you gave them, the regions with most books first; a book
- * counts once per region. A place with no region yet is in Elsewhere.
- */
-fun libraryPlaceGroups(items: List<ReadableItem>, sorting: LibraryTagSorting): List<LibraryPlaceGroup> {
-    val regionItems = mutableMapOf<LibraryPlaceRegion, Int>()
-    val placeCounts = mutableMapOf<LibraryPlaceRegion, MutableList<List<String>>>()
-    items.forEach { item ->
-        val facets = item.facetMetadata()
-        val places = facets.tags.filter { tag -> sorting.kindOf(tag) == LibraryTagKind.PLACE }
-            .map { tag -> tag to sorting.regionOfTag(tag) } +
-            facets.locations.map { location -> location to sorting.regionOfLocation(location) }
-        places.distinctBy { (place, _) -> libraryTagKey(place) }
-            .groupBy(keySelector = { (_, region) -> region }, valueTransform = { (place, _) -> place })
-            .forEach { (region, regionPlaces) ->
-                regionItems[region] = (regionItems[region] ?: 0) + 1
-                placeCounts.getOrPut(region) { mutableListOf() } += regionPlaces
-            }
-    }
-    return regionItems.map { (region, count) ->
-        LibraryPlaceGroup(region = region, count = count, places = countValues(placeCounts[region].orEmpty()))
-    }.sortedWith(compareByDescending<LibraryPlaceGroup> { group -> group.count }.thenBy { group -> group.region.ordinal })
-}
-
+// A pile's label picks the eras it holds, and a country picks its cities.
 private fun LibraryBrowseChip.matches(value: String): Boolean =
     value.equals(this.value, ignoreCase = true) ||
-        (row == LibraryBrowseRow.WHEN && libraryEraSlot(value)?.label.equals(this.value, ignoreCase = true))
+        (row == LibraryBrowseRow.WHEN && libraryEraSlot(value)?.label.equals(this.value, ignoreCase = true)) ||
+        (row == LibraryBrowseRow.SET_IN && libraryPlaceCountry(value).equals(this.value, ignoreCase = true))
 
 private fun ReadableItemFacetMetadata.browseValues(
     row: LibraryBrowseRow,
@@ -164,7 +167,7 @@ val LibraryReadingStatus.libraryBrowseLabel: String
         LibraryReadingStatus.FINISHED -> "Finished"
     }
 
-private fun countValues(valueLists: List<List<String>>): List<LibraryBrowseFacet> {
+internal fun countValues(valueLists: List<List<String>>): List<LibraryBrowseFacet> {
     val counts = linkedMapOf<String, Pair<String, Int>>()
     valueLists.forEach { values ->
         values.distinctBy { value -> value.lowercase(Locale.ROOT) }.forEach { value ->

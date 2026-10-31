@@ -28,7 +28,7 @@ class LibraryBrowseTagPromptsTest {
         )
         assertEquals(
             "The app guessed that 1 of your tags are places and 1 are times. Check its guesses once, and Browse shows " +
-                "your books by region under Set in and on a timeline under When.",
+                "your books by country under Set in and on a shelf under When.",
             libraryBrowseGuessesLine(LibraryBrowseTagPrompt.CheckGuesses(places = 1, times = 1)),
         )
     }

@@ -128,8 +128,8 @@ internal fun libraryBrowseGuessesLine(prompt: LibraryBrowseTagPrompt.CheckGuesse
         prompt.places.takeIf { it > 0 }?.let { "${appCount(it)} of your tags are places" },
         prompt.times.takeIf { it > 0 }?.let { "${appCount(it)} are times" },
     ).joinToString(" and ")
-    return "The app guessed that $guessed. Check its guesses once, and Browse shows your books by region under Set in " +
-        "and on a timeline under When."
+    return "The app guessed that $guessed. Check its guesses once, and Browse shows your books by country under Set in " +
+        "and on a shelf under When."
 }
 
 /** Under About's heading, once some tags are sorted: how many new ones wait there, and Sort. */
