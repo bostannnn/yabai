@@ -150,7 +150,7 @@ system first (`ListsScreen`, `AppListCover`, `AppMenu`, `AppChip`; Design System
   rules the app can't read still shows, with "change them in Grimmory's web app" and no Edit. Grimmory
   names no owner for a public magic shelf, so every one counts as yours; the server refuses changes to
   someone else's and the toast says so. Kept in `server_lists` (kind `ServerMagicShelf`, id
-  `grimmory:magic:N`) with the rules in the new `rules` column (**Room v34**, `MIGRATION_33_34`).
+  `grimmory:magic:N`) with the rules in the new `rules` column (**Room v35**, `MIGRATION_34_35`, after main's v34 for tag sorting).
 - **Kavita collections** (`KavitaCollectionsApi` in data:kavita, reached as `KavitaApi.lists`;
   `KavitaCollectionClientAdapter`): `GET api/Collection?ownedOnly=false`, `GET
   api/Series/series-by-collection`, rename (`POST api/Collection/update`, sending summary, cover lock and
@@ -172,7 +172,7 @@ system first (`ListsScreen`, `AppListCover`, `AppMenu`, `AppChip`; Design System
 
 Status: built in worktree `lists-design-improvements-37bfbc` (branch `claude/lists-design-improvements-37bfbc`,
 from main at 0.26.0). Tests: `ListRulesTest` (7), `ListsSectionsTest` (4), `SmartListsTest` (+2),
-`RuledServerListStoreTest` (2), the 33→34 migration, `GrimmoryMagicShelvesApiTest` (8),
+`RuledServerListStoreTest` (2), the 34→35 migration, `GrimmoryMagicShelvesApiTest` (8),
 `GrimmoryMagicShelfRulesTest` (9), `KavitaCollectionsApiTest` (8). Never tried against the real Grimmory
 or Kavita.
 

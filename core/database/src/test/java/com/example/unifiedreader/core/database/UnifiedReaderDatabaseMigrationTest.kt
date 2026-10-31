@@ -342,10 +342,10 @@ class UnifiedReaderDatabaseMigrationTest {
     }
 
     @Test
-    fun `migration 33 to 34 keeps server lists and gives them rules`() {
+    fun `migration 34 to 35 keeps server lists and gives them rules`() {
         createTestDatabase(
-            name = "migration-33-34-${System.nanoTime()}",
-            version = 34,
+            name = "migration-34-35-${System.nanoTime()}",
+            version = 35,
         ) { database ->
             createVersion27Schema(database)
             UnifiedReaderDatabaseMigrations.MIGRATION_27_28.migrate(database)
@@ -360,7 +360,7 @@ class UnifiedReaderDatabaseMigrationTest {
                     "('grimmory:shelf:3', 'GRIMMORY', 'ServerShelf', '3', 'Book club', NULL, NULL, 0, 1, NULL, 1, 'Title', 0, 1)",
             )
         }.use { database ->
-            MIGRATION_33_34.migrate(database)
+            MIGRATION_34_35.migrate(database)
 
             database.query("SELECT name, rules FROM server_lists WHERE id = 'grimmory:shelf:3'").use { cursor ->
                 cursor.moveToFirst()
@@ -1499,7 +1499,7 @@ private fun openRoomDatabase(
         MIGRATION_30_31,
         MIGRATION_31_32,
         MIGRATION_32_33,
-        MIGRATION_33_34,
+        MIGRATION_34_35,
     )
     .build()
 
