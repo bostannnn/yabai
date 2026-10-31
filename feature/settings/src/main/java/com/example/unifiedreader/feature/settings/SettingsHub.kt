@@ -35,6 +35,7 @@ internal fun SettingsHub(
     sources: List<SourceSettingsEntry>,
     sourceOrder: List<SourceType>,
     syncSettings: SyncSettingsUiState,
+    tagsSummary: String?,
     versionName: String,
     updateState: AppUpdateState,
     updateActions: AppUpdateActions,
@@ -80,6 +81,16 @@ internal fun SettingsHub(
                 selected = selectedPage == SettingsPage.FilterChips,
                 onClick = { onOpenPage(SettingsPage.FilterChips) },
             )
+            if (tagsSummary != null) {
+                AppSettingsRowDivider()
+                AppSettingsRow(
+                    title = SettingsPage.Tags.title,
+                    icon = AppIcons.Sell,
+                    supporting = tagsSummary,
+                    selected = selectedPage == SettingsPage.Tags,
+                    onClick = { onOpenPage(SettingsPage.Tags) },
+                )
+            }
             AppSettingsRowDivider()
             AppSettingsRow(
                 title = SettingsPage.DrawerOrder.title,

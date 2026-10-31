@@ -88,6 +88,7 @@ fun ReadableItem.toEntity(
     comicGenresJson = encodeMetadataValues(comicMetadata?.genres),
     comicTagsJson = encodeMetadataValues(comicMetadata?.tags),
     comicLanguagesJson = encodeMetadataValues(comicMetadata?.languages),
+    comicLocationsJson = encodeMetadataValues(comicMetadata?.locations),
     updatedAtEpochMillis = updatedAtEpochMillis,
 )
 
@@ -265,7 +266,8 @@ private fun ReadableItemEntity.comicMetadataOrNull(): ComicMetadata? {
         comicPublishersJson == null &&
         comicGenresJson == null &&
         comicTagsJson == null &&
-        comicLanguagesJson == null
+        comicLanguagesJson == null &&
+        comicLocationsJson == null
     ) {
         return null
     }
@@ -280,6 +282,7 @@ private fun ReadableItemEntity.comicMetadataOrNull(): ComicMetadata? {
         genres = decodeMetadataValues(comicGenresJson),
         tags = decodeMetadataValues(comicTagsJson),
         languages = decodeMetadataValues(comicLanguagesJson),
+        locations = decodeMetadataValues(comicLocationsJson),
     )
 }
 
@@ -294,7 +297,8 @@ private fun ReadableItemLibraryEntity.comicMetadataOrNull(): ComicMetadata? {
         comicPublishersJson == null &&
         comicGenresJson == null &&
         comicTagsJson == null &&
-        comicLanguagesJson == null
+        comicLanguagesJson == null &&
+        comicLocationsJson == null
     ) {
         return null
     }
@@ -309,6 +313,7 @@ private fun ReadableItemLibraryEntity.comicMetadataOrNull(): ComicMetadata? {
         genres = decodeMetadataValues(comicGenresJson),
         tags = decodeMetadataValues(comicTagsJson),
         languages = decodeMetadataValues(comicLanguagesJson),
+        locations = decodeMetadataValues(comicLocationsJson),
     )
 }
 

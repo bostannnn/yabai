@@ -275,6 +275,7 @@ fun buildKavitaSeriesContainer(
             genres = aggregatedMetadata.genres,
             tags = aggregatedMetadata.tags,
             languages = aggregatedMetadata.languages,
+            locations = aggregatedMetadata.locations,
         ),
     )
 }

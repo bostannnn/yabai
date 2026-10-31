@@ -10,6 +10,7 @@ import com.example.unifiedreader.core.database.dao.ImportedComicArchiveDao
 import com.example.unifiedreader.core.database.dao.DownloadQueueDao
 import com.example.unifiedreader.core.database.dao.ItemDetailsDao
 import com.example.unifiedreader.core.database.dao.JournalDao
+import com.example.unifiedreader.core.database.dao.LibraryTagChoiceDao
 import com.example.unifiedreader.core.database.dao.ReadingProgressDao
 import com.example.unifiedreader.core.database.dao.ReaderSessionStateDao
 import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
@@ -33,6 +34,7 @@ import com.example.unifiedreader.core.database.entity.ReaderSessionStateEntity
 import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
 import com.example.unifiedreader.core.database.entity.ServerListEntity
 import com.example.unifiedreader.core.database.entity.ServerListItemEntity
+import com.example.unifiedreader.core.database.entity.LibraryTagChoiceEntity
 import com.example.unifiedreader.core.database.entity.UserListEntity
 import com.example.unifiedreader.core.database.entity.UserListEntryEntity
 
@@ -58,8 +60,9 @@ import com.example.unifiedreader.core.database.entity.UserListEntryEntity
         ServerListEntity::class,
         ServerListItemEntity::class,
         FinishedListEntity::class,
+        LibraryTagChoiceEntity::class,
     ],
-    version = 33,
+    version = 34,
     exportSchema = false,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
@@ -72,6 +75,7 @@ abstract class UnifiedReaderDatabase : RoomDatabase() {
     abstract fun remoteCatalogDao(): RemoteCatalogDao
     abstract fun userListDao(): UserListDao
     abstract fun serverListDao(): ServerListDao
+    abstract fun libraryTagChoiceDao(): LibraryTagChoiceDao
 }
 
 object UnifiedReaderDatabaseMigrations {
@@ -999,6 +1003,7 @@ object UnifiedReaderDatabaseFactory {
             MIGRATION_30_31,
             MIGRATION_31_32,
             MIGRATION_32_33,
+            MIGRATION_33_34,
         )
         .build()
 }

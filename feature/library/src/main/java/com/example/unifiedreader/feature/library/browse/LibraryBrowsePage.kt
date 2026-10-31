@@ -20,6 +20,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
@@ -32,6 +35,7 @@ import com.example.unifiedreader.core.model.LibraryBrowseRow
 import com.example.unifiedreader.core.model.LibraryEraBar
 import com.example.unifiedreader.core.model.LibraryPlaceGroup
 import com.example.unifiedreader.core.model.LibraryReadingStatus
+import com.example.unifiedreader.core.model.LibraryTagSorting
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.libraryBrowse
@@ -42,6 +46,9 @@ import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
 import com.example.unifiedreader.feature.library.isSeriesContainer
 import com.example.unifiedreader.feature.library.libraryGridCoverImageVariant
+import com.example.unifiedreader.feature.library.tags.LibraryTagSortSheet
+import com.example.unifiedreader.feature.library.tags.LibraryTagSortTarget
+import com.example.unifiedreader.feature.library.tags.LocalLibraryTagSorting
 import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.AppWindowWidth
 import com.example.unifiedreader.ui.components.appGutter
@@ -76,19 +83,26 @@ fun LibraryBrowsePage(
     val rows = rememberLibraryBrowseRows(source)
     val shownRows = rows.settings.shown
     val progress = actionContext.progressByItemId
+    val tags = LocalLibraryTagSorting.current
+    // Null until your tag sorting has loaded: Browse waits for it rather than show every tag in About.
+    val sorting = tags.sortingFor(source)
     // Thousands of books to sort into chips, so not on the main thread. The last view stays up
     // until the next is ready, so the chips and the grid change together.
-    val view by produceState<LibraryBrowseView?>(null, items, request.picked, shownRows, progress) {
+    val view by produceState<LibraryBrowseView?>(null, items, request.picked, shownRows, progress, sorting) {
+        val known = sorting ?: return@produceState
         value = withContext(Dispatchers.Default) {
-            libraryBrowseView(items, request.picked, shownRows) { item -> libraryBrowseReadingStatus(progress[item.id]) }
+            libraryBrowseView(items, request.picked, shownRows, known) { item -> libraryBrowseReadingStatus(progress[item.id]) }
         }
     }
     // How many books have each row's field, for Rows: the source's, whatever is picked.
-    val coverage by produceState(emptyMap<LibraryBrowseRow, Int>(), items, progress) {
+    val coverage by produceState(emptyMap<LibraryBrowseRow, Int>(), items, progress, sorting) {
+        val known = sorting ?: return@produceState
         value = withContext(Dispatchers.Default) {
-            libraryBrowseCoverage(items) { item -> libraryBrowseReadingStatus(progress[item.id]) }
+            libraryBrowseCoverage(items, known) { item -> libraryBrowseReadingStatus(progress[item.id]) }
         }
     }
+    // The tag a held chip opens the sort sheet for.
+    var sortTarget by remember(source) { mutableStateOf<LibraryTagSortTarget?>(null) }
     val latestRequest by rememberUpdatedState(request)
     val actions = LibraryBrowseActions(
         onPick = { chip -> onRequestChanged(latestRequest.adding(chip)) },
@@ -100,6 +114,14 @@ fun LibraryBrowsePage(
             if (item.isSeriesContainer) onClose()
             onItemSelected(item)
         },
+        onSortTag = { chip -> sortTarget = libraryBrowseSortTarget(source, items, chip, sorting ?: LibraryTagSorting()) },
+    )
+    val openTagSettings = tags.onOpenTagSettings?.let { open -> { open(source) } }
+    val prompts = LibraryBrowseLandingPrompts(
+        onCheckGuesses = openTagSettings?.takeIf { rows.loaded && !rows.placesPromptDismissed },
+        onNotNow = rows::dismissPlacesPrompt,
+        onSortNewTags = openTagSettings,
+        onSortTag = actions.onSortTag,
     )
     Box(modifier = modifier.fillMaxSize()) {
         val shown = view
@@ -111,6 +133,7 @@ fun LibraryBrowsePage(
                 contentTopInset = contentTopInset,
                 onPick = actions.onPick,
                 onScrolledChanged = onScrolledChanged,
+                prompts = prompts,
             )
             currentAppWindowWidth() == AppWindowWidth.Expanded -> LibraryBrowseTwoPanes(
                 view = shown,
@@ -142,6 +165,13 @@ fun LibraryBrowsePage(
             onDismiss = { onShowRowsChanged(false) },
         )
     }
+    sortTarget?.let { target ->
+        LibraryTagSortSheet(
+            target = target,
+            onDismiss = { sortTarget = null },
+            onBrowse = { chip -> onRequestChanged(LibraryBrowseRequest(picked = listOf(chip))) },
+        )
+    }
 }
 
 /** What Browse draws, worked out together from the source's books and the [picked] chips. */
@@ -153,30 +183,35 @@ internal data class LibraryBrowseView(
     val places: List<LibraryPlaceGroup> = emptyList(),
     /** On the landing page, how many books have each row's field, for its headings. */
     val coverage: Map<LibraryBrowseRow, Int> = emptyMap(),
+    /** On the landing page, what to say about tags nobody has sorted. */
+    val tagPrompt: LibraryBrowseTagPrompt? = null,
 )
 
 internal fun libraryBrowseView(
     items: List<ReadableItem>,
     picked: List<LibraryBrowseChip>,
     rows: List<LibraryBrowseRow>,
+    sorting: LibraryTagSorting,
     readingStatus: (ReadableItem) -> LibraryReadingStatus?,
 ): LibraryBrowseView {
     val landing = picked.isEmpty()
     return LibraryBrowseView(
         picked = picked,
-        result = libraryBrowse(items, picked, rows, readingStatus),
-        timeline = if (landing) libraryEraTimeline(items) else emptyList(),
-        places = if (landing) libraryPlaceGroups(items) else emptyList(),
-        coverage = if (landing) libraryBrowseCoverage(items, readingStatus) else emptyMap(),
+        result = libraryBrowse(items, picked, sorting, rows, readingStatus),
+        timeline = if (landing) libraryEraTimeline(items, sorting) else emptyList(),
+        places = if (landing) libraryPlaceGroups(items, sorting) else emptyList(),
+        coverage = if (landing) libraryBrowseCoverage(items, sorting, readingStatus) else emptyMap(),
+        tagPrompt = if (landing) libraryBrowseTagPrompt(items, sorting) else null,
     )
 }
 
 /** How many of [items] have each row's field; a row at 0 waits for metadata. */
 internal fun libraryBrowseCoverage(
     items: List<ReadableItem>,
+    sorting: LibraryTagSorting,
     readingStatus: (ReadableItem) -> LibraryReadingStatus?,
 ): Map<LibraryBrowseRow, Int> = LibraryBrowseRow.entries.associateWith { row ->
-    items.count { item -> item.libraryBrowseValues(row, readingStatus(item)).isNotEmpty() }
+    items.count { item -> item.libraryBrowseValues(row, sorting, readingStatus(item)).isNotEmpty() }
 }
 
 internal class LibraryBrowseActions(
@@ -185,6 +220,8 @@ internal class LibraryBrowseActions(
     val onRemove: (LibraryBrowseChip) -> Unit,
     val onClear: () -> Unit,
     val onItemSelected: (ReadableItem) -> Unit,
+    /** Opens the held tag chip's sort sheet. */
+    val onSortTag: ((LibraryBrowseChip) -> Unit)? = null,
 )
 
 @Composable
@@ -228,6 +265,7 @@ private fun LibraryBrowseTwoPanes(
                     facets = view.result.facets[row].orEmpty(),
                     picked = view.picked,
                     onToggle = actions.onToggle,
+                    onSortTag = actions.onSortTag,
                 )
             }
         }

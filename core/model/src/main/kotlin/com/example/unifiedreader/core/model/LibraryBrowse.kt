@@ -60,20 +60,22 @@ data class LibraryPlaceGroup(
     val places: List<LibraryBrowseFacet>,
 )
 
-/** The values an item has in [row]. [readingStatus] answers Your reading. */
+/** The values an item has in [row], its tags placed by [sorting]. [readingStatus] answers Your reading. */
 fun ReadableItem.libraryBrowseValues(
     row: LibraryBrowseRow,
+    sorting: LibraryTagSorting,
     readingStatus: LibraryReadingStatus? = null,
-): List<String> = facetMetadata().browseValues(row, readingStatus)
+): List<String> = facetMetadata().browseValues(row, readingStatus, sorting)
 
 /**
  * Browse over [items]: the ones that have every [picked] chip (each chip narrows), and the chips of
- * each of [rows] counted among them. A chip on When also matches the tags its timeline bar holds,
- * so "Middle Ages" picks a book tagged "Medieval".
+ * each of [rows] counted among them, tags placed by [sorting]. A chip on When also matches the tags
+ * its timeline bar holds, so "Middle Ages" picks a book tagged "Medieval".
  */
 fun libraryBrowse(
     items: List<ReadableItem>,
     picked: List<LibraryBrowseChip>,
+    sorting: LibraryTagSorting,
     rows: List<LibraryBrowseRow> = DefaultLibraryBrowseRows,
     readingStatusProvider: (ReadableItem) -> LibraryReadingStatus? = { null },
 ): LibraryBrowseResult {
@@ -81,7 +83,7 @@ fun libraryBrowse(
     val valuesByItem = items.map { item ->
         val facets = item.facetMetadata()
         val status = if (LibraryBrowseRow.READING in wantedRows) readingStatusProvider(item) else null
-        item to wantedRows.associateWith { row -> facets.browseValues(row, status) }
+        item to wantedRows.associateWith { row -> facets.browseValues(row, status, sorting) }
     }
     val matching = valuesByItem.filter { (_, values) ->
         picked.all { chip -> values[chip.row].orEmpty().any { value -> chip.matches(value) } }
@@ -92,10 +94,10 @@ fun libraryBrowse(
 }
 
 /** Browse's timeline over [items], in time order; a book counts once in each bar it falls in. */
-fun libraryEraTimeline(items: List<ReadableItem>): List<LibraryEraBar> {
+fun libraryEraTimeline(items: List<ReadableItem>, sorting: LibraryTagSorting): List<LibraryEraBar> {
     val counts = mutableMapOf<LibraryEraSlot, Int>()
     items.forEach { item ->
-        item.facetMetadata().browseValues(LibraryBrowseRow.WHEN, null)
+        item.facetMetadata().browseValues(LibraryBrowseRow.WHEN, null, sorting)
             .mapNotNullTo(mutableSetOf(), ::libraryEraSlot)
             .forEach { slot -> counts[slot] = (counts[slot] ?: 0) + 1 }
     }
@@ -106,13 +108,20 @@ fun libraryEraTimeline(items: List<ReadableItem>): List<LibraryEraBar> {
 fun libraryEraPeriods(facets: List<LibraryBrowseFacet>): List<LibraryBrowseFacet> =
     facets.filter { facet -> libraryEraSlot(facet.value) == null }
 
-/** Set in's places grouped by region, the regions with most books first; a book counts once per region. */
-fun libraryPlaceGroups(items: List<ReadableItem>): List<LibraryPlaceGroup> {
+/**
+ * Set in's places grouped by the regions you gave them, the regions with most books first; a book
+ * counts once per region. A place with no region yet is in Elsewhere.
+ */
+fun libraryPlaceGroups(items: List<ReadableItem>, sorting: LibraryTagSorting): List<LibraryPlaceGroup> {
     val regionItems = mutableMapOf<LibraryPlaceRegion, Int>()
     val placeCounts = mutableMapOf<LibraryPlaceRegion, MutableList<List<String>>>()
     items.forEach { item ->
-        val places = item.facetMetadata().browseValues(LibraryBrowseRow.SET_IN, null)
-        places.groupBy { place -> libraryPlaceRegion(place) ?: LibraryPlaceRegion.ELSEWHERE }
+        val facets = item.facetMetadata()
+        val places = facets.tags.filter { tag -> sorting.kindOf(tag) == LibraryTagKind.PLACE }
+            .map { tag -> tag to sorting.regionOfTag(tag) } +
+            facets.locations.map { location -> location to sorting.regionOfLocation(location) }
+        places.distinctBy { (place, _) -> libraryTagKey(place) }
+            .groupBy(keySelector = { (_, region) -> region }, valueTransform = { (place, _) -> place })
             .forEach { (region, regionPlaces) ->
                 regionItems[region] = (regionItems[region] ?: 0) + 1
                 placeCounts.getOrPut(region) { mutableListOf() } += regionPlaces
@@ -130,10 +139,13 @@ private fun LibraryBrowseChip.matches(value: String): Boolean =
 private fun ReadableItemFacetMetadata.browseValues(
     row: LibraryBrowseRow,
     readingStatus: LibraryReadingStatus?,
+    sorting: LibraryTagSorting,
 ): List<String> = when (row) {
-    LibraryBrowseRow.SET_IN -> tags.filter { tag -> libraryTagKind(tag) == LibraryTagKind.PLACE }
-    LibraryBrowseRow.WHEN -> tags.filter { tag -> libraryTagKind(tag) == LibraryTagKind.ERA }
-    LibraryBrowseRow.ABOUT -> tags.filter { tag -> libraryTagKind(tag) == LibraryTagKind.THEME }
+    // A Location is a place already; a tag is where you put it, About until then.
+    LibraryBrowseRow.SET_IN -> (tags.filter { tag -> sorting.kindOf(tag) == LibraryTagKind.PLACE } + locations)
+        .distinctBy(::libraryTagKey)
+    LibraryBrowseRow.WHEN -> tags.filter { tag -> sorting.kindOf(tag) == LibraryTagKind.ERA }
+    LibraryBrowseRow.ABOUT -> tags.filter { tag -> sorting.kindOf(tag) == LibraryTagKind.THEME }
     LibraryBrowseRow.GENRE -> genres
     LibraryBrowseRow.MOOD -> moods
     LibraryBrowseRow.SHELF -> shelves

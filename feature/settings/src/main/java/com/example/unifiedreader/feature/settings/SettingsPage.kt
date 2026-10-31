@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.settings
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.saveable.Saver
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
@@ -22,6 +23,12 @@ sealed interface SettingsPage {
     data object FilterChips : SettingsPage {
         override val key: String = "filter_chips"
         override val title: String = "Filter chips"
+    }
+
+    /** Where each source's tags go in Browse; its content comes from the library (see [SettingsTagsPage]). */
+    data object Tags : SettingsPage {
+        override val key: String = "tags"
+        override val title: String = "Tags"
     }
 
     data object DrawerOrder : SettingsPage {
@@ -53,6 +60,7 @@ sealed interface SettingsPage {
             key.isNullOrEmpty() -> null
             key == Theme.key -> Theme
             key == FilterChips.key -> FilterChips
+            key == Tags.key -> Tags
             key == DrawerOrder.key -> DrawerOrder
             key == SyncStatus.key -> SyncStatus
             key == Licenses.key -> Licenses
@@ -73,4 +81,13 @@ val SettingsPage.parent: SettingsPage?
 val SettingsPageSaver: Saver<SettingsPage?, String> = Saver(
     save = { page -> page?.key.orEmpty() },
     restore = { key -> SettingsPage.fromKey(key) },
+)
+
+/**
+ * Settings › Tags as the library draws it: [summary] is the hub row's line, [content] the page,
+ * drawn inside the settings page's column.
+ */
+class SettingsTagsPage(
+    val summary: String,
+    val content: @Composable () -> Unit,
 )

@@ -53,12 +53,13 @@ fun librarySearchSnippet(item: ReadableItem, query: String): LibrarySearchSnippe
 
 /**
  * The tags, genres, moods and shelves of [items] that [query] names, for opening Browse from a
- * search: whole-name matches first, then names that start with it, then the rest, most books
- * first; at most [limit].
+ * search, tags in the rows [sorting] puts them in: whole-name matches first, then names that start
+ * with it, then the rest, most books first; at most [limit].
  */
 fun librarySearchTagSuggestions(
     items: List<ReadableItem>,
     query: String,
+    sorting: LibraryTagSorting,
     limit: Int = 6,
 ): List<LibrarySearchTagSuggestion> {
     val phrase = searchMatchTokens(query).joinToString(" ")
@@ -74,7 +75,7 @@ fun librarySearchTagSuggestions(
     val counts = linkedMapOf<Pair<LibraryBrowseRow, String>, Pair<String, Int>>()
     items.forEach { item ->
         rows.forEach { row ->
-            item.libraryBrowseValues(row)
+            item.libraryBrowseValues(row, sorting)
                 .filter { value -> value.searchKey().startsWithWord(phrase) }
                 .distinctBy { value -> value.searchKey() }
                 .forEach { value ->

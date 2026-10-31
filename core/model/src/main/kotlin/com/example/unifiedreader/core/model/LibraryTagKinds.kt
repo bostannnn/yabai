@@ -1,7 +1,5 @@
 package com.example.unifiedreader.core.model
 
-import java.util.Locale
-
 /** What a tag says about a book: where it is set, when, or what it is about. */
 enum class LibraryTagKind {
     PLACE,
@@ -10,21 +8,22 @@ enum class LibraryTagKind {
 }
 
 /**
- * Sorts a tag into its kind. Servers send tags as one flat list ("Japan", "1930s", "Espionage"),
- * so places come from a list of names that ships with the app and eras from their shape (a
- * decade, a century) or a list of named periods; everything else is a theme. Case doesn't matter.
+ * The app's guess at where [tag] goes, or null when it has none. Servers send tags as one flat list
+ * ("Japan", "1930s", "Espionage"), so places come from a list of names that ships with the app and
+ * eras from their shape (a decade, a century) or a list of named periods. A guess is only offered:
+ * a tag goes where you put it ([LibraryTagSorting]) and stays in About until then. Case doesn't matter.
  */
-fun libraryTagKind(tag: String): LibraryTagKind {
-    val key = tag.trim().lowercase(Locale.ROOT)
-    return when {
-        key in LibraryPlaceRegionByName -> LibraryTagKind.PLACE
-        key in NamedSlots || key in NamedPeriods || DecadePattern.matches(key) || CenturyPattern.matches(key) ->
-            LibraryTagKind.ERA
-        else -> LibraryTagKind.THEME
+fun libraryTagGuess(tag: String): LibraryTagChoice? {
+    val key = libraryTagKey(tag)
+    LibraryPlaceRegionByName[key]?.let { region -> return LibraryTagChoice(LibraryTagKind.PLACE, region) }
+    return if (key in NamedSlots || key in NamedPeriods || DecadePattern.matches(key) || CenturyPattern.matches(key)) {
+        LibraryTagChoice(LibraryTagKind.ERA)
+    } else {
+        null
     }
 }
 
-/** The part of the world a place tag is in, for grouping places on Browse's landing page. */
+/** The part of the world a place is in, for grouping places on Browse's landing page. */
 enum class LibraryPlaceRegion(val label: String) {
     AMERICAS("Americas"),
     EUROPE("Europe"),
@@ -32,12 +31,12 @@ enum class LibraryPlaceRegion(val label: String) {
     ASIA("Asia"),
     MIDDLE_EAST_AND_AFRICA("Middle East and Africa"),
     OCEANIA("Oceania"),
+    MADE_UP("Made-up places"),
     ELSEWHERE("Elsewhere"),
 }
 
-/** The region of a place tag, or null when the tag isn't a place the app knows. */
-fun libraryPlaceRegion(tag: String): LibraryPlaceRegion? =
-    LibraryPlaceRegionByName[tag.trim().lowercase(Locale.ROOT)]
+/** The app's guess at the region of a place (a tag or a Kavita Location), or null when it doesn't know the name. */
+fun libraryPlaceRegionGuess(name: String): LibraryPlaceRegion? = LibraryPlaceRegionByName[libraryTagKey(name)]
 
 /**
  * A bar on Browse's timeline: decades and centuries in time order. A named period ("World War II",
@@ -51,7 +50,7 @@ data class LibraryEraSlot(
 
 /** The timeline bar an era tag falls in, or null for a named period or a tag that isn't an era. */
 fun libraryEraSlot(tag: String): LibraryEraSlot? {
-    val key = tag.trim().lowercase(Locale.ROOT)
+    val key = libraryTagKey(tag)
     NamedSlots[key]?.let { return it }
     DecadePattern.matchEntire(key)?.let { match ->
         val year = match.groupValues[1].toInt()
@@ -109,7 +108,7 @@ private val NamedPeriods: Set<String> = setOf(
 )
 
 private fun regionOf(region: LibraryPlaceRegion, names: String): List<Pair<String, LibraryPlaceRegion>> =
-    names.split(',').map { name -> name.trim().lowercase(Locale.ROOT) to region }
+    names.split(',').map { name -> libraryTagKey(name) to region }
 
 private val LibraryPlaceRegionByName: Map<String, LibraryPlaceRegion> = (
     regionOf(

@@ -26,7 +26,8 @@ import com.example.unifiedreader.core.model.LibraryBrowseChip
 import com.example.unifiedreader.core.model.LibraryBrowseRow
 import com.example.unifiedreader.core.model.LibrarySearchMatchSource
 import com.example.unifiedreader.core.model.LibraryTagKind
-import com.example.unifiedreader.core.model.libraryTagKind
+import com.example.unifiedreader.core.model.LibraryTagSorting
+import com.example.unifiedreader.feature.library.tags.LocalLibraryTagSorting
 import com.example.unifiedreader.core.model.LibrarySearchSnippet
 import com.example.unifiedreader.core.model.LibrarySearchTagSuggestion
 import com.example.unifiedreader.core.model.ReadableItem
@@ -99,6 +100,7 @@ internal fun LibrarySearchResultRow(
     modifier: Modifier = Modifier,
 ) {
     val snippet = remember(item.id, item.description, query) { librarySearchSnippet(item, query) }
+    val sorting = LocalLibraryTagSorting.current.sortingFor(item.sourceType) ?: LibraryTagSorting()
     val marked = MaterialTheme.colorScheme
     val snippetText = remember(snippet, marked) {
         snippet?.marked(SpanStyle(background = marked.primaryContainer, color = marked.onPrimaryContainer, fontWeight = FontWeight.SemiBold))
@@ -138,7 +140,7 @@ internal fun LibrarySearchResultRow(
                     val quiet = MaterialTheme.colorScheme.onSurfaceVariant
                     Text(
                         text = buildAnnotatedString {
-                            withStyle(SpanStyle(color = quiet)) { append(snippet.browseRowLabel()) }
+                            withStyle(SpanStyle(color = quiet)) { append(snippet.browseRowLabel(sorting)) }
                             append(" ")
                             append(snippetText)
                         },
@@ -159,10 +161,10 @@ internal fun LibrarySearchResultRow(
     }
 }
 
-/** The Browse row a tag or genre snippet belongs to. */
-private fun LibrarySearchSnippet.browseRowLabel(): String = when {
+/** The Browse row a tag or genre snippet belongs to, as you sorted the tag. */
+private fun LibrarySearchSnippet.browseRowLabel(sorting: LibraryTagSorting): String = when {
     source == LibrarySearchMatchSource.GENRE -> LibraryBrowseRow.GENRE.label
-    else -> when (libraryTagKind(text)) {
+    else -> when (sorting.kindOf(text)) {
         LibraryTagKind.PLACE -> LibraryBrowseRow.SET_IN.label
         LibraryTagKind.ERA -> LibraryBrowseRow.WHEN.label
         LibraryTagKind.THEME -> LibraryBrowseRow.ABOUT.label

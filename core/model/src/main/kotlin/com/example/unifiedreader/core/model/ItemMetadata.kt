@@ -27,6 +27,8 @@ data class ComicMetadata(
     val genres: List<String> = emptyList(),
     val tags: List<String> = emptyList(),
     val languages: List<String> = emptyList(),
+    /** Where the comic is set, as the server lists it (Kavita's Locations, from ComicInfo): places already. */
+    val locations: List<String> = emptyList(),
 )
 
 data class ReadableItemFacetMetadata(
@@ -40,6 +42,7 @@ data class ReadableItemFacetMetadata(
     val languages: List<String> = emptyList(),
     val moods: List<String> = emptyList(),
     val shelves: List<String> = emptyList(),
+    val locations: List<String> = emptyList(),
 )
 
 fun BookMetadata.primaryAuthor(): String? = normalizedMetadataValues(
@@ -74,6 +77,7 @@ fun ReadableItem.facetMetadata(): ReadableItemFacetMetadata = ReadableItemFacetM
     ),
     moods = normalizedMetadataValues(bookMetadata?.moods.orEmpty()),
     shelves = normalizedMetadataValues(bookMetadata?.shelves.orEmpty()),
+    locations = normalizedMetadataValues(comicMetadata?.locations.orEmpty()),
 )
 
 fun Iterable<ReadableItem>.aggregateFacetMetadata(): ReadableItemFacetMetadata = ReadableItemFacetMetadata(
@@ -85,6 +89,7 @@ fun Iterable<ReadableItem>.aggregateFacetMetadata(): ReadableItemFacetMetadata =
     genres = normalizedMetadataValues(flatMap { item -> item.facetMetadata().genres }),
     tags = normalizedMetadataValues(flatMap { item -> item.facetMetadata().tags }),
     languages = normalizedMetadataValues(flatMap { item -> item.facetMetadata().languages }),
+    locations = normalizedMetadataValues(flatMap { item -> item.facetMetadata().locations }),
 )
 
 internal fun normalizedMetadataValues(

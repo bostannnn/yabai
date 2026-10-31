@@ -68,6 +68,8 @@ fun SettingsScreen(
     updateActions: AppUpdateActions = AppUpdateActions(),
     // For the top bar: whether anything has scrolled under it (it then needs its glass).
     onScrolledChanged: (Boolean) -> Unit = {},
+    // Settings › Tags, from the library; no Tags row without it.
+    tagsPage: SettingsTagsPage? = null,
 ) {
     val usesSidePane = settingsUsesSidePane(currentAppWindowWidth())
     var hubScrolled by remember { mutableStateOf(false) }
@@ -111,6 +113,12 @@ fun SettingsScreen(
                     contentTopInset = contentTopInset,
                     horizontalPadding = horizontalPadding,
                 )
+                SettingsPage.Tags -> SettingsPageContainer(
+                    contentTopInset = contentTopInset,
+                    horizontalPadding = horizontalPadding,
+                ) {
+                    tagsPage?.content?.invoke()
+                }
                 SettingsPage.DrawerOrder -> SettingsPageContainer(
                     contentTopInset = contentTopInset,
                     horizontalPadding = horizontalPadding,
@@ -146,6 +154,7 @@ fun SettingsScreen(
                 sources = orderedSources,
                 sourceOrder = sourceOrder,
                 syncSettings = syncSettings,
+                tagsSummary = tagsPage?.summary,
                 versionName = versionName,
                 updateState = updateState,
                 updateActions = updateActions,

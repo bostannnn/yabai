@@ -54,6 +54,7 @@ fun UnifiedReaderRoute() {
     val viewModel: AppViewModel = hiltViewModel()
     val updates: AppUpdatesViewModel = hiltViewModel()
     val lists: AppListsViewModel = hiltViewModel()
+    val tags: AppLibraryTagsViewModel = hiltViewModel()
     val context = LocalContext.current
     val localFileImportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
@@ -76,6 +77,7 @@ fun UnifiedReaderRoute() {
         },
         updateController = updates.controller,
         listsViewModel = lists,
+        tagsViewModel = tags,
     )
 }
 
@@ -85,6 +87,7 @@ fun UnifiedReaderAppContent(
     onImportLocalFileClick: () -> Unit,
     updateController: AppUpdateController? = null,
     listsViewModel: AppListsViewModel? = null,
+    tagsViewModel: AppLibraryTagsViewModel? = null,
 ) {
     val uiState = viewModel.uiState
     val updateStateFlow = remember(updateController) {
@@ -208,6 +211,7 @@ fun UnifiedReaderAppContent(
                                     updateActions = updateActions,
                                     onStartSource = { request -> sourceStartRequest = request },
                                     listsViewModel = listsViewModel,
+                                    tagsViewModel = tagsViewModel,
                                 )
                             }
                         }
