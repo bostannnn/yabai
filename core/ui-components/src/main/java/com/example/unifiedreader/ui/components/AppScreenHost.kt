@@ -36,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -102,6 +103,13 @@ class AppScreenBackGesture internal constructor() {
 
 /** The back gesture of the nearest [AppScreenHost], for [AppScreenBackHandler]. */
 val LocalAppScreenBackGesture = staticCompositionLocalOf<AppScreenBackGesture?> { null }
+
+/**
+ * True for a screen that an [AppScreenHost] (or one around it) has moved away from: from the
+ * moment its screen changes (Back, or a back gesture let go) until the leaving screen is gone.
+ * A back gesture still in progress doesn't count, so a cancelled one never sets it.
+ */
+val LocalAppScreenLeaving = compositionLocalOf { false }
 
 /**
  * Back for a screen inside an [AppScreenHost] that has to run [onBack] itself (and change the
@@ -209,6 +217,7 @@ fun <S, F> AppScreenHost(
     val screenTransition = rememberTransition(seekState, label = "AppScreenHost")
     val layoutDirection = LocalLayoutDirection.current
     val density = LocalDensity.current
+    val leavingAround = LocalAppScreenLeaving.current
     CompositionLocalProvider(LocalAppScreenBackGesture provides gesture) {
         screenTransition.AnimatedContent(
             modifier = modifier,
@@ -230,6 +239,7 @@ fun <S, F> AppScreenHost(
             ) { state ->
                 if (state == EnterExitState.PostExit && gesture.follows) AppMotion.predictiveBackCornerRadius else 0.dp
             }
+            val leaving = leavingAround || key != shownKey
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -240,7 +250,9 @@ fun <S, F> AppScreenHost(
                         }
                     },
             ) {
-                content(shown, shownFrame)
+                CompositionLocalProvider(LocalAppScreenLeaving provides leaving) {
+                    content(shown, shownFrame)
+                }
             }
         }
     }

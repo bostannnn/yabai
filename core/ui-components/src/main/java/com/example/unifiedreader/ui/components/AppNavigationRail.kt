@@ -13,10 +13,11 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -70,7 +71,7 @@ fun AppNavigationRail(
                 drawLine(lineColor, Offset(x, 0f), Offset(x, size.height), strokeWidth = stroke)
             }
             .windowInsetsPadding(
-                WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical + WindowInsetsSides.Start),
+                WindowInsets.appSystemBars.union(WindowInsets.ime).only(WindowInsetsSides.Vertical + WindowInsetsSides.Start),
             )
             .width(AppNavigationRailDefaults.width)
             .padding(vertical = AppNavigationRailDefaults.verticalPadding),

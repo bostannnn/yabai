@@ -2,6 +2,7 @@ package com.example.unifiedreader
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -76,6 +77,7 @@ import com.example.unifiedreader.ui.components.AppTopBarDefaults
 import com.example.unifiedreader.ui.components.AppToastHost
 import com.example.unifiedreader.ui.components.LocalAppGlassState
 import com.example.unifiedreader.ui.components.appGlassSource
+import com.example.unifiedreader.ui.components.appSystemBars
 import com.example.unifiedreader.ui.components.AppWindowWidth
 import com.example.unifiedreader.ui.components.currentAppWindowWidth
 import com.example.unifiedreader.ui.components.rememberAppGlassState
@@ -311,6 +313,7 @@ fun UnifiedReaderScaffold(
     ) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
+            contentWindowInsets = WindowInsets.appSystemBars,
         ) { innerPadding ->
             // Content fills the screen and scrolls under the floating glass top bar; each
             // screen keeps AppTopBarDefaults.contentInset of top padding so its first row
