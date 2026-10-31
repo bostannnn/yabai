@@ -52,10 +52,14 @@ fun LibraryShelvesZone(
     if (!state.hasContent) return
 
     val reading = state.continueReading.firstOrNull()
-    val timeLeftMillis = remember(reading, readingTimeLeftMillis) {
-        reading?.let { shelfItem -> readingTimeLeftMillis(shelfItem.item, shelfItem.progress) }
+    // A reading order under way can take the card: its next book instead of the one read last.
+    val orderCard = itemActionContext.readingOrderCard
+    val cardItemId = orderCard?.item?.id ?: reading?.item?.id
+    val timeLeftMillis = remember(reading, orderCard, readingTimeLeftMillis) {
+        orderCard?.let { card -> card.progress?.let { progress -> readingTimeLeftMillis(card.item, progress) } }
+            ?: reading?.let { shelfItem -> readingTimeLeftMillis(shelfItem.item, shelfItem.progress) }
     }
-    val tabs = remember(state) { libraryShelfTabCounts(state, readingCardItemId = reading?.item?.id) }
+    val tabs = remember(state, cardItemId) { libraryShelfTabCounts(state, readingCardItemId = cardItemId) }
     var selectedTabName by rememberSaveable(browseContextKey) { mutableStateOf(LibraryShelfTab.InProgress.name) }
     val selectedTab = tabs.firstOrNull { (tab, _) -> tab.name == selectedTabName }?.first ?: tabs.firstOrNull()?.first
     // Keys carry the cover version, so they are rebuilt when covers are reset or refreshed.
@@ -87,7 +91,26 @@ fun LibraryShelvesZone(
         val columns = with(LocalDensity.current) { libraryGridColumns(availableWidth = maxWidth, metrics = gridMetrics) }
         val covers = ShelfCoverLayout(width = columns.cellWidth, imageVariant = gridMetrics.coverImageVariant)
         val card = @Composable { cardModifier: Modifier ->
-            reading?.let { shelfItem ->
+            if (orderCard != null) {
+                LibraryReadingCard(
+                    item = orderCard.item,
+                    progress = orderCard.progress,
+                    overline = orderCard.overline,
+                    coverWidth = covers.width,
+                    compact = compact,
+                    coverImageUrlProvider = coverImageUrlProvider,
+                    onCoverVisible = onCoverVisible,
+                    imageVariant = covers.imageVariant,
+                    onContinue = orderCard.onRead,
+                    continueLabel = orderCard.readLabel,
+                    actionContext = itemActionContext,
+                    timeLeftMillis = timeLeftMillis,
+                    secondaryLabel = "Open list",
+                    onSecondary = orderCard.onOpenList,
+                    footnote = orderCard.thenLine,
+                    modifier = cardModifier,
+                )
+            } else reading?.let { shelfItem ->
                 LibraryReadingCard(
                     item = shelfItem.item,
                     progress = shelfItem.progress,
@@ -111,7 +134,7 @@ fun LibraryShelvesZone(
                     tabs = tabs,
                     selectedTab = selectedTab,
                     onTabSelected = { tab -> selectedTabName = tab.name },
-                    readingCardItemId = reading?.item?.id,
+                    readingCardItemId = cardItemId,
                     itemActionContext = itemActionContext,
                     coverImageUrlProvider = coverImageUrlProvider,
                     covers = covers,
@@ -123,7 +146,7 @@ fun LibraryShelvesZone(
             }
         }
         val cardWidth = columns.readingCardWidth(gridMetrics.spacing)
-        if (reading != null && selectedTab != null && cardWidth != null) {
+        if (cardItemId != null && selectedTab != null && cardWidth != null) {
             // The card is as tall as the tabs and the strip beside it, so their bottoms line up.
             Row(
                 modifier = Modifier.height(IntrinsicSize.Min),

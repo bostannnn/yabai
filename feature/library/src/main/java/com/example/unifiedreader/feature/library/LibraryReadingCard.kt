@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
@@ -65,6 +66,11 @@ fun LibraryReadingCard(
     continueLabel: String = "Continue",
     actionContext: LibraryItemActionContext = LibraryItemActionContext(),
     timeLeftMillis: Long? = null,
+    // The second button: Details (the book page) unless given, as Open list on a reading order's card.
+    secondaryLabel: String = "Details",
+    onSecondary: (() -> Unit)? = null,
+    // A line under the progress, as a reading order's "Then ..." names the books after this one.
+    footnote: String? = null,
 ) {
     val lastReadAt = progress?.lastReadAtEpochMillis ?: 0L
     val headline = remember(overline, lastReadAt) {
@@ -128,8 +134,9 @@ fun LibraryReadingCard(
                 modifier = if (fillContinue) Modifier.weight(1f) else Modifier,
             )
             LibraryReadingCardDetails(
+                label = secondaryLabel,
                 colors = colors,
-                onClick = { actionContext.onOpenItemPage(item) },
+                onClick = onSecondary ?: { actionContext.onOpenItemPage(item) },
             )
         }
     }
@@ -157,6 +164,7 @@ fun LibraryReadingCard(
                     }
                 }
                 LibraryReadingCardProgress(progress, timeLeftMillis, colors, Modifier.padding(top = 16.dp))
+                footnote?.let { LibraryReadingCardFootnote(it, colors) }
                 Box(modifier = Modifier.padding(top = 16.dp)) { actions(true) }
             }
         } else {
@@ -180,6 +188,7 @@ fun LibraryReadingCard(
                     Spacer(modifier = Modifier.weight(1f))
                     // At least this much under the place, so a two-line title doesn't run into the progress.
                     LibraryReadingCardProgress(progress, timeLeftMillis, colors, Modifier.padding(top = 12.dp))
+                    footnote?.let { LibraryReadingCardFootnote(it, colors) }
                     Box(modifier = Modifier.padding(top = 16.dp)) { actions(false) }
                 }
             }
@@ -211,9 +220,22 @@ private fun LibraryReadingCardContinue(
     }
 }
 
-/** Details opens the item's book page. */
+@Composable
+private fun LibraryReadingCardFootnote(text: String, colors: LibraryReadingCardColors) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = colors.content.copy(alpha = 0.8f),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.padding(top = AppLayout.headingGap),
+    )
+}
+
+/** Details opens the item's book page; a reading order's card puts Open list here instead. */
 @Composable
 private fun LibraryReadingCardDetails(
+    label: String,
     colors: LibraryReadingCardColors,
     onClick: () -> Unit,
 ) {
@@ -223,7 +245,7 @@ private fun LibraryReadingCardDetails(
         colors = AppButtonDefaults.tonalColors(containerColor = colors.track, contentColor = colors.content),
         contentPadding = LibraryReadingCardDefaults.buttonPadding,
     ) {
-        Text(text = "Details", style = LibraryReadingCardDefaults.buttonTextStyle())
+        Text(text = label, style = LibraryReadingCardDefaults.buttonTextStyle())
     }
 }
 

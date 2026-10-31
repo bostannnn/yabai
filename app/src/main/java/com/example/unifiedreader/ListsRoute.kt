@@ -93,20 +93,7 @@ internal fun ListsRoute(
     BackHandler(enabled = state.openListId != null) { state.back() }
 
     fun openBook(list: UserList, book: UserListBook) {
-        val item = book.item ?: return
-        if (list.kind == UserListKind.User || list.kind == UserListKind.WantToRead) listsViewModel.markOpened(list.id)
-        viewModel.onListItemSelected(
-            item = item,
-            listContext = if (list.isReadingOrder && list.isEditable) {
-                AppReaderListContext(
-                    listId = list.id,
-                    title = list.name,
-                    itemIds = list.sortedEntries().map { entry -> entry.itemId },
-                )
-            } else {
-                null
-            },
-        )
+        openBookFromList(viewModel, listsViewModel, list, book.item ?: return)
     }
 
     val draft = state.editDraft
@@ -267,4 +254,29 @@ private fun rememberListCover(viewModel: AppViewModel): ListCover = remember(vie
             modifier = modifier,
         )
     }
+}
+
+/**
+ * Opens [item] from [list]: the list becomes the one under way, and a reading order goes along
+ * with the book, so Read next follows it.
+ */
+internal fun openBookFromList(
+    viewModel: AppViewModel,
+    listsViewModel: AppListsViewModel,
+    list: UserList,
+    item: ReadableItem,
+) {
+    if (list.kind == UserListKind.User || list.kind == UserListKind.WantToRead) listsViewModel.markOpened(list.id)
+    viewModel.onListItemSelected(
+        item = item,
+        listContext = if (list.isReadingOrder && list.isEditable) {
+            AppReaderListContext(
+                listId = list.id,
+                title = list.name,
+                itemIds = list.sortedEntries().map { entry -> entry.itemId },
+            )
+        } else {
+            null
+        },
+    )
 }

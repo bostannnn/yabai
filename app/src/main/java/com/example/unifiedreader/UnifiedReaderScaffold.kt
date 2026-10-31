@@ -136,6 +136,10 @@ fun UnifiedReaderScaffold(
     var settingsScrolled by remember { mutableStateOf(false) }
     var journalScrolled by remember { mutableStateOf(false) }
     val listsState = listsViewModel?.routeState ?: rememberListsRouteState()
+    val openListOnLists: (String) -> Unit = { listId ->
+        listsState.openList(listId)
+        viewModel.onTopLevelSelected(TopLevelDestination.Lists)
+    }
     // Add to list for a book's page (the page stays under the sheet) or for a selection.
     var addToListItems by remember { mutableStateOf<List<ReadableItem>?>(null) }
     var addToListFromBookPage by remember { mutableStateOf(false) }
@@ -420,9 +424,9 @@ fun UnifiedReaderScaffold(
                                     }
                                 },
                                 listsContaining = listsViewModel?.let { rememberBookListMemberships(it, uiState) } ?: { emptyList() },
-                                onOpenList = { listId ->
-                                    listsState.openList(listId)
-                                    viewModel.onTopLevelSelected(TopLevelDestination.Lists)
+                                onOpenList = openListOnLists,
+                                readingOrderCard = listsViewModel?.let {
+                                    rememberHomeReadingOrderCard(it, viewModel, uiState, onOpenList = openListOnLists)
                                 },
                                 bookPageRequest = pendingBookPageItemId,
                                 onBookPageRequestHandled = { pendingBookPageItemId = null },

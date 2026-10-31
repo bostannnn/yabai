@@ -29,6 +29,7 @@ import com.example.unifiedreader.feature.library.LibraryGridMetrics
 import com.example.unifiedreader.feature.library.LibraryHeader
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
 import com.example.unifiedreader.feature.library.LibraryItemListMembership
+import com.example.unifiedreader.feature.library.LibraryReadingOrderCard
 import com.example.unifiedreader.feature.library.LibraryListScopeTopContent
 import com.example.unifiedreader.feature.library.LibraryReadingListScopeState
 import com.example.unifiedreader.feature.library.LibraryScreen
@@ -107,6 +108,8 @@ internal fun LibraryRoute(
     // The book page's In your lists, and opening one of them.
     listsContaining: (ReadableItem) -> List<LibraryItemListMembership> = { emptyList() },
     onOpenList: (String) -> Unit = {},
+    // The home's card when it follows a reading order.
+    readingOrderCard: LibraryReadingOrderCard? = null,
     bookPageRequest: String? = null,
     onBookPageRequestHandled: () -> Unit = {},
     contentTopInset: Dp = 0.dp,
@@ -143,6 +146,7 @@ internal fun LibraryRoute(
         onAddToList = onAddToList,
         listsContaining = listsContaining,
         onOpenList = onOpenList,
+        readingOrderCard = readingOrderCard,
     )
     // One screen for See all whichever shelf it shows: its tabs switch in place.
     val screen = libraryScreenKey(uiState, shelvesOpen = activeShelfBrowserKind != null)

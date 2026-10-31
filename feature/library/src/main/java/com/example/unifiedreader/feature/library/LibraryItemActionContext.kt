@@ -24,6 +24,22 @@ data class LibraryItemActionContext(
     // The lists the item is in, for the book page's In your lists, and opening one of them.
     val listsContaining: (ReadableItem) -> List<LibraryItemListMembership> = { emptyList() },
     val onOpenList: (listId: String) -> Unit = {},
+    // The home's reading card when it follows a reading order; null: it shows the book read last.
+    val readingOrderCard: LibraryReadingOrderCard? = null,
+)
+
+/**
+ * The library home's card when it follows a reading order: the order's next book, "Next in The
+ * Long Eclipse · 7 of 14", the two after it ("Then ..."), Read and Open list.
+ */
+data class LibraryReadingOrderCard(
+    val item: ReadableItem,
+    val progress: ItemProgressSummary?,
+    val overline: String,
+    val readLabel: String,
+    val thenLine: String?,
+    val onRead: () -> Unit,
+    val onOpenList: () -> Unit,
 )
 
 /** A list a book is in, as its book page names it: "The Long Eclipse", "Number 6 of 14 · Read next follows this list". */
