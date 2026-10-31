@@ -312,8 +312,18 @@ private fun NumberValues(rule: ListRule, onChange: (ListRule) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(AppLayout.gridGap),
     ) {
         when (rule.operator) {
-            ListRuleOperator.Under -> NumberField(label = if (year) "Before" else "Under", value = rule.high, onChange = { onChange(rule.copy(high = it)) })
-            ListRuleOperator.Over -> NumberField(label = if (year) "After" else "Over", value = rule.low, onChange = { onChange(rule.copy(low = it)) })
+            ListRuleOperator.Under -> NumberField(
+                label = if (year) "Before" else "Under",
+                value = rule.high,
+                onChange = { onChange(rule.copy(high = it)) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            ListRuleOperator.Over -> NumberField(
+                label = if (year) "After" else "Over",
+                value = rule.low,
+                onChange = { onChange(rule.copy(low = it)) },
+                modifier = Modifier.fillMaxWidth(),
+            )
             else -> Row(horizontalArrangement = Arrangement.spacedBy(AppLayout.gridGap)) {
                 NumberField(label = "From", value = rule.low, onChange = { onChange(rule.copy(low = it)) }, modifier = Modifier.weight(1f))
                 NumberField(label = "To", value = rule.high, onChange = { onChange(rule.copy(high = it)) }, modifier = Modifier.weight(1f))
