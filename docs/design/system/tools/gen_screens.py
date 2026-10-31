@@ -1,7 +1,7 @@
 # Screen mocks for the yabai design system (dp = px). Run after gen_components.py.
 import sys
 sys.path.insert(0, __import__("os").path.dirname(__import__("os").path.abspath(__file__)))
-from gen_components import comp, ic, row, group, cover, theme_preview, chev, DIV  # noqa: E402
+from gen_components import comp, ic, row, group, cover, theme_preview, chev, DIV, list_cover  # noqa: E402
 
 TOGGLE_SCRIPT = """<script>
 (function(){
@@ -40,7 +40,7 @@ def rail(selected):
         return f'<div class="{cls}"><span>{ic(icon)}</span><span>{label}</span></div>'
     return (f'<nav class="yb-rail" style="justify-content:space-between;height:100%">'
             f'<div style="display:flex;flex-direction:column;gap:12px;align-items:center">{item("collections_bookmark", "Kavita")}{item("cloud", "Grimmory")}{item("folder", "Local")}{item("add", "Add")}</div>'
-            f'<div style="display:flex;flex-direction:column;gap:12px;align-items:center">{item("history", "Journal")}{item("settings", "Settings")}</div></nav>')
+            f'<div style="display:flex;flex-direction:column;gap:12px;align-items:center">{item("checklist", "Lists")}{item("history", "Journal")}{item("settings", "Settings")}</div></nav>')
 
 
 def theme_tile(name, bg, a, b, c, selected=False):
@@ -252,6 +252,71 @@ The journal's month: the period with its arrows and Month / Year, the numbers, t
 <div class="yb" style="padding:16px">
   {TOGGLE}
   <div id="screens"><div class="yb-caption" style="margin-bottom:8px">Expanded, 1280 × 800</div>{journal}</div>
+</div>""", width=1312, page=True, script=TOGGLE_SCRIPT)
+
+
+# ------------------------------------------------------------------ Lists (Expanded landscape)
+def list_tile(name, caption, indices, smart=False):
+    badge = (f'<span style="position:absolute;right:8px;top:8px;width:32px;height:32px;border-radius:50%;background:var(--surface-container-high);'
+             f'display:flex;align-items:center;justify-content:center">{ic("tune", 18)}</span>') if smart else ""
+    return (f'<div><div style="position:relative">{list_cover(indices)}{badge}</div>'
+            f'<div class="yb-book-title" style="margin-top:6px;font-size:14px">{name}</div><div class="yb-caption">{caption}</div></div>')
+
+
+lists = f"""
+<div class="yb-device" style="width:{W}px;height:{H}px">
+  {statusbar()}
+  <div class="yb-device-body">
+    {rail("Lists")}
+    <div class="yb-pane" style="--yb-gutter:24px">
+      <div class="yb-bar"><div class="yb-search">{ic("search")}<span>Search lists</span></div><span class="yb-spacer"></span><button class="yb-icon-btn">{ic("add")}</button><button class="yb-icon-btn">{ic("more_vert")}</button></div>
+      <div class="yb-scroll">
+        <div class="yb-panel" style="padding:20px;display:flex;gap:20px;align-items:center">
+          {cover(5, width=88)}
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+            <span class="yb-caption" style="font-weight:600">Your order · 7 of 14 · read yesterday</span>
+            <span style="font:700 24px/30px var(--font-sans)">The Long Eclipse</span>
+            <span class="yb-supporting">Next: Star Courier #2</span>
+            <div class="yb-progress" style="margin-top:8px"><i style="width:43%"></i></div>
+          </div>
+          <button class="yb-btn is-filled">Continue</button>
+        </div>
+        <div class="yb-group">
+          <h2 class="yb-section-heading">Your lists <span class="yb-count">4</span></h2>
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:16px">
+            {list_tile("Want to read", "9 books", [1, 2, 4, 7])}
+            {list_tile("Stalled", "Updates itself · 4", [3, 0, 6, 2], smart=True)}
+            {list_tile("The Long Eclipse", "Your order · 6 of 14", [0, 3, 5, 6])}
+            {list_tile("Comfort rereads", "8 books", [7, 1, 2, 3])}
+          </div>
+        </div>
+        <div class="yb-group">
+          <h2 class="yb-section-heading">Kavita reading lists <span class="yb-count">2</span></h2>
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:16px">
+            {list_tile("Harbor Lights, in order", "32 issues", [5, 5, 5, 5])}
+            {list_tile("Eclipse War", "22 issues", [0, 4, 5, 3])}
+          </div>
+        </div>
+      </div>
+      <div class="yb-spec">{g(24)}<span class="t" style="left:28px;top:30px">24 gutter</span>{h(84)}<span class="t" style="left:520px;top:62px">84 content top</span></div>
+    </div>
+  </div>
+</div>"""
+
+comp("ListsScreen", "Screens", 900, """
+# Lists
+
+Every list in one place, beside the sources in the rail and the drawer: the reading order you are in the middle of, then your lists, then each server's lists.
+
+- **No screen title.** The rail says Lists; the bar holds "Search lists", New list (`add`) and a menu.
+- **The card** is the reading order opened most recently that still has an unread book: what is next, the order's position and an `AppProgressBar`, and Continue. It is an `AppPanel` with `inset` 20; it is not shown when no order is under way.
+- **Your lists** (on this tablet, any source): Want to read first, then Stalled (books started and not opened for 21 days, worked out on its own: the `tune` badge), then the lists you made, most recently opened first. **Kavita reading lists** follow, holding only Kavita issues; a tap opens the list in the Kavita library.
+- Sections are `AppSectionHeading` on the gutter line with `section-gap` 24 between them; tiles are `AppListCover` in the library grid's columns and gap, the name at 14 SemiBold and one caption line.
+- A list's page: `AppListCover` 132, the name in `display-title`, its description and "14 books · 6 read", Continue, Edit, the Order chip (Your order / Date added / Title) and Hide finished; the books are `AppBookRow`s in an `AppPanel`, numbered in Your order.
+""", f"""
+<div class="yb" style="padding:16px">
+  {TOGGLE}
+  <div id="screens"><div class="yb-caption" style="margin-bottom:8px">Expanded, 1280 × 800</div>{lists}</div>
 </div>""", width=1312, page=True, script=TOGGLE_SCRIPT)
 
 print("screens written")

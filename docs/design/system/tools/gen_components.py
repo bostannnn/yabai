@@ -188,8 +188,9 @@ comp("AppBookRow", "Lists", 300, """
 
 One row for a book in a list: a 40 wide cover, the title at 15 SemiBold, one line under it at 13 `on-surface-variant`, an optional trailing value or action.
 
-- Kit: `AppBookRow(title, cover, onClick, contentPadding, supporting, trailing)` and `AppBookRowLine(text, color, maxLines)` for the usual line; `AppBookRowDefaults.coverWidth` 40.
-- The journal's What you read, a journal day's books and the downloads list all use it.
+- Kit: `AppBookRow(title, cover, onClick, contentPadding, supporting, trailing, leading)` and `AppBookRowLine(text, color, maxLines)` for the usual line; `AppBookRowDefaults.coverWidth` 40.
+- The journal's What you read, a journal day's books, the downloads list and a list page all use it.
+- A list in an order you set numbers its rows: `AppBookRowNumber(n)` in `leading`, 15 Bold `on-surface-variant`, right-aligned in 24, 14 before the cover. A book that left the library keeps its row at 55% from the copy saved with the list.
 - 14 from the cover to the text; the caller pads the row to its surface's inset. Progress, when shown, is an `AppProgressBar` under the line.
 """, f"""
 <div class="yb yb-ground" style="padding:24px;width:460px">
@@ -197,18 +198,20 @@ One row for a book in a list: a 40 wide cover, the title at 15 SemiBold, one lin
     <div class="yb-book-row">{cover(0)}<div style="flex:1;min-width:0"><div class="yb-book-title">The Lantern Keepers</div><div class="yb-book-line">Chapter 1 of 6 · 4%</div><div class="yb-progress" style="margin-top:8px"><i style="width:4%"></i></div></div><span class="yb-supporting">9 h 43 min</span></div>
     {DIV}
     <div class="yb-book-row">{cover(3)}<div style="flex:1;min-width:0"><div class="yb-book-title">Moths of Lisbon</div><div class="yb-book-line">Finished 24 Oct · Book</div></div><button class="yb-btn is-tonal">Rate</button></div>
+    {DIV}
+    <div class="yb-book-row"><span style="width:24px;text-align:right;font:700 15px/20px var(--font-sans);color:var(--on-surface-variant)">7</span>{cover(5)}<div style="flex:1;min-width:0"><div class="yb-book-title">Star Courier #2</div><div class="yb-book-line">Star Courier · Kavita</div></div></div>
   </div>
 </div>""", width=508)
 
 # ---------------------------------------------------------------- Text
 comp("AppSectionHeading", "Text", 200, """
-# AppSectionHeading (not yet in the kit)
+# AppSectionHeading
 
-The heading on the page ground above a grid or a list: `section-heading` 20 Bold (18 on phones) with an optional count in 15 SemiBold `on-surface-variant`, and optional actions at the end.
+The heading on the page ground above a grid or a list: `section-heading` 20 Bold (18 on phones) with an optional count in 15 SemiBold `on-surface-variant`, and optional actions at the end of its row.
 
-- Only the library uses this heading, as `LibraryGridHeadingText` in feature:library; it moves into the kit as `AppSectionHeading(text, count, actions)` when a second screen needs it.
+- Kit: `AppSectionHeading(text, count)`; the caller puts actions (Filters, sort, Hide finished) after it in the same row.
 - It sits **on the gutter line**, flush with the grid under it, `heading-gap` 8 above it.
-- Use it for the library's All books, a search's Results, and the shelf browser.
+- Use it for the library's All books, a search's Results, the shelf browser, and the Lists screen's sections (Your lists, Kavita reading lists) and a list page's books.
 - Not inside panels (a panel's title is its own) and not in sheets (`AppPanelHeader`, then `sheet-label`s).
 """, f"""
 <div class="yb yb-ground" style="padding:24px;width:760px">
@@ -218,6 +221,30 @@ The heading on the page ground above a grid or a list: `section-heading` 20 Bold
   </div>
   <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-top:8px">{''.join(cover(i) for i in range(5))}</div>
 </div>""", width=808)
+
+
+def list_cover(indices, width=None):
+    w = f"width:{width}px;" if width else ""
+    cells = "".join(f'<span style="background:{COVERS[i % len(COVERS)][2]}"></span>' for i in indices)
+    cells += "".join('<span></span>' for _ in range(4 - len(indices)))
+    return (f'<div style="{w}aspect-ratio:2/3;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;'
+            f'border-radius:var(--radius-cover);overflow:hidden;background:var(--surface-container-high)">{cells}</div>')
+
+
+comp("AppListCover", "Lists", 330, """
+# AppListCover
+
+A list's cover: its first four books' covers in a 2×2 mosaic, at a cover's 2:3 and `radius-cover`, 2 apart. A list reads apart from a book (one cover) and a series (one cover with a stack behind it).
+
+- Kit: `AppListCover(count, cell = { index, modifier -> ... })`; the caller draws each cover (the library's cover composable) filling the modifier it gets. Fewer than four books leave the other cells in `surface-container-high`; an empty list is all four.
+- Used for list tiles on the Lists screen (the grid's cover width) and the list page's header (132).
+- A list that updates itself (Stalled) adds a 32 round badge with the `tune` icon at its top end, on `surface-container-high`.
+""", f"""
+<div class="yb yb-ground" style="padding:24px;width:520px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+  <div>{list_cover([0, 3, 5, 6])}<div class="yb-book-title" style="margin-top:6px">The Long Eclipse</div><div class="yb-caption">Your order · 6 of 14</div></div>
+  <div>{list_cover([1, 2])}<div class="yb-book-title" style="margin-top:6px">Want to read</div><div class="yb-caption">2 books</div></div>
+  <div style="position:relative">{list_cover([4, 7, 2, 0])}<span style="position:absolute;right:8px;top:8px;width:32px;height:32px;border-radius:50%;background:var(--surface-container-high);display:flex;align-items:center;justify-content:center">{ic("tune", 18)}</span><div class="yb-book-title" style="margin-top:6px">Stalled</div><div class="yb-caption">Updates itself · 4</div></div>
+</div>""", width=568)
 
 # ---------------------------------------------------------------- Surfaces
 comp("AppPanelHeader", "Surfaces", 300, """

@@ -216,6 +216,9 @@ Use this ownership map when deciding where code goes.
   - download workflows and download-facing UI
 - `feature:journal`
   - journal entries, journal stats, and journal-facing UI/state
+- `feature:lists`
+  - the user's own lists and reading orders (Want to read, Stalled, lists that mix sources):
+    the Room-backed store, list logic (order, next to read, Stalled) and the Lists screens and sheets
 - `feature:settings`
   - settings UI and settings-facing state
 - `feature:updates`

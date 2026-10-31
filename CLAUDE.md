@@ -18,6 +18,8 @@ Icons artifacts; a unit test enforces this. UI font: bundled Manrope; icons: Mat
 - `UI_REDESIGN_PLAN.md` tracks the visual redesign: what's done, what's left, and the design decisions.
 - `APP_REVIEW.md` is the live tracker for the 2026-10-18 app review: the prioritized fix list, what is
   fixed (with commits), what is next, and the product decisions. Its status section says where work stopped.
+- `LISTS_PLAN.md` is the live handoff for the lists feature (your own lists and reading orders): what version 1
+  holds, what waits for version 2, and the ownership of each piece.
 - `CURRENT_STATUS.md`, `ROADMAP.md` and the other plan docs are historical (April-July 2026).
 
 ## UI work (design system)
@@ -68,7 +70,7 @@ export ANDROID_HOME=~/Library/Android/sdk_new
   that resumes on Main (anything behind a `Dispatchers.IO` hop): the looper can't run and the
   suite hangs with no timeout. Poll while idling the looper instead (`waitForUiState { ... }`).
   If `testDebugUnitTest` stops progressing, `jstack` the Gradle Test Executor JVM.
-- Room schema is v29 (`core/database/.../UnifiedReaderDatabase.kt`), `exportSchema = false`,
+- Room schema is v31 (`core/database/.../UnifiedReaderDatabase.kt`), `exportSchema = false`,
   no destructive fallback: every version bump needs a migration.
 
 ## Release build (signed)
