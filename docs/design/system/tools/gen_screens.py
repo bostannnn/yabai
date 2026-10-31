@@ -263,8 +263,18 @@ def list_tile(name, caption, indices, smart=False):
             f'<div class="yb-book-title" style="margin-top:6px;font-size:14px">{name}</div><div class="yb-caption">{caption}</div></div>')
 
 
+LISTS_H = 1180  # the whole page, down to the Grimmory shelves
+
+
+def check_box(on):
+    if on:
+        return (f'<span style="width:22px;height:22px;border-radius:6px;background:var(--primary);color:var(--on-primary);'
+                f'display:flex;align-items:center;justify-content:center;flex:none">{ic("check", 18)}</span>')
+    return '<span style="width:22px;height:22px;border-radius:6px;box-shadow:inset 0 0 0 2px var(--outline);flex:none"></span>'
+
+
 lists = f"""
-<div class="yb-device" style="width:{W}px;height:{H}px">
+<div class="yb-device" style="width:{W}px;height:{LISTS_H}px">
   {statusbar()}
   <div class="yb-device-body">
     {rail("Lists")}
@@ -297,13 +307,52 @@ lists = f"""
             {list_tile("Eclipse War", "22 issues", [0, 4, 5, 3])}
           </div>
         </div>
+        <div class="yb-group">
+          <h2 class="yb-section-heading">Grimmory shelves <span class="yb-count">2</span></h2>
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:16px">
+            {list_tile("Book club", "5 books · by title", [6, 2, 4, 1])}
+            {list_tile("Next summer", "7 books · date added", [0, 7, 3, 2])}
+          </div>
+        </div>
       </div>
       <div class="yb-spec">{g(24)}<span class="t" style="left:28px;top:30px">24 gutter</span>{h(84)}<span class="t" style="left:520px;top:62px">84 content top</span></div>
     </div>
   </div>
 </div>"""
 
-comp("ListsScreen", "Screens", 900, """
+
+
+def check_row(title, sup, on):
+    return (f'<div class="yb-row is-dense"><span class="yb-row-text"><span class="yb-row-title">{title}</span>'
+            f'<span class="yb-supporting">{sup}</span></span>{check_box(on)}</div>')
+
+
+add_to_list = f"""
+<div class="yb-sheet" style="height:720px">
+  <div class="yb-panel-header has-back"><button class="yb-icon-btn">{ic("arrow_back")}</button><div class="yb-panel-header-text"><h2 class="yb-panel-title">Add to list</h2><span class="yb-panel-sub">The Salt Orchard</span></div><button class="yb-icon-btn">{ic("close")}</button></div>
+  {check_row("Want to read", "9 books", False)}
+  <div class="yb-divider is-full"></div>
+  <div class="yb-sheet-section"><h3 class="yb-sheet-label">Your lists</h3></div>
+  {check_row("The Long Eclipse", "14 books", False)}
+  {check_row("Comfort rereads", "8 books", True)}
+  <div class="yb-divider is-full"></div>
+  <div class="yb-sheet-section"><h3 class="yb-sheet-label">Grimmory shelves</h3></div>
+  {check_row("Book club", "5 books", True)}
+  {check_row("Next summer", "7 books", False)}
+  {row("New list", icon="add", trailing=None, dense=True)}
+  <p class="yb-caption" style="padding:12px 20px 0">Your lists stay on this tablet and can mix books from every source. Grimmory shelves hold only Grimmory books and are kept on the server.</p>
+</div>"""
+
+new_list = f"""
+<div class="yb-dialog" style="width:380px">
+  <h2 class="yb-dialog-title">New list</h2>
+  <span class="yb-field"><span class="yb-field-label">Name</span>Book club</span>
+  <div class="yb-seg"><span>On this device</span><span class="is-selected">On Grimmory</span></div>
+  <div class="yb-supporting" style="color:var(--on-surface-variant)">A Grimmory shelf, also in Grimmory's web app. Grimmory books only, in no set order.</div>
+  <div class="yb-dialog-actions"><button class="yb-btn is-text">Cancel</button><button class="yb-btn is-filled">Create</button></div>
+</div>"""
+
+comp("ListsScreen", "Screens", 2100, """
 # Lists
 
 Every list in one place, beside the sources in the rail and the drawer: the reading order you are in the middle of, then your lists, then each server's lists.
@@ -311,12 +360,18 @@ Every list in one place, beside the sources in the rail and the drawer: the read
 - **No screen title.** The rail says Lists; the bar holds "Search lists", New list (`add`) and a menu.
 - **The card** is the reading order opened most recently that still has an unread book: what is next, the order's position and an `AppProgressBar`, and Continue. It is an `AppPanel` with `inset` 20; it is not shown when no order is under way.
 - **Your lists** (on this tablet, any source): Want to read first, then Stalled (books started and not opened for 21 days, worked out on its own: the `tune` badge), then the lists you made, most recently opened first. **Kavita reading lists** follow, holding only Kavita issues; a tap opens the list in the Kavita library.
+- **Grimmory shelves** come last, while Grimmory is connected: your shelves and the public ones, holding only Grimmory books, by name. The caption says the shelf's order ("5 books · by title"). They are kept on the server; the app refreshes them when Lists opens (at most every five minutes) and keeps the last copy for offline.
 - Sections are `AppSectionHeading` on the gutter line with `section-gap` 24 between them; tiles are `AppListCover` in the library grid's columns and gap, the name at 14 SemiBold and one caption line.
 - A list's page: `AppListCover` 132, the name in `display-title`, its description and "14 books · 6 read", Continue, Edit, the Order chip (Your order / Date added / Title) and Hide finished; the books are `AppBookRow`s in an `AppPanel`, numbered in Your order.
+- **A shelf's page** is the same page. A Grimmory shelf has no order of its own, so the Order chip offers Date added (to Grimmory) and Title, and a shelf is never a reading order. Edit renames it, removes books and deletes the shelf, each saved on Grimmory with Done; there is no description and no dragging. Someone else's public shelf has no Edit.
+- **Add to list** (`AppSideSheet`, `AppPanelHeader` "Add to list" and the book): Want to read, then Your lists under an `AppSheetLabel`, then Grimmory shelves (yours only) when every book being added is a Grimmory book, each an `AppSettingsRow` with `AppCheckbox`; New list; one caption line saying where each kind lives. A tap saves at once; for a shelf that is on the server, and a failure says so in a toast and leaves the box as it was.
+- **New list** (`AppDialogCard`): the name, then where to keep it, an `AppSegmentedRow` "On this device" / "On Grimmory" with one line under it saying what that means. The choice shows only while Grimmory is connected and every book going in is a Grimmory book.
 """, f"""
 <div class="yb" style="padding:16px">
   {TOGGLE}
-  <div id="screens"><div class="yb-caption" style="margin-bottom:8px">Expanded, 1280 × 800</div>{lists}</div>
+  <div id="screens"><div class="yb-caption" style="margin-bottom:8px">Expanded, 1280 wide, the whole page</div>{lists}</div>
+  <div class="yb-caption" style="margin:24px 0 8px">Add to list for a Grimmory book, and New list kept on Grimmory</div>
+  <div class="yb-ground" style="display:flex;gap:40px;align-items:flex-start;padding:24px">{add_to_list}{new_list}</div>
 </div>""", width=1312, page=True, script=TOGGLE_SCRIPT)
 
 print("screens written")
