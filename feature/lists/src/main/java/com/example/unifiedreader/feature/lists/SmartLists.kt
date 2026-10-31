@@ -5,45 +5,97 @@ import com.example.unifiedreader.core.model.LibraryFileLocation
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibraryPageRange
 import com.example.unifiedreader.core.model.LibraryReadingStatus
+import com.example.unifiedreader.core.model.ListRuleContext
+import com.example.unifiedreader.core.model.ListRules
+import com.example.unifiedreader.core.model.decodeListRules
+import com.example.unifiedreader.core.model.encode
+import com.example.unifiedreader.core.model.matches
+import com.example.unifiedreader.core.model.toListRules
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.core.model.applyLibraryFilters
 import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.core.model.isStumpSeriesContainer
 import com.example.unifiedreader.feature.library.ItemProgressSummary
 import java.net.URLDecoder
 import java.net.URLEncoder
 
-/** A smart list's filters: one library's ([sourceType]) filters, as the Filters sheet held them. */
+/** A smart list as it is kept: its rules and how many of its matches it shows ([limit] null: every one). */
+data class SmartListSpec(
+    val rules: ListRules,
+    val limit: Int? = null,
+)
+
+/** How many matches a smart list can keep, for its editor's How many. */
+val SmartListLimits: List<Int?> = listOf(null, 10, 25, 50)
+
+/** A smart list's filters as lists saved them before rules: one library's ([sourceType]) filters, as the Filters sheet held them. */
 data class SmartListFilter(
     val sourceType: SourceType,
     val filters: LibraryFilterState,
 )
 
+/** Writes [this] as the text `user_lists.smartFilter` keeps: the rules, then `limit=` when it has one. */
+fun SmartListSpec.encode(): String = rules.encode() + (limit?.let { "\nlimit=$it" } ?: "")
+
+/** Reads a smart list's text: its rules, or the filters of one saved before rules, as rules. Null for anything else. */
+fun decodeSmartListSpec(text: String?): SmartListSpec? {
+    decodeListRules(text)?.let { rules ->
+        val limit = text.orEmpty().lines().firstOrNull { it.startsWith("limit=") }?.removePrefix("limit=")?.toIntOrNull()
+        return SmartListSpec(rules = rules, limit = limit)
+    }
+    return decodeSmartListFilter(text)?.let { old -> SmartListSpec(rules = old.filters.toListRules(old.sourceType)) }
+}
+
+/** What this device knows of your reading and downloads, as the rules ask it. */
+fun listRuleContext(
+    progressByItemId: Map<String, ItemProgressSummary>,
+    onDevice: Set<String>,
+    nowEpochMillis: Long,
+): ListRuleContext = ListRuleContext(
+    nowEpochMillis = nowEpochMillis,
+    readingStatus = { item -> progressByItemId[item.id].readingStatus() },
+    lastReadAtEpochMillis = { item -> progressByItemId[item.id]?.lastReadAtEpochMillis?.takeIf { it > 0L } },
+    isDownloaded = { item -> item.isLocalImport || item.id in onDevice },
+)
+
+/** The books and issues rules can pick from (not whole series), from [sourceType] alone when given (a magic shelf's). */
+fun smartListPool(items: Collection<ReadableItem>, sourceType: SourceType? = null): List<ReadableItem> = items.filter { item ->
+    !item.isKavitaSeriesContainer() && !item.isStumpSeriesContainer() && (sourceType == null || item.sourceType == sourceType)
+}
+
+/** The books [rules] pick out of [pool] now, in [order], at most [limit]: a smart list's entries. */
+fun smartListEntries(
+    rules: ListRules,
+    pool: List<ReadableItem>,
+    context: ListRuleContext,
+    order: UserListOrder,
+    limit: Int?,
+): List<UserListEntry> {
+    if (rules.isEmpty) return emptyList()
+    val entries = pool
+        .filter { item -> rules.matches(item, context) }
+        .map { item -> item.toUserListEntry(position = 0, addedAtEpochMillis = item.addedAtEpochMillis ?: 0L) }
+    val sorted = sortEntries(entries, order)
+    return (limit?.let(sorted::take) ?: sorted).mapIndexed { index, entry -> entry.copy(position = index) }
+}
+
 /**
- * The smart lists among [lists] with their books worked out now: the [items] of their library the
- * filters pick out (books and issues, not whole series), each dated by when it was added.
+ * The smart lists among [lists] with their books worked out now: the books and issues of every
+ * source their rules pick out, in each list's order, as many as it keeps.
  */
 fun List<UserList>.withSmartBooks(
     items: Collection<ReadableItem>,
     progressByItemId: Map<String, ItemProgressSummary>,
     onDevice: Set<String>,
-): List<UserList> = map { list ->
-    val smart = list.smartFilter ?: return@map list
-    val pool = items.filter { item ->
-        item.sourceType == smart.sourceType && !item.isKavitaSeriesContainer() && !item.isStumpSeriesContainer()
+    nowEpochMillis: Long = System.currentTimeMillis(),
+): List<UserList> {
+    if (none { it.kind == UserListKind.Smart && it.smart != null }) return this
+    val pool = smartListPool(items)
+    val context = listRuleContext(progressByItemId, onDevice, nowEpochMillis)
+    return map { list ->
+        val smart = list.smart?.takeIf { list.kind == UserListKind.Smart } ?: return@map list
+        list.copy(entries = smartListEntries(smart.rules, pool, context, list.order, smart.limit))
     }
-    val matching = applyLibraryFilters(
-        items = pool,
-        filters = smart.filters,
-        downloadedRemoteItemIds = onDevice,
-        readingStatusProvider = { item -> progressByItemId[item.id].readingStatus() },
-    )
-    list.copy(
-        entries = matching.mapIndexed { index, item ->
-            item.toUserListEntry(position = index, addedAtEpochMillis = item.addedAtEpochMillis ?: 0L)
-        },
-    )
 }
 
 private fun ItemProgressSummary?.readingStatus(): LibraryReadingStatus = when {
@@ -53,7 +105,7 @@ private fun ItemProgressSummary?.readingStatus(): LibraryReadingStatus = when {
     else -> LibraryReadingStatus.NOT_STARTED
 }
 
-/** Writes [this] as the line-per-filter text `user_lists.smartFilter` keeps. */
+/** Writes [this] as the line-per-filter text smart lists kept before rules (kept for tests of the old text). */
 fun SmartListFilter.encode(): String = buildList {
     add("source=${sourceType.name}")
     add("formats=" + filters.formats.joinToString(",") { it.name })

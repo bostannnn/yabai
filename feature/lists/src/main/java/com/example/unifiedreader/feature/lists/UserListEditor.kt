@@ -81,6 +81,7 @@ fun UserListEditor(
     val onServer = serverName != null
     val isShelf = onServer && !canReorder
     val noun = when {
+        draft.kind == UserListKind.ServerCollection -> "collection"
         isShelf -> "shelf"
         onServer -> "reading list"
         else -> "list"
@@ -133,7 +134,7 @@ fun UserListEditor(
             }
             Text(
                 text = when {
-                    isShelf -> "$serverName keeps no order for a shelf, so this one is kept on this tablet. Read next follows each book's series."
+                    isShelf -> "$serverName keeps no order for a $noun, so this one is kept on this device. Read next follows each book's series."
                     onServer -> "In $serverName's order, saved there with Done. Read next follows it when you open a book from it."
                     draft.order == UserListOrder.Custom -> "Numbered, and Read next follows the list when you open a book from it."
                     else -> "Read next follows each book's series."

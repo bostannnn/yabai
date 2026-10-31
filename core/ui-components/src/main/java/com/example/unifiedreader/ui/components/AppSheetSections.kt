@@ -10,6 +10,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -24,8 +25,10 @@ fun AppSheetLabel(
     modifier: Modifier = Modifier,
     // What the section is set to, at the label's end in the accent ("150–300").
     value: String? = null,
+    // The label's side inset; a label inside a dialog card, which is padded already, passes 0.
+    horizontalInset: Dp = AppLayout.inset,
 ) {
-    val labelPadding = Modifier.padding(start = AppLayout.inset, end = AppLayout.inset, top = 14.dp, bottom = 8.dp)
+    val labelPadding = Modifier.padding(start = horizontalInset, end = horizontalInset, top = 14.dp, bottom = 8.dp)
     if (value == null) {
         AppSheetLabelText(text = text, modifier = modifier.then(labelPadding))
         return

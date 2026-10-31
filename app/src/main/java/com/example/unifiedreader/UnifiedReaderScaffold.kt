@@ -424,7 +424,6 @@ fun UnifiedReaderScaffold(
                                 onImportLocalFile = onImportLocalFileClick,
                                 onConnectSource = { server -> onStartSource(SourceStartRequest(SourceStartMode.AddSource, server)) },
                                 onRetrySourceConnection = viewModel::retrySelectedSourceConnection,
-                                onReadingListSelected = viewModel::onKavitaReadingListSelected,
                                 onSortModeChanged = viewModel::onLibrarySortModeChanged,
                                 onViewModeChanged = onLibraryViewModeChanged,
                                 onGridCellSizeDpChanged = viewModel::onLibraryGridCellSizeChanged,
@@ -466,6 +465,10 @@ fun UnifiedReaderScaffold(
                                     listsViewModel = listsViewModel,
                                     contentTopInset = AppTopBarDefaults.contentInset,
                                     modifier = Modifier.fillMaxSize(),
+                                    onOpenSeries = { series ->
+                                        viewModel.openLibrarySource(series.sourceType)
+                                        viewModel.onItemSelected(series)
+                                    },
                                 )
                             }
 

@@ -2,6 +2,7 @@ package com.example.unifiedreader.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -59,7 +60,10 @@ fun AppMenu(
     )
 }
 
-/** A 44 dp menu row. */
+/**
+ * A 44 dp menu row. [supporting] puts a line under the label saying what the choice does (Lists'
+ * New: "You pick the books") and grows the row to 56; keep that to menus whose choices make something.
+ */
 @Composable
 fun AppMenuItem(
     text: @Composable () -> Unit,
@@ -70,11 +74,27 @@ fun AppMenuItem(
     enabled: Boolean = true,
     colors: MenuItemColors = MenuDefaults.itemColors(),
     contentPadding: PaddingValues = AppMenuDefaults.itemPadding,
+    supporting: String? = null,
 ) {
     DropdownMenuItem(
-        text = text,
+        text = if (supporting == null) {
+            text
+        } else {
+            {
+                Column {
+                    text()
+                    Text(
+                        text = supporting,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 16.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        },
         onClick = onClick,
-        modifier = modifier.height(AppMenuDefaults.itemHeight),
+        modifier = modifier.height(if (supporting == null) AppMenuDefaults.itemHeight else AppMenuDefaults.itemWithLineHeight),
         leadingIcon = leadingIcon,
         trailingIcon = trailingIcon,
         enabled = enabled,
@@ -181,6 +201,7 @@ object AppMenuDefaults {
     /** The control radius, like text fields and list rows. */
     val cornerRadius: Dp = 12.dp
     val itemHeight: Dp = 44.dp
+    val itemWithLineHeight: Dp = 56.dp
 
     /** One inset for every item, heading and control in a menu, so they line up. */
     val horizontalPadding: Dp = AppLayout.menuInset

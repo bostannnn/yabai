@@ -173,6 +173,10 @@ interface GrimmoryApi {
     val shelves: GrimmoryShelvesApi
         get() = error("Grimmory shelves are not implemented.")
 
+    /** Grimmory's magic shelves (saved rules), at the same server and session. */
+    val magicShelves: GrimmoryMagicShelvesApi
+        get() = error("Grimmory magic shelves are not implemented.")
+
     suspend fun downloadBookCover(
         accessToken: String,
         bookId: String,
@@ -245,6 +249,7 @@ class KtorGrimmoryApi(
     private val normalizedBaseUrl = baseUrl.trimEnd('/')
 
     override val shelves: GrimmoryShelvesApi = KtorGrimmoryShelvesApi(httpClient, normalizedBaseUrl)
+    override val magicShelves: GrimmoryMagicShelvesApi = KtorGrimmoryMagicShelvesApi(httpClient, normalizedBaseUrl)
 
     override suspend fun login(
         username: String,

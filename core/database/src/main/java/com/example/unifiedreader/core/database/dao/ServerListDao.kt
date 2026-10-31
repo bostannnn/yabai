@@ -23,6 +23,9 @@ abstract class ServerListDao {
     @Query("SELECT * FROM server_lists WHERE sourceType = :sourceType")
     abstract fun getLists(sourceType: String): List<ServerListEntity>
 
+    @Query("SELECT * FROM server_lists WHERE sourceType = :sourceType AND kind = :kind")
+    abstract fun getLists(sourceType: String, kind: String): List<ServerListEntity>
+
     @Query("SELECT * FROM server_list_items WHERE listId = :listId ORDER BY position")
     abstract fun getItems(listId: String): List<ServerListItemEntity>
 
@@ -47,6 +50,12 @@ abstract class ServerListDao {
     @Query("DELETE FROM server_lists WHERE sourceType = :sourceType")
     abstract fun deleteListsOfSource(sourceType: String)
 
+    @Query("DELETE FROM server_list_items WHERE listId IN (SELECT id FROM server_lists WHERE sourceType = :sourceType AND kind = :kind)")
+    abstract fun deleteItemsOfKind(sourceType: String, kind: String)
+
+    @Query("DELETE FROM server_lists WHERE sourceType = :sourceType AND kind = :kind")
+    abstract fun deleteListsOfKind(sourceType: String, kind: String)
+
     @Query("DELETE FROM server_lists WHERE id = :listId")
     abstract fun deleteListRow(listId: String)
 
@@ -66,6 +75,23 @@ abstract class ServerListDao {
     ) {
         deleteItemsOfSource(sourceType)
         deleteListsOfSource(sourceType)
+        upsertLists(lists)
+        upsertItems(items)
+    }
+
+    /**
+     * What a refresh read from the server replaces everything kept for [sourceType]'s lists of
+     * [kind] (its shelves, say, leaving its magic shelves), in one go.
+     */
+    @Transaction
+    open fun replaceKind(
+        sourceType: String,
+        kind: String,
+        lists: List<ServerListEntity>,
+        items: List<ServerListItemEntity>,
+    ) {
+        deleteItemsOfKind(sourceType, kind)
+        deleteListsOfKind(sourceType, kind)
         upsertLists(lists)
         upsertItems(items)
     }

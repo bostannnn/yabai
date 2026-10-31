@@ -93,6 +93,8 @@ fun AppSettingsRow(
     supportingIcon: ImageVector? = null,
     supportingContent: (@Composable ColumnScope.() -> Unit)? = null,
     trailing: (@Composable RowScope.() -> Unit)? = null,
+    // The row's side inset; a row inside a dialog card, which is padded already, passes 0.
+    horizontalInset: Dp = AppSettingsDefaults.horizontalPadding,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
     val contentAlpha = if (enabled) 1f else 0.5f
@@ -116,8 +118,8 @@ fun AppSettingsRow(
             .then(clickModifier)
             .heightIn(min = AppSettingsDefaults.rowMinHeight)
             .padding(
-                start = AppSettingsDefaults.horizontalPadding,
-                end = if (showChevron) 12.dp else AppSettingsDefaults.horizontalPadding - 4.dp,
+                start = horizontalInset,
+                end = if (showChevron) 12.dp else (horizontalInset - 4.dp).coerceAtLeast(0.dp),
                 top = 10.dp,
                 bottom = 10.dp,
             ),

@@ -13,7 +13,8 @@ import com.example.unifiedreader.feature.lists.RoomUserListStore
 import com.example.unifiedreader.feature.lists.ServerListStores
 import com.example.unifiedreader.feature.lists.ServerShelf
 import com.example.unifiedreader.feature.lists.ServerShelfStore
-import com.example.unifiedreader.feature.lists.SmartListFilter
+import com.example.unifiedreader.feature.lists.SmartListDraft
+import com.example.unifiedreader.feature.lists.SmartListSpec
 import com.example.unifiedreader.feature.lists.ServerWantToRead
 import com.example.unifiedreader.feature.lists.UserList
 import com.example.unifiedreader.feature.lists.UserListDraft
@@ -35,7 +36,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/** The user's lists and Grimmory's shelves; kept out of [AppModule], which should not grow. */
+/** The user's lists and the servers' (Kavita's reading lists and collections, Grimmory's magic shelves and shelves); kept out of [AppModule], which should not grow. */
 @Module
 @InstallIn(SingletonComponent::class)
 object AppListsModule {
@@ -50,10 +51,14 @@ object AppListsModule {
     fun provideServerListStores(
         database: UnifiedReaderDatabase,
         grimmoryShelves: GrimmoryShelfClientAdapter,
+        grimmoryMagicShelves: GrimmoryMagicShelfClientAdapter,
         kavitaReadingLists: KavitaReadingListClientAdapter,
+        kavitaCollections: KavitaCollectionClientAdapter,
     ): ServerListStores = ServerListStores(
         listOf(
             RoomServerShelfStore(dao = database.serverListDao(), client = kavitaReadingLists),
+            RoomServerShelfStore(dao = database.serverListDao(), client = kavitaCollections),
+            RoomServerShelfStore(dao = database.serverListDao(), client = grimmoryMagicShelves),
             RoomServerShelfStore(dao = database.serverListDao(), client = grimmoryShelves),
         ),
     )
@@ -116,7 +121,7 @@ class AppListsViewModel @Inject constructor(
 
     /** Reads one server list's books again as its page opens (at most every few minutes). */
     fun refreshList(list: UserList) {
-        val store = serverLists.forSource(list.server?.sourceType) ?: return
+        val store = serverLists.forList(list) ?: return
         quietly { store.refreshList(list.id) }
     }
 
@@ -133,7 +138,7 @@ class AppListsViewModel @Inject constructor(
     }
 
     fun setInList(list: UserList, items: List<ReadableItem>, inList: Boolean, onFailure: (String) -> Unit = {}) {
-        serverLists.forSource(list.server?.sourceType)?.let { store ->
+        serverLists.forList(list)?.let { store ->
             onServer(store, onFailure) { store.setInShelf(list.id, items, inList) }
             return
         }
@@ -170,9 +175,54 @@ class AppListsViewModel @Inject constructor(
         viewModelScope.launch { onCreated(store.createList(name, items)) }
     }
 
-    fun createSmartList(name: String, filter: SmartListFilter, onCreated: (String) -> Unit = {}) {
-        viewModelScope.launch { onCreated(store.createSmartList(name, filter)) }
+    /**
+     * Makes a smart list from [spec] in [order]: on this device, or, [onServer] given, as a list its
+     * server fills by the rules (a Grimmory magic shelf), whose order is kept here.
+     */
+    fun createSmartList(
+        name: String,
+        spec: SmartListSpec,
+        order: UserListOrder,
+        onServer: SourceType? = null,
+        onCreated: (String) -> Unit = {},
+        onFailure: (String) -> Unit = {},
+    ) {
+        if (onServer == null) {
+            viewModelScope.launch { onCreated(store.createSmartList(name, spec, order)) }
+            return
+        }
+        val serverStore = serverLists.forKind(onServer, UserListKind.ServerMagicShelf) ?: return
+        onServer(serverStore, onFailure) {
+            val id = serverStore.createRuled(name, spec.rules)
+            serverStore.setOrder(id, order)
+            onCreated(id)
+        }
     }
+
+    /**
+     * The smart list editor's Create or Done: a new list goes to [createSmartList]; a magic shelf
+     * saves its name and rules on its server first (its order here), a smart list here.
+     */
+    fun saveSmartDraft(draft: SmartListDraft, onCreated: (String) -> Unit = {}, onFailure: (String) -> Unit = {}) {
+        val listId = draft.listId
+        if (listId == null) {
+            createSmartList(draft.name, draft.spec, draft.order, onServer = draft.onServer, onCreated = onCreated, onFailure = onFailure)
+            return
+        }
+        val shelf = shelves.value?.firstOrNull { it.id == listId }
+        if (shelf == null) {
+            viewModelScope.launch { store.updateSmartList(listId, draft.name, draft.spec, draft.order) }
+            return
+        }
+        val serverStore = serverLists.forKind(shelf.sourceType, shelf.kind) ?: return
+        onServer(serverStore, onFailure) {
+            serverStore.setOrder(listId, draft.order)
+            serverStore.updateRuled(listId, draft.name, draft.savedRules)
+        }
+    }
+
+    /** Whether [sourceType]'s server keeps lists built from rules (Grimmory's magic shelves). */
+    fun keepsRuledLists(sourceType: SourceType): Boolean = serverLists.forKind(sourceType, UserListKind.ServerMagicShelf) != null
 
     /** Makes a list on [sourceType]'s server (a Kavita reading list, a Grimmory shelf) with [items] in it. */
     fun createServerList(
@@ -182,19 +232,19 @@ class AppListsViewModel @Inject constructor(
         onCreated: (String) -> Unit = {},
         onFailure: (String) -> Unit = {},
     ) {
-        val store = serverLists.forSource(sourceType) ?: return
+        val store = serverLists.forNewList(sourceType) ?: return
         onServer(store, onFailure) { onCreated(store.createShelf(name, items)) }
     }
 
     fun setOrder(list: UserList, order: UserListOrder) {
         viewModelScope.launch {
-            serverLists.forSource(list.server?.sourceType)?.setOrder(list.id, order) ?: store.setOrder(list.id, order)
+            serverLists.forList(list)?.setOrder(list.id, order) ?: store.setOrder(list.id, order)
         }
     }
 
     fun setHideFinished(list: UserList, hideFinished: Boolean) {
         viewModelScope.launch {
-            serverLists.forSource(list.server?.sourceType)?.setHideFinished(list.id, hideFinished)
+            serverLists.forList(list)?.setHideFinished(list.id, hideFinished)
                 ?: store.setHideFinished(list.id, hideFinished)
         }
     }
@@ -213,8 +263,8 @@ class AppListsViewModel @Inject constructor(
      */
     fun applyDraft(draft: UserListDraft, onFailure: (String) -> Unit = {}) {
         if (draft.isOnServer) {
-            val source = shelves.value?.firstOrNull { it.id == draft.listId }?.sourceType
-            val serverStore = serverLists.forSource(source) ?: return
+            val shelf = shelves.value?.firstOrNull { it.id == draft.listId } ?: return
+            val serverStore = serverLists.forKind(shelf.sourceType, shelf.kind) ?: return
             onServer(serverStore, onFailure) {
                 serverStore.rename(draft.listId, draft.name)
                 serverStore.removeFromShelf(draft.listId, draft.removedItemIds)
@@ -235,7 +285,7 @@ class AppListsViewModel @Inject constructor(
     }
 
     fun deleteList(list: UserList, onFailure: (String) -> Unit = {}) {
-        serverLists.forSource(list.server?.sourceType)?.let { serverStore ->
+        serverLists.forList(list)?.let { serverStore ->
             onServer(serverStore, onFailure) { serverStore.delete(list.id) }
             return
         }

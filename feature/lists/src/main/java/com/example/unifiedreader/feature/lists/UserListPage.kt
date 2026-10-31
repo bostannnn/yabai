@@ -37,6 +37,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.ListRules
+import com.example.unifiedreader.core.model.pill
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.feature.library.ItemProgressSummary
@@ -134,7 +136,11 @@ fun UserListPage(
         item(key = "books") {
             Column(verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AppSectionHeading(text = "Books", count = shown.size.toString(), modifier = Modifier.weight(1f))
+                    AppSectionHeading(
+                        text = if (list.kind == UserListKind.ServerCollection) "Series" else "Books",
+                        count = shown.size.toString(),
+                        modifier = Modifier.weight(1f),
+                    )
                     if (list.isEditable && list.orders.size > 1) {
                         UserListOrderChip(order = list.order, options = list.orders, onSetOrder = onSetOrder)
                     }
@@ -149,7 +155,9 @@ fun UserListPage(
                         text = when {
                             books.isNotEmpty() -> "Every book here is finished."
                             list.kind == UserListKind.Stalled -> "Nothing has stalled: every book you started was opened in the last three weeks."
-                            list.kind == UserListKind.Smart -> "Nothing in your library matches these filters now."
+                            list.kind == UserListKind.Smart -> "Nothing in your library matches these rules now."
+                            list.kind == UserListKind.ServerMagicShelf -> "Nothing on ${list.server?.sourceType?.displayName()} matches these rules now."
+                            list.kind == UserListKind.ServerCollection -> "Nothing in this collection that your library holds."
                             list.kind == UserListKind.ServerShelf -> "Nothing on this shelf yet. Add a ${list.server?.sourceType?.displayName()} book from its page with Add to list."
                             list.kind == UserListKind.ServerReadingList -> "Nothing here yet, or nothing your library holds. Add a ${list.server?.sourceType?.displayName()} issue from its page with Add to list."
                             else -> "Nothing here yet. Add a book from its page with Add to list, or select covers in the library."
@@ -168,6 +176,7 @@ fun UserListPage(
                                 showSource = mixesSources,
                                 cover = cover,
                                 onClick = { onOpenBook(book) },
+                                isSeries = list.kind == UserListKind.ServerCollection,
                             )
                         }
                     }
@@ -205,13 +214,34 @@ private fun UserListHeader(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Text(text = books.summaryLine(), style = MaterialTheme.typography.bodyMedium)
+            val rules = list.smart?.rules
+            if (rules != null) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    rules.pills().forEach { pill ->
+                        AppChip(selected = false, onClick = { if (list.isEditable) onEdit() }, label = { Text(pill) })
+                    }
+                }
+            } else if (list.kind == UserListKind.ServerMagicShelf) {
+                Text(
+                    text = "Its rules ask something the app can't show yet; change them in ${list.server?.sourceType?.displayName()}'s web app.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Text(
+                text = if (list.kind == UserListKind.ServerCollection) books.seriesSummaryLine() else books.summaryLine(),
+                style = MaterialTheme.typography.bodyMedium,
+            )
             // Continue with a long title and Edit wrap onto two lines on a phone.
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                if (next != null) {
+                // A collection holds series: its rows open them, there is no next book to read.
+                if (next != null && list.kind != UserListKind.ServerCollection) {
                     AppButton(onClick = { onOpenBook(next) }) {
                         Text(
                             text = if (next.progress?.fraction?.let { it > 0f } == true) "Continue" else "Read",
@@ -223,11 +253,12 @@ private fun UserListHeader(
                         )
                     }
                 }
-                if (list.isEditable) {
+                // A magic shelf whose rules the app can't read is changed in its server's web app.
+                if (list.isEditable && (list.kind != UserListKind.ServerMagicShelf || list.smart != null)) {
                     AppTonalButton(onClick = onEdit) {
                         Icon(imageVector = AppIcons.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "Edit")
+                        Text(text = if (list.smart != null) "Edit rules" else "Edit")
                     }
                 }
             }
@@ -272,6 +303,8 @@ private fun UserListBookRow(
     showSource: Boolean,
     cover: ListCover,
     onClick: () -> Unit,
+    // A collection's row is a whole series, which opens in the library.
+    isSeries: Boolean = false,
 ) {
     val item: ReadableItem = book.item ?: book.entry.asReadableItem()
     AppBookRow(
@@ -294,12 +327,18 @@ private fun UserListBookRow(
         leading = number?.let { { AppBookRowNumber(it) } },
         supporting = {
             AppBookRowLine(
-                text = book.rowLine(showSource),
+                text = if (isSeries) book.seriesRowLine() else book.rowLine(showSource),
                 color = if (isNext) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         },
         trailing = {
-            if (book.isFinished) {
+            if (isSeries) {
+                Icon(
+                    imageVector = AppIcons.NavigateNext,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else if (book.isFinished) {
                 Icon(
                     imageVector = AppIcons.Check,
                     contentDescription = "Finished",
@@ -310,19 +349,44 @@ private fun UserListBookRow(
     )
 }
 
-/** "Your list · Kavita and Local", "Built in", "Updates itself · every source", "Grimmory shelf · on the server". */
+/** A series row's line in a collection: "24 issues · Finished", "12 issues · 40%". */
+private fun UserListBook.seriesRowLine(): String {
+    if (isMissing) return "Not in your library"
+    val issues = item?.issueCount?.let { count -> if (count == 1) "1 issue" else "$count issues" }
+    val reading = when {
+        isFinished -> "Finished"
+        (progress?.fraction ?: 0f) > 0f -> progress?.percentLabel
+        else -> null
+    }
+    return listOfNotNull(issues, reading).joinToString(" · ").ifEmpty { "Series" }
+}
+
+/** A collection's facts: "9 series · 212 issues". */
+private fun List<UserListBook>.seriesSummaryLine(): String {
+    val series = if (size == 1) "1 series" else "$size series"
+    val issues = sumOf { it.item?.issueCount ?: 0 }
+    return if (issues > 0) "$series · $issues issues" else series
+}
+
+/** "Your list · Kavita and Local", "Built in", "Smart list · updates itself", "Grimmory shelf · on the server". */
 private fun UserList.headerCaption(books: List<UserListBook>): String = when (kind) {
     UserListKind.Stalled -> "Updates itself · every source"
-    UserListKind.Smart -> "Updates itself · from your ${smartFilter?.sourceType?.displayName().orEmpty()} filters"
-    UserListKind.WantToRead -> "Built in · on this tablet"
-    UserListKind.ServerShelf, UserListKind.ServerReadingList -> {
-        val what = "${server?.sourceType?.displayName().orEmpty()} ${if (kind == UserListKind.ServerShelf) "shelf" else "reading list"}"
+    UserListKind.Smart -> "Smart list · updates itself"
+    UserListKind.ServerMagicShelf -> "${server?.sourceType?.displayName().orEmpty()} magic shelf · updates itself"
+    UserListKind.WantToRead -> "Built in · on this device"
+    UserListKind.ServerShelf, UserListKind.ServerReadingList, UserListKind.ServerCollection -> {
+        val noun = when (kind) {
+            UserListKind.ServerShelf -> "shelf"
+            UserListKind.ServerCollection -> "collection"
+            else -> "reading list"
+        }
+        val what = "${server?.sourceType?.displayName().orEmpty()} $noun"
         if (isEditable) "$what · on the server" else "$what · someone else's, read-only"
     }
     UserListKind.User -> {
         val sources = books.map { it.entry.sourceType.displayName() }.distinct()
         when (sources.size) {
-            0 -> "Your list · on this tablet"
+            0 -> "Your list · on this device"
             1 -> "Your list · ${sources.single()}"
             else -> "Your list · ${sources.dropLast(1).joinToString(", ")} and ${sources.last()}"
         }
@@ -349,4 +413,9 @@ private fun ItemProgressSummary.pageLine(): String? {
     val count = pageCount?.takeIf { it > 0 } ?: return null
     val page = (currentPage ?: (fraction.coerceIn(0f, 1f) * count).roundToInt()).coerceIn(1, count)
     return "Page $page of $count"
+}
+
+/** The rules as the page's pills: each rule, then each group as one pill ("Any of: Genre: Poetry · Pages under 100"). */
+internal fun ListRules.pills(): List<String> = rules.map { it.pill() } + groups.filter { it.rules.isNotEmpty() }.map { group ->
+    (if (group.matchAll) "All of: " else "Any of: ") + group.rules.joinToString(" · ") { it.pill() }
 }

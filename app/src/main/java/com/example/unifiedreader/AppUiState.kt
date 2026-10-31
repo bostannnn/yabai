@@ -23,9 +23,6 @@ import com.example.unifiedreader.core.model.stumpSeriesContainerId
 import com.example.unifiedreader.core.model.stumpSeriesGroupKey
 import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.library.LibraryRatingBadgeState
-import com.example.unifiedreader.feature.library.LibraryReadingListScopeOption
-import com.example.unifiedreader.feature.library.LibraryReadingListScopeOptionKind
-import com.example.unifiedreader.feature.library.LibraryReadingListScopeState
 import com.example.unifiedreader.feature.library.RemoteDownloadActionAvailability
 import com.example.unifiedreader.feature.library.defaultLibraryGridCellSizeDp
 import com.example.unifiedreader.feature.library.shelves.LibraryShelvesState
@@ -353,24 +350,3 @@ internal fun List<ReadableItem>.remoteItemLocalAvailabilityScopeIds(): Set<Strin
     }
 }
 
-fun AppUiState.kavitaReadingListScopeState(): LibraryReadingListScopeState = LibraryReadingListScopeState(
-    options = kavitaReadingLists.collections.map { collection ->
-        LibraryReadingListScopeOption(
-            id = collection.id,
-            title = collection.title,
-            itemCount = collection.itemCount,
-            kind = LibraryReadingListScopeOptionKind.Collection,
-        )
-    } + kavitaReadingLists.summaries.map { summary ->
-        LibraryReadingListScopeOption(
-            id = summary.id,
-            title = summary.title,
-            itemCount = summary.itemCount,
-            kind = LibraryReadingListScopeOptionKind.ReadingList,
-        )
-    },
-    selectedOptionId = kavitaReadingLists.selectedCollectionId ?: kavitaReadingLists.selectedReadingListId,
-    isLoadingOptions = kavitaReadingLists.isLoadingSummaries,
-    isLoadingSelectedItems = kavitaReadingLists.isLoadingSelectedItems,
-    errorMessage = kavitaReadingLists.errorMessage,
-)

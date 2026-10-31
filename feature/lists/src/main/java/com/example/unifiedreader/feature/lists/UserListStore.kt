@@ -25,8 +25,11 @@ interface UserListStore {
     /** Makes a list in Your order, with [items] in it, and returns its id. */
     suspend fun createList(name: String, items: List<ReadableItem> = emptyList()): String
 
-    /** Makes a smart list that keeps [filter], newest first, and returns its id. */
-    suspend fun createSmartList(name: String, filter: SmartListFilter): String
+    /** Makes a smart list from [spec], in [order], and returns its id. */
+    suspend fun createSmartList(name: String, spec: SmartListSpec, order: UserListOrder = UserListOrder.DateAdded): String
+
+    /** The smart list editor's Done: its name, rules, how many and order. */
+    suspend fun updateSmartList(listId: String, name: String, spec: SmartListSpec, order: UserListOrder)
 
     suspend fun updateDetails(listId: String, name: String, description: String?)
 
@@ -88,7 +91,7 @@ class RoomUserListStore(
         id
     }
 
-    override suspend fun createSmartList(name: String, filter: SmartListFilter): String = io {
+    override suspend fun createSmartList(name: String, spec: SmartListSpec, order: UserListOrder): String = io {
         val at = now()
         val id = UserListIds.newId()
         dao.upsertList(
@@ -97,15 +100,19 @@ class RoomUserListStore(
                 name = name.trim(),
                 description = null,
                 kind = UserListKind.Smart.name,
-                orderMode = UserListOrder.DateAdded.name,
+                orderMode = order.name,
                 hideFinished = false,
                 createdAtEpochMillis = at,
                 updatedAtEpochMillis = at,
                 lastOpenedAtEpochMillis = 0L,
-                smartFilter = filter.encode(),
+                smartFilter = spec.encode(),
             ),
         )
         id
+    }
+
+    override suspend fun updateSmartList(listId: String, name: String, spec: SmartListSpec, order: UserListOrder) = updateList(listId) {
+        it.copy(name = name.trim().ifEmpty { it.name }, smartFilter = spec.encode(), orderMode = order.name)
     }
 
     override suspend fun updateDetails(listId: String, name: String, description: String?) = updateList(listId) {
@@ -204,7 +211,7 @@ internal fun UserListEntity.toModel(entries: List<UserListEntryEntity>): UserLis
     lastOpenedAtEpochMillis = lastOpenedAtEpochMillis,
     entries = entries.sortedBy(UserListEntryEntity::position).mapNotNull { it.toModel() },
     keepNextDownloaded = keepNextDownloaded,
-    smartFilter = decodeSmartListFilter(smartFilter),
+    smart = decodeSmartListSpec(smartFilter),
 )
 
 private fun UserListEntryEntity.toModel(): UserListEntry? {

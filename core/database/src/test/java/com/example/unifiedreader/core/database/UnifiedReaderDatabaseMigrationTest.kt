@@ -342,6 +342,35 @@ class UnifiedReaderDatabaseMigrationTest {
     }
 
     @Test
+    fun `migration 33 to 34 keeps server lists and gives them rules`() {
+        createTestDatabase(
+            name = "migration-33-34-${System.nanoTime()}",
+            version = 34,
+        ) { database ->
+            createVersion27Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_27_28.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_28_29.migrate(database)
+            MIGRATION_29_30.migrate(database)
+            MIGRATION_30_31.migrate(database)
+            MIGRATION_31_32.migrate(database)
+            MIGRATION_32_33.migrate(database)
+            database.execSQL(
+                "INSERT INTO server_lists (id, sourceType, kind, remoteId, name, icon, iconType, isPublic, isOwned, " +
+                    "remoteSortField, remoteItemCount, orderMode, hideFinished, syncedAtEpochMillis) VALUES " +
+                    "('grimmory:shelf:3', 'GRIMMORY', 'ServerShelf', '3', 'Book club', NULL, NULL, 0, 1, NULL, 1, 'Title', 0, 1)",
+            )
+        }.use { database ->
+            MIGRATION_33_34.migrate(database)
+
+            database.query("SELECT name, rules FROM server_lists WHERE id = 'grimmory:shelf:3'").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals("Book club", cursor.getString(0))
+                assertTrue(cursor.isNull(1))
+            }
+        }
+    }
+
+    @Test
     fun `room migrates 4 to 5 and validates reader session state schema`() {
         val databaseName = "migration-4-5-${System.nanoTime()}"
         createTestDatabase(
@@ -1470,6 +1499,7 @@ private fun openRoomDatabase(
         MIGRATION_30_31,
         MIGRATION_31_32,
         MIGRATION_32_33,
+        MIGRATION_33_34,
     )
     .build()
 

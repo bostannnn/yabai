@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalLayoutApi::class)
-
 package com.example.unifiedreader.feature.library
 
 import androidx.compose.foundation.clickable
@@ -7,8 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -356,12 +352,11 @@ private fun LibraryBookPageTop(
                 val actions = bookPageActions(item, progress, actionContext)
                 if (actions.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(10.dp))
-                    // Three pills (Mark finished, Download, Add to list) can be wider than the sheet.
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
+                    // Equal tiles, the icon over the label, so Mark finished, Download and Add to list always fit.
+                    // Each tile is a third of the row even when a book has fewer actions.
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         actions.forEach { action -> LibraryBookPageTonalAction(action, tint) }
+                        repeat((BookPageActionColumns - actions.size).coerceAtLeast(0)) { Spacer(modifier = Modifier.weight(1f)) }
                     }
                 }
                 if (progress != null && text.progressLine != null) {
@@ -471,25 +466,33 @@ private fun LibraryBookPageRemoveRow(
     }
 }
 
+/** The book page's action tiles: Mark finished, Download, Add to list. */
+private const val BookPageActionColumns = 3
+
 @Composable
 private fun RowScope.LibraryBookPageTonalAction(action: BookPageAction, tint: AppCoverColors) {
     AppTonalButton(
         onClick = action.onClick,
         enabled = action.enabled,
         colors = AppButtonDefaults.tonalColors(containerColor = tint.track, contentColor = tint.content),
-        contentPadding = PaddingValues(horizontal = 12.dp),
+        contentPadding = PaddingValues(horizontal = 8.dp),
         modifier = Modifier
             .weight(1f)
-            .height(42.dp),
+            .height(64.dp),
     ) {
-        Icon(imageVector = action.icon, contentDescription = null, modifier = Modifier.size(18.dp))
-        Text(
-            text = action.label,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(start = 6.dp),
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Icon(imageVector = action.icon, contentDescription = null, modifier = Modifier.size(20.dp))
+            Text(
+                text = action.label,
+                style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp, lineHeight = 18.sp),
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 

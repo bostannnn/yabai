@@ -2,6 +2,14 @@ package com.example.unifiedreader
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import com.example.unifiedreader.feature.lists.toSmartDraft
+import com.example.unifiedreader.feature.lists.SmartListEditor
+import com.example.unifiedreader.feature.lists.SmartListDraft
+import com.example.unifiedreader.ui.components.AppMenuItem
+import com.example.unifiedreader.ui.components.AppMenu
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Icon
@@ -63,6 +71,8 @@ internal fun ListsRoute(
     listsViewModel: AppListsViewModel,
     contentTopInset: Dp,
     modifier: Modifier = Modifier,
+    // A Kavita collection's series opens in its library.
+    onOpenSeries: (ReadableItem) -> Unit = {},
 ) {
     val stored by listsViewModel.lists.collectAsStateWithLifecycle()
     val itemsById = remember(uiState.items) { uiState.items.associateBy(ReadableItem::id) }
@@ -99,11 +109,38 @@ internal fun ListsRoute(
     LaunchedEffect(openList?.id) { openList?.takeIf { it.server != null }?.let(listsViewModel::refreshList) }
 
     fun openBook(list: UserList, book: UserListBook) {
-        openBookFromList(viewModel, listsViewModel, list, book.item ?: return)
+        val item = book.item ?: return
+        if (list.kind == UserListKind.ServerCollection) onOpenSeries(item) else openBookFromList(viewModel, listsViewModel, list, item)
     }
 
     val draft = state.editDraft
+    val smartDraft = state.smartDraft
     when {
+        smartDraft != null -> SmartListEditor(
+            draft = smartDraft,
+            onDraftChange = { state.smartDraft = it },
+            items = uiState.items,
+            progressByItemId = progress,
+            onDevice = onDevice,
+            servers = magicShelfServers(connected, listsViewModel),
+            canDelete = !smartDraft.isNew,
+            onDelete = {
+                val list = openList
+                state.smartDraft = null
+                if (list != null) {
+                    listsViewModel.deleteList(list, onFailure = onShelfFailure)
+                    state.back()
+                }
+            },
+            cover = cover,
+            contentTopInset = contentTopInset,
+            modifier = modifier,
+            shelfNames = remember(storedShelves, connected) {
+                storedShelves.orEmpty()
+                    .filter { shelf -> shelf.sourceType == SourceType.GRIMMORY && shelf.kind == UserListKind.ServerShelf && shelf.sourceType in connected }
+                    .map { shelf -> shelf.remote.name }
+            },
+        )
         openList != null && draft != null && draft.listId == openList.id -> UserListEditor(
             draft = draft,
             onDraftChange = { state.editDraft = it },
@@ -120,7 +157,7 @@ internal fun ListsRoute(
             modifier = modifier,
             orders = openList.orders,
             serverName = openList.server?.sourceType?.displayName(),
-            canReorder = openList.kind != UserListKind.ServerShelf,
+            canReorder = openList.kind != UserListKind.ServerShelf && openList.kind != UserListKind.ServerCollection,
             showsBooks = openList.kind != UserListKind.Smart,
         )
         openList != null -> {
@@ -132,7 +169,10 @@ internal fun ListsRoute(
                 onOpenBook = { book -> openBook(openList, book) },
                 onSetOrder = { order -> listsViewModel.setOrder(openList, order) },
                 onSetHideFinished = { hide -> listsViewModel.setHideFinished(openList, hide) },
-                onEdit = { state.editDraft = openList.toDraft() },
+                onEdit = {
+                    // A smart list or magic shelf edits its rules; any other list its books.
+                    if (openList.smart != null) state.smartDraft = openList.toSmartDraft() else state.editDraft = openList.toDraft()
+                },
                 contentTopInset = contentTopInset,
                 onScrolledChanged = { scrolled -> state.scrolled = scrolled },
                 modifier = modifier,
@@ -157,6 +197,8 @@ internal fun ListsRoute(
                 itemsById = itemsById,
                 progressByItemId = progress,
                 searchQuery = state.searchQuery,
+                filter = state.filter,
+                onFilterChange = { filter -> state.filter = filter },
                 cellSizeDp = uiState.libraryGridCellSizeDp,
                 cover = cover,
                 onOpenList = { list -> state.openList(list.id) },
@@ -168,12 +210,14 @@ internal fun ListsRoute(
         }
     }
     val importCbl = rememberCblImport(listsViewModel, uiState) { listId -> state.openList(listId) }
+    LaunchedEffect(state.isImportRequested) {
+        if (state.isImportRequested) {
+            state.isImportRequested = false
+            importCbl()
+        }
+    }
     if (state.isNewListOpen) {
         NewListDialog(
-            onImport = {
-                state.isNewListOpen = false
-                importCbl()
-            },
             onCreate = { name, server ->
                 state.isNewListOpen = false
                 if (server != null) {
@@ -189,8 +233,9 @@ internal fun ListsRoute(
 }
 
 /**
- * The Lists bar: the menu, "Search lists" and New list on the lists; Back on a list; Cancel,
- * "Edit list" and Done while one is edited. No glass until something scrolls under it.
+ * The Lists bar: the menu, "Search lists" and New (List, Smart list, Import a reading order) on
+ * the lists; Back on a list; Cancel, "Edit list" and Done while one is edited, and Close, "New
+ * smart list" and Create in the smart list editor. No glass until something scrolls under it.
  */
 @Composable
 internal fun ListsTopBar(
@@ -206,7 +251,33 @@ internal fun ListsTopBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val draft = state.editDraft
+            val smartDraft = state.smartDraft
             when {
+                smartDraft != null -> {
+                    AppIconButton(onClick = { state.smartDraft = null }) {
+                        Icon(imageVector = AppIcons.Close, contentDescription = if (smartDraft.isNew) "Cancel the new smart list" else "Cancel editing")
+                    }
+                    Text(
+                        text = when {
+                            smartDraft.isNew -> "New smart list"
+                            smartDraft.onServer != null -> "Edit magic shelf"
+                            else -> "Edit smart list"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    AppButton(
+                        onClick = {
+                            state.smartDraft = null
+                            listsViewModel.saveSmartDraft(smartDraft, onCreated = state::openList, onFailure = onShelfFailure)
+                        },
+                        enabled = smartDraft.canSave,
+                    ) {
+                        Text(text = if (smartDraft.isNew) "Create" else "Done", fontWeight = FontWeight.SemiBold)
+                    }
+                }
                 draft != null -> {
                     AppIconButton(onClick = { state.editDraft = null }) {
                         Icon(imageVector = AppIcons.Close, contentDescription = "Cancel editing")
@@ -214,6 +285,7 @@ internal fun ListsTopBar(
                     Text(
                         text = when (draft.kind) {
                             UserListKind.ServerShelf -> "Edit shelf"
+                            UserListKind.ServerCollection -> "Edit collection"
                             UserListKind.ServerReadingList -> "Edit reading list"
                             else -> "Edit list"
                         },
@@ -246,9 +318,11 @@ internal fun ListsTopBar(
                         queryContentDescription = "Search lists",
                         modifier = Modifier.weight(1f),
                     )
-                    AppIconButton(onClick = { state.isNewListOpen = true }) {
-                        Icon(imageVector = AppIcons.Add, contentDescription = "New list")
-                    }
+                    NewListMenuButton(
+                        onList = { state.isNewListOpen = true },
+                        onSmartList = { state.smartDraft = SmartListDraft() },
+                        onImport = { state.isImportRequested = true },
+                    )
                 }
             }
         }
@@ -278,7 +352,7 @@ internal fun openBookFromList(
     list: UserList,
     item: ReadableItem,
 ) {
-    if (list.kind == UserListKind.User || list.kind == UserListKind.WantToRead) listsViewModel.markOpened(list.id)
+    if (list.kind == UserListKind.User || list.kind == UserListKind.WantToRead || list.kind == UserListKind.Smart) listsViewModel.markOpened(list.id)
     viewModel.onListItemSelected(
         item = item,
         listContext = if (list.isReadingOrder) {
@@ -304,3 +378,38 @@ internal fun newListServers(sources: Set<SourceType>): List<NewListServer> = bui
     if (SourceType.KAVITA in sources) add(NewListServer.readingList(SourceType.KAVITA))
     if (SourceType.GRIMMORY in sources) add(NewListServer.shelf(SourceType.GRIMMORY))
 }
+
+/** New: a menu of what to make, each saying what it is. */
+@Composable
+private fun NewListMenuButton(onList: () -> Unit, onSmartList: () -> Unit, onImport: () -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        AppIconButton(onClick = { open = true }) {
+            Icon(imageVector = AppIcons.Add, contentDescription = "New")
+        }
+        AppMenu(expanded = open, onDismissRequest = { open = false }) {
+            AppMenuItem(
+                text = { Text("List") },
+                supporting = "You pick the books",
+                leadingIcon = { Icon(imageVector = AppIcons.Checklist, contentDescription = null) },
+                onClick = { open = false; onList() },
+            )
+            AppMenuItem(
+                text = { Text("Smart list") },
+                supporting = "Picked by rules, kept up to date",
+                leadingIcon = { Icon(imageVector = AppIcons.Tune, contentDescription = null) },
+                onClick = { open = false; onSmartList() },
+            )
+            AppMenuItem(
+                text = { Text("Import a reading order") },
+                supporting = "From a .cbl file",
+                leadingIcon = { Icon(imageVector = AppIcons.Description, contentDescription = null) },
+                onClick = { open = false; onImport() },
+            )
+        }
+    }
+}
+
+/** Where else a smart list can be kept: Grimmory, as a magic shelf, while it is connected. */
+internal fun magicShelfServers(connected: Set<SourceType>, listsViewModel: AppListsViewModel): List<SourceType> =
+    listOf(SourceType.GRIMMORY).filter { source -> source in connected && listsViewModel.keepsRuledLists(source) }

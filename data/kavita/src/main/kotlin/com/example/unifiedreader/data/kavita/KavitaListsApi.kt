@@ -27,8 +27,8 @@ data class KavitaReadingListEntry(
     val chapterId: String,
 )
 
-/** Kavita's lists that the app reads and writes: the user's reading lists and Want to read. */
-interface KavitaListsApi {
+/** Kavita's lists that the app reads and writes: the user's reading lists, Want to read and collections. */
+interface KavitaListsApi : KavitaCollectionsApi {
     /** Every reading list the user can see, promoted ones included. */
     suspend fun getReadingLists(accessToken: String): List<KavitaReadingList>
 
@@ -60,7 +60,7 @@ interface KavitaListsApi {
 class KtorKavitaListsApi(
     private val httpClient: HttpClient,
     baseUrl: String,
-) : KavitaListsApi {
+) : KavitaListsApi, KavitaCollectionsApi by KtorKavitaCollectionsApi(httpClient, baseUrl) {
     private val baseUrl = baseUrl.trimEnd('/')
 
     override suspend fun getReadingLists(accessToken: String): List<KavitaReadingList> = authenticatedRequest {

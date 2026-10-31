@@ -1,12 +1,8 @@
 package com.example.unifiedreader.feature.lists
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.example.unifiedreader.core.model.ReadableItem
@@ -14,7 +10,6 @@ import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.feature.library.libraryBookTitle
 import com.example.unifiedreader.ui.components.AppCheckbox
 import com.example.unifiedreader.ui.components.AppIcons
-import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.AppPanelHeader
 import com.example.unifiedreader.ui.components.AppSettingsRow
 import com.example.unifiedreader.ui.components.AppSheetDivider
@@ -44,10 +39,10 @@ fun AddToListSheet(
     val serverSections = ownServerLists
         .groupBy { list -> list.kind to list.server?.sourceType?.displayName().orEmpty() }
         .map { (key, lists) -> (if (key.first == UserListKind.ServerShelf) "${key.second} shelves" else "${key.second} reading lists") to lists }
-    val serverNames = ownServerLists.mapNotNull { it.server?.sourceType?.displayName() }.distinct()
-    val editable = lists.filter(UserList::isEditable)
-    val wantToRead = editable.filter { it.kind == UserListKind.WantToRead }
-    val own = editable.filter { it.kind == UserListKind.User }
+    // Smart lists and magic shelves pick their own books, so they are not offered here.
+    val own = lists
+        .filter { list -> list.isEditable && (list.kind == UserListKind.WantToRead || list.kind == UserListKind.User) }
+        .sortedBy { list -> if (list.kind == UserListKind.WantToRead) 0 else 1 }
     AppSideSheet(onDismissRequest = onDismiss) {
         AppPanelHeader(
             title = "Add to list",
@@ -56,31 +51,23 @@ fun AddToListSheet(
             onClose = { dismiss() },
         )
         Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            wantToRead.forEach { list -> ListCheckRow(list, items, onSetInList, note = wantToReadNote) }
-            AppSheetDivider()
-            AppSheetLabel(text = "Your lists")
-            own.forEach { list -> ListCheckRow(list, items, onSetInList) }
+            if (own.isNotEmpty()) {
+                AppSheetLabel(text = "Your lists")
+                own.forEach { list ->
+                    ListCheckRow(list, items, onSetInList, note = wantToReadNote.takeIf { list.kind == UserListKind.WantToRead })
+                }
+            }
             serverSections.forEach { (title, lists) ->
                 AppSheetDivider()
                 AppSheetLabel(text = title)
                 lists.forEach { list -> ListCheckRow(list, items, onSetInList) }
             }
+            AppSheetDivider()
             AppSettingsRow(
                 title = "New list",
                 icon = AppIcons.Add,
                 onClick = onNewList,
                 showChevron = false,
-            )
-            Text(
-                text = if (serverNames.isNotEmpty()) {
-                    val name = serverNames.single()
-                    "Your lists stay on this tablet and can mix books from every source. $name's lists hold only $name books and are kept on the server."
-                } else {
-                    "Your lists are kept on this tablet and can mix books from every source."
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(AppLayout.inset),
             )
         }
     }

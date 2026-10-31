@@ -167,7 +167,7 @@ class ServerShelfStoreTest {
         assertEquals(listOf(UserListOrder.DateAdded, UserListOrder.Title), list.orders)
         assertFalse(list.isReadingOrder)
         assertTrue(list.isEditable)
-        assertEquals("1 book · by title", list.tileCaption(emptyMap()))
+        assertEquals("Shelf · 1 book", list.tileCaption(emptyMap()))
         val theirs = shelf.copy(remote = shelf.remote.copy(isOwned = false, isPublic = true)).toUserList(emptyMap())
         assertFalse(theirs.isEditable)
     }
@@ -329,7 +329,7 @@ private class FakeShelfClient(override val isOrdered: Boolean = false) : ServerS
 }
 
 /** The DAO over plain maps, so the store's tests need no database. */
-private class FakeServerListDao : ServerListDao() {
+internal class FakeServerListDao : ServerListDao() {
     private val lists = MutableStateFlow<Map<String, ServerListEntity>>(emptyMap())
     private val items = MutableStateFlow<List<ServerListItemEntity>>(emptyList())
 
@@ -374,5 +374,17 @@ private class FakeServerListDao : ServerListDao() {
 
     override fun deleteListRow(listId: String) {
         lists.value = lists.value - listId
+    }
+
+    override fun getLists(sourceType: String, kind: String): List<ServerListEntity> =
+        lists.value.values.filter { it.sourceType == sourceType && it.kind == kind }
+
+    override fun deleteItemsOfKind(sourceType: String, kind: String) {
+        val ids = getLists(sourceType, kind).map(ServerListEntity::id).toSet()
+        items.value = items.value.filterNot { it.listId in ids }
+    }
+
+    override fun deleteListsOfKind(sourceType: String, kind: String) {
+        lists.value = lists.value.filterValues { it.sourceType != sourceType || it.kind != kind }
     }
 }

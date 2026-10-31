@@ -59,8 +59,6 @@ internal fun LibraryFilterRow(
     showSortControl: Boolean,
     availableSortModes: List<LibrarySortMode> = LibrarySortMode.entries,
     lockedSortLabel: String? = null,
-    readingListScopeState: LibraryReadingListScopeState = LibraryReadingListScopeState(),
-    onOpenReadingListScope: () -> Unit = {},
     onOpenBrowse: (() -> Unit)? = null,
     // null opens the filter sheet at the top; a panel opens it at that section.
     onOpenFilterPanel: (LibraryFilterPanel?) -> Unit,
@@ -102,20 +100,6 @@ internal fun LibraryFilterRow(
                     enabled = filtersEnabled,
                     onClick = { onOpenFilterPanel(null) },
                 )
-                if (readingListScopeState.shouldShow) {
-                    val selectedOption = readingListScopeState.selectedOption
-                    AppChip(
-                        selected = selectedOption != null,
-                        onClick = onOpenReadingListScope,
-                        label = {
-                            Text(
-                                text = selectedOption?.chipLabel() ?: "Kavita lists",
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        },
-                    )
-                }
                 appliedFilters.forEach { filter ->
                     LibraryAppliedFilterChip(
                         filter = filter,

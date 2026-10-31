@@ -108,7 +108,6 @@ fun LibraryScreen(
     preferIssueLabels: Boolean = false,
     includeSeriesInIssueLabels: Boolean = false,
     lockedSortLabel: String? = null,
-    readingListScopeState: LibraryReadingListScopeState = LibraryReadingListScopeState(),
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = { item, _ -> item.coverUrl },
     coverPrefetchKeyProvider: (ReadableItem, LibraryCoverImageVariant) -> String? = coverImageUrlProvider,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit = { _, _ -> },
@@ -133,7 +132,6 @@ fun LibraryScreen(
     onImportLocalFile: (() -> Unit)? = null,
     onConnectServer: (() -> Unit)? = null,
     onRetrySource: (() -> Unit)? = null,
-    onReadingListSelected: (String?) -> Unit = {},
     onSortModeChanged: (LibrarySortMode) -> Unit = {},
     onViewModeChanged: (LibraryViewMode) -> Unit = {},
     onGridCellSizeDpChanged: (Int) -> Unit = {},
@@ -184,7 +182,6 @@ fun LibraryScreen(
     val isPaged = pagedItems != null
     var openFilterPanel by rememberSaveable { mutableStateOf<LibraryFilterPanel?>(null) }
     var isFilterSheetOpen by rememberSaveable { mutableStateOf(false) }
-    var isReadingListDialogOpen by rememberSaveable { mutableStateOf(false) }
     var handledScrollToTopRequest by remember { mutableStateOf(scrollToTopRequest) }
     val coroutineScope = rememberCoroutineScope()
     val visibleItems = items
@@ -636,8 +633,6 @@ fun LibraryScreen(
                         showSortControl = showSortControl,
                         availableSortModes = availableSortModes,
                         lockedSortLabel = lockedSortLabel,
-                        readingListScopeState = readingListScopeState,
-                        onOpenReadingListScope = { isReadingListDialogOpen = true },
                         onOpenBrowse = onOpenBrowse,
                         onOpenFilterPanel = { panel ->
                             openFilterPanel = panel
@@ -798,13 +793,6 @@ fun LibraryScreen(
             onClearFilters = onClearFilters,
             onDismiss = { isFilterSheetOpen = false },
             onSaveAsList = onSaveFiltersAsList?.takeIf { !filterState.isEmpty }?.let { save -> { save(filterState) } },
-        )
-    }
-    if (isReadingListDialogOpen) {
-        LibraryReadingListScopeDialog(
-            state = readingListScopeState,
-            onReadingListSelected = onReadingListSelected,
-            onDismiss = { isReadingListDialogOpen = false },
         )
     }
 }

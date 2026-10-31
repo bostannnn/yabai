@@ -19,8 +19,8 @@ import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 /**
  * A list's cover: the first four books' covers in a 2×2 mosaic at the cover's 2:3 and corner
  * radius, 2 dp apart, so a list reads apart from a book and from a series' stack. [cell] draws
- * cover [index] filling the modifier it is given; [count] below four leaves the other cells in
- * `surfaceContainerHigh`.
+ * cover [index] filling the modifier it is given. One to three books show the first cover whole
+ * (a mosaic with empty cells reads as broken); an empty list is the bare `surfaceContainerHigh` card.
  */
 @Composable
 fun AppListCover(
@@ -37,15 +37,19 @@ fun AppListCover(
             .background(MaterialTheme.colorScheme.surfaceContainerHigh),
         verticalArrangement = Arrangement.spacedBy(AppListCoverDefaults.gap),
     ) {
-        repeat(2) { rowIndex ->
-            Row(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(AppListCoverDefaults.gap),
-            ) {
-                repeat(2) { columnIndex ->
-                    val index = rowIndex * 2 + columnIndex
-                    Box(modifier = Modifier.weight(1f).fillMaxSize()) {
-                        if (index < count) cell(index, Modifier.fillMaxSize())
+        if (count in 1 until AppListCoverDefaults.mosaicCount) {
+            cell(0, Modifier.fillMaxSize())
+        } else {
+            repeat(2) { rowIndex ->
+                Row(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(AppListCoverDefaults.gap),
+                ) {
+                    repeat(2) { columnIndex ->
+                        val index = rowIndex * 2 + columnIndex
+                        Box(modifier = Modifier.weight(1f).fillMaxSize()) {
+                            if (index < count) cell(index, Modifier.fillMaxSize())
+                        }
                     }
                 }
             }
@@ -55,4 +59,7 @@ fun AppListCover(
 
 object AppListCoverDefaults {
     val gap = 2.dp
+
+    /** How many books a list needs for the mosaic; fewer show the first cover. */
+    const val mosaicCount = 4
 }

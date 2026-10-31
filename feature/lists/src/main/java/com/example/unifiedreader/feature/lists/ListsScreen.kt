@@ -1,6 +1,8 @@
 package com.example.unifiedreader.feature.lists
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,6 +46,7 @@ import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.library.libraryBookTitle
 import com.example.unifiedreader.ui.components.AppButton
+import com.example.unifiedreader.ui.components.AppChip
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.AppListCover
@@ -58,10 +61,112 @@ import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 /** Draws a book's cover filling the modifier it is given (the library's cover, with its cache). */
 typealias ListCover = @Composable (item: ReadableItem, modifier: Modifier) -> Unit
 
+/** Which lists the Lists screen shows: every one, yours, the ones that update themselves, or one server's. */
+sealed interface ListsFilter {
+    data object All : ListsFilter
+
+    data object Yours : ListsFilter
+
+    data object Smart : ListsFilter
+
+    data class Server(val sourceType: SourceType) : ListsFilter
+
+    /** "all", "yours", "smart", "server:KAVITA": for the route's saved state. */
+    val key: String
+        get() = when (this) {
+            All -> "all"
+            Yours -> "yours"
+            Smart -> "smart"
+            is Server -> "server:${sourceType.name}"
+        }
+
+    companion object {
+        fun fromKey(key: String?): ListsFilter = when {
+            key == "yours" -> Yours
+            key == "smart" -> Smart
+            key?.startsWith("server:") == true ->
+                SourceType.entries.firstOrNull { it.name == key.removePrefix("server:") }?.let(::Server) ?: All
+            else -> All
+        }
+    }
+}
+
+/** A section of the Lists screen: "Your lists", or a server's ("Kavita", "Grimmory"), with its lists in order. */
+data class ListsSection(
+    val key: String,
+    val title: String,
+    val lists: List<UserList>,
+)
+
 /**
- * Every list in one place: the reading order under way as a card, Your lists (Want to read,
- * Stalled, then the user's), then each server's lists ([serverLists]: Kavita's reading lists, then
- * Grimmory's shelves, each by name). [lists] come in the screen's order ([orderedForScreen]);
+ * The Lists screen's sections for [filter]: Your lists (Want to read, Stalled while it holds a
+ * book, then yours and your smart lists in [lists]' order), then each server's in [serverLists]:
+ * Kavita's reading lists then collections, Grimmory's magic shelves then shelves, each by name.
+ * Smart keeps only the lists that update themselves, wherever they live.
+ */
+fun listsSections(
+    lists: List<UserList>,
+    serverLists: List<UserList>,
+    filter: ListsFilter,
+    query: String,
+): List<ListsSection> {
+    fun shown(list: UserList) = (query.isEmpty() || list.matches(query)) && (filter != ListsFilter.Smart || list.isBuiltFromRules)
+    val own = lists
+        .filter { list -> list.kind != UserListKind.Stalled || list.entries.isNotEmpty() }
+        .filter(::shown)
+    val servers = serverLists
+        .filter(::shown)
+        .groupBy { list -> list.server?.sourceType }
+        .entries
+        .sortedBy { (source, _) -> source?.ordinal ?: Int.MAX_VALUE }
+        .map { (source, sourceLists) ->
+            ListsSection(
+                key = "server:${source?.name}",
+                title = source?.displayName().orEmpty(),
+                lists = sourceLists.sortedWith(compareBy<UserList> { it.kind.sectionRank() }.thenBy(String.CASE_INSENSITIVE_ORDER, UserList::name)),
+            )
+        }
+    val ownSection = ListsSection(key = "own", title = "Your lists", lists = own)
+    return when (filter) {
+        // Your lists always has Want to read, so it shows under All even while a search empties it.
+        ListsFilter.All -> listOf(ownSection) + servers
+        ListsFilter.Smart -> (listOf(ownSection) + servers).filter { it.lists.isNotEmpty() }
+        ListsFilter.Yours -> listOf(ownSection)
+        is ListsFilter.Server -> servers.filter { it.key == "server:${filter.sourceType.name}" }
+    }
+}
+
+/** The filter row's chips with their counts: All, Your lists, Smart, then each server that has lists. */
+fun listsFilters(lists: List<UserList>, serverLists: List<UserList>): List<Pair<ListsFilter, Int?>> {
+    val own = lists.filter { list -> list.kind != UserListKind.Stalled || list.entries.isNotEmpty() }
+    val smart = (own + serverLists).count(UserList::isBuiltFromRules)
+    val servers = serverLists.groupBy { it.server?.sourceType }.entries
+        .mapNotNull { (source, sourceLists) -> source?.let { ListsFilter.Server(it) to sourceLists.size } }
+        .sortedBy { (filter, _) -> (filter as ListsFilter.Server).sourceType.ordinal }
+    return buildList {
+        add(ListsFilter.All to null)
+        add(ListsFilter.Yours to own.size)
+        if (smart > 0) add(ListsFilter.Smart to smart)
+        addAll(servers)
+    }
+}
+
+private fun UserListKind.sectionRank(): Int = when (this) {
+    UserListKind.ServerReadingList, UserListKind.ServerMagicShelf -> 0
+    else -> 1
+}
+
+/** "All", "Your lists", "Smart", "Kavita". */
+fun ListsFilter.label(): String = when (this) {
+    ListsFilter.All -> "All"
+    ListsFilter.Yours -> "Your lists"
+    ListsFilter.Smart -> "Smart"
+    is ListsFilter.Server -> sourceType.displayName()
+}
+
+/**
+ * Every list in one place: the filter row, the reading order under way as a card, then a section
+ * per place ([listsSections]). [lists] come in the screen's order ([orderedForScreen]);
  * [searchQuery] narrows them all by name or by a book in them.
  */
 @Composable
@@ -72,6 +177,8 @@ fun ListsScreen(
     itemsById: Map<String, ReadableItem>,
     progressByItemId: Map<String, ItemProgressSummary>,
     searchQuery: String,
+    filter: ListsFilter,
+    onFilterChange: (ListsFilter) -> Unit,
     cellSizeDp: Int,
     cover: ListCover,
     onOpenList: (UserList) -> Unit,
@@ -81,18 +188,10 @@ fun ListsScreen(
     modifier: Modifier = Modifier,
 ) {
     val query = searchQuery.trim()
-    val shownLists = remember(lists, query) {
-        if (query.isEmpty()) lists else lists.filter { list -> list.matches(query) }
-    }
-    // A section per server and kind: Kavita's reading lists, then Grimmory's shelves.
-    val serverSections = remember(serverLists, query) {
-        serverLists
-            .filter { list -> query.isEmpty() || list.matches(query) }
-            .groupBy { list -> list.kind to list.server?.sourceType }
-            .entries
-            .sortedBy { (key, _) -> if (key.first == UserListKind.ServerReadingList) 0 else 1 }
-            .map { (key, lists) -> serverSectionTitle(key.first, key.second) to lists }
-    }
+    val filters = remember(lists, serverLists) { listsFilters(lists, serverLists) }
+    // A server's chip goes when its lists do (disconnected); the row falls back to All.
+    val shownFilter = filter.takeIf { chosen -> filters.any { it.first == chosen } } ?: ListsFilter.All
+    val sections = remember(lists, serverLists, shownFilter, query) { listsSections(lists, serverLists, shownFilter, query) }
     val gridState = rememberLazyGridState()
     val scrolled by remember {
         derivedStateOf { gridState.firstVisibleItemIndex > 0 || gridState.firstVisibleItemScrollOffset > 0 }
@@ -114,7 +213,25 @@ fun ListsScreen(
         horizontalArrangement = Arrangement.spacedBy(AppLayout.gridGap),
         verticalArrangement = Arrangement.spacedBy(AppLayout.gridGap),
     ) {
-        if (underWay != null && query.isEmpty()) {
+        if (filters.size > 2) {
+            item(key = "filters", span = { GridItemSpan(maxLineSpan) }) {
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    filters.forEach { (option, count) ->
+                        AppChip(
+                            selected = option == shownFilter,
+                            onClick = { onFilterChange(option) },
+                            label = { Text(option.label()) },
+                            count = count,
+                        )
+                    }
+                }
+            }
+        }
+        val showsCard = shownFilter == ListsFilter.All || shownFilter == ListsFilter.Yours
+        if (underWay != null && query.isEmpty() && showsCard) {
             item(key = "under-way", span = { GridItemSpan(maxLineSpan) }) {
                 ListUnderWayCard(
                     underWay = underWay,
@@ -125,25 +242,19 @@ fun ListsScreen(
                 )
             }
         }
-        item(key = "heading:own", span = { GridItemSpan(maxLineSpan) }) {
-            AppSectionHeading(text = "Your lists", count = shownLists.size.toString())
-        }
-        items(shownLists, key = { list -> "list:${list.id}" }) { list ->
-            UserListTile(list = list, itemsById = itemsById, progressByItemId = progressByItemId, cover = cover, onClick = { onOpenList(list) })
-        }
-        serverSections.forEach { (title, sectionLists) ->
-            item(key = "heading:$title", span = { GridItemSpan(maxLineSpan) }) {
+        sections.forEachIndexed { index, section ->
+            item(key = "heading:${section.key}", span = { GridItemSpan(maxLineSpan) }) {
                 AppSectionHeading(
-                    text = title,
-                    count = sectionLists.size.toString(),
-                    modifier = Modifier.padding(top = sectionTop),
+                    text = section.title,
+                    count = section.lists.size.toString(),
+                    modifier = if (index > 0) Modifier.padding(top = sectionTop) else Modifier,
                 )
             }
-            items(sectionLists, key = { list -> "server:${list.id}" }) { list ->
+            items(section.lists, key = { list -> "list:${list.id}" }) { list ->
                 UserListTile(list = list, itemsById = itemsById, progressByItemId = progressByItemId, cover = cover, onClick = { onOpenList(list) })
             }
         }
-        if (query.isNotEmpty() && shownLists.isEmpty() && serverSections.isEmpty()) {
+        if (query.isNotEmpty() && sections.all { it.lists.isEmpty() }) {
             item(key = "no-match", span = { GridItemSpan(maxLineSpan) }) {
                 Text(
                     text = "No list or book in a list matches “$query”.",
@@ -177,7 +288,7 @@ private fun ListUnderWayCard(
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = "Your order · ${underWay.position} of ${underWay.count}",
+                    text = "Reading order · book ${underWay.position} of ${underWay.count}",
                     style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -229,7 +340,7 @@ private fun UserListTile(
     ListTileFrame(name = list.name, caption = list.tileCaption(progressByItemId), onClick = onClick) {
         Box {
             AppListCover(count = coverItems.size) { index, cellModifier -> cover(coverItems[index], cellModifier) }
-            if (list.kind == UserListKind.Stalled || list.kind == UserListKind.Smart) {
+            if (list.isBuiltFromRules) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -279,15 +390,10 @@ private fun ListTileFrame(
     }
 }
 
-private fun UserList.matches(query: String): Boolean =
+internal fun UserList.matches(query: String): Boolean =
     name.contains(query, ignoreCase = true) ||
         entries.any { entry ->
             entry.title.contains(query, ignoreCase = true) ||
                 entry.primaryText?.contains(query, ignoreCase = true) == true
         }
 
-/** "Kavita reading lists", "Grimmory shelves". */
-private fun serverSectionTitle(kind: UserListKind, sourceType: SourceType?): String {
-    val source = sourceType?.displayName().orEmpty()
-    return if (kind == UserListKind.ServerReadingList) "$source reading lists" else "$source shelves"
-}

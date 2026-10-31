@@ -32,7 +32,6 @@ import com.example.unifiedreader.feature.library.LibraryItemActionContext
 import com.example.unifiedreader.feature.library.LibraryItemListMembership
 import com.example.unifiedreader.feature.library.LibraryReadingOrderCard
 import com.example.unifiedreader.feature.library.LibraryListScopeTopContent
-import com.example.unifiedreader.feature.library.LibraryReadingListScopeState
 import com.example.unifiedreader.feature.library.LibraryScreen
 import com.example.unifiedreader.feature.library.LibraryScrollPosition
 import com.example.unifiedreader.feature.library.LibrarySeriesReadingCard
@@ -94,7 +93,6 @@ internal fun LibraryRoute(
     // Connect on an empty library: that server's connect page, or every choice from Local (null).
     onConnectSource: (SourceType?) -> Unit,
     onRetrySourceConnection: () -> Unit,
-    onReadingListSelected: (String?) -> Unit,
     onSortModeChanged: (LibrarySortMode) -> Unit,
     onViewModeChanged: (LibraryViewMode) -> Unit,
     onGridCellSizeDpChanged: (Int) -> Unit,
@@ -314,11 +312,6 @@ internal fun LibraryRoute(
                     preferIssueLabels = frame.uiState.isSeriesBrowseActive || frame.uiState.isKavitaReadingListActive,
                     includeSeriesInIssueLabels = frame.uiState.isKavitaReadingListActive,
                     lockedSortLabel = "List order".takeIf { frame.uiState.isKavitaReadingListActive },
-                    readingListScopeState = if (frame.uiState.selectedSource == SourceType.KAVITA) {
-                        frame.uiState.kavitaReadingListScopeState()
-                    } else {
-                        LibraryReadingListScopeState()
-                    },
                     coverImageUrlProvider = coverImageUrlProvider,
                     coverPrefetchKeyProvider = coverPrefetchKeyProvider,
                     onCoverVisible = onCoverVisible,
@@ -380,7 +373,6 @@ internal fun LibraryRoute(
                     onImportLocalFile = onImportLocalFile,
                     onConnectServer = { onConnectSource(frame.uiState.selectedSource.takeIf { it != SourceType.LOCAL }) },
                     onRetrySource = onRetrySourceConnection,
-                    onReadingListSelected = onReadingListSelected,
                     onSortModeChanged = onSortModeChanged,
                     onViewModeChanged = onViewModeChanged,
                     onGridCellSizeDpChanged = onGridCellSizeDpChanged,

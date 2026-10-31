@@ -1,6 +1,12 @@
 package com.example.unifiedreader.feature.lists
 
+import com.example.unifiedreader.core.model.BookMetadata
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.ListRule
+import com.example.unifiedreader.core.model.ListRuleField
+import com.example.unifiedreader.core.model.ListRuleGroup
+import com.example.unifiedreader.core.model.ListRuleOperator
+import com.example.unifiedreader.core.model.ListRules
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibraryPageRange
 import com.example.unifiedreader.core.model.LibraryReadingStatus
@@ -30,7 +36,7 @@ class SmartListsTest {
     }
 
     @Test
-    fun `its books are what the filters pick out of its library now, newest first`() {
+    fun `a list saved from filters picks what they did, from that library only, newest first`() {
         val items = listOf(
             book("short-new", SourceType.KAVITA, pages = 40, added = 30),
             book("short-old", SourceType.KAVITA, pages = 50, added = 10),
@@ -49,9 +55,12 @@ class SmartListsTest {
             updatedAtEpochMillis = 1,
             lastOpenedAtEpochMillis = 0,
             entries = emptyList(),
-            smartFilter = SmartListFilter(
-                SourceType.KAVITA,
-                LibraryFilterState(pages = LibraryPageRange(max = 60), readingStatuses = setOf(LibraryReadingStatus.NOT_STARTED)),
+            // A list saved from the filters before rules: read back as rules, the library's source among them.
+            smart = decodeSmartListSpec(
+                SmartListFilter(
+                    SourceType.KAVITA,
+                    LibraryFilterState(pages = LibraryPageRange(max = 60), readingStatuses = setOf(LibraryReadingStatus.NOT_STARTED)),
+                ).encode(),
             ),
         )
         val progress = mapOf("short-read" to ItemProgressSummary(label = "Finished", fraction = 1f, isFinished = true))
@@ -61,6 +70,61 @@ class SmartListsTest {
         assertEquals(listOf("short-new", "short-old"), resolved.sortedEntries().map(UserListEntry::itemId))
         assertEquals("Updates itself · 2", resolved.tileCaption(progress))
     }
+
+    @Test
+    fun `rules pick from every source, in the list's order, as many as it keeps`() {
+        val items = listOf(
+            tagged("kavita-old", SourceType.KAVITA, year = 1850, tags = listOf("Russia")),
+            tagged("grimmory-new", SourceType.GRIMMORY, year = 1990, tags = listOf("russia", "Space")),
+            tagged("local-mid", SourceType.LOCAL, year = 1920, tags = listOf("Russia")),
+            tagged("elsewhere", SourceType.GRIMMORY, year = 1900, tags = listOf("France")),
+        )
+        val smart = UserList(
+            id = "list:smart",
+            name = "Russia",
+            description = null,
+            kind = UserListKind.Smart,
+            order = UserListOrder.Published,
+            hideFinished = false,
+            createdAtEpochMillis = 1,
+            updatedAtEpochMillis = 1,
+            lastOpenedAtEpochMillis = 0,
+            entries = emptyList(),
+            smart = SmartListSpec(
+                rules = ListRules(rules = listOf(ListRule(ListRuleField.Tag, ListRuleOperator.AnyOf, listOf("Russia")))),
+                limit = 2,
+            ),
+        )
+
+        val resolved = listOf(smart).withSmartBooks(items, emptyMap(), onDevice = emptySet()).single()
+
+        assertEquals(listOf("kavita-old", "local-mid"), resolved.sortedEntries().map(UserListEntry::itemId))
+    }
+
+    @Test
+    fun `a smart list's text keeps its rules and how many`() {
+        val spec = SmartListSpec(
+            rules = ListRules(
+                matchAll = false,
+                rules = listOf(ListRule(ListRuleField.Pages, ListRuleOperator.Under, high = 500)),
+                groups = listOf(ListRuleGroup(matchAll = true, rules = listOf(ListRule(ListRuleField.Tag, ListRuleOperator.AllOf, listOf("Russia", "19th century"))))),
+            ),
+            limit = 25,
+        )
+
+        assertEquals(spec, decodeSmartListSpec(spec.encode()))
+        assertNull(decodeSmartListSpec("not a list"))
+    }
+
+    private fun tagged(id: String, source: SourceType, year: Int, tags: List<String>) = ReadableItem(
+        id = id,
+        sourceType = source,
+        libraryId = "lib",
+        title = id,
+        format = FormatType.EPUB,
+        publishedYear = year,
+        bookMetadata = BookMetadata(tags = tags),
+    )
 
     private fun book(id: String, source: SourceType, pages: Int, added: Long) = ReadableItem(
         id = id,

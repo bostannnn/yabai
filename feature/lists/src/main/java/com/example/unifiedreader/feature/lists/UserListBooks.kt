@@ -24,10 +24,16 @@ data class UserListBook(
 const val StalledAfterMillis: Long = 21L * 24 * 60 * 60 * 1000
 
 /** The entries in the order the list shows them. */
-fun UserList.sortedEntries(): List<UserListEntry> = when (order) {
+fun UserList.sortedEntries(): List<UserListEntry> = sortEntries(entries, order)
+
+/** [entries] in [order]: Your order by position, Date added newest first, Title, Published oldest first (undated last). */
+fun sortEntries(entries: List<UserListEntry>, order: UserListOrder): List<UserListEntry> = when (order) {
     UserListOrder.Custom -> entries.sortedBy(UserListEntry::position)
     UserListOrder.DateAdded -> entries.sortedByDescending(UserListEntry::addedAtEpochMillis)
     UserListOrder.Title -> entries.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER, UserListEntry::sortTitle))
+    UserListOrder.Published -> entries.sortedWith(
+        compareBy<UserListEntry, Int?>(nullsLast()) { it.publishedYear }.thenBy(String.CASE_INSENSITIVE_ORDER, UserListEntry::sortTitle),
+    )
 }
 
 /** The list's books in its order, each matched to the library's item and progress. */
@@ -129,43 +135,49 @@ fun bookCountLabel(count: Int): String = when (count) {
     else -> "$count books"
 }
 
-/** A list tile's line: "Your order · 6 of 14", "9 books", "Updates itself · 4", "5 books · by title". */
+/** A list tile's line: "6 of 14 read", "9 books", "Updates itself · 4", "Shelf · 5 books", "Reading list · 32 issues". */
 fun UserList.tileCaption(progressByItemId: Map<String, ItemProgressSummary>): String {
     val count = entries.size
     return when {
         kind == UserListKind.Stalled -> if (count == 0) "Nothing stalled" else "Updates itself · $count"
         kind == UserListKind.Smart -> if (count == 0) "Updates itself · nothing now" else "Updates itself · $count"
-        kind == UserListKind.ServerShelf && count > 0 ->
-            "${bookCountLabel(count)} · ${if (order == UserListOrder.Title) "by title" else "date added"}"
+        kind == UserListKind.ServerShelf -> "Shelf · ${bookCountLabel(count).lowercase()}"
+        kind == UserListKind.ServerMagicShelf -> "Magic shelf · ${bookCountLabel(count).lowercase()}"
+        kind == UserListKind.ServerCollection -> "Collection · $count series"
         kind == UserListKind.ServerReadingList -> {
             val read = entries.count { entry -> progressByItemId[entry.itemId]?.isFinished == true }
             val issues = if (count == 1) "1 issue" else "$count issues"
-            if (read > 0) "$issues · $read read" else issues
+            if (read > 0) "Reading list · $read of $count read" else "Reading list · $issues"
         }
         isReadingOrder && count > 0 -> {
             val read = entries.count { entry -> progressByItemId[entry.itemId]?.isFinished == true }
-            if (read > 0) "Your order · $read of $count" else "Your order · ${bookCountLabel(count)}"
+            if (read > 0) "$read of $count read" else bookCountLabel(count)
         }
         else -> bookCountLabel(count)
     }
 }
 
 /**
- * The lists that hold [itemId], for its book page: Want to read, the user's lists, then the
- * servers' lists, never Stalled. In an order the line says where the book is.
+ * The lists that hold [itemId], for its book page: Want to read, the user's lists and smart lists,
+ * then the servers' lists (magic shelves among them), never Stalled. In an order the line says
+ * where the book is; otherwise what the list is and its size.
  */
 fun bookListMemberships(itemId: String, lists: List<UserList>): List<LibraryItemListMembership> = lists
-    .filter { list -> list.kind != UserListKind.Stalled && list.kind != UserListKind.Smart && list.contains(itemId) }
+    .filter { list -> list.kind != UserListKind.Stalled && list.contains(itemId) }
     .sortedBy { list -> if (list.kind == UserListKind.WantToRead) 0 else if (list.server == null) 1 else 2 }
     .map { list ->
         val count = list.entries.size
+        val source = list.server?.sourceType?.displayName().orEmpty()
+        val size = bookCountLabel(count).lowercase()
         val line = when {
             list.isReadingOrder -> {
                 val number = list.sortedEntries().indexOfFirst { it.itemId == itemId } + 1
                 "Number $number of $count · Read next follows this list"
             }
-            list.kind == UserListKind.ServerShelf ->
-                "${list.server?.sourceType?.displayName().orEmpty()} shelf · ${bookCountLabel(count)}"
+            list.kind == UserListKind.ServerShelf -> "$source shelf · $size"
+            list.kind == UserListKind.ServerMagicShelf -> "$source magic shelf · $size"
+            list.kind == UserListKind.Smart -> "Smart list · $size"
+            list.kind == UserListKind.User -> "Your list · $size"
             else -> bookCountLabel(count)
         }
         LibraryItemListMembership(listId = list.id, name = list.name, line = line)

@@ -30,7 +30,7 @@ data class GrimmoryShelf(
 
 /**
  * Grimmory's plain shelves: list them and their books, create, rename and delete them, and put
- * books on and off them. Magic shelves are not here: their books come only over OPDS.
+ * books on and off them. Magic shelves are in [GrimmoryMagicShelvesApi].
  */
 interface GrimmoryShelvesApi {
     suspend fun getShelves(accessToken: String): List<GrimmoryShelf>

@@ -79,8 +79,8 @@ class UserListBooksTest {
     fun `tile captions say the order and how far you are`() {
         val order = list(entries = listOf(entry("a", 0), entry("b", 1)))
 
-        assertEquals("Your order · 2 books", order.tileCaption(emptyMap()))
-        assertEquals("Your order · 1 of 2", order.tileCaption(mapOf("a" to finished())))
+        assertEquals("2 books", order.tileCaption(emptyMap()))
+        assertEquals("1 of 2 read", order.tileCaption(mapOf("a" to finished())))
         assertEquals("1 book", order.copy(order = UserListOrder.DateAdded, entries = order.entries.take(1)).tileCaption(emptyMap()))
     }
 
@@ -108,7 +108,7 @@ class UserListBooksTest {
 
         assertEquals(listOf(UserListIds.WantToRead, "list:order", "list:titles"), memberships.map { it.listId })
         assertEquals("Number 2 of 3 · Read next follows this list", memberships[1].line)
-        assertEquals("1 book", memberships[2].line)
+        assertEquals("Your list · 1 book", memberships[2].line)
     }
 
     private fun list(

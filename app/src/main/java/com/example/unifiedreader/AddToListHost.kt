@@ -15,6 +15,7 @@ import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.feature.library.libraryBookTitle
 import com.example.unifiedreader.feature.lists.AddToListSheet
 import com.example.unifiedreader.feature.lists.NewListDialog
+import com.example.unifiedreader.feature.lists.UserListKind
 import com.example.unifiedreader.feature.lists.toUserList
 import com.example.unifiedreader.ui.components.AppToastIcon
 import com.example.unifiedreader.ui.components.AppToastMessage
@@ -49,7 +50,10 @@ internal fun AddToListHost(
     val itemsById = remember(libraryItems) { libraryItems.associateBy(ReadableItem::id) }
     SideEffect { listsViewModel.catalog = itemsById }
     val shelves = remember(storedShelves, itemsById, server) {
-        storedShelves.orEmpty().filter { shelf -> shelf.sourceType == server }.map { shelf -> shelf.toUserList(itemsById) }
+        // Books are put on shelves and reading lists by hand; magic shelves and collections pick or hold their own.
+        storedShelves.orEmpty()
+            .filter { shelf -> shelf.sourceType == server && (shelf.kind == UserListKind.ServerShelf || shelf.kind == UserListKind.ServerReadingList) }
+            .map { shelf -> shelf.toUserList(itemsById) }
     }
     val onShelfFailure = rememberShelfFailureToast()
     var isNewListOpen by rememberSaveable { mutableStateOf(false) }
