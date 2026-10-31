@@ -328,7 +328,7 @@ private fun UserList.headerCaption(books: List<UserListBook>): String = when (ki
 
 /** The line under a row's title: where it is in its series or who wrote it, where you are, and its source when the list mixes them. */
 private fun UserListBook.rowLine(showSource: Boolean): String {
-    if (isMissing) return "Not in your library any more"
+    if (isMissing) return "Not in your library"
     val book = item ?: return entry.title
     val context = book.libraryPrimaryText().takeUnless { it == book.libraryBookTitle() } ?: entry.secondaryText
     val reading = when {

@@ -164,8 +164,13 @@ internal fun ListsRoute(
             )
         }
     }
+    val importCbl = rememberCblImport(listsViewModel, uiState) { listId -> state.openList(listId) }
     if (state.isNewListOpen) {
         NewListDialog(
+            onImport = {
+                state.isNewListOpen = false
+                importCbl()
+            },
             onCreate = { name, onServer ->
                 state.isNewListOpen = false
                 if (onServer) {

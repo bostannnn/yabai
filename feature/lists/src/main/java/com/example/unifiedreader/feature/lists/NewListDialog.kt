@@ -11,12 +11,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import com.example.unifiedreader.ui.components.AppDialogCard
 import com.example.unifiedreader.ui.components.AppDialogConfirmButton
 import com.example.unifiedreader.ui.components.AppDialogDismissButton
 import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.AppSegment
 import com.example.unifiedreader.ui.components.AppSegmentedRow
+import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.components.AppTextField
 
 /**
@@ -30,6 +32,8 @@ fun NewListDialog(
     onDismiss: () -> Unit,
     subtitle: String? = null,
     serverName: String? = null,
+    // Import a reading order (.cbl) instead; null where importing isn't offered.
+    onImport: (() -> Unit)? = null,
 ) {
     var name by rememberSaveable { mutableStateOf("") }
     var onServer by rememberSaveable { mutableStateOf(false) }
@@ -68,6 +72,11 @@ fun NewListDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            if (onImport != null && !onServer) {
+                AppTextButton(onClick = onImport) {
+                    Text(text = "Import a reading order (.cbl)", fontWeight = FontWeight.SemiBold)
+                }
             }
         }
     }
