@@ -96,6 +96,21 @@ class UserListBooksTest {
         assertEquals(listOf(UserListIds.WantToRead, UserListIds.Stalled, "list:newer", "list:older"), ordered.map { it.id })
     }
 
+    @Test
+    fun `a book page names the lists that hold the book, Want to read first, and never Stalled`() {
+        val order = list(id = "list:order", entries = listOf(entry("x", 0), entry("a", 1), entry("y", 2)))
+        val byTitle = list(id = "list:titles", entries = listOf(entry("a", 0))).copy(order = UserListOrder.Title)
+        val want = list(id = UserListIds.WantToRead, entries = listOf(entry("a", 0))).copy(kind = UserListKind.WantToRead, name = "Want to read")
+        val stalled = list(id = UserListIds.Stalled, entries = listOf(entry("a", 0))).copy(kind = UserListKind.Stalled)
+        val other = list(id = "list:other", entries = listOf(entry("b", 0)))
+
+        val memberships = bookListMemberships("a", listOf(order, byTitle, stalled, other, want))
+
+        assertEquals(listOf(UserListIds.WantToRead, "list:order", "list:titles"), memberships.map { it.listId })
+        assertEquals("Number 2 of 3 · Read next follows this list", memberships[1].line)
+        assertEquals("1 book", memberships[2].line)
+    }
+
     private fun list(
         id: String = "list:a",
         entries: List<UserListEntry> = emptyList(),

@@ -181,6 +181,15 @@ fun LibraryBookPage(
                     }
                 }
             }
+            val lists = actionContext.listsContaining(item)
+            if (lists.isNotEmpty()) {
+                item(key = "lists") {
+                    LibraryBookPageLists(lists) { listId ->
+                        actionContext.onOpenList(listId)
+                        dismiss()
+                    }
+                }
+            }
             item(key = "about") {
                 LibraryBookPageAbout(
                     text = text,

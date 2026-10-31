@@ -21,6 +21,16 @@ data class LibraryItemActionContext(
     val onOpenItemPage: (ReadableItem) -> Unit = {},
     // The book page's Add to list; null where lists aren't offered.
     val onAddToList: ((ReadableItem) -> Unit)? = null,
+    // The lists the item is in, for the book page's In your lists, and opening one of them.
+    val listsContaining: (ReadableItem) -> List<LibraryItemListMembership> = { emptyList() },
+    val onOpenList: (listId: String) -> Unit = {},
+)
+
+/** A list a book is in, as its book page names it: "The Long Eclipse", "Number 6 of 14 · Read next follows this list". */
+data class LibraryItemListMembership(
+    val listId: String,
+    val name: String,
+    val line: String,
 )
 
 fun LibraryItemActionContext.isDownloaded(

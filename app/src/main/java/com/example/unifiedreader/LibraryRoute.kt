@@ -28,6 +28,7 @@ import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryGridMetrics
 import com.example.unifiedreader.feature.library.LibraryHeader
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
+import com.example.unifiedreader.feature.library.LibraryItemListMembership
 import com.example.unifiedreader.feature.library.LibraryListScopeTopContent
 import com.example.unifiedreader.feature.library.LibraryReadingListScopeState
 import com.example.unifiedreader.feature.library.LibraryScreen
@@ -103,6 +104,9 @@ internal fun LibraryRoute(
     // A book page asked for from elsewhere (the journal), opened once the book is in this library.
     // The book page's Add to list; null where there are no lists.
     onAddToList: ((ReadableItem) -> Unit)? = null,
+    // The book page's In your lists, and opening one of them.
+    listsContaining: (ReadableItem) -> List<LibraryItemListMembership> = { emptyList() },
+    onOpenList: (String) -> Unit = {},
     bookPageRequest: String? = null,
     onBookPageRequestHandled: () -> Unit = {},
     contentTopInset: Dp = 0.dp,
@@ -137,6 +141,8 @@ internal fun LibraryRoute(
         onSetReadStatus = onSetReadStatus,
         onOpenItemPage = { item -> bookPageStack = listOf(item.id) },
         onAddToList = onAddToList,
+        listsContaining = listsContaining,
+        onOpenList = onOpenList,
     )
     // One screen for See all whichever shelf it shows: its tabs switch in place.
     val screen = libraryScreenKey(uiState, shelvesOpen = activeShelfBrowserKind != null)

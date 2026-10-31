@@ -419,6 +419,11 @@ fun UnifiedReaderScaffold(
                                         addToListItems = listOf(item)
                                     }
                                 },
+                                listsContaining = listsViewModel?.let { rememberBookListMemberships(it, uiState) } ?: { emptyList() },
+                                onOpenList = { listId ->
+                                    listsState.openList(listId)
+                                    viewModel.onTopLevelSelected(TopLevelDestination.Lists)
+                                },
                                 bookPageRequest = pendingBookPageItemId,
                                 onBookPageRequestHandled = { pendingBookPageItemId = null },
                                 contentTopInset = AppTopBarDefaults.contentInset,

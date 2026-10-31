@@ -3,7 +3,9 @@ package com.example.unifiedreader.feature.lists
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.core.model.isStumpSeriesContainer
+import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.feature.library.ItemProgressSummary
+import com.example.unifiedreader.feature.library.LibraryItemListMembership
 
 /** A list's book with what the library knows about it now: [item] is null once it has left the library. */
 data class UserListBook(
@@ -141,6 +143,27 @@ fun UserList.tileCaption(progressByItemId: Map<String, ItemProgressSummary>): St
         else -> bookCountLabel(count)
     }
 }
+
+/**
+ * The lists that hold [itemId], for its book page: Want to read, the user's lists, then the
+ * servers' lists, never Stalled. In an order the line says where the book is.
+ */
+fun bookListMemberships(itemId: String, lists: List<UserList>): List<LibraryItemListMembership> = lists
+    .filter { list -> list.kind != UserListKind.Stalled && list.contains(itemId) }
+    .sortedBy { list -> if (list.kind == UserListKind.WantToRead) 0 else if (list.server == null) 1 else 2 }
+    .map { list ->
+        val count = list.entries.size
+        val line = when {
+            list.isReadingOrder -> {
+                val number = list.sortedEntries().indexOfFirst { it.itemId == itemId } + 1
+                "Number $number of $count · Read next follows this list"
+            }
+            list.kind == UserListKind.ServerShelf ->
+                "${list.server?.sourceType?.displayName().orEmpty()} shelf · ${bookCountLabel(count)}"
+            else -> bookCountLabel(count)
+        }
+        LibraryItemListMembership(listId = list.id, name = list.name, line = line)
+    }
 
 /** A list page's facts: "14 books · 6 read". */
 fun List<UserListBook>.summaryLine(): String {
