@@ -225,8 +225,10 @@ The heading on the page ground above a grid or a list: `section-heading` 20 Bold
 
 def list_cover(indices, width=None):
     w = f"width:{width}px;" if width else ""
+    if 0 < len(indices) < 4:
+        t, a, bg, fg = COVERS[indices[0] % len(COVERS)]
+        return (f'<div class="yb-cover" style="{w}background:{bg};color:{fg}"><b>{t}</b><small>{a}</small></div>')
     cells = "".join(f'<span style="background:{COVERS[i % len(COVERS)][2]}"></span>' for i in indices)
-    cells += "".join('<span></span>' for _ in range(4 - len(indices)))
     return (f'<div style="{w}aspect-ratio:2/3;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;'
             f'border-radius:var(--radius-cover);overflow:hidden;background:var(--surface-container-high)">{cells}</div>')
 
@@ -236,12 +238,13 @@ comp("AppListCover", "Lists", 330, """
 
 A list's cover: its first four books' covers in a 2×2 mosaic, at a cover's 2:3 and `radius-cover`, 2 apart. A list reads apart from a book (one cover) and a series (one cover with a stack behind it).
 
-- Kit: `AppListCover(count, cell = { index, modifier -> ... })`; the caller draws each cover (the library's cover composable) filling the modifier it gets. Fewer than four books leave the other cells in `surface-container-high`; an empty list is all four.
+- Kit: `AppListCover(count, cell = { index, modifier -> ... })`; the caller draws each cover (the library's cover composable) filling the modifier it gets.
+- Four books or more make the mosaic. One to three books show the first book's cover, whole: a mosaic with empty cells reads as broken. An empty list is the bare `surface-container-high` card.
 - Used for list tiles on the Lists screen (the grid's cover width) and the list page's header (132).
 - A list that updates itself (Stalled) adds a 32 round badge with the `tune` icon at its top end, on `surface-container-high`.
 """, f"""
 <div class="yb yb-ground" style="padding:24px;width:520px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
-  <div>{list_cover([0, 3, 5, 6])}<div class="yb-book-title" style="margin-top:6px">The Long Eclipse</div><div class="yb-caption">Your order · 6 of 14</div></div>
+  <div>{list_cover([0, 3, 5, 6])}<div class="yb-book-title" style="margin-top:6px">The Long Eclipse</div><div class="yb-caption">6 of 14 read</div></div>
   <div>{list_cover([1, 2])}<div class="yb-book-title" style="margin-top:6px">Want to read</div><div class="yb-caption">2 books</div></div>
   <div style="position:relative">{list_cover([4, 7, 2, 0])}<span style="position:absolute;right:8px;top:8px;width:32px;height:32px;border-radius:50%;background:var(--surface-container-high);display:flex;align-items:center;justify-content:center">{ic("tune", 18)}</span><div class="yb-book-title" style="margin-top:6px">Stalled</div><div class="yb-caption">Updates itself · 4</div></div>
 </div>""", width=568)
@@ -317,7 +320,8 @@ comp("AppMenu", "Surfaces", 470, """
 
 A dropdown anchored to its button: the sort menu, •••, a tile's actions. `surface-container-high`, 44 tall items.
 
-- Kit: `AppMenu`, `AppMenuHeading`, `AppMenuChoiceItem`, `AppMenuSwitchItem`.
+- Kit: `AppMenu`, `AppMenuItem`, `AppMenuHeading`, `AppMenuChoiceItem`, `AppMenuSwitchItem`.
+- An item that needs saying what it does (Lists' New: List, Smart list, Import a reading order) takes a `supporting` line under its label and grows to 56; keep that to menus whose choices make something.
 - **One inset, `inset-menu` 16** (`AppMenuDefaults.horizontalPadding`), for items, headings and controls: the cover-size segmented row lines up with the labels.
 - Corners `radius-control` 12, as the 2026-10-22 decision says for menus.
 - A menu with a single item (••• on a Local library) is fine; do not pad it with disabled entries.
@@ -369,7 +373,7 @@ comp("AppChip", "Actions", 180, """
 A selectable pill for filters and sort: 36 tall, a hairline `outline-variant` edge, `on-surface-variant` text in SemiBold; selected fills with `primary-container` and drops the edge. An optional count follows the label at 70%.
 
 - Kit: `AppChip(selected, onClick, label, count, leadingIcon)`.
-- The library's Filters and sort pills, the filter sheet's values, Kavita lists.
+- The library's Filters and sort pills, the filter sheet's values, the Lists filter row and a smart list's rules.
 - Counts are digits with a separator ("1,474"; `appCount`), not in brackets.
 """, f"""
 <div class="yb yb-ground" style="padding:24px;display:flex;gap:8px;flex-wrap:wrap">

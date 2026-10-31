@@ -329,7 +329,7 @@ def list_tile(name, caption, indices, smart=False):
             f'<div class="yb-book-title" style="margin-top:6px;font-size:14px">{name}</div><div class="yb-caption">{caption}</div></div>')
 
 
-LISTS_H = 1180  # the whole page, down to the Grimmory shelves
+LISTS_H = 1240  # the whole page, down to the Grimmory section
 
 
 def check_box(on):
@@ -337,6 +337,22 @@ def check_box(on):
         return (f'<span style="width:22px;height:22px;border-radius:6px;background:var(--primary);color:var(--on-primary);'
                 f'display:flex;align-items:center;justify-content:center;flex:none">{ic("check", 18)}</span>')
     return '<span style="width:22px;height:22px;border-radius:6px;box-shadow:inset 0 0 0 2px var(--outline);flex:none"></span>'
+
+
+def round_check(on):
+    if on:
+        return (f'<span style="width:22px;height:22px;border-radius:50%;background:var(--primary);color:var(--on-primary);'
+                f'display:flex;align-items:center;justify-content:center;flex:none">{ic("check", 16)}</span>')
+    return '<span style="width:22px;height:22px;border-radius:50%;box-shadow:inset 0 0 0 2px var(--outline);flex:none"></span>'
+
+
+def filter_chip(label, count=None, selected=False):
+    n = f' <span class="yb-count">{count}</span>' if count is not None else ""
+    return f'<span class="yb-chip{" is-selected" if selected else ""}">{label}{n}</span>'
+
+
+def grid(tiles, cols=6):
+    return f'<div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:16px">{"".join(tiles)}</div>'
 
 
 lists = f"""
@@ -347,38 +363,46 @@ lists = f"""
     <div class="yb-pane" style="--yb-gutter:24px">
       <div class="yb-bar"><div class="yb-search">{ic("search")}<span>Search lists</span></div><span class="yb-spacer"></span><button class="yb-icon-btn">{ic("add")}</button><button class="yb-icon-btn">{ic("more_vert")}</button></div>
       <div class="yb-scroll">
+        <div class="yb-chip-row">{filter_chip("All", selected=True)}{filter_chip("Your lists", 5)}{filter_chip("Smart", 3)}{filter_chip("Kavita", 4)}{filter_chip("Grimmory", 35)}</div>
         <div class="yb-panel" style="padding:20px;display:flex;gap:20px;align-items:center">
           {cover(5, width=88)}
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
-            <span class="yb-caption" style="font-weight:600">Your order · 7 of 14 · read yesterday</span>
-            <span style="font:700 24px/30px var(--font-sans)">The Long Eclipse</span>
+            <span class="yb-caption" style="font-weight:600">Reading order · book 3 of 5 · read yesterday</span>
+            <span style="font:700 24px/30px var(--font-sans)">Night Run</span>
             <span class="yb-supporting">Next: Star Courier #2</span>
-            <div class="yb-progress" style="margin-top:8px"><i style="width:43%"></i></div>
+            <div class="yb-progress" style="margin-top:8px"><i style="width:40%"></i></div>
           </div>
           <button class="yb-btn is-filled">Continue</button>
         </div>
         <div class="yb-group">
-          <h2 class="yb-section-heading">Your lists <span class="yb-count">4</span></h2>
-          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:16px">
-            {list_tile("Want to read", "9 books", [1, 2, 4, 7])}
-            {list_tile("Stalled", "Updates itself · 4", [3, 0, 6, 2], smart=True)}
-            {list_tile("The Long Eclipse", "Your order · 6 of 14", [0, 3, 5, 6])}
-            {list_tile("Comfort rereads", "8 books", [7, 1, 2, 3])}
-          </div>
+          <h2 class="yb-section-heading">Your lists <span class="yb-count">5</span></h2>
+          {grid([
+              list_tile("Want to read", "9 books", [1, 2, 4, 7]),
+              list_tile("Stalled", "Updates itself · 4", [3, 0, 6, 2], smart=True),
+              list_tile("Night Run", "2 of 5 read", [0, 3, 5, 6]),
+              list_tile("Book club picks", "1 book", [6]),
+              list_tile("Short reads", "Updates itself · 23", [7, 1, 2, 3], smart=True),
+          ])}
         </div>
         <div class="yb-group">
-          <h2 class="yb-section-heading">Kavita reading lists <span class="yb-count">2</span></h2>
-          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:16px">
-            {list_tile("Harbor Lights, in order", "32 issues", [5, 5, 5, 5])}
-            {list_tile("Eclipse War", "22 issues", [0, 4, 5, 3])}
-          </div>
+          <h2 class="yb-section-heading">Kavita <span class="yb-count">4</span></h2>
+          {grid([
+              list_tile("Harbor Lights, in order", "Reading list · 32 issues", [5, 5, 5, 5]),
+              list_tile("Eclipse War", "Reading list · 22 issues", [0, 4, 5, 3]),
+              list_tile("Eisner winners", "Collection · 9 series", [4, 1, 3, 0]),
+              list_tile("Weekend comics", "Collection · 3 series", [2, 7]),
+          ])}
         </div>
         <div class="yb-group">
-          <h2 class="yb-section-heading">Grimmory shelves <span class="yb-count">2</span></h2>
-          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:16px">
-            {list_tile("Book club", "5 books · by title", [6, 2, 4, 1])}
-            {list_tile("Next summer", "7 books · date added", [0, 7, 3, 2])}
-          </div>
+          <h2 class="yb-section-heading">Grimmory <span class="yb-count">35</span></h2>
+          {grid([
+              list_tile("Short Russian classics", "Magic shelf · 44 books", [1, 1, 1, 1], smart=True),
+              list_tile("33 1/3", "Shelf · 64 books", [3, 0, 6, 2]),
+              list_tile("American Fiction", "Shelf · 42 books", [6, 2, 4, 1]),
+              list_tile("Biographies", "Shelf · 49 books", [0, 7, 3, 2]),
+              list_tile("Cinema", "Shelf · 46 books", [7, 3, 0, 5]),
+              list_tile("Epic &amp; High Fantasy", "Shelf · 84 books", [4, 6, 2, 1]),
+          ])}
         </div>
       </div>
       <div class="yb-spec">{g(24)}<span class="t" style="left:28px;top:30px">24 gutter</span>{h(84)}<span class="t" style="left:520px;top:62px">84 content top</span></div>
@@ -386,6 +410,38 @@ lists = f"""
   </div>
 </div>"""
 
+
+def menu_row(icon, title, line):
+    return (f'<div class="yb-menu-item" style="height:56px;gap:14px;align-items:center"><span style="display:flex;color:var(--on-surface-variant)">{ic(icon)}</span>'
+            f'<span style="display:flex;flex-direction:column"><span style="font:500 15px/20px var(--font-sans)">{title}</span>'
+            f'<span class="yb-caption">{line}</span></span></div>')
+
+
+plus_menu = f"""
+<div class="yb-menu" style="width:320px">
+  {menu_row("checklist", "List", "You pick the books")}
+  {menu_row("tune", "Smart list", "Picked by rules, kept up to date")}
+  {menu_row("description", "Import a reading order", "From a .cbl file")}
+</div>"""
+
+
+def radio_row(title, sup, on):
+    return (f'<div class="yb-row is-dense" style="padding:0"><span class="yb-row-text"><span class="yb-row-title">{title}</span>'
+            f'<span class="yb-supporting">{sup}</span></span>{round_check(on)}</div>')
+
+
+new_list = f"""
+<div class="yb-dialog" style="width:400px">
+  <h2 class="yb-dialog-title">New list</h2>
+  <span class="yb-field" style="box-shadow:inset 0 0 0 2px var(--primary)"><span class="yb-field-label" style="color:var(--primary)">Name</span>Book club</span>
+  <h3 class="yb-sheet-label" style="margin:4px 0 -8px">Keep it</h3>
+  <div>
+    {radio_row("On this device", "Books from every source, in your order.", True)}
+    {radio_row("On Kavita", "A reading list, also in Kavita's web reader. Kavita issues only.", False)}
+    {radio_row("On Grimmory", "A shelf, also in Grimmory's web app. Grimmory books only.", False)}
+  </div>
+  <div class="yb-dialog-actions"><button class="yb-btn is-text">Cancel</button><button class="yb-btn is-filled">Create</button></div>
+</div>"""
 
 
 def check_row(title, sup, on):
@@ -395,35 +451,167 @@ def check_row(title, sup, on):
 
 add_to_list = f"""
 <div class="yb-sheet" style="height:720px">
-  <div class="yb-panel-header has-back"><button class="yb-icon-btn">{ic("arrow_back")}</button><div class="yb-panel-header-text"><h2 class="yb-panel-title">Add to list</h2><span class="yb-panel-sub">The Salt Orchard</span></div><button class="yb-icon-btn">{ic("close")}</button></div>
-  {check_row("Want to read", "9 books", False)}
-  <div class="yb-divider is-full"></div>
+  <div class="yb-panel-header has-back"><button class="yb-icon-btn">{ic("arrow_back")}</button><div class="yb-panel-header-text"><h2 class="yb-panel-title">Add to list</h2><span class="yb-panel-sub">Отцы и дети</span></div><button class="yb-icon-btn">{ic("close")}</button></div>
   <div class="yb-sheet-section"><h3 class="yb-sheet-label">Your lists</h3></div>
-  {check_row("The Long Eclipse", "14 books", False)}
-  {check_row("Comfort rereads", "8 books", True)}
+  {check_row("Want to read", "9 books", False)}
+  {check_row("Book club picks", "1 book", True)}
+  {check_row("Night Run", "5 books", False)}
   <div class="yb-divider is-full"></div>
   <div class="yb-sheet-section"><h3 class="yb-sheet-label">Grimmory shelves</h3></div>
-  {check_row("Book club", "5 books", True)}
-  {check_row("Next summer", "7 books", False)}
+  {check_row("Russian Classics", "55 books", True)}
+  {check_row("Poetry", "70 books", False)}
+  <div class="yb-divider is-full"></div>
   {row("New list", icon="add", trailing=None, dense=True)}
-  <p class="yb-caption" style="padding:12px 20px 0">Your lists stay on this tablet and can mix books from every source. Grimmory shelves hold only Grimmory books and are kept on the server.</p>
 </div>"""
 
-new_list = f"""
-<div class="yb-dialog" style="width:380px">
-  <h2 class="yb-dialog-title">New list</h2>
-  <span class="yb-field"><span class="yb-field-label">Name</span>Book club</span>
-  <div class="yb-seg"><span>On this device</span><span class="is-selected">On Grimmory</span></div>
-  <div class="yb-supporting" style="color:var(--on-surface-variant)">A Grimmory shelf, also in Grimmory's web app. Grimmory books only, in no set order.</div>
-  <div class="yb-dialog-actions"><button class="yb-btn is-text">Cancel</button><button class="yb-btn is-filled">Create</button></div>
+
+def rule_row(field, value):
+    return (f'<div class="yb-row is-dense"><span class="yb-row-text"><span class="yb-row-title">{field}</span>'
+            f'<span class="yb-supporting">{value}</span></span><button class="yb-icon-btn">{ic("close")}</button></div>')
+
+
+smart_editor = f"""
+<div class="yb-device" style="width:{W}px;height:800px">
+  {statusbar()}
+  <div class="yb-device-body">
+    {rail("Lists")}
+    <div class="yb-pane" style="--yb-gutter:24px">
+      <div class="yb-bar"><button class="yb-icon-btn">{ic("close")}</button><span class="yb-bar-title">New smart list</span><span class="yb-spacer"></span><button class="yb-btn is-filled">Create</button></div>
+      <div class="yb-scroll" style="flex-direction:row;gap:24px;align-items:flex-start">
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:24px">
+          <span class="yb-field"><span class="yb-field-label">Name</span>Short Russian classics</span>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <h3 class="yb-group-label">Keep it</h3>
+            <div class="yb-seg"><span>On this device</span><span class="is-selected">On Grimmory</span></div>
+            <span class="yb-caption">A Grimmory magic shelf, also in Grimmory's web app. Grimmory books only.</span>
+          </div>
+          <div class="yb-group">
+            <h3 class="yb-group-label">Rules</h3>
+            <div class="yb-panel">
+              <div class="yb-row is-dense"><span class="yb-row-text"><span class="yb-row-title">Books that match</span></span><span class="yb-chip">all {ic("arrow_downward", 16)}</span></div>
+              {DIV}{rule_row("Tag", "is all of: Russia, 19th century")}
+              {DIV}{rule_row("Genre", "is any of: Classics, Poetry")}
+              {DIV}{rule_row("Pages", "under 500")}
+              {DIV}<div class="yb-row is-dense" style="gap:8px"><button class="yb-btn is-text">{ic("add")}Add rule</button><button class="yb-btn is-text">{ic("add")}Add a group</button></div>
+            </div>
+          </div>
+          <div class="yb-panel">{row("Sort by", "Published, oldest first", dense=True)}{DIV}{row("How many", "Every match", dense=True)}</div>
+        </div>
+        <div style="width:320px;display:flex;flex-direction:column;gap:12px">
+          <h2 class="yb-section-heading">Matches <span class="yb-count">44</span></h2>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">{"".join(cover(1, font=10) for _ in range(9))}</div>
+          <span class="yb-caption">and 35 more</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>"""
+
+
+def picker_row(title, hint, enabled=True):
+    style = "" if enabled else ' style="opacity:.45"'
+    return (f'<div class="yb-row is-dense"{style}><span class="yb-row-text"><span class="yb-row-title">{title}</span>'
+            f'<span class="yb-supporting">{hint}</span></span></div>')
+
+
+rule_picker = f"""
+<div class="yb-sheet" style="height:760px">
+  <div class="yb-panel-header has-back"><button class="yb-icon-btn">{ic("arrow_back")}</button><div class="yb-panel-header-text"><h2 class="yb-panel-title">Add a rule</h2></div><button class="yb-icon-btn">{ic("close")}</button></div>
+  <div class="yb-sheet-section"><h3 class="yb-sheet-label">About the book</h3></div>
+  {picker_row("Author", "Any of, none of")}{picker_row("Series", "Any of, none of")}{picker_row("Genre", "Any of, all of, none of")}{picker_row("Tag", "Set in, when, about")}
+  {picker_row("Language", "Any of, none of")}{picker_row("Pages", "Under, over, between")}{picker_row("Published", "Before, after, between")}
+  <div class="yb-divider is-full"></div>
+  <div class="yb-sheet-section"><h3 class="yb-sheet-label">Your reading</h3></div>
+  {picker_row("Status", "Not started, reading, finished")}{picker_row("Last read", "In the last, not for")}
+  <div class="yb-divider is-full"></div>
+  <div class="yb-sheet-section"><h3 class="yb-sheet-label">In your library</h3></div>
+  {picker_row("Added", "In the last, before")}{picker_row("Downloaded", "Lists on this device only", enabled=False)}{picker_row("Source", "Lists on this device only", enabled=False)}
+</div>"""
+
+
+def value_row(label, count, on):
+    return (f'<div class="yb-row is-dense"><span class="yb-row-text"><span class="yb-row-title">{label}</span></span>'
+            f'<span class="yb-caption" style="margin-right:12px">{count}</span>{check_box(on)}</div>')
+
+
+rule_value = f"""
+<div class="yb-sheet" style="height:760px">
+  <div class="yb-panel-header has-back"><button class="yb-icon-btn">{ic("arrow_back")}</button><div class="yb-panel-header-text"><h2 class="yb-panel-title">Tag</h2></div><button class="yb-icon-btn">{ic("close")}</button></div>
+  <div style="padding:0 20px 12px;display:flex;flex-direction:column;gap:12px">
+    <div class="yb-seg"><span>Any of</span><span class="is-selected">All of</span><span>None of</span></div>
+    <div class="yb-search" style="max-width:none">{ic("search")}<span>Search 264 tags</span></div>
+  </div>
+  <div class="yb-sheet-section"><h3 class="yb-sheet-label">Set in</h3></div>
+  {value_row("Russia", 246, True)}{value_row("Moscow", 61, False)}{value_row("Saint Petersburg", 58, False)}
+  <div class="yb-sheet-section"><h3 class="yb-sheet-label">When</h3></div>
+  {value_row("19th century", 152, True)}{value_row("20th century", 690, False)}
+  <div class="yb-sheet-section"><h3 class="yb-sheet-label">About</h3></div>
+  {value_row("Family", 210, False)}
+  <div style="margin-top:auto;padding:12px 20px 20px;display:flex;align-items:center;gap:12px;border-top:1px solid var(--outline-variant)">
+    <span class="yb-supporting" style="flex:1">Books tagged both Russia and 19th century · 72 in your library</span>
+    <button class="yb-btn is-filled">Save rule</button>
+  </div>
+</div>"""
+
+
+def rule_pill(text):
+    return f'<span class="yb-chip" style="height:30px;font-weight:500">{text}</span>'
+
+
+def book_row_html(i, title, line, number=None):
+    num = f'<span class="yb-caption" style="width:24px;text-align:right;font-weight:600">{number}</span>' if number else ""
+    return (f'<div class="yb-row" style="gap:16px">{num}{cover(i, width=44, font=6)}<span class="yb-row-text"><span class="yb-row-title">{title}</span>'
+            f'<span class="yb-supporting">{line}</span></span></div>')
+
+
+magic_page = f"""
+<div class="yb-ground" style="width:900px;padding:24px;display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;gap:24px;align-items:flex-end">
+    <div style="position:relative;width:132px">{list_cover([1, 1, 1, 1])}<span style="position:absolute;right:8px;top:8px;width:32px;height:32px;border-radius:50%;background:var(--surface-container-high);display:flex;align-items:center;justify-content:center">{ic("tune", 18)}</span></div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+      <span class="yb-caption" style="font-weight:600">Grimmory magic shelf · updates itself</span>
+      <span class="yb-display" style="font-size:32px;line-height:40px">Short Russian classics</span>
+      <div class="yb-chip-row">{rule_pill("Tag: Russia and 19th century")}{rule_pill("Genre: Classics or Poetry")}{rule_pill("Pages under 500")}</div>
+      <span class="yb-supporting" style="color:var(--on-surface)">44 books · 3 read</span>
+      <div style="display:flex;gap:8px"><button class="yb-btn is-filled">Read · Кавказский пленник</button><button class="yb-btn is-tonal">{ic("edit", 18)}Edit rules</button></div>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <div style="display:flex;align-items:center;gap:8px"><h2 class="yb-section-heading" style="flex:1">Books <span class="yb-count">44</span></h2><span class="yb-chip">{ic("swap_vert")}Published</span><span class="yb-chip">Hide finished</span></div>
+    <div class="yb-panel">{book_row_html(1, "Кавказский пленник", "Лев Толстой · 1872")}{DIV}{book_row_html(1, "Шинель", "Николай Гоголь · 1842")}{DIV}{book_row_html(1, "Отцы и дети", "Иван Тургенев · Finished")}</div>
+  </div>
+</div>"""
+
+collection_page = f"""
+<div class="yb-ground" style="width:900px;padding:24px;display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;gap:24px;align-items:flex-end">
+    <div style="width:132px">{list_cover([4, 1, 3, 0])}</div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+      <span class="yb-caption" style="font-weight:600">Kavita collection · on the server</span>
+      <span class="yb-display" style="font-size:32px;line-height:40px">Eisner winners</span>
+      <span class="yb-supporting" style="color:var(--on-surface)">9 series · 212 issues · 41 read</span>
+      <div style="display:flex;gap:8px"><button class="yb-btn is-tonal">{ic("edit", 18)}Edit</button></div>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <h2 class="yb-section-heading">Series <span class="yb-count">9</span></h2>
+    <div class="yb-panel">
+      <div class="yb-row" style="gap:16px">{cover(4, width=44, font=6)}<span class="yb-row-text"><span class="yb-row-title">Glass Meridian</span><span class="yb-supporting">24 issues · 6 read</span></span><span class="yb-chev">{ic("navigate_next")}</span></div>{DIV}
+      <div class="yb-row" style="gap:16px">{cover(0, width=44, font=6)}<span class="yb-row-text"><span class="yb-row-title">The Lantern Keepers</span><span class="yb-supporting">12 issues</span></span><span class="yb-chev">{ic("navigate_next")}</span></div>
+    </div>
+  </div>
 </div>"""
 
 in_your_lists = f"""
 <div class="yb-sheet" style="height:auto;padding-bottom:12px">
-  <div class="yb-panel-header"><div class="yb-panel-header-text"><h2 class="yb-panel-title">Neon Ronin #12</h2><span class="yb-panel-sub">Neon Ronin · 12 of 20</span></div><button class="yb-icon-btn">{ic("close")}</button></div>
+  <div class="yb-panel-header"><div class="yb-panel-header-text"><h2 class="yb-panel-title">Отцы и дети</h2><span class="yb-panel-sub">Иван Тургенев</span></div><button class="yb-icon-btn">{ic("close")}</button></div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 20px 8px">
+    {"".join(f'<button class="yb-btn is-tonal" style="height:64px;flex-direction:column;gap:4px;padding:0 8px;font-size:13px">{ic(i, 20)}{t}</button>' for i, t in [("check", "Mark finished"), ("download", "Download"), ("checklist", "Add to list")])}
+  </div>
   <div class="yb-sheet-section"><h3 class="yb-sheet-label">In your lists</h3></div>
-  {row("The Long Eclipse", "Number 6 of 14 · Read next follows this list", dense=True)}
-  {row("Want to read", "9 books", dense=True)}
+  {row("Book club picks", "Your list · 1 book", dense=True)}
+  {row("Short Russian classics", "Grimmory magic shelf · 44 books", dense=True)}
+  {row("Russian Classics", "Grimmory shelf · 55 books", dense=True)}
 </div>"""
 
 keep_row = f"""
@@ -439,35 +627,52 @@ list_finished = f"""
 </div>"""
 
 
-comp("ListsScreen", "Screens", 2900, """
+comp("ListsScreen", "Screens", 4300, """
 # Lists
 
 Every list in one place, beside the sources in the rail and the drawer: the reading order you are in the middle of, then your lists, then each server's lists.
 
-- **No screen title.** The rail says Lists; the bar holds "Search lists", New list (`add`) and a menu.
-- **The card** is the reading order opened most recently that still has an unread book: what is next, the order's position and an `AppProgressBar`, and Continue. It is an `AppPanel` with `inset` 20; it is not shown when no order is under way.
-- **Your lists** (on this tablet, any source): Want to read first, then Stalled (books started and not opened for 21 days, worked out on its own: the `tune` badge), then the lists you made, most recently opened first. **Kavita reading lists** follow, holding only Kavita issues; a tap opens the list in the Kavita library.
-- **Grimmory shelves** come last, while Grimmory is connected: your shelves and the public ones, holding only Grimmory books, by name. The caption says the shelf's order ("5 books · by title"). They are kept on the server; the app refreshes them when Lists opens (at most every five minutes) and keeps the last copy for offline.
-- Sections are `AppSectionHeading` on the gutter line with `section-gap` 24 between them; tiles are `AppListCover` in the library grid's columns and gap, the name at 14 SemiBold and one caption line.
-- A list's page: `AppListCover` 132, the name in `display-title`, its description and "14 books · 6 read", Continue, Edit, the Order chip (Your order / Date added / Title) and Hide finished; the books are `AppBookRow`s in an `AppPanel`, numbered in Your order.
+- **No screen title.** The rail says Lists; the bar holds "Search lists", New (`add`) and a menu.
+- **New** opens an `AppMenu` of three: List ("You pick the books"), Smart list ("Picked by rules, kept up to date") and Import a reading order ("From a .cbl file"), each with its icon and line (`AppMenuItem` with `supporting`).
+- **The filter row** sits at the content top: `AppChip`s All, Your lists, Smart, then one per connected server that has lists (Kavita, Grimmory), each with its count; one is picked at a time. Smart shows every list that updates itself, from every place: Stalled, your smart lists, Grimmory's magic shelves. Search narrows whatever the row shows.
+- **The card** is the reading order opened most recently that still has an unread book: "Reading order · book 3 of 5", its name, what is next, an `AppProgressBar`, and Continue. It is an `AppPanel` with `inset` 20, shown under All and Your lists only, and not when no order is under way.
+- **One section per place**, each an `AppSectionHeading` with its count, `section-gap` 24 apart:
+  - **Your lists** (kept on this device, any source): Want to read first, then Stalled while it holds a book (books started and not opened for 21 days), then your lists and smart lists, most recently opened first.
+  - **Kavita**: reading lists, then collections, each by name. Captions name the kind: "Reading list · 32 issues", "Collection · 9 series".
+  - **Grimmory**: magic shelves first, then shelves, each by name: "Magic shelf · 44 books", "Shelf · 55 books". Your shelves and the public ones.
+  - The servers' lists show while that server is connected; the app reads them again when Lists opens (at most every five minutes) and keeps the last copy for offline.
+- **Tiles** are `AppListCover` in the library grid's columns and gap, the name at 14 SemiBold and one caption line: "9 books"; "2 of 5 read" for a reading order with something read; "Updates itself · 23" with the `tune` badge for a list that works itself out.
+- **A list's page**: `AppListCover` 132, a caption saying what it is and where it lives ("Your list · on this device", "Grimmory shelf · on the server"), the name in `display-title`, its description and "14 books · 6 read", Continue (or Read) with the next book's title, Edit, the Order chip and Hide finished; the books are `AppBookRow`s in an `AppPanel`, numbered in Your order.
 - **A shelf's page** is the same page. A Grimmory shelf has no order of its own, so the Order chip offers Date added (to Grimmory) and Title, and a shelf is never a reading order. Edit renames it, removes books and deletes the shelf, each saved on Grimmory with Done; there is no description and no dragging. Someone else's public shelf has no Edit.
-- **Add to list** (`AppSideSheet`, `AppPanelHeader` "Add to list" and the book): Want to read, then Your lists under an `AppSheetLabel`, then Grimmory shelves (yours only) when every book being added is a Grimmory book, each an `AppSettingsRow` with `AppCheckbox`; New list; one caption line saying where each kind lives. A tap saves at once; for a shelf that is on the server, and a failure says so in a toast and leaves the box as it was.
-- **New list** (`AppDialogCard`): the name, then where to keep it, an `AppSegmentedRow` "On this device" / "On Grimmory" / "On Kavita" (each only while that server is connected and, from Add to list, every book going in is that server's) with one line under it saying what that means. Under it a text button, "Import a reading order (.cbl)", for a list on this device.
-- **Kavita reading lists** open as a list page, numbered in Kavita's order (Read next follows it). Yours can be renamed, reordered (drag or the row's menu), have books removed and be deleted, each saved on Kavita with Done; one someone else promoted is read-only. Add to list shows your Kavita reading lists for a Kavita issue. They are kept on the device and read again when Lists opens, like shelves.
-- **In your lists** on the book page, after Reading: an `AppSheetLabel` and one `AppSettingsRow` with a chevron per list holding the book (Want to read, your lists, shelves and Kavita reading lists; never Stalled). Its line says where the book is: "Number 6 of 14 · Read next follows this list" in an order, else the list's size. A tap closes the page and opens the list.
+- **Kavita reading lists** open as a list page, numbered in Kavita's order (Read next follows it). Yours can be renamed, reordered (drag or the row's menu), have books removed and be deleted, each saved on Kavita with Done; one someone else promoted is read-only. Add to list shows your Kavita reading lists for a Kavita issue.
+- **A Kavita collection's page** holds series, not issues: "Kavita collection · on the server", "9 series · 212 issues · 41 read", and one row per series (its cover, "24 issues · 6 read", a chevron) that opens the series. Edit renames it, removes series and deletes it, each saved on Kavita with Done. One someone else promoted, or one Kavita+ keeps in step with another site, is read-only. Collections are never reading orders.
+- **Smart lists** are built from rules (below). On this device a smart list looks at every source; kept on Grimmory it is a **magic shelf**, which Grimmory's web app shows too and which holds only Grimmory books. Its page: the caption "Smart list · updates itself" or "Grimmory magic shelf · updates itself", the rules as small `AppChip`s under the name ("Tag: Russia and 19th century", "Pages under 500"), Read and Edit rules, then the books with the Order chip (Date added, Title, Published, Last read) and Hide finished. Never a reading order. Filters › Save as list makes one from the library's filters.
+- **The smart list editor** is a page (the bar: Close, "New smart list" or "Edit smart list", Create or Done). The name; Keep it (`AppSegmentedRow` On this device / On Grimmory, while Grimmory is connected, with a caption saying what that means; fixed once made); the rules in an `AppPanel`: "Books that match all/any of these", one row per rule (its field and what it asks: "is all of: Russia, 19th century", a remove button), Add rule and Add a group (a group is a nested panel with its own all/any, one level deep); then Sort by and How many (Every match, 10, 25, 50). The matches show beside the form on Expanded and under it otherwise: "Matches 44", the first nine covers and "and 35 more", worked out from what this device knows as you edit. Create is off until there is a name and a rule.
+- **Add a rule** (`AppSideSheet`): the fields in three groups under `AppSheetLabel`s, each row with a line saying what it asks. About the book: Author, Series, Genre, Tag, Mood, Language, Publisher, Pages, Published. Your reading: Status, Last read. In your library: Added, Format, Grimmory shelf, Downloaded, Source. A field a magic shelf can't use (Downloaded, Source) is greyed with "Lists on this device only"; Grimmory shelf only shows while Grimmory is connected.
+- **A rule's values** (the same sheet, one page further): for names (author, genre, tag…) an `AppSegmentedRow` Any of / All of / None of (All of only where a book has several), a search field, then `AppCheckbox` rows with how many books have each, tags under Set in, When and About as Browse groups them; for numbers and years Under / Over / Between and the values; for dates In the last / Not in the last and a number of days, weeks or months; for Status the three states. The sheet's foot says what the rule matches in words and how many books ("Books tagged both Russia and 19th century · 72 in your library") beside Save rule.
+- **Add to list** (`AppSideSheet`, `AppPanelHeader` "Add to list" and the book): Your lists under an `AppSheetLabel` (Want to read first), then a server's lists under its own label ("Grimmory shelves", "Kavita reading lists", yours only) when every book being added is that server's, each an `AppSettingsRow` with `AppCheckbox`; an `AppSheetDivider` between sections, and New list last on its own row. A label shows only over rows. Smart lists and magic shelves are not here: their rules pick their books. A tap saves at once; for a server's list on the server first, and a failure says so in a toast and leaves the box as it was.
+- **New list** (`AppDialogCard`, from New › List or Add to list): the name first, then, while a server is connected, "Keep it" (`AppSheetLabel`) over one row per place, each an `AppSettingsRow` with an `AppRoundCheck` and its line always shown: On this device ("Books from every source, in your order."), On Kavita ("A reading list, also in Kavita's web reader. Kavita issues only."), On Grimmory ("A shelf, also in Grimmory's web app. Grimmory books only."). From Add to list a server's row shows only when every book going in is that server's. Copy says "this device", never "tablet".
+- **On the book page**, Mark finished, Download and Add to list are three equal `AppTonalButton` tiles under Start reading, 64 tall, the icon over the label, so the three always fit; a book with fewer actions keeps each tile a third of the row. **In your lists** follows Reading: an `AppSheetLabel` and one `AppSettingsRow` with a chevron per list holding the book (Want to read, your lists and smart lists, shelves, magic shelves, Kavita reading lists; never Stalled). Its line says where the book is: "Number 6 of 14 · Read next follows this list" in an order, else what the list is and its size. A tap closes the page and opens the list.
 - **Want to read on Kavita**: ticking a Kavita book into Want to read also puts its series on Kavita's Want to read; unticking takes the series off once no other book of it is left in Want to read. The row's line says "Also on Kavita's Want to read" for a Kavita book. The list on this device changes either way; a failure on Kavita says so in a toast.
 - **Keep the next 3 downloaded**: on the page of one of your lists, an `AppPanel` holding one `AppSettingsRow` (`download` icon, a switch). On, the next three unread server books in the list's order are queued for download whenever the list or your reading changes; its line says which are ready and which are on their way. Finished books are not removed: removing downloads stays your call.
-- **Smart lists**: the Filters sheet gets Save as list (`AppTonalButton`) beside Show; it asks for a name and keeps that library's filters, so the list changes with the library. Its tile has the `tune` badge, "Updates itself · 23"; its page has Date added and Title, no Your order, and its editor only renames or deletes it.
 - **A list finished**: reading the last unread book of a list in Your order opens the list-finished card over Finished (`AppDialogCard`): the mosaic, "List finished", the name, "Started 19 Oct · finished today", four figures (books, series, time read, days) in `AppPanel` tiles, the covers in a row, "It goes in your journal for October", then Delete the list and Done. The journal's month shows it as a card among the books.
 - **Import a reading order (.cbl)**: the books are matched to comics in your library by series and number, from any source; one that isn't there keeps a greyed row ("Not in your library") so the order stays whole. A toast says how many were found.
+- **The library home has no lists chip**: Kavita's reading lists and collections live on Lists.
 """, f"""
 <div class="yb" style="padding:16px">
   {TOGGLE}
   <div id="screens"><div class="yb-caption" style="margin-bottom:8px">Expanded, 1280 wide, the whole page</div>{lists}</div>
-  <div class="yb-caption" style="margin:24px 0 8px">Add to list for a Grimmory book, and New list kept on Grimmory</div>
-  <div class="yb-ground" style="display:flex;gap:40px;align-items:flex-start;padding:24px">{add_to_list}{new_list}</div>
-  <div class="yb-caption" style="margin:24px 0 8px">In your lists on a book page, Keep the next 3 downloaded on a list page, and a list finished</div>
+  <div class="yb-caption" style="margin:24px 0 8px">New, New list, and Add to list for a Grimmory book</div>
+  <div class="yb-ground" style="display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap;padding:24px">{plus_menu}{new_list}{add_to_list}</div>
+  <div class="yb-caption" style="margin:24px 0 8px">The smart list editor, kept on Grimmory as a magic shelf</div>
+  {smart_editor}
+  <div class="yb-caption" style="margin:24px 0 8px">Add a rule, and a rule's values</div>
+  <div class="yb-ground" style="display:flex;gap:40px;align-items:flex-start;padding:24px">{rule_picker}{rule_value}</div>
+  <div class="yb-caption" style="margin:24px 0 8px">A magic shelf's page, and a Kavita collection's</div>
+  <div style="display:flex;flex-direction:column;gap:24px">{magic_page}{collection_page}</div>
+  <div class="yb-caption" style="margin:24px 0 8px">The book page's actions and In your lists, Keep the next 3 downloaded, and a list finished</div>
   <div class="yb-ground" style="display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap;padding:24px">{in_your_lists}<div style="display:flex;flex-direction:column;gap:24px">{keep_row}{list_finished}</div></div>
 </div>""", width=1312, page=True, script=TOGGLE_SCRIPT)
+
 
 print("screens written")
