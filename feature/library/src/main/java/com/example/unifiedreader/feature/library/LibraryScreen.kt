@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridItemScope
 import androidx.compose.foundation.lazy.grid.LazyGridLayoutInfo
@@ -199,7 +200,8 @@ fun LibraryScreen(
     val filterDock = rememberLibraryFilterDockState()
     // Docked open, the books the filters find start at content top: the reading card and shelves step
     // aside, as for a search, and come back when the panel closes (a filter left on never hides them).
-    val shownTopContent = topContent.takeUnless { dockFilters && filterDock.open }
+    val filtersDocked = dockFilters && filterDock.open
+    val shownTopContent = topContent.takeUnless { filtersDocked }
     val shownFilterFacets = rememberLibraryFilterFacetsWithTags(
         facets = filterFacets,
         pool = filterPool,
@@ -556,17 +558,21 @@ fun LibraryScreen(
             } else {
                 gutter
             }
-            val gridPresentation = remember(maxWidth, gutter, gridEndPadding, gridCellSizeDp) {
+            // The docked panel takes its width and the gutter after it; the covers keep the size they had without it.
+            val undockedMaxWidth = if (filtersDocked) maxWidth + AppLayout.sheetWidth + gutter else maxWidth
+            val gridPresentation = remember(maxWidth, undockedMaxWidth, gutter, gridEndPadding, gridCellSizeDp) {
                 libraryGridPresentation(
                     maxWidth = maxWidth,
                     startPadding = gutter,
                     endPadding = gridEndPadding,
                     requestedGridCellSizeDp = gridCellSizeDp,
+                    undockedMaxWidth = undockedMaxWidth,
                 )
             }
             val gridCoverImageVariant = libraryGridCoverImageVariant(
                 gridPresentation.selectedGridSize.cellSizeDp,
             )
+            val showGridTitles = LibraryCoverSize.of(gridPresentation.selectedGridSize.cellSizeDp).showsTitle
             VisibleRemoteCoverPrefetcher(
                 browseContextKey = browseContextKey,
                 gridState = gridState,
@@ -601,6 +607,7 @@ fun LibraryScreen(
                         preferIssueLabels -> itemSeriesBrowsePrimaryText(item)
                         else -> itemPrimaryText(item)
                     },
+                    showTitle = showGridTitles,
                     isSelectionMode = isDownloadSelectionMode,
                     isSelected = item.id in selectedDownloadItemIdSet,
                     onClick = { onItemSelected(item) },
@@ -626,11 +633,15 @@ fun LibraryScreen(
             }
 
             LazyVerticalGrid(
-                columns = LibraryViewMode.Grid.gridCells(
-                    maxWidth = maxWidth,
-                    maxHeight = maxHeight,
-                    gridCellSizeDp = gridPresentation.selectedGridSize.cellSizeDp,
-                ),
+                columns = if (gridPresentation.fixedColumns) {
+                    GridCells.Fixed(gridPresentation.selectedGridSize.columnCount)
+                } else {
+                    LibraryViewMode.Grid.gridCells(
+                        maxWidth = maxWidth,
+                        maxHeight = maxHeight,
+                        gridCellSizeDp = gridPresentation.selectedGridSize.cellSizeDp,
+                    )
+                },
                 state = gridState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
@@ -657,7 +668,7 @@ fun LibraryScreen(
                         contentType = LibraryScreenContentTypes.TopContent,
                         span = { GridItemSpan(maxLineSpan) },
                     ) {
-                        shownTopContent(LibraryGridMetrics(cellSizeDp = gridPresentation.selectedGridSize.cellSizeDp))
+                        shownTopContent(LibraryGridMetrics.aboveGrid(gridPresentation.selectedGridSize.cellSizeDp))
                     }
                 }
 
@@ -702,7 +713,7 @@ fun LibraryScreen(
                                     else -> filterDock.show()
                                 }
                             },
-                            filtersOpen = dockFilters && filterDock.open,
+                            filtersOpen = filtersDocked,
                             onFilterStateChanged = onFilterStateChanged,
                             onSortModeChanged = onSortModeChanged,
                             onGridCellSizeDpChanged = onGridCellSizeDpChanged,
@@ -846,7 +857,7 @@ fun LibraryScreen(
             }
         }
 
-        if (dockFilters && filterDock.open) {
+        if (filtersDocked) {
             LibraryFilterDockedPanel(
                 filterPanels = filterPanels,
                 filterState = filterState,

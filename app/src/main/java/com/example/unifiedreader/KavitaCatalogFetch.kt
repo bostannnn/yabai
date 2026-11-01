@@ -27,7 +27,7 @@ internal data class KavitaFastCatalogDeltaPlan(
 
 internal suspend fun KavitaCatalogSyncService.fetchKavitaCatalog(
     api: KavitaApi,
-    accessToken: String,
+    tokens: KavitaRunTokens,
     libraries: List<Library>,
     series: List<KavitaSeriesEntry>,
     onProgress: (KavitaSyncProgress) -> Unit,
@@ -35,7 +35,7 @@ internal suspend fun KavitaCatalogSyncService.fetchKavitaCatalog(
     return KavitaCatalogFetchPlan(
         entries = fetchSeriesEntries(
             api = api,
-            accessToken = accessToken,
+            tokens = tokens,
             series = series,
             onProgress = onProgress,
         ),

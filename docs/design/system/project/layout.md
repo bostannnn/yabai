@@ -14,7 +14,7 @@ The emulator's 800 dp portrait is Medium; the tablet's 914 dp portrait and its l
 
 ## The frame
 
-1. **Gutter.** Content starts `gutter` from the window edge, or from the rail's hairline when the rail shows, and ends `gutter` from the other edge. This holds for the library grid, the reading card, the shelf strip, settings, the journal, the shelf browser and first launch. A centred column with a maximum width (settings 800, journal 1140, first launch 560) keeps the gutter as its minimum. Medium covers are 176 wide at least (not 180), so the library grid keeps its columns with the 24 gutter: 4 at 800 portrait, 6 beside the rail in landscape, where the reading card sits beside the shelves.
+1. **Gutter.** Content starts `gutter` from the window edge, or from the rail's hairline when the rail shows, and ends `gutter` from the other edge. This holds for the library grid, the reading card, the shelf strip, settings, the journal, the shelf browser and first launch. A centred column with a maximum width (settings 800, journal 1140, first launch 560) keeps the gutter as its minimum. Large covers, the default size, are 176 wide at least (not 180), so the library grid keeps its columns with the 24 gutter: 4 at 800 portrait, 6 beside the rail in landscape, where the reading card sits beside the shelves.
 2. **Top bar.** `bar-top` 12 under the status bar, `bar-height` 56, its glass edge on the gutter line, so the bar's sides line up with the panels below it. Its icons sit 8 inside the glass. Every bar icon button is the kit's default size.
 3. **Content top.** The first content starts `content-top` 8 below the bar's 76 inset, on every screen: 84 below the status bar. No screen adds its own 4, 12 or 16.
 4. **Sections.** `section-gap` 24 between sections. A heading or group label is `heading-gap` 8 above what it heads. Cover tiles and side-by-side panels are `grid-gap` 16 apart.
@@ -23,7 +23,7 @@ The emulator's 800 dp portrait is Medium; the tablet's 914 dp portrait and its l
 ## Alignment
 
 - A heading sits on the left edge of the thing it heads: a section heading on the gutter line above a grid; a group label on the panel's edge, not indented. Text that sits outside a panel (a page's one-line intro, a footnote) sits on the same edge.
-- Inside a panel, card, sheet or row the inset is `inset` 20, at every width. Dialog cards and empty states use `inset-dialog` 24. Menus use `inset-menu` 16 for every item, heading and control in them, so a segmented row in a menu lines up with the menu's labels.
+- Inside a panel, card, sheet or row the inset is `inset` 20, at every width. Dialog cards and empty states use `inset-dialog` 24. Menus use `inset-menu` 16 for every item, heading and control in them, so a segmented row or a slider in a menu lines up with the menu's labels.
 - In a row with a leading icon, text starts at inset + icon + icon-gap (60); the divider between rows starts there too.
 - **Two panes** (settings on Expanded): the list pane is `list-pane-width` 320 on the gutter; the page pane follows after `gutter`. Both start at content top, so the list's first group label and the page's first line share one top edge. Neither pane has a title above it.
 

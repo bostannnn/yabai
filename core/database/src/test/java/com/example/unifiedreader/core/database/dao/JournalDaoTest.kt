@@ -585,6 +585,43 @@ class JournalDaoTest {
             database.close()
         }
     }
+
+    @Test
+    fun `replace clean source journal cache keeps what the reader kept on this device`() {
+        val database = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            UnifiedReaderDatabase::class.java,
+        )
+            .allowMainThreadQueries()
+            .build()
+
+        try {
+            val dao = database.journalDao()
+            dao.insertJournalEntry(journalEntry(itemId = "gone-item", reviewText = "kept", syncState = "LOCAL_ONLY"))
+            dao.insertReadingSession(journalSession(id = "session-gone", itemId = "gone-item", syncState = "LOCAL_ONLY"))
+            dao.insertJournalEntry(journalEntry(itemId = "clean-item", reviewText = "old", syncState = "CLEAN"))
+
+            // A full refresh from a server that no longer has the book.
+            dao.replaceCleanSourceJournalCache(
+                sourceType = "KAVITA",
+                events = emptyList(),
+                entries = emptyList(),
+                sessions = emptyList(),
+            )
+
+            assertEquals("kept", dao.getJournalEntry("gone-item")?.reviewText)
+            assertEquals("LOCAL_ONLY", dao.getJournalEntry("gone-item")?.syncState)
+            assertEquals(
+                listOf("session-gone"),
+                dao.getReadingSessionsForItem("gone-item").map(JournalReadingSessionEntity::id),
+            )
+            assertEquals(null, dao.getJournalEntry("clean-item"))
+            assertEquals(emptyList<ItemJournalEntryEntity>(), dao.getDirtyJournalEntriesForSource("KAVITA"))
+            assertEquals(emptyList<JournalReadingSessionEntity>(), dao.getDirtyReadingSessionsForSource("KAVITA"))
+        } finally {
+            database.close()
+        }
+    }
 }
 
 private fun journalEntry(

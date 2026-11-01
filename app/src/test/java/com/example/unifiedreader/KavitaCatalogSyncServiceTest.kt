@@ -282,6 +282,88 @@ class KavitaCatalogSyncServiceTest {
     }
 
     @Test
+    fun `sync renews a turned-down request without starting over and reports the new pair at once`() = runBlocking {
+        val api = FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = listOf(
+                kavitaSeriesEntry(id = "12", libraryId = "5"),
+                kavitaSeriesEntry(id = "13", libraryId = "5"),
+            ),
+            unauthorizedDetailTokens = setOf("saved-access-token"),
+        )
+        val service = KavitaCatalogSyncService(
+            kavitaApiFactory = KavitaApiFactory { _ -> api },
+            remoteCatalogWriter = RecordingKavitaRemoteCatalogWriter(),
+        )
+        val renewedPairs = mutableListOf<KavitaSession>()
+
+        val result = service.sync(
+            request = savedSessionRequest(),
+            onSessionRenewed = { renewed -> renewedPairs += renewed },
+        )
+
+        assertEquals(listOf("saved-access-token"), api.libraryAccessTokens)
+        assertEquals(listOf("12", "13"), api.detailRequests)
+        assertEquals(listOf("saved-refresh-token"), api.refreshTokens)
+        assertEquals(listOf("refreshed-access-token"), renewedPairs.map(KavitaSession::accessToken))
+        assertEquals("refreshed-access-token", result.session?.accessToken)
+    }
+
+    @Test
+    fun `sync that fails after a renewal has already reported the new pair`() = runBlocking {
+        val api = FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = listOf(
+                kavitaSeriesEntry(id = "12", libraryId = "5"),
+                kavitaSeriesEntry(id = "13", libraryId = "5"),
+            ),
+            unauthorizedDetailTokens = setOf("saved-access-token"),
+            detailFailuresBySeriesId = mapOf("13" to IllegalStateException("Server error")),
+        )
+        val service = KavitaCatalogSyncService(
+            kavitaApiFactory = KavitaApiFactory { _ -> api },
+            remoteCatalogWriter = RecordingKavitaRemoteCatalogWriter(),
+        )
+        val renewedPairs = mutableListOf<KavitaSession>()
+
+        try {
+            service.sync(
+                request = savedSessionRequest(),
+                onSessionRenewed = { renewed -> renewedPairs += renewed },
+            )
+            fail("Expected the sync to fail.")
+        } catch (exception: IllegalStateException) {
+            assertEquals("Server error", exception.message)
+        }
+
+        assertEquals(listOf("refreshed-access-token"), renewedPairs.map(KavitaSession::accessToken))
+    }
+
+    @Test
+    fun `sync renews a saved token past half its life before the first request`() = runBlocking {
+        val nowSeconds = System.currentTimeMillis() / 1_000L
+        val agingToken = testJwt(issuedAtEpochSeconds = nowSeconds - 2 * 86_400L, expiresAtEpochSeconds = nowSeconds + 86_400L)
+        val api = FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = emptyList(),
+        )
+        val service = KavitaCatalogSyncService(
+            kavitaApiFactory = KavitaApiFactory { _ -> api },
+            remoteCatalogWriter = RecordingKavitaRemoteCatalogWriter(),
+        )
+        val renewedPairs = mutableListOf<KavitaSession>()
+
+        service.fastSync(
+            request = savedSessionRequest(accessToken = agingToken),
+            onSessionRenewed = { renewed -> renewedPairs += renewed },
+        )
+
+        assertEquals(listOf("saved-refresh-token"), api.refreshTokens)
+        assertEquals("refreshed-access-token", api.libraryAccessTokens.first())
+        assertEquals(listOf("refreshed-access-token"), renewedPairs.map(KavitaSession::accessToken))
+    }
+
+    @Test
     fun `sync maps Kavita zero rating to unrated journal entry`() = runBlocking {
         val api = FakeKavitaApi(
             libraries = listOf(kavitaLibrary("5")),
@@ -1453,6 +1535,28 @@ private fun journalEntry(
     syncState = SyncState.DIRTY,
 )
 
+private fun savedSessionRequest(
+    accessToken: String = "saved-access-token",
+): KavitaCatalogSyncRequest = KavitaCatalogSyncRequest(
+    displayName = "Kavita",
+    baseUrl = "https://kavita.example",
+    username = "reader",
+    accessToken = accessToken,
+    refreshToken = "saved-refresh-token",
+    apiKey = "saved-api-key",
+)
+
+internal fun testJwt(
+    issuedAtEpochSeconds: Long,
+    expiresAtEpochSeconds: Long,
+): String {
+    val encoder = java.util.Base64.getUrlEncoder().withoutPadding()
+    return listOf(
+        """{"alg":"HS512","typ":"JWT"}""",
+        """{"name":"reader","iat":$issuedAtEpochSeconds,"exp":$expiresAtEpochSeconds}""",
+    ).joinToString(".") { part -> encoder.encodeToString(part.toByteArray()) } + ".signature"
+}
+
 private class FakeKavitaApi(
     private val libraries: List<Library>,
     private val series: List<KavitaSeriesEntry>,
@@ -1466,6 +1570,9 @@ private class FakeKavitaApi(
     private val currentUserId: Int? = null,
     private val reviews: List<KavitaUserReviewDto> = emptyList(),
     private val detailDelayMillis: Long = 0L,
+    // Series-detail requests with these tokens are turned down; these series fail outright.
+    private val unauthorizedDetailTokens: Set<String> = emptySet(),
+    private val detailFailuresBySeriesId: Map<String, Throwable> = emptyMap(),
     private val refreshedSession: KavitaSession = KavitaSession(
         accessToken = "refreshed-access-token",
         refreshToken = "refreshed-refresh-token",
@@ -1476,6 +1583,7 @@ private class FakeKavitaApi(
     val detailRequests = mutableListOf<String>()
     val progressRequests = mutableListOf<String>()
     val currentUserAccessTokens = mutableListOf<String>()
+    val libraryAccessTokens = mutableListOf<String>()
     val refreshTokens = mutableListOf<String>()
     val maxConcurrentDetailRequests = AtomicInteger(0)
     var recentlyUpdatedRequests = 0
@@ -1502,7 +1610,10 @@ private class FakeKavitaApi(
 
     override suspend fun getLibraries(
         accessToken: String,
-    ): List<Library> = libraries
+    ): List<Library> {
+        libraryAccessTokens += accessToken
+        return libraries
+    }
 
     override suspend fun getSeries(
         accessToken: String,
@@ -1534,6 +1645,8 @@ private class FakeKavitaApi(
             if (detailDelayMillis > 0) {
                 delay(detailDelayMillis)
             }
+            if (accessToken in unauthorizedDetailTokens) throw KavitaUnauthorizedException()
+            detailFailuresBySeriesId[series.id]?.let { throw it }
             detailRequests += series.id
             return entriesBySeriesId[series.id].orEmpty()
         } finally {

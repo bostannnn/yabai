@@ -154,8 +154,9 @@ class AppKavitaCoordinator @Inject constructor(
         val result = kavitaCatalogSyncer.sync(
             request = preparation.request,
             onProgress = onProgress,
+            onSessionRenewed = kavitaCredentialStore.renewedTokensSaver(preparation),
         )
-        persistSession(
+        kavitaCredentialStore.saveAfterRun(
             preparation = preparation,
             session = result.session,
             activeBaseUrl = result.activeBaseUrl,
@@ -205,8 +206,9 @@ class AppKavitaCoordinator @Inject constructor(
         val result = kavitaCatalogSyncer.fastSync(
             request = preparation.request,
             onProgress = onProgress,
+            onSessionRenewed = kavitaCredentialStore.renewedTokensSaver(preparation),
         )
-        persistSession(
+        kavitaCredentialStore.saveAfterRun(
             preparation = preparation,
             session = result.session,
             activeBaseUrl = result.activeBaseUrl,
@@ -258,8 +260,11 @@ class AppKavitaCoordinator @Inject constructor(
     internal suspend fun executeConnect(
         preparation: KavitaSyncPreparation.Ready,
     ): KavitaConnectExecutionResult = runSuspendCatchingPreservingCancellation {
-        val result = kavitaCatalogSyncer.connect(preparation.request)
-        persistSession(
+        val result = kavitaCatalogSyncer.connect(
+            request = preparation.request,
+            onSessionRenewed = kavitaCredentialStore.renewedTokensSaver(preparation),
+        )
+        kavitaCredentialStore.saveAfterRun(
             preparation = preparation,
             session = result.session,
             activeBaseUrl = result.activeBaseUrl,
@@ -301,56 +306,6 @@ class AppKavitaCoordinator @Inject constructor(
             baseUrl = baseUrl,
             backupBaseUrl = backupBaseUrl,
             username = username,
-        )
-    }
-
-    internal suspend fun loadAvailableLibraries(
-        session: KavitaStoredSession,
-    ): List<Library> = kavitaCatalogSyncer.connect(
-        request = KavitaCatalogSyncRequest(
-            displayName = session.displayName,
-            baseUrl = session.baseUrl,
-            backupBaseUrl = session.backupBaseUrl,
-            activeBaseUrl = session.activeBaseUrl,
-            username = session.username,
-            accessToken = session.accessToken,
-            refreshToken = session.refreshToken,
-            apiKey = session.apiKey,
-        ),
-    ).libraries
-
-    private suspend fun persistSession(
-        preparation: KavitaSyncPreparation.Ready,
-        session: com.example.unifiedreader.data.kavita.KavitaSession?,
-        activeBaseUrl: String?,
-    ) {
-        persistRemoteSession(
-            sessionStore = kavitaCredentialStore,
-            session = session,
-            fallbackSession = preparation.fallbackSession,
-            displayName = preparation.request.displayName,
-            baseUrl = preparation.request.baseUrl,
-            backupBaseUrl = preparation.request.backupBaseUrl,
-            activeBaseUrl = activeBaseUrl ?: preparation.request.activeBaseUrl,
-            username = preparation.request.username,
-            toStoredSession = { activeSession, displayName, baseUrl, backupBaseUrl, activeBaseUrl, username ->
-                activeSession.toStoredSession(
-                    displayName = displayName,
-                    baseUrl = baseUrl,
-                    backupBaseUrl = backupBaseUrl,
-                    activeBaseUrl = activeBaseUrl,
-                    username = username,
-                )
-            },
-            restoreFallbackSession = { savedSession, displayName, baseUrl, backupBaseUrl, activeBaseUrl, username ->
-                savedSession.copy(
-                    displayName = displayName,
-                    baseUrl = baseUrl,
-                    backupBaseUrl = backupBaseUrl,
-                    activeBaseUrl = activeBaseUrl,
-                    username = username,
-                )
-            },
         )
     }
 }

@@ -20,6 +20,7 @@ import com.example.unifiedreader.ui.components.AppSettingsGroup
 import com.example.unifiedreader.ui.components.AppSettingsRow
 import com.example.unifiedreader.ui.components.AppSettingsRowDivider
 import com.example.unifiedreader.ui.components.AppStatusPill
+import com.example.unifiedreader.ui.components.AppTonalButton
 
 data class SyncSettingsUiState(
     val pendingCount: Int = 0,
@@ -30,9 +31,14 @@ data class SyncSettingsUiState(
     val waitingSinceLabel: String? = null,
     /** When an upload was last tried, from any source: "today at 09:14". */
     val lastAttemptLabel: String? = null,
+    /** Uploads for books no longer in their server's library, which no retry delivers. */
+    val goneItems: List<SyncSettingsGoneItem> = emptyList(),
 ) {
     val hasPending: Boolean
         get() = pendingCount > 0
+
+    val goneBookCount: Int
+        get() = goneItems.distinctBy(SyncSettingsGoneItem::bookKey).size
 }
 
 data class SyncSettingsSourceGroup(
@@ -43,6 +49,14 @@ data class SyncSettingsSourceGroup(
     val lastAttemptLabel: String? = null,
     val lastError: String? = null,
     val items: List<SyncSettingsItemRow> = emptyList(),
+)
+
+/** One upload for a book no longer in the library; [bookKey] tells the books apart. */
+data class SyncSettingsGoneItem(
+    val bookKey: String,
+    val title: String,
+    val sourceLabel: String,
+    val artifactLabel: String,
 )
 
 data class SyncSettingsItemRow(
@@ -56,12 +70,14 @@ data class SyncSettingsItemRow(
 /**
  * What waits to upload to the servers, and why. With nothing waiting it says so in one row. With
  * a queue: a pill with how many and since when, when it last tried, Retry now, then each source
- * with its books (a book's reading sessions on one row) and the server's last answer.
+ * with its books (a book's reading sessions on one row) and the server's last answer. Last, the
+ * books no longer in the library, whose uploads can't go anywhere, with Keep on this device.
  */
 @Composable
 internal fun SyncStatusSettingsPage(
     state: SyncSettingsUiState,
     onRetrySync: () -> Unit,
+    onKeepUploadsOnDevice: () -> Unit,
     contentTopInset: Dp,
     horizontalPadding: Dp,
     modifier: Modifier = Modifier,
@@ -71,7 +87,7 @@ internal fun SyncStatusSettingsPage(
         modifier = modifier,
         horizontalPadding = horizontalPadding,
     ) {
-        if (!state.hasPending) {
+        if (!state.hasPending && state.goneItems.isEmpty()) {
             AppSettingsGroup {
                 AppSettingsRow(
                     title = "Everything is uploaded",
@@ -81,9 +97,44 @@ internal fun SyncStatusSettingsPage(
             }
             return@SettingsPageContainer
         }
-        SyncQueueHeader(state = state, onRetrySync = onRetrySync)
-        state.sourceGroups.forEach { group ->
-            SyncSourceGroup(group = group)
+        if (state.hasPending) {
+            SyncQueueHeader(state = state, onRetrySync = onRetrySync)
+            state.sourceGroups.forEach { group ->
+                SyncSourceGroup(group = group)
+            }
+        }
+        if (state.goneItems.isNotEmpty()) {
+            SyncGoneGroup(rows = state.goneRows(), onKeepUploadsOnDevice = onKeepUploadsOnDevice)
+        }
+    }
+}
+
+@Composable
+private fun SyncGoneGroup(
+    rows: List<SyncQueueRow>,
+    onKeepUploadsOnDevice: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        AppSettingsGroup(label = "No longer in your library") {
+            rows.forEachIndexed { index, row ->
+                if (index > 0) AppSettingsRowDivider(inset = AppSettingsDefaults.dividerInsetNoIcon)
+                AppSettingsRow(title = row.title, supporting = row.line)
+            }
+        }
+        Text(
+            text = "These books left your library on the server, so what you read in them can't upload. " +
+                "Keep it on this device: your journal keeps it and the app stops trying.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = AppSettingsDefaults.horizontalPadding),
+        )
+        AppTonalButton(
+            onClick = onKeepUploadsOnDevice,
+            modifier = Modifier
+                .padding(horizontal = AppSettingsDefaults.horizontalPadding)
+                .heightIn(min = SettingsActionButtonMinHeight),
+        ) {
+            Text(text = "Keep on this device")
         }
     }
 }
@@ -190,6 +241,19 @@ internal fun SyncSettingsSourceGroup.queueRows(): List<SyncQueueRow> =
             )
         }
 
+/** "Grimmory · Progress, 2 reading sessions": a book no longer in the library, with what it held. */
+internal fun SyncSettingsUiState.goneRows(): List<SyncQueueRow> =
+    goneItems.groupBy(SyncSettingsGoneItem::bookKey).values.map { book ->
+        val kinds = book.groupBy(SyncSettingsGoneItem::artifactLabel).map { (artifact, items) ->
+            if (items.size == 1) artifact else "${items.size} ${artifact.pluralArtifact()}"
+        }
+        SyncQueueRow(
+            title = book.first().title,
+            line = "${book.first().sourceLabel} · ${kinds.joinToString(", ")}",
+            failed = false,
+        )
+    }
+
 private fun String.pluralArtifact(): String = when (this) {
     "Reading session" -> "reading sessions"
     "Journal entry" -> "journal entries"
@@ -203,10 +267,12 @@ internal fun SyncSettingsUiState.pillLabel(): String = when {
     else -> listOfNotNull("$pendingCount waiting", waitingSinceLabel?.let { "since $it" }).joinToString(" ")
 }
 
-internal fun SyncSettingsUiState.summaryLabel(): String = when (pendingCount) {
-    0 -> "Up to date"
-    1 -> "1 item waiting to upload"
-    else -> "$pendingCount items waiting to upload"
+internal fun SyncSettingsUiState.summaryLabel(): String = when {
+    pendingCount == 1 -> "1 item waiting to upload"
+    pendingCount > 1 -> "$pendingCount items waiting to upload"
+    goneBookCount == 1 -> "1 book no longer in your library"
+    goneBookCount > 1 -> "$goneBookCount books no longer in your library"
+    else -> "Up to date"
 }
 
 internal fun SyncSettingsUiState.detailLabel(): String = when {

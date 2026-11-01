@@ -30,6 +30,12 @@ enum class SyncState {
     DIRTY,
     SYNCING,
     FAILED,
+
+    /**
+     * Kept on this device only: no upload picks it up and no server refresh replaces it. A journal
+     * entry or reading session the reader kept for a book its server no longer has.
+     */
+    LOCAL_ONLY,
 }
 
 data class Library(
@@ -117,6 +123,13 @@ fun SourceType.remoteLibraryId(
 fun SourceType.remoteItemId(
     remoteId: String,
 ): String = "${name.lowercase()}:item:$remoteId"
+
+/** The server behind an id [remoteItemId] made ("grimmory:item:12" is Grimmory's), or null. */
+fun remoteItemSourceType(
+    itemId: String,
+): SourceType? = SourceType.entries.firstOrNull { sourceType ->
+    itemId.startsWith("${sourceType.name.lowercase()}:item:")
+}
 
 fun kavitaSeriesContainerId(
     seriesKey: String,
