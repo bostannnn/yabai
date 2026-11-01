@@ -111,4 +111,4 @@ internal fun rememberSettingsTagsPage(
     }
 }
 
-private const val DefaultTagsSummary = "Where Browse shows each tag"
+private const val DefaultTagsSummary = "Where Filters shows each tag"

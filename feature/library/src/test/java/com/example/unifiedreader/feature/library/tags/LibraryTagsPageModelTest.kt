@@ -97,7 +97,7 @@ class LibraryTagsPageModelTest {
             ),
         )
         assertEquals("1 new tag", libraryTagsSummary(items, grimmorySorted))
-        assertEquals("Where Browse shows each tag", libraryTagsSummary(items.take(1), grimmorySorted))
+        assertEquals("Where Filters shows each tag", libraryTagsSummary(items.take(1), grimmorySorted))
     }
 
     private fun book(id: String, vararg tags: String): ReadableItem = ReadableItem(

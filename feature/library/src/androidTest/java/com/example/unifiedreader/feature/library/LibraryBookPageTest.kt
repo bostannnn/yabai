@@ -36,7 +36,7 @@ class LibraryBookPageTest {
     fun pageShowsTheBookAndRunsItsActions() {
         var downloaded: ReadableItem? = null
         var markedRead: Boolean? = null
-        var browsed: LibraryBrowseChip? = null
+        var filtered: LibraryBrowseChip? = null
         var opened: ReadableItem? = null
 
         composeRule.setContent {
@@ -54,7 +54,7 @@ class LibraryBookPageTest {
                     onShowBook = {},
                     onDeleteImported = {},
                     onDismiss = {},
-                    onBrowse = { browsed = it },
+                    onFilterByTag = { filtered = it },
                 )
             }
         }
@@ -66,12 +66,12 @@ class LibraryBookPageTest {
 
         composeRule.onNodeWithText("Download").performClick()
         composeRule.onNodeWithText("Mark finished").performClick()
-        // A genre opens Browse with it picked and closes the page.
+        // A genre filters the library by it and closes the page.
         composeRule.onNodeWithText("Fantasy").performClick()
         composeRule.runOnIdle {
             assertEquals(book, downloaded)
             assertEquals(true, markedRead)
-            assertEquals(LibraryBrowseChip(LibraryBrowseRow.GENRE, "Fantasy"), browsed)
+            assertEquals(LibraryBrowseChip(LibraryBrowseRow.GENRE, "Fantasy"), filtered)
             assertEquals(null, opened)
         }
     }

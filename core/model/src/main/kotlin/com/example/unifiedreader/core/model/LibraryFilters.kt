@@ -14,8 +14,14 @@ data class LibraryFilterState(
     val series: Set<String> = emptySet(),
     val publishers: Set<String> = emptySet(),
     val genres: Set<String> = emptySet(),
+    // About: any tag picked by name (the tags not sorted as places or times, and older picks).
     val tags: Set<String> = emptySet(),
     val languages: Set<String> = emptySet(),
+    // Set in: places; a country also takes the books set in its cities.
+    val places: Set<String> = emptySet(),
+    // When: a pile ("1800s", "1930s") takes every era tag in it; a named period ("World War II") itself.
+    val times: Set<String> = emptySet(),
+    val moods: Set<String> = emptySet(),
 ) {
     val isEmpty: Boolean
         get() = formats.isEmpty() &&
@@ -28,7 +34,10 @@ data class LibraryFilterState(
             publishers.isEmpty() &&
             genres.isEmpty() &&
             tags.isEmpty() &&
-            languages.isEmpty()
+            languages.isEmpty() &&
+            places.isEmpty() &&
+            times.isEmpty() &&
+            moods.isEmpty()
 }
 
 fun LibraryFilterState.visibleInPanels(
@@ -47,6 +56,9 @@ fun LibraryFilterState.visibleInPanels(
         genres = genres.takeIf { LibraryFilterPanel.Genre in panels }.orEmpty(),
         tags = tags.takeIf { LibraryFilterPanel.Tag in panels }.orEmpty(),
         languages = languages.takeIf { LibraryFilterPanel.Language in panels }.orEmpty(),
+        places = places.takeIf { LibraryFilterPanel.SetIn in panels }.orEmpty(),
+        times = times.takeIf { LibraryFilterPanel.When in panels }.orEmpty(),
+        moods = moods.takeIf { LibraryFilterPanel.Mood in panels }.orEmpty(),
     )
 }
 
@@ -60,6 +72,10 @@ data class LibraryFilterFacets(
     val genres: List<String> = emptyList(),
     val tags: List<String> = emptyList(),
     val languages: List<String> = emptyList(),
+    // Set in's places, a city's country among them; When's piles and named periods; moods.
+    val places: List<String> = emptyList(),
+    val times: List<String> = emptyList(),
+    val moods: List<String> = emptyList(),
     // Empty where nothing counted them (the SQL-assembled facets of the unfiltered paged view).
     val counts: LibraryFilterFacetCounts = LibraryFilterFacetCounts(),
     // How long the items are, counted like [counts] with every filter but Pages applied.
@@ -74,7 +90,10 @@ data class LibraryFilterFacets(
             publishers.isEmpty() &&
             genres.isEmpty() &&
             tags.isEmpty() &&
-            languages.isEmpty()
+            languages.isEmpty() &&
+            places.isEmpty() &&
+            times.isEmpty() &&
+            moods.isEmpty()
 }
 
 enum class LibraryFileLocation {
@@ -119,7 +138,10 @@ fun applyLibraryFilters(
             filters.publishers.matchesAny(facetMetadata.publishers) &&
             filters.genres.matchesAny(facetMetadata.genres) &&
             filters.tags.matchesAny(facetMetadata.tags) &&
-            filters.languages.matchesAny(facetMetadata.languages)
+            filters.languages.matchesAny(facetMetadata.languages) &&
+            filters.places.matchesPlace(facetMetadata) &&
+            filters.times.matchesTime(facetMetadata.tags) &&
+            filters.moods.matchesAny(facetMetadata.moods)
     }
 }
 
@@ -236,6 +258,8 @@ fun buildContextualLibraryFilterFacets(
     downloadedRemoteItemIds: Set<String> = emptySet(),
     readingStatusProvider: (ReadableItem) -> LibraryReadingStatus? = { null },
     pageCountProvider: (ReadableItem) -> Int? = ReadableItem::libraryPageCount,
+    // Where each tag goes (Settings › Tags): places to Set in, times to When, the rest to About.
+    tagKindOf: (String) -> LibraryTagKind = { LibraryTagKind.THEME },
 ): LibraryFilterFacets {
     // Each dimension's values (and their counts) come from the items every *other* filter leaves.
     fun itemsWithout(dimensionCleared: LibraryFilterState): List<ReadableItem> = applyLibraryFilters(
@@ -255,10 +279,19 @@ fun buildContextualLibraryFilterFacets(
         item.facetMetadata().publishers
     }
     val genres = tallyTextFacet(itemsWithout(filters.copy(genres = emptySet()))) { item -> item.facetMetadata().genres }
-    val tags = tallyTextFacet(itemsWithout(filters.copy(tags = emptySet()))) { item -> item.facetMetadata().tags }
+    val tags = tallyTextFacet(itemsWithout(filters.copy(tags = emptySet()))) { item ->
+        item.facetMetadata().tags.filter { tag -> tagKindOf(tag) == LibraryTagKind.THEME }
+    }
     val languages = tallyTextFacet(itemsWithout(filters.copy(languages = emptySet()))) { item ->
         item.facetMetadata().languages
     }
+    val places = tallyTextFacet(itemsWithout(filters.copy(places = emptySet()))) { item ->
+        item.facetMetadata().libraryFilterPlaces(tagKindOf)
+    }
+    val times = tallyTextFacet(itemsWithout(filters.copy(times = emptySet()))) { item ->
+        item.facetMetadata().libraryFilterTimes(tagKindOf)
+    }
+    val moods = tallyTextFacet(itemsWithout(filters.copy(moods = emptySet()))) { item -> item.facetMetadata().moods }
     return LibraryFilterFacets(
         formats = formatItems.map(ReadableItem::format).distinctByEnumOrder(),
         libraries = libraries.values.distinctByTextOrder(),
@@ -269,6 +302,9 @@ fun buildContextualLibraryFilterFacets(
         genres = genres.values.distinctByTextOrder(),
         tags = tags.values.distinctByTextOrder(),
         languages = languages.values.distinctByTextOrder(),
+        places = places.values.distinctByTextOrder(),
+        times = times.values.distinctByTextOrder(),
+        moods = moods.values.distinctByTextOrder(),
         counts = LibraryFilterFacetCounts(
             formats = tallyEnumFacet(formatItems, items.mapTo(HashSet(), ReadableItem::format)) { item -> item.format },
             fileLocations = tallyEnumFacet(locationItems, items.mapTo(HashSet(), fileLocationOf), fileLocationOf),
@@ -284,10 +320,103 @@ fun buildContextualLibraryFilterFacets(
             genres = genres.counts,
             tags = tags.counts,
             languages = languages.counts,
+            places = places.counts,
+            times = times.counts,
+            moods = moods.counts,
         ),
         pages = buildLibraryPageHistogram(itemsWithout(filters.copy(pages = null)), pageCountProvider),
     )
 }
+
+/** The filter section a tag of the book page or the search stands in; null for one Filters has no section for. */
+val LibraryBrowseChip.filterPanel: LibraryFilterPanel?
+    get() = when (row) {
+        LibraryBrowseRow.SET_IN -> LibraryFilterPanel.SetIn
+        LibraryBrowseRow.WHEN -> LibraryFilterPanel.When
+        LibraryBrowseRow.ABOUT -> LibraryFilterPanel.Tag
+        LibraryBrowseRow.GENRE -> LibraryFilterPanel.Genre
+        LibraryBrowseRow.MOOD -> LibraryFilterPanel.Mood
+        LibraryBrowseRow.READING -> LibraryFilterPanel.ReadingStatus
+        LibraryBrowseRow.AUTHOR -> LibraryFilterPanel.Author
+        LibraryBrowseRow.SERIES -> LibraryFilterPanel.Series
+        LibraryBrowseRow.PUBLISHER -> LibraryFilterPanel.Publisher
+        LibraryBrowseRow.LANGUAGE -> LibraryFilterPanel.Language
+        LibraryBrowseRow.SHELF -> null
+    }
+
+/**
+ * The filters narrowed to [chip] (a tag on the book page, one the search names): that section holds
+ * just its value, the others stay as they are.
+ */
+fun LibraryFilterState.filteringBy(chip: LibraryBrowseChip): LibraryFilterState {
+    val only = setOf(chip.value)
+    return when (chip.row) {
+        LibraryBrowseRow.SET_IN -> copy(places = only)
+        LibraryBrowseRow.WHEN -> copy(times = only)
+        LibraryBrowseRow.ABOUT -> copy(tags = only)
+        LibraryBrowseRow.GENRE -> copy(genres = only)
+        LibraryBrowseRow.MOOD -> copy(moods = only)
+        LibraryBrowseRow.READING -> LibraryReadingStatus.entries.firstOrNull { status -> status.libraryBrowseLabel == chip.value }
+            ?.let { status -> copy(readingStatuses = setOf(status)) } ?: this
+        LibraryBrowseRow.AUTHOR -> copy(authors = only)
+        LibraryBrowseRow.SERIES -> copy(series = only)
+        LibraryBrowseRow.PUBLISHER -> copy(publishers = only)
+        LibraryBrowseRow.LANGUAGE -> copy(languages = only)
+        LibraryBrowseRow.SHELF -> this
+    }
+}
+
+/**
+ * Set in, When, About and Mood alone, counted as [buildContextualLibraryFilterFacets] counts them: the
+ * library screen works these out with your tag sorting ([tagKindOf]) over the facets the rest came with.
+ */
+fun buildLibraryTagFilterFacets(
+    items: List<ReadableItem>,
+    filters: LibraryFilterState,
+    tagKindOf: (String) -> LibraryTagKind,
+    downloadedRemoteItemIds: Set<String> = emptySet(),
+    readingStatusProvider: (ReadableItem) -> LibraryReadingStatus? = { null },
+    pageCountProvider: (ReadableItem) -> Int? = ReadableItem::libraryPageCount,
+): LibraryFilterFacets {
+    fun itemsWithout(dimensionCleared: LibraryFilterState): List<ReadableItem> = applyLibraryFilters(
+        items = items,
+        filters = dimensionCleared,
+        downloadedRemoteItemIds = downloadedRemoteItemIds,
+        readingStatusProvider = readingStatusProvider,
+        pageCountProvider = pageCountProvider,
+    )
+    val tags = tallyTextFacet(itemsWithout(filters.copy(tags = emptySet()))) { item ->
+        item.facetMetadata().tags.filter { tag -> tagKindOf(tag) == LibraryTagKind.THEME }
+    }
+    val places = tallyTextFacet(itemsWithout(filters.copy(places = emptySet()))) { item ->
+        item.facetMetadata().libraryFilterPlaces(tagKindOf)
+    }
+    val times = tallyTextFacet(itemsWithout(filters.copy(times = emptySet()))) { item ->
+        item.facetMetadata().libraryFilterTimes(tagKindOf)
+    }
+    val moods = tallyTextFacet(itemsWithout(filters.copy(moods = emptySet()))) { item -> item.facetMetadata().moods }
+    return LibraryFilterFacets(
+        tags = tags.values.distinctByTextOrder(),
+        places = places.values.distinctByTextOrder(),
+        times = times.values.distinctByTextOrder(),
+        moods = moods.values.distinctByTextOrder(),
+        counts = LibraryFilterFacetCounts(tags = tags.counts, places = places.counts, times = times.counts, moods = moods.counts),
+    )
+}
+
+/** [this] with Set in, When, About and Mood taken from [tagged] ([buildLibraryTagFilterFacets]). */
+fun LibraryFilterFacets.withTagFacets(tagged: LibraryFilterFacets): LibraryFilterFacets = copy(
+    tags = tagged.tags,
+    places = tagged.places,
+    times = tagged.times,
+    moods = tagged.moods,
+    counts = counts.copy(
+        tags = tagged.counts.tags,
+        places = tagged.counts.places,
+        times = tagged.counts.times,
+        moods = tagged.counts.moods,
+    ),
+)
 
 /**
  * Assembles [LibraryFilterFacets] from facet values sourced per dimension from SQL
@@ -323,6 +452,24 @@ fun assembleLibraryFilterFacets(
 
 private fun <T> Set<T>.matches(value: T?): Boolean = isEmpty() || value in this
 private fun Set<String>.matchesAny(values: List<String>): Boolean = isEmpty() || values.any(this::contains)
+
+// A picked country takes its cities: "Japan" matches a book tagged "Tokyo".
+private fun Set<String>.matchesPlace(metadata: ReadableItemFacetMetadata): Boolean = isEmpty() ||
+    (metadata.tags + metadata.locations).any { value -> value in this || libraryPlaceCountry(value) in this }
+
+// A picked pile takes the era tags in it: "1800s" matches "19th century" and "1850s".
+private fun Set<String>.matchesTime(tags: List<String>): Boolean = isEmpty() ||
+    tags.any { tag -> tag in this || libraryEraSlot(tag)?.label in this }
+
+/** A book's places for Set in: the tags sorted as places and its Locations, each city's country with it. */
+fun ReadableItemFacetMetadata.libraryFilterPlaces(tagKindOf: (String) -> LibraryTagKind): List<String> =
+    (tags.filter { tag -> tagKindOf(tag) == LibraryTagKind.PLACE } + locations)
+        .flatMap { place -> listOfNotNull(place, libraryPlaceCountry(place)) }
+
+/** A book's times for When: each era tag's pile ("19th century" is in "1800s"), a named period as itself. */
+fun ReadableItemFacetMetadata.libraryFilterTimes(tagKindOf: (String) -> LibraryTagKind): List<String> =
+    tags.filter { tag -> tagKindOf(tag) == LibraryTagKind.ERA }
+        .map { tag -> libraryEraSlot(tag)?.label ?: tag }
 
 private fun ReadableItem.librarySearchRank(
     tokens: List<String>,

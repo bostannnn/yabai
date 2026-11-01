@@ -12,61 +12,64 @@ enum class LibraryFilterPanel(
     Series("Series"),
     Publisher("Publisher"),
     Genre("Genre"),
-    Tag("Tag"),
+    // The tags not sorted as places or times (Settings › Tags); named Tag from before Set in and When split off.
+    Tag("About"),
     Language("Language"),
+    SetIn("Set in"),
+    When("When"),
+    Mood("Mood"),
 }
 
+/**
+ * The panels a source's filter sheet offers, in their default order: reading status and length first,
+ * then what the books are (places, times, themes, moods, genre, people and series), then where and how
+ * they are kept.
+ * Kavita and Stump have no moods; a local library has only its files' authors and series.
+ */
 fun availableLibraryFilterPanels(
     sourceType: SourceType,
 ): List<LibraryFilterPanel> = when (sourceType) {
-    SourceType.KAVITA -> listOf(
-        LibraryFilterPanel.Format,
-        LibraryFilterPanel.Library,
-        LibraryFilterPanel.Location,
-        LibraryFilterPanel.ReadingStatus,
-        LibraryFilterPanel.Pages,
-        LibraryFilterPanel.Series,
-        LibraryFilterPanel.Publisher,
-        LibraryFilterPanel.Genre,
-        LibraryFilterPanel.Tag,
-        LibraryFilterPanel.Language,
-    )
-
+    SourceType.KAVITA,
     SourceType.STUMP -> listOf(
+        LibraryFilterPanel.ReadingStatus,
+        LibraryFilterPanel.Pages,
+        LibraryFilterPanel.SetIn,
+        LibraryFilterPanel.When,
+        LibraryFilterPanel.Tag,
+        LibraryFilterPanel.Genre,
+        LibraryFilterPanel.Series,
+        LibraryFilterPanel.Publisher,
+        LibraryFilterPanel.Language,
         LibraryFilterPanel.Format,
         LibraryFilterPanel.Library,
         LibraryFilterPanel.Location,
-        LibraryFilterPanel.ReadingStatus,
-        LibraryFilterPanel.Pages,
-        LibraryFilterPanel.Series,
-        LibraryFilterPanel.Publisher,
-        LibraryFilterPanel.Genre,
-        LibraryFilterPanel.Tag,
-        LibraryFilterPanel.Language,
     )
 
     SourceType.GRIMMORY -> listOf(
-        LibraryFilterPanel.Format,
-        LibraryFilterPanel.Library,
-        LibraryFilterPanel.Location,
         LibraryFilterPanel.ReadingStatus,
         LibraryFilterPanel.Pages,
+        LibraryFilterPanel.SetIn,
+        LibraryFilterPanel.When,
+        LibraryFilterPanel.Tag,
+        LibraryFilterPanel.Mood,
+        LibraryFilterPanel.Genre,
         LibraryFilterPanel.Author,
         LibraryFilterPanel.Series,
         LibraryFilterPanel.Publisher,
-        LibraryFilterPanel.Genre,
-        LibraryFilterPanel.Tag,
         LibraryFilterPanel.Language,
-    )
-
-    SourceType.LOCAL -> listOf(
         LibraryFilterPanel.Format,
         LibraryFilterPanel.Library,
         LibraryFilterPanel.Location,
+    )
+
+    SourceType.LOCAL -> listOf(
         LibraryFilterPanel.ReadingStatus,
         LibraryFilterPanel.Pages,
         LibraryFilterPanel.Author,
         LibraryFilterPanel.Series,
+        LibraryFilterPanel.Format,
+        LibraryFilterPanel.Library,
+        LibraryFilterPanel.Location,
     )
 }
 

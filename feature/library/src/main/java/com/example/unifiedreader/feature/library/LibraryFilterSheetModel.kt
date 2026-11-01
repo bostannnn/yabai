@@ -10,20 +10,49 @@ import com.example.unifiedreader.core.model.authorFacetKey
 // What the filter sheet shows, apart from how it draws it: the open chip groups, the facet rows'
 // summaries and the facet pages' grouped values.
 
-/** Short choices stay open in the sheet (as chips, or Pages' slider); the long lists open as a page of their own. */
-internal val LibraryFilterPanel.opensAsPage: Boolean
+/** How a panel shows in the sheet's overview. */
+internal enum class LibraryFilterSectionStyle {
+    /** Every value as a chip with its count: reading status, format, location. */
+    Chips,
+    /** The page-length slider. */
+    Slider,
+    /** Set in: rows of places, most books first, a picked country's cities under it. */
+    Places,
+    /** When: one row per pile, its books standing as spines. */
+    Piles,
+    /** The values with most books as chips, then "All N" for the rest: About, Mood, Genre. */
+    TopChips,
+    /** A row naming its top values, opening the full list: Library, Author, Series, Publisher, Language. */
+    Row,
+}
+
+internal val LibraryFilterPanel.sectionStyle: LibraryFilterSectionStyle
     get() = when (this) {
         LibraryFilterPanel.ReadingStatus,
-        LibraryFilterPanel.Pages,
         LibraryFilterPanel.Format,
-        LibraryFilterPanel.Location -> false
+        LibraryFilterPanel.Location -> LibraryFilterSectionStyle.Chips
+        LibraryFilterPanel.Pages -> LibraryFilterSectionStyle.Slider
+        LibraryFilterPanel.SetIn -> LibraryFilterSectionStyle.Places
+        LibraryFilterPanel.When -> LibraryFilterSectionStyle.Piles
+        LibraryFilterPanel.Tag,
+        LibraryFilterPanel.Mood,
+        LibraryFilterPanel.Genre -> LibraryFilterSectionStyle.TopChips
         LibraryFilterPanel.Library,
         LibraryFilterPanel.Author,
         LibraryFilterPanel.Series,
         LibraryFilterPanel.Publisher,
-        LibraryFilterPanel.Genre,
-        LibraryFilterPanel.Tag,
-        LibraryFilterPanel.Language -> true
+        LibraryFilterPanel.Language -> LibraryFilterSectionStyle.Row
+    }
+
+/** Whether the panel's values have a full list of their own (its search and letters) to open. */
+internal val LibraryFilterPanel.opensAsPage: Boolean
+    get() = when (sectionStyle) {
+        LibraryFilterSectionStyle.Chips,
+        LibraryFilterSectionStyle.Slider -> false
+        LibraryFilterSectionStyle.Places,
+        LibraryFilterSectionStyle.Piles,
+        LibraryFilterSectionStyle.TopChips,
+        LibraryFilterSectionStyle.Row -> true
     }
 
 /** The facet's name in a sentence: "Search 13 authors". */
@@ -40,6 +69,9 @@ internal val LibraryFilterPanel.pluralLabel: String
         LibraryFilterPanel.Genre -> "genres"
         LibraryFilterPanel.Tag -> "tags"
         LibraryFilterPanel.Language -> "languages"
+        LibraryFilterPanel.SetIn -> "places"
+        LibraryFilterPanel.When -> "times"
+        LibraryFilterPanel.Mood -> "moods"
     }
 
 /** One chip of an open group. [count] is null when the facets were not counted. */
@@ -109,6 +141,9 @@ internal fun LibraryFilterState.selectedValues(panel: LibraryFilterPanel): Set<S
     LibraryFilterPanel.Genre -> genres
     LibraryFilterPanel.Tag -> tags
     LibraryFilterPanel.Language -> languages
+    LibraryFilterPanel.SetIn -> places
+    LibraryFilterPanel.When -> times
+    LibraryFilterPanel.Mood -> moods
     LibraryFilterPanel.Format,
     LibraryFilterPanel.Location,
     LibraryFilterPanel.ReadingStatus,
@@ -124,13 +159,16 @@ internal fun LibraryFilterState.toggling(panel: LibraryFilterPanel, value: Strin
     LibraryFilterPanel.Genre -> copy(genres = genres.toggle(value))
     LibraryFilterPanel.Tag -> copy(tags = tags.toggle(value))
     LibraryFilterPanel.Language -> copy(languages = languages.toggle(value))
+    LibraryFilterPanel.SetIn -> copy(places = places.toggle(value))
+    LibraryFilterPanel.When -> copy(times = times.toggle(value))
+    LibraryFilterPanel.Mood -> copy(moods = moods.toggle(value))
     LibraryFilterPanel.Format,
     LibraryFilterPanel.Location,
     LibraryFilterPanel.ReadingStatus,
     LibraryFilterPanel.Pages -> this
 }
 
-private fun LibraryFilterFacets.values(panel: LibraryFilterPanel): List<String> = when (panel) {
+internal fun LibraryFilterFacets.values(panel: LibraryFilterPanel): List<String> = when (panel) {
     LibraryFilterPanel.Library -> libraries
     LibraryFilterPanel.Author -> authors
     LibraryFilterPanel.Series -> series
@@ -138,13 +176,16 @@ private fun LibraryFilterFacets.values(panel: LibraryFilterPanel): List<String> 
     LibraryFilterPanel.Genre -> genres
     LibraryFilterPanel.Tag -> tags
     LibraryFilterPanel.Language -> languages
+    LibraryFilterPanel.SetIn -> places
+    LibraryFilterPanel.When -> times
+    LibraryFilterPanel.Mood -> moods
     LibraryFilterPanel.Format,
     LibraryFilterPanel.Location,
     LibraryFilterPanel.ReadingStatus,
     LibraryFilterPanel.Pages -> emptyList()
 }
 
-private fun LibraryFilterPanel.valueLabel(value: String, libraryTitlesById: Map<String, String>): String =
+internal fun LibraryFilterPanel.valueLabel(value: String, libraryTitlesById: Map<String, String>): String =
     if (this == LibraryFilterPanel.Library) libraryTitlesById[value] ?: value else value
 
 /**

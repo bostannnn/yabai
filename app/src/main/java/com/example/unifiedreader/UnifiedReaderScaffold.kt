@@ -41,9 +41,6 @@ import com.example.unifiedreader.feature.journal.JournalScreen
 import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.library.libraryDownloadSelectableItems
 import com.example.unifiedreader.feature.library.rememberLibrarySelectionTip
-import com.example.unifiedreader.feature.library.browse.LibraryBrowseRequest
-import com.example.unifiedreader.feature.library.browse.LibraryBrowseRequestSaver
-import com.example.unifiedreader.feature.library.browse.LibraryBrowseTopBar
 import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserKind
 import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserOptionsButton
 import com.example.unifiedreader.feature.library.shelves.LibraryShelfBrowserTopBar
@@ -107,7 +104,7 @@ fun UnifiedReaderScaffold(
     onStartSource: (SourceStartRequest) -> Unit = {},
     // The user's lists; without it there is no Lists screen and no Add to list.
     listsViewModel: AppListsViewModel? = null,
-    // Where you put each tag in Browse; without it every tag is in About and Settings has no Tags.
+    // Where you put each tag in Filters; without it every tag is in About and Settings has no Tags.
     tagsViewModel: AppLibraryTagsViewModel? = null,
 ) {
     val themeColors = UnifiedReaderThemeTokens.colors
@@ -137,19 +134,13 @@ fun UnifiedReaderScaffold(
     var activeLibraryShelfBrowserKind by rememberSaveable(uiState.libraryBrowseContextKey) {
         mutableStateOf<LibraryShelfBrowserKind?>(null)
     }
-    // Browse, with its picked chips; null while it is closed.
-    var libraryBrowseRequest by rememberSaveable(uiState.libraryBrowseContextKey, stateSaver = LibraryBrowseRequestSaver) {
-        mutableStateOf<LibraryBrowseRequest?>(null)
-    }
-    var showLibraryBrowseRows by rememberSaveable(uiState.libraryBrowseContextKey) { mutableStateOf(false) }
-    var libraryBrowseScrolled by remember(uiState.libraryBrowseContextKey) { mutableStateOf(false) }
     // Which library screens (by browse context) have scrolled their grid under the bar.
     val libraryScrolled = remember { mutableStateMapOf<String, Boolean>() }
     var settingsPage by rememberSaveable(stateSaver = SettingsPageSaver) {
         mutableStateOf<SettingsPage?>(null)
     }
     val settingsUsesSidePane = settingsUsesSidePane(currentAppWindowWidth())
-    // Settings › Tags opens on the library's source, or on the one Browse sent you from.
+    // Settings › Tags opens on the library's source, or on the one Filters sent you from.
     var tagsSettingsSource by rememberSaveable { mutableStateOf(uiState.selectedSource) }
     val tagSorting = rememberLibraryTagSortingContext(
         tagsViewModel = tagsViewModel,
@@ -239,14 +230,10 @@ fun UnifiedReaderScaffold(
     LaunchedEffect(uiState.topLevel) {
         if (uiState.topLevel != TopLevelDestination.Library) {
             activeLibraryShelfBrowserKind = null
-            libraryBrowseRequest = null
         }
     }
     BackHandler(enabled = activeLibraryShelfBrowser != null) {
         activeLibraryShelfBrowserKind = null
-    }
-    BackHandler(enabled = libraryBrowseRequest != null && activeLibraryShelfBrowser == null) {
-        libraryBrowseRequest = null
     }
     // Selection starts with a long-press and has no button of its own, so the tip in the "•••"
     // menu explains it until the first time.
@@ -462,11 +449,7 @@ fun UnifiedReaderScaffold(
                                     rememberHomeReadingOrderCard(it, viewModel, uiState, onOpenList = openListOnLists)
                                 },
                                 onSaveFiltersAsList = listsViewModel?.let { { filters -> filtersToSave = filters } },
-                                browseRequest = libraryBrowseRequest,
-                                onBrowseRequestChanged = { request -> libraryBrowseRequest = request },
-                                showBrowseRows = showLibraryBrowseRows,
-                                onShowBrowseRowsChanged = { show -> showLibraryBrowseRows = show },
-                                onBrowseScrolledChanged = { scrolled -> libraryBrowseScrolled = scrolled },
+                                onLibrarySearchQueryChanged = viewModel::onLibrarySearchQueryChanged,
                                 bookPageRequest = pendingBookPageItemId,
                                 onBookPageRequestHandled = { pendingBookPageItemId = null },
                                 contentTopInset = AppTopBarDefaults.contentInset,
@@ -564,12 +547,6 @@ fun UnifiedReaderScaffold(
                                     } else {
                                         null
                                     },
-                                )
-                            } else if (libraryBrowseRequest != null) {
-                                LibraryBrowseTopBar(
-                                    onBack = { libraryBrowseRequest = null },
-                                    onShowRows = { showLibraryBrowseRows = true },
-                                    scrolled = libraryBrowseScrolled,
                                 )
                             } else {
                                 LibraryTopBar(

@@ -3,6 +3,8 @@ package com.example.unifiedreader
 import androidx.compose.runtime.Composable
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.feature.lists.NewListDialog
+import com.example.unifiedreader.core.model.libraryPlaceTags
+import com.example.unifiedreader.core.model.libraryTimeTags
 import com.example.unifiedreader.core.model.toListRules
 import com.example.unifiedreader.feature.lists.SmartListSpec
 import com.example.unifiedreader.feature.lists.UserListOrder
@@ -27,7 +29,13 @@ internal fun SaveFiltersAsListDialog(
         subtitle = "It keeps these filters, so it changes as your library does.",
         onCreate = { name, _ ->
             onDismiss()
-            val spec = SmartListSpec(rules = filters.toListRules(uiState.selectedSource))
+            val spec = SmartListSpec(
+                rules = filters.toListRules(
+                    sourceType = uiState.selectedSource,
+                    placeTags = { place -> libraryPlaceTags(place, uiState.sourceItems) },
+                    timeTags = { time -> libraryTimeTags(time, uiState.sourceItems) },
+                ),
+            )
             listsViewModel.createSmartList(name, spec, UserListOrder.DateAdded, onCreated = { listId ->
                 toasts?.show(
                     AppToastMessage(

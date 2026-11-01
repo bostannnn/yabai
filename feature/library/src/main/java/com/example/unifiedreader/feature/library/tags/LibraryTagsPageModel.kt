@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.library.tags
 
+import com.example.unifiedreader.ui.components.appCount
 import androidx.compose.runtime.Immutable
 import com.example.unifiedreader.core.model.LibraryPlaceRegion
 import com.example.unifiedreader.core.model.LibraryTagChoice
@@ -11,7 +12,6 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.libraryEraSlot
 import com.example.unifiedreader.core.model.libraryTagEntries
-import com.example.unifiedreader.feature.library.browse.bookCountLabel
 
 /** What Settings › Tags shows for one source: the tags waiting under New, and the sorted ones. */
 @Immutable
@@ -79,7 +79,7 @@ fun libraryTagsSummary(items: List<ReadableItem>, sortingBySource: Map<SourceTyp
     }
     val anySorted = sortingBySource.values.any { sorting -> sorting.tags.isNotEmpty() || sorting.locationRegions.isNotEmpty() }
     return when {
-        waiting == 0 -> "Where Browse shows each tag"
+        waiting == 0 -> "Where Filters shows each tag"
         !anySorted -> if (waiting == 1) "1 tag to check" else "$waiting tags to check"
         else -> if (waiting == 1) "1 new tag" else "$waiting new tags"
     }
@@ -87,3 +87,6 @@ fun libraryTagsSummary(items: List<ReadableItem>, sortingBySource: Map<SourceTyp
 
 /** More waiting than this, and New groups them by the app's guess instead of listing rows. */
 internal const val NewRowLimit = 10
+
+/** "1 book", "1,474 books". */
+internal fun bookCountLabel(count: Int): String = if (count == 1) "1 book" else "${appCount(count)} books"

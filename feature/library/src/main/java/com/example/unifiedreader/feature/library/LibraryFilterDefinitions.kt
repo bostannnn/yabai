@@ -18,6 +18,9 @@ internal fun LibraryFilterPanel.selectedCount(
     LibraryFilterPanel.Genre -> filterState.genres.size
     LibraryFilterPanel.Tag -> filterState.tags.size
     LibraryFilterPanel.Language -> filterState.languages.size
+    LibraryFilterPanel.SetIn -> filterState.places.size
+    LibraryFilterPanel.When -> filterState.times.size
+    LibraryFilterPanel.Mood -> filterState.moods.size
 }
 
 internal fun LibraryFilterPanel.isEnabled(
@@ -37,4 +40,7 @@ internal fun LibraryFilterPanel.isEnabled(
     LibraryFilterPanel.Genre -> filterFacets.genres.isNotEmpty() || filterState.genres.isNotEmpty()
     LibraryFilterPanel.Tag -> filterFacets.tags.isNotEmpty() || filterState.tags.isNotEmpty()
     LibraryFilterPanel.Language -> filterFacets.languages.isNotEmpty() || filterState.languages.isNotEmpty()
+    LibraryFilterPanel.SetIn -> filterFacets.places.isNotEmpty() || filterState.places.isNotEmpty()
+    LibraryFilterPanel.When -> filterFacets.times.isNotEmpty() || filterState.times.isNotEmpty()
+    LibraryFilterPanel.Mood -> filterFacets.moods.isNotEmpty() || filterState.moods.isNotEmpty()
 }

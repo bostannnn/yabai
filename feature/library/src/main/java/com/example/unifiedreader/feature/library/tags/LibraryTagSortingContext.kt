@@ -9,7 +9,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 
 /**
- * Where you put each source's tags and how to change it, for Browse, the book page, search and
+ * Where you put each source's tags and how to change it, for Filters, the book page, search and
  * Settings › Tags; the app provides it. Without it every tag is in About and nothing can be sorted.
  */
 @Immutable

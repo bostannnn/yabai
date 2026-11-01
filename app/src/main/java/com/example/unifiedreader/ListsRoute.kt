@@ -425,7 +425,7 @@ internal fun magicShelfServers(connected: Set<SourceType>, listsViewModel: AppLi
 
 /**
  * Where you sorted [tag]: the first source that puts it under Set in or When, else About (a tag
- * nobody has sorted is About, as on Browse).
+ * nobody has sorted is About, as in Filters).
  */
 internal fun Map<SourceType, LibraryTagSorting>.tagKindOf(tag: String): LibraryTagKind =
     values.map { sorting -> sorting.kindOf(tag) }.firstOrNull { kind -> kind != LibraryTagKind.THEME } ?: LibraryTagKind.THEME

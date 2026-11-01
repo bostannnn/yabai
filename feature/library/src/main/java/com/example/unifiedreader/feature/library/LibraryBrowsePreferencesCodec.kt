@@ -41,6 +41,7 @@ internal fun Preferences.toLibraryBrowsePreferences(): LibraryBrowsePreferences 
             val panels = decodePanels(
                 sourceType = sourceType,
                 value = this@toLibraryBrowsePreferences[filterPanelsKey(sourceType)],
+                knownValue = this@toLibraryBrowsePreferences[knownFilterPanelsKey(sourceType)],
             )
             if (panels != null) {
                 put(sourceType, panels)
@@ -68,6 +69,9 @@ internal fun MutablePreferences.writeFilterState(
     writeEncodedValues(genresFilterKey(sourceType), filters.genres)
     writeEncodedValues(tagsFilterKey(sourceType), filters.tags)
     writeEncodedValues(languagesFilterKey(sourceType), filters.languages)
+    writeEncodedValues(placesFilterKey(sourceType), filters.places)
+    writeEncodedValues(timesFilterKey(sourceType), filters.times)
+    writeEncodedValues(moodsFilterKey(sourceType), filters.moods)
 }
 
 internal fun MutablePreferences.writeSortMode(
@@ -93,8 +97,11 @@ internal fun MutablePreferences.writeFilterPanels(
     )
     if (encoded == null) {
         remove(key)
+        remove(knownFilterPanelsKey(sourceType))
     } else {
         this[key] = encoded
+        // The panels there were when this list was saved: a panel added later joins it by itself.
+        this[knownFilterPanelsKey(sourceType)] = encodedKnownFilterPanels()
     }
 }
 
@@ -140,6 +147,9 @@ internal fun loadStartupLibraryBrowsePreferences(
                 genres = decodeStringValues(startupPreferences.getString(genresFilterStorageKey(sourceType), null)),
                 tags = decodeStringValues(startupPreferences.getString(tagsFilterStorageKey(sourceType), null)),
                 languages = decodeStringValues(startupPreferences.getString(languagesFilterStorageKey(sourceType), null)),
+                places = decodeStringValues(startupPreferences.getString(placesFilterStorageKey(sourceType), null)),
+                times = decodeStringValues(startupPreferences.getString(timesFilterStorageKey(sourceType), null)),
+                moods = decodeStringValues(startupPreferences.getString(moodsFilterStorageKey(sourceType), null)),
             )
             if (!filters.isEmpty) {
                 put(sourceType, filters)
@@ -160,6 +170,7 @@ internal fun loadStartupLibraryBrowsePreferences(
             val panels = decodePanels(
                 sourceType = sourceType,
                 value = startupPreferences.getString(filterPanelsStorageKey(sourceType), null),
+                knownValue = startupPreferences.getString(knownFilterPanelsStorageKey(sourceType), null),
             )
             if (panels != null) {
                 put(sourceType, panels)
@@ -194,6 +205,9 @@ internal fun writeStartupLibraryBrowsePreferences(
             writeEncodedValues(genresFilterStorageKey(sourceType), filters.genres)
             writeEncodedValues(tagsFilterStorageKey(sourceType), filters.tags)
             writeEncodedValues(languagesFilterStorageKey(sourceType), filters.languages)
+            writeEncodedValues(placesFilterStorageKey(sourceType), filters.places)
+            writeEncodedValues(timesFilterStorageKey(sourceType), filters.times)
+            writeEncodedValues(moodsFilterStorageKey(sourceType), filters.moods)
 
             val sortMode = preferences.sortsBySource[sourceType]
             if (sortMode == null || sortMode == defaultLibrarySortMode) {
@@ -207,6 +221,11 @@ internal fun writeStartupLibraryBrowsePreferences(
                 values = preferences.filterPanelsBySource[sourceType]?.map(LibraryFilterPanel::name).orEmpty(),
                 defaultValues = defaultVisibleLibraryFilterPanels(sourceType).map(LibraryFilterPanel::name),
             )
+            if (preferences.filterPanelsBySource[sourceType] == null) {
+                remove(knownFilterPanelsStorageKey(sourceType))
+            } else {
+                putString(knownFilterPanelsStorageKey(sourceType), encodedKnownFilterPanels())
+            }
         }
         val gridCellSizeDp = sanitizeLibraryGridCellSizeDp(preferences.gridCellSizeDp)
         if (gridCellSizeDp == defaultLibraryGridCellSizeDp) {
@@ -237,20 +256,52 @@ private fun Preferences.decodeFilterState(
     genres = decodeStringValues(this[genresFilterKey(sourceType)]),
     tags = decodeStringValues(this[tagsFilterKey(sourceType)]),
     languages = decodeStringValues(this[languagesFilterKey(sourceType)]),
+    places = decodeStringValues(this[placesFilterKey(sourceType)]),
+    times = decodeStringValues(this[timesFilterKey(sourceType)]),
+    moods = decodeStringValues(this[moodsFilterKey(sourceType)]),
 )
 
 private fun decodePanels(
     sourceType: SourceType,
     value: String?,
+    knownValue: String?,
 ): List<LibraryFilterPanel>? {
     val decodedNames = decodeOrderedValues(value)
     if (decodedNames.isEmpty()) return null
+    // A list saved before a panel existed gets it at its default place; one you hid stays hidden.
+    val known = decodeOrderedValues(knownValue).toSet().ifEmpty { PanelsBeforePlacesAndTimes }
     val panels = resolveLibraryFilterPanels(
         sourceType = sourceType,
-        preferredPanels = decodedNames.mapNotNull(String::toLibraryFilterPanelOrNull),
+        preferredPanels = libraryFilterPanelsWithNew(
+            saved = decodedNames.mapNotNull(String::toLibraryFilterPanelOrNull),
+            defaults = defaultVisibleLibraryFilterPanels(sourceType),
+            knownNames = known,
+        ),
     )
     return panels.takeIf { it != defaultVisibleLibraryFilterPanels(sourceType) }
 }
+
+/** [saved] with each of [defaults] not in [knownNames] put back after the panel it follows by default. */
+internal fun libraryFilterPanelsWithNew(
+    saved: List<LibraryFilterPanel>,
+    defaults: List<LibraryFilterPanel>,
+    knownNames: Set<String>,
+): List<LibraryFilterPanel> {
+    val panels = saved.distinct().toMutableList()
+    defaults.forEachIndexed { index, panel ->
+        if (panel in panels || panel.name in knownNames) return@forEachIndexed
+        val before = defaults.subList(0, index).lastOrNull { it in panels }
+        panels.add(before?.let { panels.indexOf(it) + 1 } ?: 0, panel)
+    }
+    return panels
+}
+
+private fun encodedKnownFilterPanels(): String = LibraryFilterPanel.entries.joinToString(VALUES_DELIMITER) { panel -> encodeValue(panel.name) }
+
+// The panels a list saved before Set in, When and Mood (2026-11) knew of.
+private val PanelsBeforePlacesAndTimes: Set<String> = setOf(
+    "Format", "Library", "Location", "ReadingStatus", "Pages", "Author", "Series", "Publisher", "Genre", "Tag", "Language",
+)
 
 private fun MutablePreferences.writeEncodedValues(
     key: Preferences.Key<String>,
@@ -413,6 +464,22 @@ private fun filterPanelsKey(
     sourceType: SourceType,
 ): Preferences.Key<String> = stringPreferencesKey(filterPanelsStorageKey(sourceType))
 
+private fun knownFilterPanelsKey(
+    sourceType: SourceType,
+): Preferences.Key<String> = stringPreferencesKey(knownFilterPanelsStorageKey(sourceType))
+
+private fun placesFilterKey(
+    sourceType: SourceType,
+): Preferences.Key<String> = stringPreferencesKey(placesFilterStorageKey(sourceType))
+
+private fun timesFilterKey(
+    sourceType: SourceType,
+): Preferences.Key<String> = stringPreferencesKey(timesFilterStorageKey(sourceType))
+
+private fun moodsFilterKey(
+    sourceType: SourceType,
+): Preferences.Key<String> = stringPreferencesKey(moodsFilterStorageKey(sourceType))
+
 private fun gridCellSizeKey(): Preferences.Key<Int> = intPreferencesKey(gridCellSizeStorageKey())
 
 private fun fadeReadItemsKey(): Preferences.Key<Boolean> = booleanPreferencesKey(fadeReadItemsStorageKey())
@@ -468,6 +535,22 @@ private fun languagesFilterStorageKey(
 private fun filterPanelsStorageKey(
     sourceType: SourceType,
 ): String = "library_filter_panels_${sourceType.keySuffix()}"
+
+private fun knownFilterPanelsStorageKey(
+    sourceType: SourceType,
+): String = "library_filter_panels_known_${sourceType.keySuffix()}"
+
+private fun placesFilterStorageKey(
+    sourceType: SourceType,
+): String = "library_filter_places_${sourceType.keySuffix()}"
+
+private fun timesFilterStorageKey(
+    sourceType: SourceType,
+): String = "library_filter_times_${sourceType.keySuffix()}"
+
+private fun moodsFilterStorageKey(
+    sourceType: SourceType,
+): String = "library_filter_moods_${sourceType.keySuffix()}"
 
 private fun gridCellSizeStorageKey(): String = "library_grid_cell_size_dp"
 

@@ -45,7 +45,9 @@ internal object LibraryPagingFeature {
 
     // Content filters live in library_root_facets and page via buildFilteredGridRootsQuery; the
     // runtime dimensions (reading status, file location, and pages, which a series takes from its
-    // issues) aren't in the tables, so those stay in-memory.
+    // issues) aren't in the tables, nor are places and times (a country takes its cities, a pile its
+    // eras) or moods, so those stay in-memory.
     private fun LibraryFilterState.isPageableFilter(): Boolean =
-        readingStatuses.isEmpty() && fileLocations.isEmpty() && pages == null
+        readingStatuses.isEmpty() && fileLocations.isEmpty() && pages == null &&
+            places.isEmpty() && times.isEmpty() && moods.isEmpty()
 }

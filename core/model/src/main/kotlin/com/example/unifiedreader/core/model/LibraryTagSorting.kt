@@ -2,7 +2,7 @@ package com.example.unifiedreader.core.model
 
 import java.util.Locale
 
-/** Where a tag goes in Browse and on the book page: its row and, for a place, its region (null: Elsewhere). */
+/** Where a tag goes in Filters and on the book page: its row and, for a place, its region (null: Elsewhere). */
 data class LibraryTagChoice(
     val kind: LibraryTagKind,
     val region: LibraryPlaceRegion? = null,
@@ -26,7 +26,7 @@ fun libraryTagKey(name: String): String = name.trim().lowercase(Locale.ROOT)
 
 /**
  * A source's tags as you sorted them, by [libraryTagKey]. A tag nobody has sorted is About, so
- * Browse never shows a guess as a fact; a Location is always a place, in Elsewhere until it has a region.
+ * Filters never shows a guess as a fact; a Location is always a place, in Elsewhere until it has a region.
  */
 data class LibraryTagSorting(
     val tags: Map<String, LibraryTagChoice> = emptyMap(),
@@ -44,7 +44,7 @@ data class LibraryTagSorting(
         LibraryTagField.LOCATION -> locationRegions[libraryTagKey(name)]?.let { region -> LibraryTagChoice(LibraryTagKind.PLACE, region) }
     }
 
-    /** Whether you have put any tag under Set in or When; until then Browse offers to check the app's guesses. */
+    /** Whether you have put any tag under Set in or When; until then Settings › Tags offers to check the app's guesses. */
     val hasPlacesOrTimes: Boolean
         get() = tags.values.any { choice -> choice.kind != LibraryTagKind.THEME }
 

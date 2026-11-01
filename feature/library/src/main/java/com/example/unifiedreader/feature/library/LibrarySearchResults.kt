@@ -40,13 +40,13 @@ import com.example.unifiedreader.ui.components.AppBookRowLine
 import com.example.unifiedreader.ui.components.AppChip
 
 /**
- * The tags a search names, above its results: "Set in Japan 96". Picking one opens Browse with it,
- * so a word that is really a place, a time or a theme leads to every book that has it.
+ * The tags a search names, above its results: "Set in Japan 96". Picking one filters the library by
+ * it, so a word that is really a place, a time or a theme leads to every book that has it.
  */
 @Composable
 internal fun LibrarySearchTagStrip(
     suggestions: List<LibrarySearchTagSuggestion>,
-    onBrowse: (LibraryBrowseChip) -> Unit,
+    onFilterByTag: (LibraryBrowseChip) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -57,7 +57,7 @@ internal fun LibrarySearchTagStrip(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "Browse",
+            text = "Filter by",
             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -65,7 +65,7 @@ internal fun LibrarySearchTagStrip(
             val quiet = LocalContentColor.current.copy(alpha = 0.72f)
             AppChip(
                 selected = false,
-                onClick = { onBrowse(suggestion.chip) },
+                onClick = { onFilterByTag(suggestion.chip) },
                 count = suggestion.count,
                 label = {
                     Text(
@@ -136,7 +136,7 @@ internal fun LibrarySearchResultRow(
                         AppBookRowLine(text = snippet.source.label)
                     }
                 } else {
-                    // A tag or genre, named the way Browse names it: "Set in Japan".
+                    // A tag or genre, named the way Filters names it: "Set in Japan".
                     val quiet = MaterialTheme.colorScheme.onSurfaceVariant
                     Text(
                         text = buildAnnotatedString {
@@ -161,7 +161,7 @@ internal fun LibrarySearchResultRow(
     }
 }
 
-/** The Browse row a tag or genre snippet belongs to, as you sorted the tag. */
+/** The section a tag or genre snippet belongs to, as you sorted the tag. */
 private fun LibrarySearchSnippet.browseRowLabel(sorting: LibraryTagSorting): String = when {
     source == LibrarySearchMatchSource.GENRE -> LibraryBrowseRow.GENRE.label
     else -> when (sorting.kindOf(text)) {

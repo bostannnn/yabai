@@ -41,15 +41,15 @@ import com.example.unifiedreader.ui.components.AppTextButton
 
 /**
  * The book page's About: the description, its tags and genres in rows (Set in, When, About,
- * Genre, as Browse names them and where you sorted them; a tag opens Browse with it picked when
- * [onBrowse] is given, and its sort sheet on a long press), then the facts.
+ * Genre, as Filters names them and where you sorted them; a tag filters the library by it when
+ * [onFilterByTag] is given, and opens its sort sheet on a long press), then the facts.
  */
 @Composable
 internal fun LibraryBookPageAbout(
     text: LibraryBookPageText,
     source: SourceType,
     descriptionLoading: Boolean,
-    onBrowse: ((LibraryBrowseChip) -> Unit)?,
+    onFilterByTag: ((LibraryBrowseChip) -> Unit)?,
 ) {
     val sorting = LocalLibraryTagSorting.current.sortingFor(source) ?: LibraryTagSorting()
     var sortTarget by remember(source) { mutableStateOf<LibraryTagSortTarget?>(null) }
@@ -75,7 +75,7 @@ internal fun LibraryBookPageAbout(
                     LibraryBookPageTagRow(
                         row = row,
                         values = values,
-                        onBrowse = onBrowse,
+                        onFilterByTag = onFilterByTag,
                         onSort = if (row == LibraryBrowseRow.GENRE) {
                             null
                         } else {
@@ -102,12 +102,12 @@ internal fun LibraryBookPageAbout(
         }
     }
     sortTarget?.let { target ->
-        LibraryTagSortSheet(target = target, onDismiss = { sortTarget = null }, onBrowse = onBrowse)
+        LibraryTagSortSheet(target = target, onDismiss = { sortTarget = null }, onFilterByTag = onFilterByTag)
     }
 }
 
 /**
- * A book's tags by the Browse rows [sorting] puts them in (a tag nobody sorted is About; a
+ * A book's tags by the sections [sorting] puts them in (a tag nobody sorted is About; a
  * Location is Set in), then its genres; rows it has nothing in are left out.
  */
 internal fun libraryBookPageTagRows(
@@ -145,7 +145,7 @@ private fun libraryBookPageSortTarget(
 private fun LibraryBookPageTagRow(
     row: LibraryBrowseRow,
     values: List<String>,
-    onBrowse: ((LibraryBrowseChip) -> Unit)?,
+    onFilterByTag: ((LibraryBrowseChip) -> Unit)?,
     onSort: ((String) -> Unit)?,
 ) {
     var unfolded by rememberSaveable(row, values) { mutableStateOf(false) }
@@ -160,8 +160,8 @@ private fun LibraryBookPageTagRow(
             shown.forEach { value ->
                 AppChip(
                     selected = false,
-                    onClick = { onBrowse?.invoke(LibraryBrowseChip(row, value)) },
-                    enabled = onBrowse != null,
+                    onClick = { onFilterByTag?.invoke(LibraryBrowseChip(row, value)) },
+                    enabled = onFilterByTag != null,
                     modifier = Modifier.height(LibraryBookPageChipHeight),
                     label = { Text(text = value, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     onLongClick = onSort?.let { sort -> { sort(value) } },

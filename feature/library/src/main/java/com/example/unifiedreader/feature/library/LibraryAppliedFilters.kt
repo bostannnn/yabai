@@ -56,6 +56,15 @@ internal fun appliedLibraryFilters(
         LibraryFilterPanel.Language -> state.languages.byLabel().map { value ->
             LibraryAppliedFilter(panel, value, state.copy(languages = state.languages - value))
         }
+        LibraryFilterPanel.SetIn -> state.places.byLabel().map { value ->
+            LibraryAppliedFilter(panel, value, state.copy(places = state.places - value))
+        }
+        LibraryFilterPanel.When -> state.times.byLabel().map { value ->
+            LibraryAppliedFilter(panel, value, state.copy(times = state.times - value))
+        }
+        LibraryFilterPanel.Mood -> state.moods.byLabel().map { value ->
+            LibraryAppliedFilter(panel, value, state.copy(moods = state.moods - value))
+        }
     }
 }
 

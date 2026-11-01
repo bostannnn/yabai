@@ -478,6 +478,12 @@ private fun LibraryFilterState.keyFragment(): String = buildString {
     append(tags.sortedWith(String.CASE_INSENSITIVE_ORDER).joinToString(",") { value -> value.keyComponent() })
     append(";languages=")
     append(languages.sortedWith(String.CASE_INSENSITIVE_ORDER).joinToString(",") { value -> value.keyComponent() })
+    append(";places=")
+    append(places.sortedWith(String.CASE_INSENSITIVE_ORDER).joinToString(",") { value -> value.keyComponent() })
+    append(";times=")
+    append(times.sortedWith(String.CASE_INSENSITIVE_ORDER).joinToString(",") { value -> value.keyComponent() })
+    append(";moods=")
+    append(moods.sortedWith(String.CASE_INSENSITIVE_ORDER).joinToString(",") { value -> value.keyComponent() })
 }
 
 private fun String.keyComponent(): String = Base64.getUrlEncoder()

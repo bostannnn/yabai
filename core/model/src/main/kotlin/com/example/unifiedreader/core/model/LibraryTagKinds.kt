@@ -23,7 +23,7 @@ fun libraryTagGuess(tag: String): LibraryTagChoice? {
     }
 }
 
-/** The part of the world a place is in, for grouping places on Browse's landing page. */
+/** The part of the world a place is in, for grouping places in Settings › Tags. */
 enum class LibraryPlaceRegion(val label: String) {
     AMERICAS("Americas"),
     EUROPE("Europe"),
@@ -39,7 +39,7 @@ enum class LibraryPlaceRegion(val label: String) {
 fun libraryPlaceRegionGuess(name: String): LibraryPlaceRegion? = LibraryPlaceRegionByName[libraryTagKey(name)]
 
 /**
- * A bar on Browse's timeline: decades and centuries in time order. A named period ("World War II",
+ * A pile under When in Filters: decades and centuries in time order. A named period ("World War II",
  * "Cold War") and a whole century that spans many bars ("20th century") have no bar; they are
  * chips under the timeline.
  */
@@ -64,6 +64,14 @@ fun libraryEraSlot(tag: String): LibraryEraSlot? {
         return if (century == 20) null else centurySlot(century)
     }
     return null
+}
+
+/** The pile a When label names ("1800s", "Ancient", "21st c."), or null for a named period ("World War II"). */
+fun libraryEraPile(label: String): LibraryEraSlot? =
+    libraryEraSlot(label)?.takeIf { slot -> slot.label.equals(label, ignoreCase = true) } ?: PileByLabel[libraryTagKey(label)]
+
+private val PileByLabel: Map<String, LibraryEraSlot> by lazy {
+    (NamedSlots.values + listOfNotNull(centurySlot(21))).associateBy { slot -> libraryTagKey(slot.label) }
 }
 
 private fun centurySlot(century: Int): LibraryEraSlot? = when {

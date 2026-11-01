@@ -6,9 +6,12 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridItemScope
 import androidx.compose.foundation.lazy.grid.LazyGridLayoutInfo
@@ -58,6 +61,8 @@ import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
 import com.example.unifiedreader.ui.components.AppLayout
+import com.example.unifiedreader.ui.components.AppWindowWidth
+import com.example.unifiedreader.ui.components.currentAppWindowWidth
 import com.example.unifiedreader.ui.components.appGutter
 import com.example.unifiedreader.ui.theme.AppMotion
 import kotlinx.coroutines.Dispatchers
@@ -96,6 +101,9 @@ fun LibraryScreen(
     filterState: LibraryFilterState = LibraryFilterState(),
     filterPanels: List<LibraryFilterPanel> = emptyList(),
     filterFacets: LibraryFilterFacets = LibraryFilterFacets(),
+    // A source's books, to count Set in, When, About and Mood with your tag sorting; empty in a
+    // series or a Kavita list, where the filters keep [filterFacets] as they are.
+    filterPool: List<ReadableItem> = emptyList(),
     libraryTitlesById: Map<String, String> = emptyMap(),
     // How many items this view has before filters and search, for the filter sheet's "14 of 21".
     totalItemCount: Int? = null,
@@ -153,11 +161,9 @@ fun LibraryScreen(
     onSeriesReaderModeSelected: (ReadableItem, ComicReaderMode) -> Unit = { _, _ -> },
     // The "•••" under a cover opens the item's book page, which the host draws.
     onOpenItemPage: (ReadableItem) -> Unit = {},
-    // The Browse chip in the All books row; null hides it (in a series or a Kavita list).
-    onOpenBrowse: (() -> Unit)? = null,
-    // While searching: the source's books, for the tags the search names, and Browse opened with one.
+    // While searching: the source's books, for the tags the search names; picking one filters by it.
     searchPool: List<ReadableItem> = emptyList(),
-    onBrowseTag: ((LibraryBrowseChip) -> Unit)? = null,
+    onFilterByTag: ((LibraryBrowseChip) -> Unit)? = null,
     onDownloadItem: (ReadableItem) -> Unit = {},
     onDeleteDownloadedItem: (ReadableItem) -> Unit = {},
     onSetReadStatus: (ReadableItem, Boolean) -> Unit = { _, _ -> },
@@ -184,6 +190,18 @@ fun LibraryScreen(
     val isPaged = pagedItems != null
     var openFilterPanel by rememberSaveable { mutableStateOf<LibraryFilterPanel?>(null) }
     var isFilterSheetOpen by rememberSaveable { mutableStateOf(false) }
+    // On an Expanded window the filters dock beside the library instead of opening as a sheet.
+    val dockFilters = currentAppWindowWidth() == AppWindowWidth.Expanded
+    val filterDock = rememberLibraryFilterDockState()
+    val shownFilterFacets = rememberLibraryFilterFacetsWithTags(
+        facets = filterFacets,
+        pool = filterPool,
+        filters = filterState,
+        sorting = LocalLibraryTagSorting.current.sortingFor(selectedSource),
+        progressByItemId = progressByItemId,
+        pageCountByItemId = pageCountByItemId,
+        locallyAvailableItemIds = locallyAvailableItemIds,
+    )
     var handledScrollToTopRequest by remember { mutableStateOf(scrollToTopRequest) }
     val coroutineScope = rememberCoroutineScope()
     val visibleItems = items
@@ -327,10 +345,10 @@ fun LibraryScreen(
         emptyList<LibrarySearchTagSuggestion>(),
         searchQuery,
         searchPool,
-        onBrowseTag != null,
+        onFilterByTag != null,
         tagSorting,
     ) {
-        value = if (onBrowseTag == null || searchQuery.isBlank()) {
+        value = if (onFilterByTag == null || searchQuery.isBlank()) {
             emptyList()
         } else {
             withContext(Dispatchers.Default) { librarySearchTagSuggestions(searchPool, searchQuery, tagSorting) }
@@ -499,301 +517,330 @@ fun LibraryScreen(
     }
 
     val gutter = appGutter()
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val gridEndPadding = if (alphabetRailVisible) {
-            libraryGridNavigationEndPaddingDp
-        } else {
-            gutter
-        }
-        val gridPresentation = remember(maxWidth, gutter, gridEndPadding, gridCellSizeDp) {
-            libraryGridPresentation(
-                maxWidth = maxWidth,
-                startPadding = gutter,
-                endPadding = gridEndPadding,
-                requestedGridCellSizeDp = gridCellSizeDp,
-            )
-        }
-        val gridCoverImageVariant = libraryGridCoverImageVariant(
-            gridPresentation.selectedGridSize.cellSizeDp,
-        )
-        VisibleRemoteCoverPrefetcher(
-            browseContextKey = browseContextKey,
-            gridState = gridState,
-            // Indexed by grid slot: the paged snapshot keeps placeholders where `renderedItems` drops them.
-            items = if (isPaged) pagedItems!!.itemSnapshotList else renderedItems,
-            leadingContentItemCount = leadingContentItemCount,
-            variant = gridCoverImageVariant,
-            maxTargetsWhileScrolling = gridPresentation.scrollingPrefetchItemLimit,
-            coverPrefetchKeyProvider = coverPrefetchKeyProvider,
-            onCoverVisible = onCoverVisible,
-        )
-
-        // Sort and filter changes move covers to their new places instead of cutting.
-        val gridCard: @Composable LazyGridItemScope.(ReadableItem) -> Unit = { item ->
-            GridCoverCard(
-                item = item,
-                progress = effectiveProgressByItemId[item.id],
-                rating = effectiveRatingByItemId[item.id],
-                isDownloaded = itemActionContext.isDownloaded(item),
-                fadeRead = fadeReadItems,
-                imageVariant = gridCoverImageVariant,
-                coverImageUrlProvider = coverImageUrlProvider,
-                seriesIssueCount = item.issueCount,
-                // A series or a Kavita list keeps its own order, so its captions stay as they are.
-                lengthLabel = if (sortMode == LibrarySortMode.PAGES && showSortControl) {
-                    libraryLengthLabel(pageCountByItemId.pageCountOf(item), item.issueCount)
-                } else {
-                    null
-                },
-                title = when {
-                    preferIssueLabels && includeSeriesInIssueLabels -> itemMixedIssueBrowsePrimaryText(item)
-                    preferIssueLabels -> itemSeriesBrowsePrimaryText(item)
-                    else -> itemPrimaryText(item)
-                },
-                isSelectionMode = isDownloadSelectionMode,
-                isSelected = item.id in selectedDownloadItemIdSet,
-                onClick = { onItemSelected(item) },
-                onSelectionToggle = { toggleDownloadSelection(item) },
-                onSelectionStart = if (item.id in selectableDownloadItemIds) {
-                    { startDownloadSelection(item) }
-                } else {
-                    null
-                },
-                menuContent = {
-                    LibraryItemPageButton(
-                        item = item,
-                        actionContext = itemActionContext,
-                        buttonStyle = LibraryItemMenuButtonStyle.CompactInline,
-                    )
-                },
-                modifier = Modifier.animateItem(
-                    fadeInSpec = null,
-                    placementSpec = AppMotion.spatial(IntOffset.VisibilityThreshold),
-                    fadeOutSpec = null,
-                ),
-            )
-        }
-
-        LazyVerticalGrid(
-            columns = LibraryViewMode.Grid.gridCells(
-                maxWidth = maxWidth,
-                maxHeight = maxHeight,
-                gridCellSizeDp = gridPresentation.selectedGridSize.cellSizeDp,
-            ),
-            state = gridState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = gutter,
-                top = contentTopInset + AppLayout.contentTop,
-                end = gridEndPadding,
-                bottom = AppLayout.contentBottom,
-            ),
-            verticalArrangement = Arrangement.spacedBy(AppLayout.gridGap),
-            horizontalArrangement = Arrangement.spacedBy(libraryGridHorizontalSpacingDp),
-        ) {
-            if (header != null) {
-                item(
-                    key = LibraryHeaderItemKey,
-                    contentType = LibraryScreenContentTypes.Header,
-                    span = { GridItemSpan(maxLineSpan) },
-                ) {
-                    LibraryHeaderBlock(header = header, compact = isLibraryCompactWindow())
-                }
-            }
-            if (topContent != null) {
-                item(
-                    key = "top-content",
-                    contentType = LibraryScreenContentTypes.TopContent,
-                    span = { GridItemSpan(maxLineSpan) },
-                ) {
-                    topContent(LibraryGridMetrics(cellSizeDp = gridPresentation.selectedGridSize.cellSizeDp))
-                }
-            }
-
-            item(
-                key = "filter-summary",
-                contentType = LibraryScreenContentTypes.FilterSummary,
-                span = { GridItemSpan(maxLineSpan) },
-            ) {
-                Column(
-                    // A series' stack rises into the gap under the chips; this keeps the row's gap clear of it.
-                    modifier = Modifier.padding(bottom = LibrarySeriesStackRaise),
-                    verticalArrangement = Arrangement.spacedBy(AppLayout.gridGap),
-                ) {
-                    LibraryFilterRow(
-                        heading = catalogKind?.let { kind ->
-                            libraryGridHeading(
-                                kind = kind,
-                                searchActive = searchQuery.isNotBlank(),
-                                filtersActive = !filterState.isEmpty,
-                                shownCount = shownItemCount().takeIf { catalogCountKnown },
-                                totalCount = totalItemCount.takeIf { catalogCountKnown },
-                            )
-                        },
-                        filterPanels = filterPanels,
-                        filterState = filterState,
-                        filterFacets = filterFacets,
-                        libraryTitlesById = libraryTitlesById,
-                        sortMode = sortMode,
-                        // What was picked, not what the width made of it: on a phone Small and Medium
-                        // can lay out alike, and the menu still shows the pick.
-                        gridCellSizeDp = gridCellSizeDp,
-                        fadeReadItems = fadeReadItems,
-                        showSortControl = showSortControl,
-                        availableSortModes = availableSortModes,
-                        lockedSortLabel = lockedSortLabel,
-                        onOpenBrowse = onOpenBrowse,
-                        onOpenFilterPanel = { panel ->
-                            openFilterPanel = panel
-                            isFilterSheetOpen = true
-                        },
-                        onFilterStateChanged = onFilterStateChanged,
-                        onSortModeChanged = onSortModeChanged,
-                        onGridCellSizeDpChanged = onGridCellSizeDpChanged,
-                        onFadeReadItemsChanged = onFadeReadItemsChanged,
-                    )
-                    if (searchTagSuggestions.isNotEmpty() && onBrowseTag != null) {
-                        LibrarySearchTagStrip(suggestions = searchTagSuggestions, onBrowse = onBrowseTag)
-                    }
-                }
-            }
-
-            if (gridIsEmpty) {
-                item(
-                    key = "empty-state",
-                    contentType = if (showGridLoading) {
-                        LibraryScreenContentTypes.LoadingState
-                    } else {
-                        LibraryScreenContentTypes.EmptyState
-                    },
-                    span = { GridItemSpan(maxLineSpan) },
-                ) {
-                    if (showGridLoading) {
-                        LoadingLibraryState(
-                            gridCellSizeDp = gridPresentation.selectedGridSize.cellSizeDp,
-                        )
-                    } else {
-                        LibraryEmptyState(
-                            reason = libraryEmptyReason(
-                                searchActive = searchQuery.isNotBlank(),
-                                filtersActive = !filterState.isEmpty,
-                                sourceUnreachable = sourceUnreachable,
-                                sourceNotConnected = sourceNotConnected,
-                            ),
-                            selectedSource = selectedSource,
-                            onClearFilters = onClearFilters,
-                            onImportFile = onImportLocalFile,
-                            onConnectServer = onConnectServer,
-                            onRetry = onRetrySource,
-                        )
-                    }
-                }
-            } else if (isPaged) {
-                items(
-                    count = pagedItems!!.itemCount,
-                    key = pagedItems.itemKey { it.id },
-                    contentType = pagedItems.itemContentType { LibraryScreenContentTypes.GridItem },
-                ) { index ->
-                    // Placeholders are on for rail sorts (for the jump rail); a not-yet-loaded slot
-                    // renders a sized stand-in so the row keeps its height instead of collapsing.
-                    pagedItems[index]?.let { item -> gridCard(item) } ?: LibraryGridPlaceholderCard()
-                }
-            } else if (searchQuery.isNotBlank()) {
-                // Searching: each result is a row that says why it matched.
-                items(
-                    items = visibleItems,
-                    key = { it.id },
-                    span = { GridItemSpan(maxLineSpan) },
-                    contentType = { LibraryScreenContentTypes.SearchResult },
-                ) { item ->
-                    LibrarySearchResultRow(
-                        item = item,
-                        title = itemPrimaryText(item),
-                        query = searchQuery,
-                        progress = effectiveProgressByItemId[item.id],
-                        actionContext = itemActionContext,
-                        coverImageUrlProvider = coverImageUrlProvider,
-                        onClick = { onItemSelected(item) },
-                    )
-                }
+    Row(modifier = Modifier.fillMaxSize()) {
+        BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxHeight()) {
+            val gridEndPadding = if (alphabetRailVisible) {
+                libraryGridNavigationEndPaddingDp
             } else {
-                items(
-                    items = visibleItems,
-                    key = { it.id },
-                    contentType = { LibraryScreenContentTypes.GridItem },
-                ) { item ->
-                    gridCard(item)
+                gutter
+            }
+            val gridPresentation = remember(maxWidth, gutter, gridEndPadding, gridCellSizeDp) {
+                libraryGridPresentation(
+                    maxWidth = maxWidth,
+                    startPadding = gutter,
+                    endPadding = gridEndPadding,
+                    requestedGridCellSizeDp = gridCellSizeDp,
+                )
+            }
+            val gridCoverImageVariant = libraryGridCoverImageVariant(
+                gridPresentation.selectedGridSize.cellSizeDp,
+            )
+            VisibleRemoteCoverPrefetcher(
+                browseContextKey = browseContextKey,
+                gridState = gridState,
+                // Indexed by grid slot: the paged snapshot keeps placeholders where `renderedItems` drops them.
+                items = if (isPaged) pagedItems!!.itemSnapshotList else renderedItems,
+                leadingContentItemCount = leadingContentItemCount,
+                variant = gridCoverImageVariant,
+                maxTargetsWhileScrolling = gridPresentation.scrollingPrefetchItemLimit,
+                coverPrefetchKeyProvider = coverPrefetchKeyProvider,
+                onCoverVisible = onCoverVisible,
+            )
+
+            // Sort and filter changes move covers to their new places instead of cutting.
+            val gridCard: @Composable LazyGridItemScope.(ReadableItem) -> Unit = { item ->
+                GridCoverCard(
+                    item = item,
+                    progress = effectiveProgressByItemId[item.id],
+                    rating = effectiveRatingByItemId[item.id],
+                    isDownloaded = itemActionContext.isDownloaded(item),
+                    fadeRead = fadeReadItems,
+                    imageVariant = gridCoverImageVariant,
+                    coverImageUrlProvider = coverImageUrlProvider,
+                    seriesIssueCount = item.issueCount,
+                    // A series or a Kavita list keeps its own order, so its captions stay as they are.
+                    lengthLabel = if (sortMode == LibrarySortMode.PAGES && showSortControl) {
+                        libraryLengthLabel(pageCountByItemId.pageCountOf(item), item.issueCount)
+                    } else {
+                        null
+                    },
+                    title = when {
+                        preferIssueLabels && includeSeriesInIssueLabels -> itemMixedIssueBrowsePrimaryText(item)
+                        preferIssueLabels -> itemSeriesBrowsePrimaryText(item)
+                        else -> itemPrimaryText(item)
+                    },
+                    isSelectionMode = isDownloadSelectionMode,
+                    isSelected = item.id in selectedDownloadItemIdSet,
+                    onClick = { onItemSelected(item) },
+                    onSelectionToggle = { toggleDownloadSelection(item) },
+                    onSelectionStart = if (item.id in selectableDownloadItemIds) {
+                        { startDownloadSelection(item) }
+                    } else {
+                        null
+                    },
+                    menuContent = {
+                        LibraryItemPageButton(
+                            item = item,
+                            actionContext = itemActionContext,
+                            buttonStyle = LibraryItemMenuButtonStyle.CompactInline,
+                        )
+                    },
+                    modifier = Modifier.animateItem(
+                        fadeInSpec = null,
+                        placementSpec = AppMotion.spatial(IntOffset.VisibilityThreshold),
+                        fadeOutSpec = null,
+                    ),
+                )
+            }
+
+            LazyVerticalGrid(
+                columns = LibraryViewMode.Grid.gridCells(
+                    maxWidth = maxWidth,
+                    maxHeight = maxHeight,
+                    gridCellSizeDp = gridPresentation.selectedGridSize.cellSizeDp,
+                ),
+                state = gridState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = gutter,
+                    top = contentTopInset + AppLayout.contentTop,
+                    end = gridEndPadding,
+                    bottom = AppLayout.contentBottom,
+                ),
+                verticalArrangement = Arrangement.spacedBy(AppLayout.gridGap),
+                horizontalArrangement = Arrangement.spacedBy(libraryGridHorizontalSpacingDp),
+            ) {
+                if (header != null) {
+                    item(
+                        key = LibraryHeaderItemKey,
+                        contentType = LibraryScreenContentTypes.Header,
+                        span = { GridItemSpan(maxLineSpan) },
+                    ) {
+                        LibraryHeaderBlock(header = header, compact = isLibraryCompactWindow())
+                    }
+                }
+                if (topContent != null) {
+                    item(
+                        key = "top-content",
+                        contentType = LibraryScreenContentTypes.TopContent,
+                        span = { GridItemSpan(maxLineSpan) },
+                    ) {
+                        topContent(LibraryGridMetrics(cellSizeDp = gridPresentation.selectedGridSize.cellSizeDp))
+                    }
+                }
+
+                item(
+                    key = "filter-summary",
+                    contentType = LibraryScreenContentTypes.FilterSummary,
+                    span = { GridItemSpan(maxLineSpan) },
+                ) {
+                    Column(
+                        // A series' stack rises into the gap under the chips; this keeps the row's gap clear of it.
+                        modifier = Modifier.padding(bottom = LibrarySeriesStackRaise),
+                        verticalArrangement = Arrangement.spacedBy(AppLayout.gridGap),
+                    ) {
+                        LibraryFilterRow(
+                            heading = catalogKind?.let { kind ->
+                                libraryGridHeading(
+                                    kind = kind,
+                                    searchActive = searchQuery.isNotBlank(),
+                                    filtersActive = !filterState.isEmpty,
+                                    shownCount = shownItemCount().takeIf { catalogCountKnown },
+                                    totalCount = totalItemCount.takeIf { catalogCountKnown },
+                                )
+                            },
+                            filterPanels = filterPanels,
+                            filterState = filterState,
+                            filterFacets = shownFilterFacets,
+                            libraryTitlesById = libraryTitlesById,
+                            sortMode = sortMode,
+                            // What was picked, not what the width made of it: on a phone Small and Medium
+                            // can lay out alike, and the menu still shows the pick.
+                            gridCellSizeDp = gridCellSizeDp,
+                            fadeReadItems = fadeReadItems,
+                            showSortControl = showSortControl,
+                            availableSortModes = availableSortModes,
+                            lockedSortLabel = lockedSortLabel,
+                            onOpenFilterPanel = { panel ->
+                                openFilterPanel = panel
+                                when {
+                                    !dockFilters -> isFilterSheetOpen = true
+                                    // The Filters chip shows and hides the docked panel; a value's chip opens its section.
+                                    panel == null && filterDock.open -> filterDock.hide()
+                                    else -> filterDock.show()
+                                }
+                            },
+                            filtersOpen = dockFilters && filterDock.open,
+                            onFilterStateChanged = onFilterStateChanged,
+                            onSortModeChanged = onSortModeChanged,
+                            onGridCellSizeDpChanged = onGridCellSizeDpChanged,
+                            onFadeReadItemsChanged = onFadeReadItemsChanged,
+                        )
+                        if (searchTagSuggestions.isNotEmpty() && onFilterByTag != null) {
+                            LibrarySearchTagStrip(suggestions = searchTagSuggestions, onFilterByTag = onFilterByTag)
+                        }
+                    }
+                }
+
+                if (gridIsEmpty) {
+                    item(
+                        key = "empty-state",
+                        contentType = if (showGridLoading) {
+                            LibraryScreenContentTypes.LoadingState
+                        } else {
+                            LibraryScreenContentTypes.EmptyState
+                        },
+                        span = { GridItemSpan(maxLineSpan) },
+                    ) {
+                        if (showGridLoading) {
+                            LoadingLibraryState(
+                                gridCellSizeDp = gridPresentation.selectedGridSize.cellSizeDp,
+                            )
+                        } else {
+                            LibraryEmptyState(
+                                reason = libraryEmptyReason(
+                                    searchActive = searchQuery.isNotBlank(),
+                                    filtersActive = !filterState.isEmpty,
+                                    sourceUnreachable = sourceUnreachable,
+                                    sourceNotConnected = sourceNotConnected,
+                                ),
+                                selectedSource = selectedSource,
+                                onClearFilters = onClearFilters,
+                                onImportFile = onImportLocalFile,
+                                onConnectServer = onConnectServer,
+                                onRetry = onRetrySource,
+                            )
+                        }
+                    }
+                } else if (isPaged) {
+                    items(
+                        count = pagedItems!!.itemCount,
+                        key = pagedItems.itemKey { it.id },
+                        contentType = pagedItems.itemContentType { LibraryScreenContentTypes.GridItem },
+                    ) { index ->
+                        // Placeholders are on for rail sorts (for the jump rail); a not-yet-loaded slot
+                        // renders a sized stand-in so the row keeps its height instead of collapsing.
+                        pagedItems[index]?.let { item -> gridCard(item) } ?: LibraryGridPlaceholderCard()
+                    }
+                } else if (searchQuery.isNotBlank()) {
+                    // Searching: each result is a row that says why it matched.
+                    items(
+                        items = visibleItems,
+                        key = { it.id },
+                        span = { GridItemSpan(maxLineSpan) },
+                        contentType = { LibraryScreenContentTypes.SearchResult },
+                    ) { item ->
+                        LibrarySearchResultRow(
+                            item = item,
+                            title = itemPrimaryText(item),
+                            query = searchQuery,
+                            progress = effectiveProgressByItemId[item.id],
+                            actionContext = itemActionContext,
+                            coverImageUrlProvider = coverImageUrlProvider,
+                            onClick = { onItemSelected(item) },
+                        )
+                    }
+                } else {
+                    items(
+                        items = visibleItems,
+                        key = { it.id },
+                        contentType = { LibraryScreenContentTypes.GridItem },
+                    ) { item ->
+                        gridCard(item)
+                    }
                 }
             }
-        }
-        val scrolled by remember(gridState) {
-            derivedStateOf { gridState.firstVisibleItemIndex > 0 || gridState.firstVisibleItemScrollOffset > 0 }
-        }
-        LaunchedEffect(scrolled) { onScrolledChanged(scrolled) }
-        val showBackToTop by remember(
-            gridState,
-            leadingContentItemCount,
-            gridPresentation.selectedGridSize.columnCount,
-        ) {
-            derivedStateOf {
-                shouldShowLibraryBackToTop(
-                    firstVisibleItemIndex = gridState.firstVisibleItemIndex,
-                    firstVisibleItemScrollOffset = gridState.firstVisibleItemScrollOffset,
-                    leadingContentItemCount = leadingContentItemCount,
-                    columnCount = gridPresentation.selectedGridSize.columnCount,
+            val scrolled by remember(gridState) {
+                derivedStateOf { gridState.firstVisibleItemIndex > 0 || gridState.firstVisibleItemScrollOffset > 0 }
+            }
+            LaunchedEffect(scrolled) { onScrolledChanged(scrolled) }
+            val showBackToTop by remember(
+                gridState,
+                leadingContentItemCount,
+                gridPresentation.selectedGridSize.columnCount,
+            ) {
+                derivedStateOf {
+                    shouldShowLibraryBackToTop(
+                        firstVisibleItemIndex = gridState.firstVisibleItemIndex,
+                        firstVisibleItemScrollOffset = gridState.firstVisibleItemScrollOffset,
+                        leadingContentItemCount = leadingContentItemCount,
+                        columnCount = gridPresentation.selectedGridSize.columnCount,
+                    )
+                }
+            }
+            if (alphabetRailVisible) {
+                AlphabetNavigationRail(
+                    sections = sortLetters,
+                    activeSection = activeSortLetter,
+                    onSectionSelected = { section ->
+                        alphabetSectionStarts[section]?.let { itemIndex ->
+                            coroutineScope.launch {
+                                gridState.scrollToItem(
+                                    leadingContentItemCount + itemIndex,
+                                )
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 8.dp, top = contentTopInset + AppLayout.contentTop, bottom = 8.dp),
+                )
+            }
+            // Plain, not the Row's: the button sits in the grid's box beside the docked filters.
+            androidx.compose.animation.AnimatedVisibility(
+                visible = showBackToTop,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(
+                        end = if (alphabetRailVisible) {
+                            libraryGridNavigationEndPaddingDp + 12.dp
+                        } else {
+                            gutter
+                        },
+                        bottom = 24.dp,
+                    ),
+            ) {
+                LibraryBackToTopButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            if (gridState.firstVisibleItemIndex <= 80) {
+                                gridState.animateScrollToItem(0)
+                            } else {
+                                gridState.scrollToItem(0)
+                            }
+                        }
+                    },
                 )
             }
         }
-        if (alphabetRailVisible) {
-            AlphabetNavigationRail(
-                sections = sortLetters,
-                activeSection = activeSortLetter,
-                onSectionSelected = { section ->
-                    alphabetSectionStarts[section]?.let { itemIndex ->
-                        coroutineScope.launch {
-                            gridState.scrollToItem(
-                                leadingContentItemCount + itemIndex,
-                            )
-                        }
-                    }
-                },
+
+        if (dockFilters && filterDock.open) {
+            LibraryFilterDockedPanel(
+                filterPanels = filterPanels,
+                filterState = filterState,
+                filterFacets = shownFilterFacets,
+                libraryTitlesById = libraryTitlesById,
+                shownCount = shownItemCount(),
+                totalCount = totalItemCount,
+                initialPanel = openFilterPanel,
+                openRequest = filterDock.openRequest,
+                onFilterStateChanged = onFilterStateChanged,
+                onClearFilters = onClearFilters,
+                onHide = filterDock::hide,
+                onSaveAsList = onSaveFiltersAsList?.takeIf { !filterState.isEmpty }?.let { save -> { save(filterState) } },
                 modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = 8.dp, top = contentTopInset + AppLayout.contentTop, bottom = 8.dp),
-            )
-        }
-        AnimatedVisibility(
-            visible = showBackToTop,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(
-                    end = if (alphabetRailVisible) {
-                        libraryGridNavigationEndPaddingDp + 12.dp
-                    } else {
-                        gutter
-                    },
-                    bottom = 24.dp,
-                ),
-        ) {
-            LibraryBackToTopButton(
-                onClick = {
-                    coroutineScope.launch {
-                        if (gridState.firstVisibleItemIndex <= 80) {
-                            gridState.animateScrollToItem(0)
-                        } else {
-                            gridState.scrollToItem(0)
-                        }
-                    }
-                },
+                    .padding(top = contentTopInset + AppLayout.contentTop, end = gutter, bottom = AppLayout.contentBottom)
+                    .width(AppLayout.sheetWidth)
+                    .fillMaxHeight(),
             )
         }
     }
 
-    if (isFilterSheetOpen) {
+    if (isFilterSheetOpen && !dockFilters) {
         LibraryFilterSheet(
             filterPanels = filterPanels,
             filterState = filterState,
-            filterFacets = filterFacets,
+            filterFacets = shownFilterFacets,
             libraryTitlesById = libraryTitlesById,
             shownCount = shownItemCount(),
             totalCount = totalItemCount,

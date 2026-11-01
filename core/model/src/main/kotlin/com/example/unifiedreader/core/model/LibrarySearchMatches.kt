@@ -19,7 +19,7 @@ data class LibrarySearchSnippet(
     val source: LibrarySearchMatchSource,
 )
 
-/** A tag a search matches, for Browse: "Japan" in Set in, on 96 books. */
+/** A tag a search matches, to filter by: "Japan" in Set in, on 96 books. */
 data class LibrarySearchTagSuggestion(
     val chip: LibraryBrowseChip,
     val count: Int,
@@ -52,7 +52,7 @@ fun librarySearchSnippet(item: ReadableItem, query: String): LibrarySearchSnippe
 }
 
 /**
- * The tags, genres, moods and shelves of [items] that [query] names, for opening Browse from a
+ * The tags, genres, moods and shelves of [items] that [query] names, for filtering the library from a
  * search, tags in the rows [sorting] puts them in: whole-name matches first, then names that start
  * with it, then the rest, most books first; at most [limit].
  */

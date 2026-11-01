@@ -37,11 +37,11 @@ import com.example.unifiedreader.core.model.librarySecondaryText
 import com.example.unifiedreader.core.model.libraryTagGuess
 import com.example.unifiedreader.core.model.libraryTagKey
 import com.example.unifiedreader.feature.library.ResolvedLibraryCover
-import com.example.unifiedreader.feature.library.browse.bookCountLabel
 import com.example.unifiedreader.ui.components.AppBookRow
 import com.example.unifiedreader.ui.components.AppBookRowDefaults
 import com.example.unifiedreader.ui.components.AppBookRowLine
 import com.example.unifiedreader.ui.components.AppChip
+import com.example.unifiedreader.ui.components.appCount
 import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.AppPanelHeader
 import com.example.unifiedreader.ui.components.AppSegment
@@ -62,17 +62,17 @@ data class LibraryTagSortTarget(
 )
 
 /**
- * A tag's sort sheet: the Browse row it shows in (Set in, When or About), a place's region, and up
+ * A tag's sort sheet: the Filters section it shows in (Set in, When or About), a place's region, and up
  * to five of its books. It says the app's guess and never applies it; a choice saves at once and
  * holds for every book with the tag. A Location is a place already, so its sheet asks only for the
- * region. "All N in Browse" shows where [onBrowse] is given.
+ * region. "Filter by it · N" shows where [onFilterByTag] is given.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun LibraryTagSortSheet(
     target: LibraryTagSortTarget,
     onDismiss: () -> Unit,
-    onBrowse: ((LibraryBrowseChip) -> Unit)? = null,
+    onFilterByTag: ((LibraryBrowseChip) -> Unit)? = null,
 ) {
     val context = LocalLibraryTagSorting.current
     val sorting = context.sortingFor(target.source) ?: LibraryTagSorting()
@@ -103,7 +103,7 @@ fun LibraryTagSortSheet(
             if (target.field == LibraryTagField.TAG) {
                 item(key = "row") {
                     Column {
-                        AppSheetLabel(text = "Browse shows it in")
+                        AppSheetLabel(text = "Filters shows it in")
                         AppSegmentedRow(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -169,17 +169,17 @@ fun LibraryTagSortSheet(
                         supporting = { AppBookRowLine(text = libraryTagBookLine(book, target)) },
                     )
                 }
-                if (onBrowse != null) {
+                if (onFilterByTag != null) {
                     item(key = "all") {
                         AppTextButton(
                             onClick = {
-                                onBrowse(LibraryBrowseChip(shown.kind.browseRow, target.name))
+                                onFilterByTag(LibraryBrowseChip(shown.kind.browseRow, target.name))
                                 dismiss()
                             },
                             // The button's own 12 inside makes its text start on the inset.
                             modifier = Modifier.padding(horizontal = AppLayout.headingGap),
                         ) {
-                            Text(text = "All ${books.size} in Browse", fontWeight = FontWeight.SemiBold)
+                            Text(text = "Filter by it · ${appCount(books.size)}", fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -188,7 +188,7 @@ fun LibraryTagSortSheet(
     }
 }
 
-/** The Browse row a kind of tag shows in. */
+/** The row a kind of tag shows in on the book page and in search (Set in, When or About in Filters). */
 val LibraryTagKind.browseRow: LibraryBrowseRow
     get() = when (this) {
         LibraryTagKind.PLACE -> LibraryBrowseRow.SET_IN

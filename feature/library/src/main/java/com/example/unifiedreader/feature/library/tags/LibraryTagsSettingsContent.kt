@@ -79,7 +79,7 @@ fun LibraryTagsSettingsContent(
     val shown = model ?: return
     if (shown.entries.isEmpty()) {
         Text(
-            text = "No ${source.displayName()} book has tags yet. Browse puts each tag in Set in, When or About once you sort it here.",
+            text = "No ${source.displayName()} book has tags yet. Filters puts each tag in Set in, When or About once you sort it here.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -119,7 +119,7 @@ private fun LibraryTagsGuessReview(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(AppLayout.gridGap)) {
         Text(
-            text = "${source.displayName()} sends tags as one list. Browse shows places under Set in and times under When, " +
+            text = "${source.displayName()} sends tags as one list. Filters shows places under Set in and times under When, " +
                 "so the app has guessed which of your tags are which. Check the guesses and tap any it got wrong. " +
                 "Until you accept them, every tag stays in About.",
             style = MaterialTheme.typography.bodyMedium,

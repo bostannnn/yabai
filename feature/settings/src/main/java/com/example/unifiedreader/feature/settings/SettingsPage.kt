@@ -25,7 +25,7 @@ sealed interface SettingsPage {
         override val title: String = "Filter chips"
     }
 
-    /** Where each source's tags go in Browse; its content comes from the library (see [SettingsTagsPage]). */
+    /** Where each source's tags go in Filters; its content comes from the library (see [SettingsTagsPage]). */
     data object Tags : SettingsPage {
         override val key: String = "tags"
         override val title: String = "Tags"

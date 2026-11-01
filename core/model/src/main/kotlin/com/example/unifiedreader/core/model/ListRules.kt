@@ -369,9 +369,15 @@ private fun decodeRuleLine(line: String): ListRule? {
 /**
  * The library's filters as rules (Filters › Save as list, and smart lists saved before rules):
  * the library's source, then a rule per filter in use. A page range that also takes books with no
- * page count can't be said as a rule and keeps only its bounds.
+ * page count can't be said as a rule and keeps only its bounds. Set in and When become tag rules of
+ * their own: [placeTags] gives the tags a picked place stands for (a country and its cities),
+ * [timeTags] the tags a picked pile holds ("1800s": "19th century", "1850s").
  */
-fun LibraryFilterState.toListRules(sourceType: SourceType): ListRules = ListRules(
+fun LibraryFilterState.toListRules(
+    sourceType: SourceType,
+    placeTags: (String) -> List<String> = { place -> listOf(place) },
+    timeTags: (String) -> List<String> = { time -> listOf(time) },
+): ListRules = ListRules(
     matchAll = true,
     rules = buildList {
         add(ListRule(ListRuleField.Source, ListRuleOperator.AnyOf, listOf(sourceType.name)))
@@ -400,8 +406,25 @@ fun LibraryFilterState.toListRules(sourceType: SourceType): ListRules = ListRule
             ListRuleField.Genre to genres,
             ListRuleField.Tag to tags,
             ListRuleField.Language to languages,
+            ListRuleField.Tag to places.flatMap(placeTags).distinct().toSet(),
+            ListRuleField.Tag to times.flatMap(timeTags).distinct().toSet(),
+            ListRuleField.Mood to moods,
         ).forEach { (field, values) ->
             if (values.isNotEmpty()) add(ListRule(field, ListRuleOperator.AnyOf, values.sorted()))
         }
     },
 )
+
+/** The tags of [items] a Set in pick stands for: the place itself and, for a country, its cities. */
+fun libraryPlaceTags(place: String, items: List<ReadableItem>): List<String> =
+    listOf(place) + items.asSequence()
+        .flatMap { item -> item.facetMetadata().tags }
+        .filter { tag -> libraryPlaceCountry(tag) == place }
+        .distinct()
+
+/** The tags of [items] a When pick stands for: the period itself, or every era tag in its pile. */
+fun libraryTimeTags(time: String, items: List<ReadableItem>): List<String> =
+    listOf(time) + items.asSequence()
+        .flatMap { item -> item.facetMetadata().tags }
+        .filter { tag -> libraryEraSlot(tag)?.label == time }
+        .distinct()

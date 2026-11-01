@@ -19,11 +19,15 @@ data class LibraryFilterFacetCounts(
     val genres: Map<String, Int> = emptyMap(),
     val tags: Map<String, Int> = emptyMap(),
     val languages: Map<String, Int> = emptyMap(),
+    val places: Map<String, Int> = emptyMap(),
+    val times: Map<String, Int> = emptyMap(),
+    val moods: Map<String, Int> = emptyMap(),
 ) {
     val isEmpty: Boolean
         get() = formats.isEmpty() && fileLocations.isEmpty() && readingStatuses.isEmpty() &&
             libraries.isEmpty() && authors.isEmpty() && series.isEmpty() && publishers.isEmpty() &&
-            genres.isEmpty() && tags.isEmpty() && languages.isEmpty()
+            genres.isEmpty() && tags.isEmpty() && languages.isEmpty() && places.isEmpty() && times.isEmpty() &&
+            moods.isEmpty()
 
     /** The count of a text [value] (a library id for [LibraryFilterPanel.Library]), 0 when it has none. */
     fun countOf(panel: LibraryFilterPanel, value: String): Int {
@@ -35,6 +39,9 @@ data class LibraryFilterFacetCounts(
             LibraryFilterPanel.Genre -> genres
             LibraryFilterPanel.Tag -> tags
             LibraryFilterPanel.Language -> languages
+            LibraryFilterPanel.SetIn -> places
+            LibraryFilterPanel.When -> times
+            LibraryFilterPanel.Mood -> moods
             LibraryFilterPanel.Format,
             LibraryFilterPanel.Location,
             LibraryFilterPanel.ReadingStatus,

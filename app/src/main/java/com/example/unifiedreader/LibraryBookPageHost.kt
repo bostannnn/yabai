@@ -3,7 +3,8 @@ package com.example.unifiedreader
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import com.example.unifiedreader.core.model.LibraryBrowseChip
+import com.example.unifiedreader.core.model.filterPanel
+import com.example.unifiedreader.core.model.filteringBy
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.ReadableItem
@@ -32,7 +33,8 @@ internal fun LibraryBookPageHost(
     onBack: (() -> Unit)?,
     onDeleteImportedItem: (ReadableItem) -> Unit,
     onFilterStateChanged: (LibraryFilterState) -> Unit,
-    onBrowse: (LibraryBrowseChip) -> Unit,
+    // Runs before a tag filters the library (the host closes what covers it).
+    onFilterByTag: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val item = remember(itemId, uiState.items, uiState.sourceItems, uiState.libraryShelvesState) {
@@ -67,7 +69,14 @@ internal fun LibraryBookPageHost(
         onBack = onBack,
         onDeleteImported = onDeleteImportedItem,
         onDismiss = onDismiss,
-        onBrowse = onBrowse,
+        // A tag filters the library by it and the page makes way; one Filters doesn't show stays put.
+        onFilterByTag = { chip ->
+            if (chip.filterPanel in panels) {
+                onFilterByTag()
+                onFilterStateChanged(filters.filteringBy(chip))
+                onDismiss()
+            }
+        },
         // On Kavita and Stump the series is a screen of its own; elsewhere it is a filter.
         onSeeAllInSeries = when {
             seriesContainer != null -> { _: ReadableItem -> onItemSelected(seriesContainer) }

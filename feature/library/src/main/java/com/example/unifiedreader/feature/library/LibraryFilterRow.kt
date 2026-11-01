@@ -40,8 +40,7 @@ import com.example.unifiedreader.ui.components.AppChipDefaults
 import com.example.unifiedreader.ui.components.AppIcons
 
 /**
- * The row above the grid: on a source's home the [heading] ("All books 1,474"), then Browse (when
- * [onOpenBrowse] is given), the Filters
+ * The row above the grid: on a source's home the [heading] ("All books 1,474"), then the Filters
  * chip with the number of applied values, one chip per applied value naming it (its × removes
  * just that value), and the sort chip at the end. With a heading the chips sit at the end with
  * the sort chip; they scroll when they don't fit.
@@ -59,9 +58,10 @@ internal fun LibraryFilterRow(
     showSortControl: Boolean,
     availableSortModes: List<LibrarySortMode> = LibrarySortMode.entries,
     lockedSortLabel: String? = null,
-    onOpenBrowse: (() -> Unit)? = null,
     // null opens the filter sheet at the top; a panel opens it at that section.
     onOpenFilterPanel: (LibraryFilterPanel?) -> Unit,
+    // The filters are docked open beside the library: the Filters chip shows as selected.
+    filtersOpen: Boolean = false,
     onFilterStateChanged: (LibraryFilterState) -> Unit,
     onSortModeChanged: (LibrarySortMode) -> Unit,
     onGridCellSizeDpChanged: (Int) -> Unit,
@@ -92,12 +92,10 @@ internal fun LibraryFilterRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (onOpenBrowse != null) {
-                    LibraryBrowseChip(onClick = onOpenBrowse)
-                }
                 LibraryFiltersChip(
                     appliedCount = appliedFilters.size,
                     enabled = filtersEnabled,
+                    selected = filtersOpen,
                     onClick = { onOpenFilterPanel(null) },
                 )
                 appliedFilters.forEach { filter ->
@@ -124,31 +122,6 @@ internal fun LibraryFilterRow(
     }
 }
 
-/** "All books" and its count, for the Browse page's headings: the kit's [AppSectionHeading]. */
-@Composable
-internal fun LibraryGridHeadingText(
-    heading: LibraryGridHeading,
-    modifier: Modifier = Modifier,
-) {
-    AppSectionHeading(text = heading.title, count = heading.count, modifier = modifier)
-}
-
-/** "Browse": the source's books by place, time and theme. */
-@Composable
-private fun LibraryBrowseChip(onClick: () -> Unit) {
-    AppChip(
-        selected = false,
-        onClick = onClick,
-        leadingIcon = {
-            Icon(
-                imageVector = AppIcons.CollectionsBookmark,
-                contentDescription = null,
-                modifier = Modifier.size(AppChipDefaults.iconSize),
-            )
-        },
-        label = { Text(text = "Browse", maxLines = 1) },
-    )
-}
 
 /** "Filters", with a 20 dp accent badge counting the applied values. */
 @Composable
@@ -156,9 +129,10 @@ private fun LibraryFiltersChip(
     appliedCount: Int,
     enabled: Boolean,
     onClick: () -> Unit,
+    selected: Boolean = false,
 ) {
     AppChip(
-        selected = false,
+        selected = selected,
         enabled = enabled,
         onClick = onClick,
         modifier = Modifier.semantics {

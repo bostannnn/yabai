@@ -76,7 +76,7 @@ import kotlinx.coroutines.withContext
  * rows of more in its series, more by its author and similar books, and at the end the quiet
  * row that removes it. [relatedPool] is
  * where those rows come from (the books of its source); a cover there shows that book's page.
- * A tag or genre opens Browse with it picked when [onBrowse] is given.
+ * A tag or genre filters the library by it when [onFilterByTag] is given.
  * [onBack], when given, returns to the book this page was opened from (Back, or the arrow).
  */
 @Composable
@@ -90,7 +90,7 @@ fun LibraryBookPage(
     onDeleteImported: (ReadableItem) -> Unit,
     onDismiss: () -> Unit,
     onBack: (() -> Unit)? = null,
-    onBrowse: ((LibraryBrowseChip) -> Unit)? = null,
+    onFilterByTag: ((LibraryBrowseChip) -> Unit)? = null,
     // "See all" on the series row; given the page's book.
     onSeeAllInSeries: ((ReadableItem) -> Unit)? = null,
 ) {
@@ -189,7 +189,7 @@ fun LibraryBookPage(
                     text = text,
                     source = item.sourceType,
                     descriptionLoading = description.loading,
-                    onBrowse = onBrowse?.let { browse -> { chip: LibraryBrowseChip -> browse(chip); dismiss() } },
+                    onFilterByTag = onFilterByTag?.let { filter -> { chip: LibraryBrowseChip -> filter(chip); dismiss() } },
                 )
             }
             related.seriesName?.takeIf { related.moreInSeries.isNotEmpty() }?.let { series ->

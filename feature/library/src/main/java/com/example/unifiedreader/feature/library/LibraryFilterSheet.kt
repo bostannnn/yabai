@@ -1,7 +1,9 @@
 package com.example.unifiedreader.feature.library
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -11,8 +13,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -20,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,10 +46,12 @@ import com.example.unifiedreader.ui.components.AppCheckbox
 import com.example.unifiedreader.ui.components.AppChip
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppLayout
+import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppPanelHeader
 import com.example.unifiedreader.ui.components.AppScreenBack
 import com.example.unifiedreader.ui.components.AppScreenHost
 import com.example.unifiedreader.ui.components.AppScreenTransition
+import com.example.unifiedreader.ui.components.AppSearchField
 import com.example.unifiedreader.ui.components.AppSheetDivider
 import com.example.unifiedreader.ui.components.AppSheetLabel
 import com.example.unifiedreader.ui.components.AppSideSheet
@@ -52,10 +59,11 @@ import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.components.AppTonalButton
 
 /**
- * Every library filter in one side sheet (a bottom sheet on phones). Reading status, format and
- * location stay open as chips with counts; the long facets are rows showing what is picked, each
- * opening its own page inside the sheet. Filters apply as they are tapped; "Show N books" closes
- * the sheet. [shownCount] is what the grid shows now, of [totalCount] in this view.
+ * Every library filter in one side sheet (a bottom sheet on phones). Short choices stay open as
+ * chips with counts; Set in, When, About, Mood and Genre show their values with most books; the long
+ * facets are rows naming their top values, each opening its own page inside the sheet; Find searches
+ * them all. Filters apply as they are tapped; "Show N books" closes the sheet. [shownCount] is what
+ * the grid shows now, of [totalCount] in this view.
  */
 @Composable
 internal fun LibraryFilterSheet(
@@ -72,13 +80,101 @@ internal fun LibraryFilterSheet(
     // Save as list, beside Show: keeps these filters as a smart list. Null where it isn't offered.
     onSaveAsList: (() -> Unit)? = null,
 ) {
+    AppSideSheet(onDismissRequest = onDismiss) {
+        val close = { dismiss() }
+        LibraryFilterContent(
+            docked = false,
+            filterPanels = filterPanels,
+            filterState = filterState,
+            filterFacets = filterFacets,
+            libraryTitlesById = libraryTitlesById,
+            shownCount = shownCount,
+            totalCount = totalCount,
+            initialPanel = initialPanel,
+            openRequest = 0,
+            onFilterStateChanged = onFilterStateChanged,
+            onClearFilters = onClearFilters,
+            onClose = close,
+            onSaveAsList = onSaveAsList,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+/**
+ * The filters docked beside the library on an Expanded window: the sheet's content in a panel that
+ * stays open while the books change behind every tap, so it has no Show button, only Save as list.
+ * [openRequest] changes each time an applied value's chip asks for its section ([initialPanel]).
+ */
+@Composable
+internal fun LibraryFilterDockedPanel(
+    filterPanels: List<LibraryFilterPanel>,
+    filterState: LibraryFilterState,
+    filterFacets: LibraryFilterFacets,
+    libraryTitlesById: Map<String, String>,
+    shownCount: Int,
+    totalCount: Int?,
+    initialPanel: LibraryFilterPanel?,
+    openRequest: Int,
+    onFilterStateChanged: (LibraryFilterState) -> Unit,
+    onClearFilters: () -> Unit,
+    onHide: () -> Unit,
+    onSaveAsList: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    AppPanel(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(DockedPanelBorder, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        LibraryFilterContent(
+            docked = true,
+            filterPanels = filterPanels,
+            filterState = filterState,
+            filterFacets = filterFacets,
+            libraryTitlesById = libraryTitlesById,
+            shownCount = shownCount,
+            totalCount = totalCount,
+            initialPanel = initialPanel,
+            openRequest = openRequest,
+            onFilterStateChanged = onFilterStateChanged,
+            onClearFilters = onClearFilters,
+            onClose = onHide,
+            onSaveAsList = onSaveAsList,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun LibraryFilterContent(
+    docked: Boolean,
+    filterPanels: List<LibraryFilterPanel>,
+    filterState: LibraryFilterState,
+    filterFacets: LibraryFilterFacets,
+    libraryTitlesById: Map<String, String>,
+    shownCount: Int,
+    totalCount: Int?,
+    initialPanel: LibraryFilterPanel?,
+    openRequest: Int,
+    onFilterStateChanged: (LibraryFilterState) -> Unit,
+    onClearFilters: () -> Unit,
+    onClose: () -> Unit,
+    onSaveAsList: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
     // The facet page on screen; null is the overview.
     var page by rememberSaveable {
         mutableStateOf(initialPanel?.takeIf { panel -> panel.opensAsPage && panel in filterPanels })
     }
+    var findQuery by rememberSaveable { mutableStateOf("") }
+    // A docked panel stays open: an applied value's chip opens its section again.
+    LaunchedEffect(openRequest) {
+        if (openRequest != 0) page = initialPanel?.takeIf { panel -> panel.opensAsPage && panel in filterPanels }
+    }
     // Kept out here so the overview comes back where it was left.
     val overviewListState = rememberLazyListState()
-    AppSideSheet(onDismissRequest = onDismiss) {
+    Column(modifier = modifier.fillMaxWidth()) {
         AppScreenHost(
             screen = page,
             modifier = Modifier.weight(1f),
@@ -87,17 +183,20 @@ internal fun LibraryFilterSheet(
         ) { shown ->
             if (shown == null) {
                 LibraryFilterOverview(
+                    docked = docked,
                     filterPanels = filterPanels,
                     filterState = filterState,
                     filterFacets = filterFacets,
                     libraryTitlesById = libraryTitlesById,
                     shownCount = shownCount,
                     totalCount = totalCount,
+                    findQuery = findQuery,
+                    onFindQueryChanged = { query -> findQuery = query },
                     listState = overviewListState,
                     onFilterStateChanged = onFilterStateChanged,
                     onClearFilters = onClearFilters,
                     onOpenPage = { panel -> page = panel },
-                    onClose = { dismiss() },
+                    onClose = onClose,
                 )
             } else {
                 LibraryFilterFacetPage(
@@ -110,12 +209,23 @@ internal fun LibraryFilterSheet(
                 )
             }
         }
-        // The sheet's dismiss, for the buttons inside the row below.
-        val close = { dismiss() }
+        if (docked) {
+            if (onSaveAsList != null) {
+                Box(modifier = Modifier.fillMaxWidth().padding(AppLayout.inset)) {
+                    AppTonalButton(
+                        onClick = onSaveAsList,
+                        modifier = Modifier.fillMaxWidth().height(LibraryFilterSheetButtonHeight),
+                    ) {
+                        Text(text = "Save as list", fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+            return@Column
+        }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = AppLayout.inset, vertical = 12.dp),
+                .padding(horizontal = AppLayout.inset, vertical = FooterVerticalPadding),
             verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap),
         ) {
             if (onSaveAsList != null) {
@@ -130,7 +240,7 @@ internal fun LibraryFilterSheet(
                     AppTonalButton(
                         onClick = {
                             onSaveAsList()
-                            close()
+                            onClose()
                         },
                         modifier = Modifier.weight(1f).height(LibraryFilterSheetButtonHeight),
                     ) {
@@ -138,7 +248,7 @@ internal fun LibraryFilterSheet(
                     }
                 }
                 AppButton(
-                    onClick = close,
+                    onClick = onClose,
                     modifier = Modifier.weight(1f).height(LibraryFilterSheetButtonHeight),
                 ) {
                     Text(text = libraryFilterShowButtonLabel(shownCount), fontWeight = FontWeight.SemiBold)
@@ -151,12 +261,15 @@ internal fun LibraryFilterSheet(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LibraryFilterOverview(
+    docked: Boolean,
     filterPanels: List<LibraryFilterPanel>,
     filterState: LibraryFilterState,
     filterFacets: LibraryFilterFacets,
     libraryTitlesById: Map<String, String>,
     shownCount: Int,
     totalCount: Int?,
+    findQuery: String,
+    onFindQueryChanged: (String) -> Unit,
     listState: LazyListState,
     onFilterStateChanged: (LibraryFilterState) -> Unit,
     onClearFilters: () -> Unit,
@@ -164,26 +277,24 @@ private fun LibraryFilterOverview(
     onClose: () -> Unit,
 ) {
     val anyApplied = filterPanels.any { panel -> panel.selectedCount(filterState) > 0 }
-    // The open groups in panel order: chips, and Pages' slider while it has lengths to offer.
-    val chipGroups = remember(filterPanels, filterState, filterFacets) {
-        filterPanels
-            .filterNot(LibraryFilterPanel::opensAsPage)
-            .map { panel -> panel to libraryFilterChipOptions(panel, filterState, filterFacets) }
-            .filter { (panel, options) ->
-                if (panel == LibraryFilterPanel.Pages) {
-                    panel.isEnabled(filterState, filterFacets, libraryTitlesById)
-                } else {
-                    options.isNotEmpty()
-                }
+    // The sections in panel order, each while it has something to offer (Pages while it has lengths).
+    val sections = remember(filterPanels, filterState, filterFacets, libraryTitlesById) {
+        filterPanels.filter { panel ->
+            when (panel.sectionStyle) {
+                LibraryFilterSectionStyle.Chips -> libraryFilterChipOptions(panel, filterState, filterFacets).isNotEmpty()
+                else -> panel.isEnabled(filterState, filterFacets, libraryTitlesById)
             }
+        }
     }
-    val pagePanels = filterPanels.filter(LibraryFilterPanel::opensAsPage)
+    val findGroups = remember(findQuery, filterPanels, filterState, filterFacets, libraryTitlesById) {
+        libraryFilterFindGroups(findQuery, filterPanels, filterState, filterFacets, libraryTitlesById)
+    }
     Column(modifier = Modifier.fillMaxSize()) {
         AppPanelHeader(
             title = "Filters",
             subtitle = libraryFilterShowingLabel(shownCount, totalCount),
             onClose = onClose,
-            closeContentDescription = "Close filters",
+            closeContentDescription = if (docked) "Hide filters" else "Close filters",
         ) {
             if (anyApplied) {
                 AppTextButton(onClick = onClearFilters) {
@@ -191,90 +302,139 @@ private fun LibraryFilterOverview(
                 }
             }
         }
+        AppSearchField(
+            query = findQuery,
+            onQueryChange = onFindQueryChanged,
+            placeholder = "Find a place, tag, mood or author",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = AppLayout.inset),
+        )
         LazyColumn(
             state = listState,
             modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(bottom = 8.dp),
+            contentPadding = PaddingValues(bottom = OverviewBottomPadding),
         ) {
-            chipGroups.forEachIndexed { index, (panel, options) ->
-                if (panel == LibraryFilterPanel.Pages) {
-                    item(key = "pages") {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            if (index > 0) AppSheetDivider()
-                            LibraryPagesFilterSection(
+            if (findQuery.isNotBlank()) {
+                item(key = "find") {
+                    LibraryFilterFindResults(groups = findGroups, state = filterState, onFilterStateChanged = onFilterStateChanged)
+                }
+                return@LazyColumn
+            }
+            sections.forEachIndexed { index, panel ->
+                item(key = "section:${panel.name}") {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        if (index > 0) AppSheetDivider()
+                        when (panel.sectionStyle) {
+                            LibraryFilterSectionStyle.Slider -> LibraryPagesFilterSection(
                                 range = filterState.pages,
                                 histogram = filterFacets.pages,
                                 onRangeChanged = { range -> onFilterStateChanged(filterState.copy(pages = range)) },
                             )
-                        }
-                    }
-                    return@forEachIndexed
-                }
-                item(key = "chips:${panel.name}") {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        if (index > 0) AppSheetDivider()
-                        AppSheetLabel(text = panel.label)
-                        FlowRow(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = AppLayout.inset, end = AppLayout.inset, bottom = 14.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            options.forEach { option ->
-                                AppChip(
-                                    selected = option.selected,
-                                    onClick = { onFilterStateChanged(option.toggled) },
-                                    count = option.count,
-                                    label = {
-                                        Text(text = option.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    },
+                            LibraryFilterSectionStyle.Chips -> {
+                                AppSheetLabel(text = panel.label)
+                                FlowRow(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(start = AppLayout.inset, end = AppLayout.inset, bottom = SectionBottomPadding),
+                                    horizontalArrangement = Arrangement.spacedBy(ChipGap),
+                                    verticalArrangement = Arrangement.spacedBy(ChipGap),
+                                ) {
+                                    libraryFilterChipOptions(panel, filterState, filterFacets).forEach { option ->
+                                        AppChip(
+                                            selected = option.selected,
+                                            onClick = { onFilterStateChanged(option.toggled) },
+                                            count = option.count,
+                                            label = {
+                                                Text(text = option.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                            LibraryFilterSectionStyle.Places -> {
+                                AppSheetLabel(text = panel.label)
+                                LibraryFilterPlacesSection(
+                                    state = filterState,
+                                    facets = filterFacets,
+                                    onFilterStateChanged = onFilterStateChanged,
+                                    onShowAll = { onOpenPage(panel) },
                                 )
                             }
+                            LibraryFilterSectionStyle.Piles -> {
+                                AppSheetLabel(text = panel.label)
+                                LibraryFilterPilesSection(
+                                    state = filterState,
+                                    facets = filterFacets,
+                                    onFilterStateChanged = onFilterStateChanged,
+                                    onShowAll = { onOpenPage(panel) },
+                                )
+                            }
+                            LibraryFilterSectionStyle.TopChips -> {
+                                AppSheetLabel(text = panel.label)
+                                LibraryFilterTopChipsSection(
+                                    panel = panel,
+                                    state = filterState,
+                                    facets = filterFacets,
+                                    onFilterStateChanged = onFilterStateChanged,
+                                    onShowAll = { onOpenPage(panel) },
+                                )
+                            }
+                            LibraryFilterSectionStyle.Row -> LibraryFilterFacetRow(
+                                label = panel.label,
+                                summary = libraryFacetSelectionSummary(panel, filterState, libraryTitlesById),
+                                topValues = libraryFilterTopValuesLine(panel, filterFacets, libraryTitlesById),
+                                enabled = true,
+                                onClick = { onOpenPage(panel) },
+                            )
                         }
                     }
                 }
             }
-            pagePanels.forEachIndexed { index, panel ->
-                item(key = "page:${panel.name}") {
-                    if (index > 0 || chipGroups.isNotEmpty()) AppSheetDivider()
-                    LibraryFilterFacetRow(
-                        label = panel.label,
-                        summary = libraryFacetSelectionSummary(panel, filterState, libraryTitlesById),
-                        enabled = panel.isEnabled(filterState, filterFacets, libraryTitlesById),
-                        onClick = { onOpenPage(panel) },
-                    )
-                }
-            }
-            if (pagePanels.isNotEmpty()) {
-                item(key = "page-end") { AppSheetDivider() }
+            if (sections.isNotEmpty()) {
+                item(key = "end") { AppSheetDivider() }
             }
         }
     }
 }
 
-/** A long facet in the overview: its name, what is picked ("Any" when nothing), and a chevron. */
+/**
+ * A long facet in the overview: its name with its values with most books under it ([topValues]),
+ * what is picked ("Any" when nothing), and a chevron.
+ */
 @Composable
 private fun LibraryFilterFacetRow(
     label: String,
     summary: String?,
     enabled: Boolean,
     onClick: () -> Unit,
+    topValues: String? = null,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(LibraryFilterSheetRowHeight)
+            .heightIn(min = LibraryFilterSheetRowHeight)
             .clickable(enabled = enabled, onClick = onClick)
             .padding(start = AppLayout.inset, end = 14.dp)
             .alpha(if (enabled) 1f else DisabledFacetRowAlpha),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
-            maxLines = 1,
-        )
+        Column(modifier = Modifier.weight(1f).padding(vertical = FacetRowVerticalPadding)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
+                maxLines = 1,
+            )
+            if (topValues != null) {
+                Text(
+                    text = topValues,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
         Spacer(modifier = Modifier.width(16.dp))
         Text(
             text = when {
@@ -287,7 +447,7 @@ private fun LibraryFilterFacetRow(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.End,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.widthIn(max = FacetSummaryMaxWidth),
         )
         Icon(
             imageVector = AppIcons.NavigateNext,
@@ -347,8 +507,18 @@ internal fun LibraryFilterState.clearing(panel: LibraryFilterPanel): LibraryFilt
     LibraryFilterPanel.Genre -> copy(genres = emptySet())
     LibraryFilterPanel.Tag -> copy(tags = emptySet())
     LibraryFilterPanel.Language -> copy(languages = emptySet())
+    LibraryFilterPanel.SetIn -> copy(places = emptySet())
+    LibraryFilterPanel.When -> copy(times = emptySet())
+    LibraryFilterPanel.Mood -> copy(moods = emptySet())
 }
 
 internal val LibraryFilterSheetRowHeight = 52.dp
 private val LibraryFilterSheetButtonHeight = 46.dp
+private val DockedPanelBorder = 1.dp
+private val FooterVerticalPadding = 12.dp
+private val OverviewBottomPadding = 8.dp
+private val SectionBottomPadding = 14.dp
+private val ChipGap = 8.dp
+private val FacetRowVerticalPadding = 6.dp
+private val FacetSummaryMaxWidth = 168.dp
 private const val DisabledFacetRowAlpha = 0.38f
