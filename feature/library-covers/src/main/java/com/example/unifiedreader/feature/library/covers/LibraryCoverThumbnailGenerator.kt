@@ -41,7 +41,9 @@ class LibraryCoverThumbnailGenerator @Inject constructor() {
             targetWidth = variant.width,
             targetHeight = variant.height,
         )
-        val scaled = if (cropped.width == variant.width && cropped.height == variant.height) {
+        // Never enlarge. A cover smaller than the variant keeps its own size and is scaled on screen: the same
+        // detail, without a resample and a JPEG pass that only make a small cover look like a large one.
+        val scaled = if (cropped.width <= variant.width || cropped.height <= variant.height) {
             cropped
         } else {
             Bitmap.createScaledBitmap(cropped, variant.width, variant.height, true)

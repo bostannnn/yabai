@@ -111,29 +111,31 @@ class GrimmoryDtosTest {
         assertEquals(listOf("English"), item.bookMetadata?.languages)
         assertEquals(listOf("Dark", "Tense"), item.bookMetadata?.moods)
         assertEquals(320, item.pageCount)
-        assertEquals("https://grimmory.example/api/v1/media/book/12/thumbnail", item.coverUrl)
+        assertEquals("https://grimmory.example/api/v1/media/book/12/cover", item.coverUrl)
         assertEquals(1775046600000L, item.addedAtEpochMillis)
     }
 
     @Test
-    fun resolvesRelativeThumbnailUrlsAgainstGrimmoryBaseUrl() {
-        val item = GrimmoryBookDto(
-            id = 12,
-            libraryId = 4,
-            primaryFile = GrimmoryBookFileDto(
-                bookType = "EPUB",
-                extension = "epub",
-            ),
-            metadata = GrimmoryBookMetadataDto(
-                thumbnailUrl = "/api/v1/media/book/12/thumbnail?size=large",
-            ),
-        ).toDomain(
-            baseUrl = "https://grimmory.example",
+    fun coverUrlIsTheFullCoverVersionedByItsDateAndIgnoresProviderThumbnails() {
+        val book = Json { ignoreUnknownKeys = true }.decodeFromString<GrimmoryBookDto>(
+            """
+            {
+              "id": 12,
+              "libraryId": 4,
+              "primaryFile": {"bookType": "EPUB", "extension": "epub"},
+              "metadata": {
+                "thumbnailUrl": "https://books.google.com/books/content?id=abc&zoom=1",
+                "coverUpdatedOn": "2026-03-29T20:37:32Z"
+              }
+            }
+            """.trimIndent(),
         )
+
+        val item = book.toDomain(baseUrl = "https://grimmory.example/")
 
         requireNotNull(item)
         assertEquals(
-            "https://grimmory.example/api/v1/media/book/12/thumbnail?size=large",
+            "https://grimmory.example/api/v1/media/book/12/cover?v=1774816652000",
             item.coverUrl,
         )
     }

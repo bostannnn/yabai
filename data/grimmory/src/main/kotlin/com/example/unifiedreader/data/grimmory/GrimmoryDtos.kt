@@ -207,7 +207,7 @@ internal data class GrimmoryBookMetadataDto(
     // From Hardcover, when Grimmory's metadata refresh has Moods on; paces ("Fast-paced") come with them.
     val moods: List<String>? = null,
     val language: String? = null,
-    val thumbnailUrl: String? = null,
+    val coverUpdatedOn: String? = null,
     val publishedDate: String? = null,
 )
 
@@ -334,9 +334,10 @@ internal fun GrimmoryBookDto.toCatalogEntry(
         format = format,
         kind = format.defaultGrimmoryItemKind(),
         pageCount = metadata?.pageCount,
-        coverUrl = metadata?.thumbnailUrl.toAbsoluteGrimmoryCoverUrl(
+        coverUrl = grimmoryBookCoverUrl(
             baseUrl = baseUrl,
-            remoteBookId = bookId,
+            bookId = bookId,
+            coverUpdatedOn = metadata?.coverUpdatedOn,
         ),
         description = metadata?.description,
         addedAtEpochMillis = addedOn?.toEpochMillisOrNull(),
@@ -372,24 +373,24 @@ private fun List<String>?.toFacetNames(): List<String> = orEmpty()
     .mapNotNull { value -> value.trim().takeIf(String::isNotBlank) }
     .distinctBy(String::lowercase)
 
-private fun String?.toAbsoluteGrimmoryCoverUrl(
+/**
+ * The book's full cover (Grimmory keeps it at up to 1000x1500), not its thumbnail: Grimmory squeezes every
+ * thumbnail into 250x350 whatever the cover's shape, which a tablet grid shows blurred and stretched.
+ * The cover's date versions the address, as in Grimmory's web app, so a replaced cover is fetched again.
+ * Metadata's `thumbnailUrl` is a metadata provider's image (and the book list strips it), so it is not used.
+ */
+internal fun grimmoryBookCoverUrl(
     baseUrl: String,
-    remoteBookId: String,
-): String {
-    val normalizedBaseUrl = baseUrl.trimEnd('/')
-    val thumbnailUrl = this?.trim().orEmpty()
-    if (thumbnailUrl.isBlank()) {
-        return "$normalizedBaseUrl/api/v1/media/book/$remoteBookId/thumbnail"
-    }
-    if (thumbnailUrl.startsWith("http://", ignoreCase = true) ||
-        thumbnailUrl.startsWith("https://", ignoreCase = true)
-    ) {
-        return thumbnailUrl
-    }
-    return if (thumbnailUrl.startsWith("/")) {
-        normalizedBaseUrl + thumbnailUrl
-    } else {
-        "$normalizedBaseUrl/$thumbnailUrl"
+    bookId: String,
+    coverUpdatedOn: String? = null,
+): String = buildString {
+    append(baseUrl.trimEnd('/'))
+    append("/api/v1/media/book/")
+    append(bookId)
+    append("/cover")
+    coverUpdatedOn?.toEpochMillisOrNull()?.let { version ->
+        append("?v=")
+        append(version)
     }
 }
 
