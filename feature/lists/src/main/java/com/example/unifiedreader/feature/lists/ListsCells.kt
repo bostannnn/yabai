@@ -40,15 +40,18 @@ internal sealed interface ListsCell {
     }
 
     /**
-     * One line of a panel of rows (one list, or two side by side on Expanded): [top] and [bottom]
-     * say whether it starts or ends its panel. A row's line leaves out the kind under a kind's tab
-     * ([withKind]) and names the place on All's search ([withPlace]).
+     * One line of a panel of rows (one list, or two side by side on Expanded, each column its own
+     * panel): [top] and [bottom] say whether it starts or ends its panels, and [nextCount] how many
+     * rows the next line holds, so a column the last line leaves empty ends its panel here. A row's
+     * line leaves out the kind under a kind's tab ([withKind]) and names the place on All's search
+     * ([withPlace]).
      */
     data class Rows(
         val section: String,
         val lists: List<UserList>,
         val top: Boolean,
         val bottom: Boolean,
+        val nextCount: Int,
         val withKind: Boolean = true,
         val withPlace: Boolean = false,
         val highlight: String? = null,
@@ -67,7 +70,7 @@ internal sealed interface ListsCell {
         override val key = "letter:$letter"
     }
 
-    data class Books(val books: List<ListsFoundBook>, val top: Boolean, val bottom: Boolean) : ListsCell {
+    data class Books(val books: List<ListsFoundBook>, val top: Boolean, val bottom: Boolean, val nextCount: Int) : ListsCell {
         override val key = "books:${books.first().entry.itemId}"
     }
 
@@ -113,7 +116,8 @@ internal fun buildListsCells(
         fun rows(section: String, lists: List<UserList>, withKind: Boolean = true, withPlace: Boolean = false, highlight: String? = null) {
             val lines = lists.chunked(rowColumns)
             lines.forEachIndexed { index, line ->
-                add(ListsCell.Rows(section, line, top = index == 0, bottom = index == lines.lastIndex, withKind, withPlace, highlight))
+                val nextCount = lines.getOrNull(index + 1)?.size ?: 0
+                add(ListsCell.Rows(section, line, top = index == 0, bottom = index == lines.lastIndex, nextCount, withKind, withPlace, highlight))
             }
         }
 
@@ -130,7 +134,10 @@ internal fun buildListsCells(
                 if (found.books.isNotEmpty()) {
                     add(ListsCell.Heading("found-books", "Books in your lists", found.books.size))
                     val lines = found.books.chunked(rowColumns)
-                    lines.forEachIndexed { index, line -> add(ListsCell.Books(line, top = index == 0, bottom = index == lines.lastIndex)) }
+                    lines.forEachIndexed { index, line ->
+                        val nextCount = lines.getOrNull(index + 1)?.size ?: 0
+                        add(ListsCell.Books(line, top = index == 0, bottom = index == lines.lastIndex, nextCount))
+                    }
                 }
             }
             page == null -> {

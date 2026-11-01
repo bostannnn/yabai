@@ -4,6 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -44,6 +48,7 @@ import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.AppLetterStrip
 import com.example.unifiedreader.ui.components.AppLetterStripDefaults
 import com.example.unifiedreader.ui.components.AppListRowDefaults
+import com.example.unifiedreader.ui.components.AppListRowDivider
 import com.example.unifiedreader.ui.components.AppPanelDefaults
 import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.components.AppWindowWidth
@@ -233,39 +238,32 @@ fun ListsScreen(
                             Tile("strip", list, list.tileCaption(progress), Modifier.width(cellWidth))
                         }
                     }
-                    is ListsCell.Rows -> PanelSegment(cell.top, cell.bottom, cellModifier) {
-                        cell.lists.forEach { list ->
-                            Box(modifier = Modifier.weight(1f)) {
-                                WithMenu("${cell.section}:${list.id}", list) { onLongClick, pressed ->
-                                    ListRow(
-                                        list = list,
-                                        line = cell.lineOf(list, progress),
-                                        itemsById = itemsById,
-                                        cover = cover,
-                                        onClick = { tap(list) },
-                                        onLongClick = onLongClick,
-                                        progress = list.readFraction(progress),
-                                        pinned = catalog.preference(list).isPinned,
-                                        selected = selection?.contains(list.id),
-                                        pressed = pressed,
-                                        highlight = cell.highlight,
-                                    )
-                                }
-                            }
-                        }
-                        repeat(rowColumns - cell.lists.size) { Spacer(modifier = Modifier.weight(1f)) }
-                    }
-                    is ListsCell.Books -> PanelSegment(cell.top, cell.bottom, cellModifier) {
-                        cell.books.forEach { book ->
-                            FoundBookRow(
-                                book = book,
+                    is ListsCell.Rows -> PanelSegment(cell.top, cell.nextCount, rowColumns, cell.lists.size, cellModifier) { index ->
+                        val list = cell.lists[index]
+                        WithMenu("${cell.section}:${list.id}", list) { onLongClick, pressed ->
+                            ListRow(
+                                list = list,
+                                line = cell.lineOf(list, progress),
                                 itemsById = itemsById,
                                 cover = cover,
-                                onClick = { actions.onOpenBook(itemsById[book.entry.itemId] ?: book.entry.asReadableItem()) },
-                                modifier = Modifier.weight(1f),
+                                onClick = { tap(list) },
+                                onLongClick = onLongClick,
+                                progress = list.readFraction(progress),
+                                pinned = catalog.preference(list).isPinned,
+                                selected = selection?.contains(list.id),
+                                pressed = pressed,
+                                highlight = cell.highlight,
                             )
                         }
-                        repeat(rowColumns - cell.books.size) { Spacer(modifier = Modifier.weight(1f)) }
+                    }
+                    is ListsCell.Books -> PanelSegment(cell.top, cell.nextCount, rowColumns, cell.books.size, cellModifier) { index ->
+                        val book = cell.books[index]
+                        FoundBookRow(
+                            book = book,
+                            itemsById = itemsById,
+                            cover = cover,
+                            onClick = { actions.onOpenBook(itemsById[book.entry.itemId] ?: book.entry.asReadableItem()) },
+                        )
                     }
                     is ListsCell.Letter -> Text(
                         text = cell.letter.toString(),
@@ -332,23 +330,49 @@ fun ListsScreen(
     }
 }
 
-/** One piece of a panel of rows split over lazy items: the panel's corners only at its [top] and [bottom]. */
+/**
+ * One line of panels of rows split over lazy items: [count] of [columns] slots filled, each column
+ * its own panel, a [gap] apart. A panel has its corners only where it starts ([top]) and where it
+ * ends: on the last line, or where the next line ([nextCount]) leaves its column empty. Rows below
+ * the first are divided.
+ */
 @Composable
 private fun PanelSegment(
     top: Boolean,
-    bottom: Boolean,
+    nextCount: Int,
+    columns: Int,
+    count: Int,
     modifier: Modifier,
-    content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
+    gap: Dp = AppLayout.gridGap,
+    row: @Composable (index: Int) -> Unit,
 ) {
+    // Both columns as tall as the line: one may end its panel (padding below) while the other runs on.
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(AppListRowDefaults.segmentShape(top, bottom))
-            .background(AppPanelDefaults.containerColor)
-            .padding(
-                top = if (top) AppListRowDefaults.panelPadding else Dp.Hairline,
-                bottom = if (bottom) AppListRowDefaults.panelPadding else Dp.Hairline,
-            ),
-        content = content,
-    )
+            .height(IntrinsicSize.Min),
+        horizontalArrangement = Arrangement.spacedBy(gap),
+    ) {
+        repeat(columns) { index ->
+            if (index >= count) {
+                Spacer(modifier = Modifier.weight(1f))
+                return@repeat
+            }
+            val bottom = index >= nextCount
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(AppListRowDefaults.segmentShape(top, bottom))
+                    .background(AppPanelDefaults.containerColor)
+                    .padding(
+                        top = if (top) AppListRowDefaults.panelPadding else Dp.Hairline,
+                        bottom = if (bottom) AppListRowDefaults.panelPadding else Dp.Hairline,
+                    ),
+            ) {
+                if (!top) AppListRowDivider()
+                row(index)
+            }
+        }
+    }
 }

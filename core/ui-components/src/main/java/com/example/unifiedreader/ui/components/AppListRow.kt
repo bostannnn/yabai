@@ -149,6 +149,15 @@ private fun highlighted(text: String, query: String?, color: Color): AnnotatedSt
     }
 }
 
+/**
+ * The line between two rows in a panel of `AppListRow`s or `AppBookRow`s: it starts under the
+ * text, past the cover, so the covers read as one column.
+ */
+@Composable
+fun AppListRowDivider(modifier: Modifier = Modifier) {
+    AppSettingsRowDivider(modifier = modifier, inset = AppListRowDefaults.dividerInset)
+}
+
 object AppListRowDefaults {
     val minHeight: Dp = 76.dp
     val coverWidth: Dp = 40.dp
@@ -159,6 +168,9 @@ object AppListRowDefaults {
     val progressTop: Dp = 6.dp
     val progressMaxWidth: Dp = 220.dp
     const val selectedSecondaryAlpha: Float = 0.72f
+
+    /** Where the divider between two rows starts: under the text, past the cover. */
+    val dividerInset: Dp = AppLayout.inset + coverWidth + coverGap
 
     /** Above the first row and below the last in the panel that holds rows. */
     val panelPadding: Dp = 4.dp
