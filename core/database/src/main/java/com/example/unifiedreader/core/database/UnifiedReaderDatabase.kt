@@ -62,7 +62,7 @@ import com.example.unifiedreader.core.database.entity.UserListEntryEntity
         FinishedListEntity::class,
         LibraryTagChoiceEntity::class,
     ],
-    version = 35,
+    version = 36,
     exportSchema = false,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
@@ -1005,6 +1005,7 @@ object UnifiedReaderDatabaseFactory {
             MIGRATION_32_33,
             MIGRATION_33_34,
             MIGRATION_34_35,
+            MIGRATION_35_36,
         )
         .build()
 }

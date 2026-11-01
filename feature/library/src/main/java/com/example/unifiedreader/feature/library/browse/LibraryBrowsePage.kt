@@ -24,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
@@ -114,6 +115,9 @@ fun LibraryBrowsePage(
     // The tag a held chip opens the sort sheet for.
     var sortTarget by remember(source) { mutableStateOf<LibraryTagSortTarget?>(null) }
     var showPlaces by rememberSaveable(source) { mutableStateOf(false) }
+    // The landing leaves while something is picked; this brings it back as it was left (its scroll,
+    // each rail's, About unfolded), so removing the last chip doesn't start it over at the top.
+    val landingState = rememberSaveableStateHolder()
     val books = remember(coverImageUrlProvider, progress) { LibraryBrowseBooks(coverImageUrlProvider, progress) }
     val latestRequest by rememberUpdatedState(request)
     val actions = LibraryBrowseActions(
@@ -140,13 +144,15 @@ fun LibraryBrowsePage(
         val context = shown?.let { LibraryBrowseRowContext(view = it, books = books, actions = actions, onOpenPlaces = { showPlaces = true }) }
         when {
             context == null -> Unit
-            context.view.picked.isEmpty() -> LibraryBrowseLanding(
-                rows = shownRows,
-                context = context,
-                contentTopInset = contentTopInset,
-                onScrolledChanged = onScrolledChanged,
-                prompts = prompts,
-            )
+            context.view.picked.isEmpty() -> landingState.SaveableStateProvider("landing:${source.name}") {
+                LibraryBrowseLanding(
+                    rows = shownRows,
+                    context = context,
+                    contentTopInset = contentTopInset,
+                    onScrolledChanged = onScrolledChanged,
+                    prompts = prompts,
+                )
+            }
             currentAppWindowWidth() == AppWindowWidth.Expanded -> LibraryBrowseTwoPanes(
                 rows = shownRows,
                 context = context,
@@ -182,6 +188,7 @@ fun LibraryBrowsePage(
             settings = rows.settings,
             coverage = coverage,
             onRowChanged = rows::set,
+            onRowsArranged = rows::arrange,
             onDismiss = { onShowRowsChanged(false) },
         )
     }

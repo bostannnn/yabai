@@ -71,23 +71,51 @@ internal fun libraryBrowseReadingStatus(progress: ItemProgressSummary?): Library
 }
 
 /**
- * Which rows a source's Browse shows. The rows Browse starts with stay on until you hide them, and
- * the others stay off until you show them, so a row is remembered by what you changed: a field
- * that turns up later (moods, say) appears by itself.
+ * Which rows a source's Browse shows, and in what order. The rows Browse starts with stay on until
+ * you hide them, and the others stay off until you show them, so a row is remembered by what you
+ * changed: a field that turns up later (moods, say) appears by itself. [order] is every row as you
+ * last arranged them, empty until you move one.
  */
 @Immutable
 data class LibraryBrowseRowSettings(
     val hidden: Set<LibraryBrowseRow> = emptySet(),
     val added: Set<LibraryBrowseRow> = emptySet(),
+    val order: List<LibraryBrowseRow> = emptyList(),
 ) {
+    /** Every row in your order; a row you never placed keeps its spot after the row it follows by default. */
+    val ordered: List<LibraryBrowseRow>
+        get() = libraryBrowseRowOrder(order)
+
     val shown: List<LibraryBrowseRow>
-        get() = LibraryBrowseRow.entries.filter { row -> row in added || (row in DefaultLibraryBrowseRows && row !in hidden) }
+        get() = ordered.filter { row -> row in added || (row in DefaultLibraryBrowseRows && row !in hidden) }
 
     fun with(row: LibraryBrowseRow, show: Boolean): LibraryBrowseRowSettings = if (row in DefaultLibraryBrowseRows) {
         copy(hidden = if (show) hidden - row else hidden + row)
     } else {
         copy(added = if (show) added + row else added - row)
     }
+
+    /**
+     * [arranged] in that order, in the places those rows held among all of them: the rows it leaves
+     * out (off, or waiting for metadata) stay where they were.
+     */
+    fun arranging(arranged: List<LibraryBrowseRow>): LibraryBrowseRowSettings {
+        val rows = ordered.toMutableList()
+        val places = rows.indices.filter { index -> rows[index] in arranged }
+        places.zip(arranged).forEach { (index, row) -> rows[index] = row }
+        return copy(order = rows)
+    }
+}
+
+/** [saved] with every row it lacks put back after the row it follows in Browse's own order. */
+internal fun libraryBrowseRowOrder(saved: List<LibraryBrowseRow>): List<LibraryBrowseRow> {
+    val rows = saved.distinct().toMutableList()
+    LibraryBrowseRow.entries.forEachIndexed { index, row ->
+        if (row in rows) return@forEachIndexed
+        val before = LibraryBrowseRow.entries.subList(0, index).lastOrNull { it in rows }
+        rows.add(before?.let { rows.indexOf(it) + 1 } ?: 0, row)
+    }
+    return rows
 }
 
 /** A source's row settings, read off the main thread and written back when they change. */
@@ -98,6 +126,7 @@ internal class LibraryBrowseRowStore(context: Context) {
         LibraryBrowseRowSettings(
             hidden = decode(preferences.getString(hiddenKey(source), null)),
             added = decode(preferences.getString(addedKey(source), null)),
+            order = decodeOrder(preferences.getString(orderKey(source), null)),
         )
     }
 
@@ -105,6 +134,7 @@ internal class LibraryBrowseRowStore(context: Context) {
         preferences.edit()
             .putString(hiddenKey(source), settings.hidden.joinToString(",") { it.name })
             .putString(addedKey(source), settings.added.joinToString(",") { it.name })
+            .putString(orderKey(source), settings.order.joinToString(",") { it.name })
             .apply()
     }
 
@@ -117,12 +147,16 @@ internal class LibraryBrowseRowStore(context: Context) {
         preferences.edit().putBoolean(placesPromptKey(source), true).apply()
     }
 
-    private fun decode(value: String?): Set<LibraryBrowseRow> =
-        value.orEmpty().split(',').mapNotNullTo(mutableSetOf()) { name -> LibraryBrowseRow.entries.firstOrNull { it.name == name } }
+    private fun decode(value: String?): Set<LibraryBrowseRow> = decodeOrder(value).toSet()
+
+    private fun decodeOrder(value: String?): List<LibraryBrowseRow> =
+        value.orEmpty().split(',').mapNotNull { name -> LibraryBrowseRow.entries.firstOrNull { it.name == name } }.distinct()
 
     private fun hiddenKey(source: SourceType) = "library_browse_hidden_rows_${source.name.lowercase()}"
 
     private fun addedKey(source: SourceType) = "library_browse_added_rows_${source.name.lowercase()}"
+
+    private fun orderKey(source: SourceType) = "library_browse_row_order_${source.name.lowercase()}"
 
     private fun placesPromptKey(source: SourceType) = "library_browse_places_prompt_dismissed_${source.name.lowercase()}"
 
@@ -170,6 +204,13 @@ internal class LibraryBrowseRowsHolder(
     fun set(row: LibraryBrowseRow, show: Boolean) {
         changedBeforeLoad = true
         settings = settings.with(row, show)
+        store.write(source, settings)
+    }
+
+    /** Puts the shown rows in [arranged]'s order (a drag in Rows). */
+    fun arrange(arranged: List<LibraryBrowseRow>) {
+        changedBeforeLoad = true
+        settings = settings.arranging(arranged)
         store.write(source, settings)
     }
 }

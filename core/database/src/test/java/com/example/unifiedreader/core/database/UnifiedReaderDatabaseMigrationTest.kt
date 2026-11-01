@@ -406,6 +406,38 @@ class UnifiedReaderDatabaseMigrationTest {
     }
 
     @Test
+    fun `migration 35 to 36 keeps the catalog and gives books moods`() {
+        createTestDatabase(
+            name = "migration-35-36-${System.nanoTime()}",
+            version = 36,
+        ) { database ->
+            createVersion27Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_27_28.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_28_29.migrate(database)
+            MIGRATION_29_30.migrate(database)
+            MIGRATION_30_31.migrate(database)
+            MIGRATION_31_32.migrate(database)
+            MIGRATION_32_33.migrate(database)
+            MIGRATION_33_34.migrate(database)
+            MIGRATION_34_35.migrate(database)
+            database.execSQL(
+                "INSERT INTO readable_items (id, sourceType, libraryId, isLocalImport, title, format, kind, bookTagsJson, updatedAtEpochMillis) " +
+                    "VALUES ('grimmory:7', 'GRIMMORY', 'grimmory:lib', 0, 'Solaris', 'EPUB', 'BOOK', '[\"Space exploration\"]', 1)",
+            )
+        }.use { database ->
+            MIGRATION_35_36.migrate(database)
+
+            assertTrue(columnExists(database, "readable_items", "bookMoodsJson"))
+            database.query("SELECT title, bookTagsJson, bookMoodsJson FROM readable_items WHERE id = 'grimmory:7'").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals("Solaris", cursor.getString(0))
+                assertEquals("[\"Space exploration\"]", cursor.getString(1))
+                assertTrue(cursor.isNull(2))
+            }
+        }
+    }
+
+    @Test
     fun `room migrates 4 to 5 and validates reader session state schema`() {
         val databaseName = "migration-4-5-${System.nanoTime()}"
         createTestDatabase(
@@ -1536,6 +1568,7 @@ private fun openRoomDatabase(
         MIGRATION_32_33,
         MIGRATION_33_34,
         MIGRATION_34_35,
+        MIGRATION_35_36,
     )
     .build()
 

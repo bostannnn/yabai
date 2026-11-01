@@ -86,6 +86,7 @@ class GrimmoryDtosTest {
                 publisher = "Tor",
                 categories = listOf("Literary Fiction"),
                 tags = listOf("Speculative"),
+                moods = listOf("Dark", " ", "Tense", "dark"),
                 language = "English",
                 publishedDate = "2021-05-04",
             ),
@@ -108,6 +109,7 @@ class GrimmoryDtosTest {
         assertEquals(listOf("Literary Fiction"), item.bookMetadata?.genres)
         assertEquals(listOf("Speculative"), item.bookMetadata?.tags)
         assertEquals(listOf("English"), item.bookMetadata?.languages)
+        assertEquals(listOf("Dark", "Tense"), item.bookMetadata?.moods)
         assertEquals(320, item.pageCount)
         assertEquals("https://grimmory.example/api/v1/media/book/12/thumbnail", item.coverUrl)
         assertEquals(1775046600000L, item.addedAtEpochMillis)

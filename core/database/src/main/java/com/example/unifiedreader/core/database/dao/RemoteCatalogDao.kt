@@ -57,6 +57,7 @@ private const val READABLE_ITEM_LIBRARY_SELECT = """
         bookGenresJson,
         bookTagsJson,
         bookLanguagesJson,
+        bookMoodsJson,
         comicSeries,
         comicIssueTitle,
         comicVolume,

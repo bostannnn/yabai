@@ -78,6 +78,7 @@ fun ReadableItem.toEntity(
     bookGenresJson = encodeMetadataValues(bookMetadata?.genres),
     bookTagsJson = encodeMetadataValues(bookMetadata?.tags),
     bookLanguagesJson = encodeMetadataValues(bookMetadata?.languages),
+    bookMoodsJson = encodeMetadataValues(bookMetadata?.moods),
     comicSeries = comicMetadata?.series,
     comicIssueTitle = comicMetadata?.issueTitle,
     comicVolume = comicMetadata?.volume,
@@ -325,7 +326,8 @@ private fun ReadableItemEntity.bookMetadataOrNull(): BookMetadata? {
         bookPublishersJson == null &&
         bookGenresJson == null &&
         bookTagsJson == null &&
-        bookLanguagesJson == null
+        bookLanguagesJson == null &&
+        bookMoodsJson == null
     ) {
         return null
     }
@@ -337,6 +339,7 @@ private fun ReadableItemEntity.bookMetadataOrNull(): BookMetadata? {
         genres = decodeMetadataValues(bookGenresJson),
         tags = decodeMetadataValues(bookTagsJson),
         languages = decodeMetadataValues(bookLanguagesJson),
+        moods = decodeMetadataValues(bookMoodsJson),
     )
 }
 
@@ -348,7 +351,8 @@ private fun ReadableItemLibraryEntity.bookMetadataOrNull(): BookMetadata? {
         bookPublishersJson == null &&
         bookGenresJson == null &&
         bookTagsJson == null &&
-        bookLanguagesJson == null
+        bookLanguagesJson == null &&
+        bookMoodsJson == null
     ) {
         return null
     }
@@ -360,6 +364,7 @@ private fun ReadableItemLibraryEntity.bookMetadataOrNull(): BookMetadata? {
         genres = decodeMetadataValues(bookGenresJson),
         tags = decodeMetadataValues(bookTagsJson),
         languages = decodeMetadataValues(bookLanguagesJson),
+        moods = decodeMetadataValues(bookMoodsJson),
     )
 }
 

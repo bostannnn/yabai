@@ -51,6 +51,7 @@ class RemoteCatalogEntityMappersTest {
                 genres = listOf("Fantasy"),
                 tags = listOf("Wizard"),
                 languages = listOf("English"),
+                moods = listOf("Adventurous", "Reflective"),
             ),
             comicMetadata = ComicMetadata(
                 series = "Saga",

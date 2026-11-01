@@ -71,7 +71,8 @@ fun AppGroupLabel(
 }
 
 /**
- * One row in an [AppSettingsGroup]: optional leading icon, a title with optional supporting
+ * One row in an [AppSettingsGroup]: optional leading icon (or a [leading] drag handle,
+ * [AppReorderHandleIcon], whose grab area overhangs the inset so the arrow sits on its line), a title with optional supporting
  * text (after a small [supportingIcon], and with [supportingContent] such as a progress bar
  * under it), then an optional value, a custom [trailing] slot, and a chevron when the row opens
  * something ([onClick] set and [showChevron] true). A [selected] row sits on `surfaceSelected` and
@@ -95,6 +96,7 @@ fun AppSettingsRow(
     trailing: (@Composable RowScope.() -> Unit)? = null,
     // The row's side inset; a row inside a dialog card, which is padded already, passes 0.
     horizontalInset: Dp = AppSettingsDefaults.horizontalPadding,
+    leading: (@Composable RowScope.() -> Unit)? = null,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
     val contentAlpha = if (enabled) 1f else 0.5f
@@ -118,7 +120,7 @@ fun AppSettingsRow(
             .then(clickModifier)
             .heightIn(min = AppSettingsDefaults.rowMinHeight)
             .padding(
-                start = horizontalInset,
+                start = if (leading != null) (horizontalInset - AppSettingsDefaults.handleOverhang).coerceAtLeast(0.dp) else horizontalInset,
                 end = if (showChevron) 12.dp else (horizontalInset - 4.dp).coerceAtLeast(0.dp),
                 top = 10.dp,
                 bottom = 10.dp,
@@ -126,6 +128,7 @@ fun AppSettingsRow(
         horizontalArrangement = Arrangement.spacedBy(AppSettingsDefaults.iconGap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        leading?.invoke(this)
         if (icon != null) {
             Icon(
                 imageVector = icon,
@@ -203,6 +206,9 @@ object AppSettingsDefaults {
     val rowMinHeight: Dp = 64.dp
     val iconSize: Dp = 24.dp
     val iconGap: Dp = 16.dp
+
+    /** How far a leading drag handle's grab area reaches past the row's inset (its arrow stays on the line). */
+    val handleOverhang: Dp = 8.dp
 
     /** Divider inset for rows that carry a leading icon. */
     val dividerInset: Dp = horizontalPadding + iconSize + iconGap

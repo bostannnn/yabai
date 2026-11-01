@@ -204,6 +204,8 @@ internal data class GrimmoryBookMetadataDto(
     val categories: List<String>? = null,
     val genres: List<String>? = null,
     val tags: List<String>? = null,
+    // From Hardcover, when Grimmory's metadata refresh has Moods on; paces ("Fast-paced") come with them.
+    val moods: List<String>? = null,
     val language: String? = null,
     val thumbnailUrl: String? = null,
     val publishedDate: String? = null,
@@ -347,6 +349,7 @@ internal fun GrimmoryBookDto.toCatalogEntry(
             genres = metadata?.genres.toFacetNames().ifEmpty { metadata?.categories.toFacetNames() },
             tags = metadata?.tags.toFacetNames(),
             languages = metadata?.language.toFacetNames(),
+            moods = metadata?.moods.toFacetNames(),
         ),
     )
     val progress = toReadingProgress(item)
