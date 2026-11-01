@@ -13,9 +13,9 @@
   "groups": [],
   "lastChange": {
     "by": "bostannnn",
-    "at": "2026-11-01T18:55:00Z",
+    "at": "2026-11-01T20:40:00Z",
     "via": "Claude Code",
-    "note": "Cover size is a five-stop slider in the sort menu: Tiny, Small, Medium, Large (the default, 176) and Huge, the name at the label's end; Tiny without titles; the reading card and shelves stay at Medium or larger; docked Filters keep the covers' width (LibraryHome, AppMenu, AppSegmentedRow, layout)"
+    "note": "The reading card is small: the cover at 80 and the text spanning it, the label in the cover's accent, title, author and place, a 4 bar with time left, ••• for the book page and a tap to continue, no buttons; beside the shelves in landscape it takes 2 of 6 columns and the strip there is Small (LibraryHome)"
   },
   "layout": "files",
   "libraries": [],

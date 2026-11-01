@@ -182,6 +182,25 @@ What waits to upload, and why. With nothing waiting, one row says "Everything is
 # ------------------------------------------------------------------ Library home (Medium portrait)
 LW, LH = 800, 1010
 cols = 4
+
+
+def reading_card(width, height, cover_w, lines, title_font="700 18px/23px"):
+    """The reading card: the cover's tint, the cover, the label, title and lines, the bar; ••• at the top end."""
+    bar = ('<div style="display:flex;align-items:center;gap:10px"><div style="flex:1;display:flex;gap:2px;height:4px">'
+           + "".join(f'<i style="flex:{w};border-radius:2px;background:linear-gradient(to right,#a9c4ff {f}%,rgba(255,255,255,.18) {f}%)"></i>'
+                     for w, f in [(12, 100), (18, 40), (16, 0), (20, 0), (14, 0), (20, 0)])
+           + '</div><span style="font:600 12.5px/18px var(--font-sans);opacity:.82">24% · 2 h 10 min left</span></div>')
+    text_lines = "".join(
+        f'<span style="font:500 13px/18px var(--font-sans);opacity:.74;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{line}</span>'
+        for line in lines)
+    return (f'<div style="position:relative;flex:none;width:{width}px;height:{height}px;box-sizing:border-box;background:#26365a;color:#eef2fb;'
+            f'border-radius:var(--radius-container);padding:20px;display:flex;gap:16px">'
+            f'<div style="flex:none;width:{cover_w}px">{cover(0, width=cover_w, font=max(8, cover_w // 10))}</div>'
+            f'<div style="flex:1;min-width:0;display:flex;flex-direction:column">'
+            f'<span class="yb-overline" style="opacity:1;color:#a9c4ff;padding-right:28px">Continue reading · today</span>'
+            f'<span style="font:{title_font} var(--font-sans);margin-top:4px;padding-right:28px">The Lantern Keepers</span>'
+            f'{text_lines}<span style="flex:1"></span>{bar}</div>'
+            f'<span style="position:absolute;top:10px;right:10px;opacity:.74">{ic("more_horiz", 20)}</span></div>')
 grid_tiles = "".join(
     f'<div style="display:flex;flex-direction:column;gap:6px">{cover(i)}<div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="min-width:0"><div class="yb-book-title" style="font-size:14px">{t}</div><div class="yb-caption">{m}</div></div><span style="color:var(--on-surface-variant)">{ic("more_horiz", 20)}</span></div></div>'
     for i, (t, m) in enumerate([("Ferry Notes", "Just started"), ("The Lantern Keepers", "4%"), ("Quiet Engines", "Finished"), ("Moths of Lisbon", "Finished")])
@@ -197,19 +216,7 @@ library = f"""
     <div class="yb-pane" style="--yb-gutter:24px">
       <div class="yb-bar"><button class="yb-icon-btn">{ic("menu")}</button><div class="yb-search">{ic("search")}<span>Search Kavita</span></div><span class="yb-spacer"></span><button class="yb-icon-btn">{ic("download")}</button><button class="yb-icon-btn">{ic("more_horiz")}</button></div>
       <div class="yb-scroll">
-        <div style="background:#26365a;color:#eef2fb;border-radius:var(--radius-container);padding:20px;display:flex;gap:20px">
-          <div style="width:176px;flex:none">{cover(0)}</div>
-          <div style="flex:1;display:flex;flex-direction:column;gap:6px;min-width:0">
-            <span class="yb-overline">Continue reading · today</span>
-            <span style="font:700 28px/34px var(--font-sans)">The Lantern Keepers</span>
-            <span style="font-size:15px;opacity:.8">Oona Fitch</span>
-            <span style="font:600 20px/26px var(--font-sans);margin-top:10px">Chapter 1 of 6</span>
-            <span style="flex:1"></span>
-            <span style="font-size:13px;opacity:.85">4% · Page 4 of 74</span>
-            <div style="height:4px;border-radius:999px;background:rgba(255,255,255,.18);overflow:hidden"><i style="display:block;width:4%;height:100%;background:#eef2fb"></i></div>
-            <div style="display:flex;gap:10px;margin-top:10px"><button class="yb-btn" style="background:#dbe4f6;color:#1b2740">{ic("menu_book")}Continue</button><button class="yb-btn" style="background:rgba(255,255,255,.14);color:#eef2fb">Details</button></div>
-          </div>
-        </div>
+        {reading_card(LW - 48, 160, 80, ("Oona Fitch · Chapter 1 of 6",))}
         <div style="display:flex;flex-direction:column;gap:8px">
           <div style="display:flex;align-items:center"><div class="yb-tabs" style="flex:1"><span class="yb-tab is-selected">In progress <span class="yb-count">3</span></span><span class="yb-tab">Up next <span class="yb-count">1</span></span><span class="yb-tab">Finished <span class="yb-count">12</span></span></div><button class="yb-btn is-text">See all</button></div>
           <div style="display:flex;gap:16px">{strip_tiles}</div>
@@ -224,27 +231,68 @@ library = f"""
   </div>
 </div>"""
 
-comp("LibraryHome", "Screens", 1100, """
+# Expanded landscape: the card over 2 of the 6 columns beside the shelves, whose strip is Small (96).
+EW, EH = 1280, 800
+small_strip = "".join(
+    f'<div style="width:96px;flex:none;display:flex;flex-direction:column;gap:6px">{cover(i, width=96, font=9)}<div class="yb-book-title" style="font-size:14px">{t}</div><div class="yb-caption">{m}</div></div>'
+    for i, (t, m) in [(1, ("Дом у реки", "96%")), (5, ("Star Courier #2", "58%")), (2, ("Quiet Engines", "12%")), (3, ("Moths of Lisbon", "41%")), (4, ("Glass Meridian", "70%")), (6, ("The Salt Orchard", "3%")), (7, ("Paper Cranes", "88%"))]
+)
+wide_tiles = "".join(
+    f'<div style="display:flex;flex-direction:column;gap:6px">{cover(i)}<div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="min-width:0"><div class="yb-book-title" style="font-size:14px">{t}</div><div class="yb-caption">{m}</div></div><span style="color:var(--on-surface-variant)">{ic("more_horiz", 20)}</span></div></div>'
+    for i, (t, m) in enumerate([("Ferry Notes", "Just started"), ("The Lantern Keepers", "4%"), ("Quiet Engines", "Finished"), ("Moths of Lisbon", "Finished"), ("Glass Meridian", "70%"), ("Star Courier #2", "58%")])
+)
+library_wide = f"""
+<div class="yb-device" style="width:{EW}px;height:{EH}px">
+  {statusbar()}
+  <div class="yb-device-body">
+    {rail("Kavita")}
+    <div class="yb-pane" style="--yb-gutter:24px">
+      <div class="yb-bar"><div class="yb-search">{ic("search")}<span>Search Kavita</span></div><span class="yb-spacer"></span><button class="yb-icon-btn">{ic("download")}</button><button class="yb-icon-btn">{ic("more_horiz")}</button></div>
+      <div class="yb-scroll">
+        <div style="display:flex;gap:16px;align-items:stretch">
+          {reading_card(370, 236, 131, ("Oona Fitch", "Chapter 1 of 6 · The Ferry"), title_font="700 20px/25px")}
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:14px;overflow:hidden">
+            <div style="display:flex;align-items:center"><div class="yb-tabs" style="flex:1"><span class="yb-tab is-selected">In progress <span class="yb-count">8</span></span><span class="yb-tab">Up next <span class="yb-count">1</span></span><span class="yb-tab">Finished <span class="yb-count">12</span></span></div><button class="yb-btn is-text">See all</button></div>
+            <div style="display:flex;gap:16px">{small_strip}</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;gap:8px"><h2 class="yb-section-heading" style="flex:1">All books <span class="yb-count">1,474</span></h2><span class="yb-chip">{ic("filter_list")}Filters</span><span class="yb-chip">{ic("tune")}Last read</span></div>
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:16px">{wide_tiles}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>"""
+
+comp("LibraryHome", "Screens", 2000, """
 # Library home
 
 A source's library: the bar with its search field, the reading card, the shelf tabs and strip, then All books and the grid.
 
 - **Gutter 24** from Medium (16 on phones): the bar's glass, the reading card, the tabs, the heading and the grid share both edges.
 - Content top 84, bottom 24. The grid's gap is 16.
-- **Cover size** (the sort menu's View): a slider with five stops, Tiny, Small, Medium, Large and Huge, the name at the label's end in `primary`; covers at least 70, 96, 140, 176 and 240 wide. Large is the default. The grid fits as many columns as that minimum allows and shares out the rest of the width: on a phone Tiny gives 4 columns, Small 3, Medium 2, Large 1 or 2 (360 or 411 wide), Huge 1. The grid follows the slider as it moves, and the menu stays open. Tiny drops the title under the cover (the cover says it); the line under it keeps the progress or length and the •••. The reading card and the shelves never go below Medium: at Small and Tiny they keep Medium's covers and the grid under them gets denser. See all's grid follows the same size.
+- **Cover size** (the sort menu's View): a slider with five stops, Tiny, Small, Medium, Large and Huge, the name at the label's end in `primary`; covers at least 70, 96, 140, 176 and 240 wide. Large is the default. The grid fits as many columns as that minimum allows and shares out the rest of the width: on a phone Tiny gives 4 columns, Small 3, Medium 2, Large 1 or 2 (360 or 411 wide), Huge 1. The grid follows the slider as it moves, and the menu stays open. Tiny drops the title under the cover (the cover says it); the line under it keeps the progress or length and the •••. The reading card and the shelves keep the default (Large) covers at every size: the slider sizes All books only, so All books' row, which the menu hangs from, stays where it is while the slider moves. The one exception is the strip beside the reading card on wide windows (below), which is always Small. See all's grid follows the same size.
 - All books is `AppSectionHeading`, on the gutter line, with Filters, a chip per applied value and sort at its end. Filters narrows the library by anything its books carry, places, times, themes and moods included (see Filters); there is no separate Browse page.
 - **On Expanded, Filters docks** beside the library: a 400 wide panel on the right gutter from content top to content bottom, the bar and the grid taking the width left of it. The covers keep the width they had before it opened: the grid loses columns, and the ones left come as close to that width as whole columns allow instead of stretching to fill. While it is open the reading card and the shelves step aside, so All books' row is at content top; they come back when it closes. The Filters chip shows and hides it.
-- The reading card's inside inset is `inset` 20 at every width and its corners `radius-container` 20.
+- **The reading card** (`LibraryReadingCard`) is the book you read last, small: `radius-container` 20, the cover's tint (`coverTint`, `AppCoverColors`), `inset` 20 all round, the cover at the start and the text 16 from it. The text spans the cover: the label at the cover's top, the bar line at its bottom.
+  - The label is the cover's accent (11.5 Bold, 0.08 em, capitals): "Continue reading · yesterday". The title is Bold on up to 2 lines at 18/23, stepping down to 16/21 before it is cut. Under it, 13 Medium in the text colour at 74%, the author and the place: "Oona Fitch · Chapter 1 of 6", a comic's "Page 14 of 24".
+  - The bar line: a 4 tall bar split at the chapters (2 apart; one piece without chapters or past 30), the accent on the text colour at 18% (14% on a light tint), then "24% · 2 h 10 min left" (12.5 SemiBold, 82%), only the percentage when the journal doesn't know the pace.
+  - ••• at the top end (the icon 20, the text colour at 74%) opens the book page; the label and title keep 28 clear of it. The rest of the card is the Continue button: a tap opens the book where it was left (its click label says Continue, Read or Start). There are no buttons in it.
+  - **Above the shelves** (phones, portrait tablets, and wherever the grid has fewer than 6 columns): the cover is 80 wide, so the card is 160 tall, gutter to gutter; the shelves follow 24 below, unchanged.
+  - **Beside the shelves** (6 columns or more: tablet landscape beside the rail): the card takes 2 of the 6 columns and the shelves the other 4. The strip beside it is Small (96) whatever the cover size, its tiles keep the title and the progress and drop the author line, and the card is as tall as the tabs and the strip together, bottoms lined up (about 236). Its cover fills that height (about 131 wide); the title is 20/25 on up to 3 lines, stepping down to 18/23 on 4; the author and the place get a line each, the place with the chapter's name ("Chapter 1 of 6 · The Ferry").
+  - A series opens on the same card for the issue being read or the next one (label "Up next in this series"), 160 tall, across half the row (3 of 6 columns) on wide windows, since nothing sits beside it there.
 - No source name anywhere on the screen: the search field says it.
 - **The jump rail** runs down the right edge for a sort that groups: the letters for Title, Author and Series, and for Pages the page ranges the filter's slider stops at (0, 10, 20, 30, 40, 50, 75, 100, 150, 200, 250, 300, 400, 500, 750, 1k), each where its range starts (150 holds 150 to 199), then `?` for books with no page count. Only sections with books show.
 - **Sorted by Pages** (shortest first, unknown lengths last), the line under each cover gives its length instead of its progress: "212 pages", a series "212 pages · 8 issues". A series' length is all its issues together, for the sort and the Pages filter alike.
-- **The card follows a reading order** when the book you read last was finished and is in the reading order under way, and that order's next book is from this library: its overline is "Next in The Long Eclipse · 7 of 14", one line under the progress names the two after it ("Then Neon Ronin #13, The Long Eclipse #3"), and its buttons are Read (or Continue) and Open list.
+- **The card follows a reading order** when the book you read last was finished and is in the reading order under way, and that order's next book is from this library: its label is "Next in The Long Eclipse · 7 of 14", the line under the title names the two after it ("Then Neon Ronin #13, The Long Eclipse #3") in place of the place, and a tap reads it (Read, or Continue once started). The list itself opens from the book page's In your lists or the Lists tab; the card has no Open list.
 - **Refresh.** The bar's ••• holds Import a file and, on a server, Refresh library; while the library refreshes, the ••• button wears the progress ring. The library also refreshes by itself each time it shows (the app opening or coming back, another source picked) once its server last synced 15 minutes ago or more. That is Kavita and Grimmory, whose refresh saves only the books that changed; not Stump, whose sync loads every series again. A refresh keeps you where you are, says nothing when it ends and stays quiet offline (the search field's Offline says it). The full sync stays in Settings, under the server's Sync now.
 """, f"""
 <div class="yb" style="padding:16px">
   {TOGGLE}
-  <div id="screens"><div class="yb-caption" style="margin-bottom:8px">Medium, 800 wide (the emulator's portrait)</div>{library}</div>
-</div>""", width=832, page=True, script=TOGGLE_SCRIPT)
+  <div id="screens"><div class="yb-caption" style="margin-bottom:8px">Medium, 800 wide (the emulator's portrait): the card above the shelves</div>{library}
+  <div class="yb-caption" style="margin:24px 0 8px">Expanded, 1280 &#215; 800: the card over 2 of the 6 columns, the shelves beside it with Small covers</div>{library_wide}</div>
+</div>""", width=1312, page=True, script=TOGGLE_SCRIPT)
 
 # ------------------------------------------------------------------ Filters (docked on Expanded); its helpers serve Tags too
 BW, BH = 1280, 800
