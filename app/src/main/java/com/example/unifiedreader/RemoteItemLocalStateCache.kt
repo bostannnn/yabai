@@ -137,8 +137,8 @@ internal fun List<ReadableItem>.remoteItemLocalStateCacheScopes(): List<RemoteIt
         .map { (sourceLibraryScopeId, items) ->
             RemoteItemLocalStateCacheScope(
                 sourceLibraryScopeId = sourceLibraryScopeId,
-                itemIds = items.remoteItemLocalStateScopeItemIds(),
-                availabilityScopeIds = items.remoteItemLocalAvailabilityScopeIds(),
+                itemIds = items.computeRemoteItemLocalStateScopeItemIds(),
+                availabilityScopeIds = items.computeRemoteItemLocalAvailabilityScopeIds(),
             )
         }
 
