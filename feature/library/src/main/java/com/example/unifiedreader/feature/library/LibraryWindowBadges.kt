@@ -36,13 +36,30 @@ data class LibraryWindowBadges(
 fun LibraryItemActionContext.withWindowBadges(
     windowBadges: LibraryWindowBadges,
 ): LibraryItemActionContext = copy(
-    progressByItemId = windowBadges.displayProgressByItemId + progressByItemId,
-    locallyAvailableItemIds = locallyAvailableItemIds + windowBadges.locallyAvailableItemIds,
-    downloadableItemIds = downloadableItemIds + windowBadges.downloadActionAvailability.downloadableItemIds,
+    progressByItemId = windowBadges.displayProgressByItemId.overlaidBy(progressByItemId),
+    locallyAvailableItemIds = locallyAvailableItemIds.unionWith(windowBadges.locallyAvailableItemIds),
+    downloadableItemIds = downloadableItemIds.unionWith(windowBadges.downloadActionAvailability.downloadableItemIds),
     deletableDownloadedItemIds =
-        deletableDownloadedItemIds + windowBadges.downloadActionAvailability.deletableDownloadedItemIds,
-    downloadingItemIds = downloadingItemIds + windowBadges.downloadActionAvailability.activeDownloadingItemIds,
+        deletableDownloadedItemIds.unionWith(windowBadges.downloadActionAvailability.deletableDownloadedItemIds),
+    downloadingItemIds = downloadingItemIds.unionWith(windowBadges.downloadActionAvailability.activeDownloadingItemIds),
 )
+
+/**
+ * [this] with [other]'s entries on top, as `this + other`, but without copying when either is empty: the
+ * recompute's maps hold a whole server's items, and the overlay runs on every screen update.
+ */
+internal fun <K, V> Map<K, V>.overlaidBy(other: Map<K, V>): Map<K, V> = when {
+    isEmpty() -> other
+    other.isEmpty() -> this
+    else -> this + other
+}
+
+/** `this + other`, without copying when either is empty (see [overlaidBy]). */
+internal fun <T> Set<T>.unionWith(other: Set<T>): Set<T> = when {
+    isEmpty() -> other
+    other.isEmpty() -> this
+    else -> this + other
+}
 
 private const val PAGED_WINDOW_BADGE_PREFIX_COUNT = 30
 
