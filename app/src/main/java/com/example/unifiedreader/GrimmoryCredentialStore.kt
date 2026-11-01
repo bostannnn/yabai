@@ -7,6 +7,7 @@ import android.security.keystore.KeyProperties
 import android.util.Base64
 import androidx.annotation.VisibleForTesting
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.security.GeneralSecurityException
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -124,19 +125,26 @@ internal class AndroidKeystoreGrimmoryCredentialCipher : GrimmoryCredentialCiphe
         val cipher = Cipher.getInstance(AES_GCM_TRANSFORMATION)
         cipher.init(
             Cipher.DECRYPT_MODE,
-            getOrCreateSecretKey(),
+            getSecretKey() ?: throw GeneralSecurityException("The credential key is missing from the Android keystore."),
             GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv),
         )
         return cipher.doFinal(encrypted).toString(Charsets.UTF_8)
     }
 
-    private fun getOrCreateSecretKey(): SecretKey {
+    // Reading never makes a key: a new one in place of a key the keystore didn't hand back for a moment
+    // would leave every saved sign-in, on all three servers, unreadable for good.
+    private fun getSecretKey(): SecretKey? {
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
-        val existingEntry = keyStore.getEntry(KEY_ALIAS, null) as? KeyStore.SecretKeyEntry
-        if (existingEntry != null) {
-            return existingEntry.secretKey
-        }
+        return (keyStore.getEntry(KEY_ALIAS, null) as? KeyStore.SecretKeyEntry)?.secretKey
+    }
 
+    // One at a time: two stores saving their first sign-in at once would each make a key, and the
+    // second would replace the one the first just encrypted with.
+    private fun getOrCreateSecretKey(): SecretKey = synchronized(KeyCreationLock) {
+        getSecretKey() ?: createSecretKey()
+    }
+
+    private fun createSecretKey(): SecretKey {
         val keyGenerator = KeyGenerator.getInstance(
             KeyProperties.KEY_ALGORITHM_AES,
             ANDROID_KEYSTORE,
@@ -152,6 +160,10 @@ internal class AndroidKeystoreGrimmoryCredentialCipher : GrimmoryCredentialCiphe
                 .build(),
         )
         return keyGenerator.generateKey()
+    }
+
+    private companion object {
+        val KeyCreationLock = Any()
     }
 }
 

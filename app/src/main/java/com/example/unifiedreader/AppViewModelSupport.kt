@@ -10,6 +10,9 @@ import com.example.unifiedreader.feature.settings.StumpConnectionUiState
 internal typealias AppUiStateProvider = () -> AppUiState
 internal typealias AppUiStateUpdater = ((AppUiState) -> AppUiState) -> Unit
 
+// The withStoredSession below leave the message and whether it is an error as they were: the session is
+// saved again on its own (a token renewal, a new network), and an error that turned plain on that hid a
+// failed first sync behind a bar that never filled.
 internal fun GrimmoryConnectionUiState.withStoredSession(
     session: GrimmoryStoredSession?,
 ): GrimmoryConnectionUiState = if (session == null) {
@@ -32,7 +35,6 @@ internal fun GrimmoryConnectionUiState.withStoredSession(
         activeAction = null,
         syncProgressFraction = null,
         syncProgressLabel = null,
-        isError = false,
     )
 }
 
@@ -60,7 +62,6 @@ internal fun KavitaConnectionUiState.withStoredSession(
         activeAction = null,
         syncProgressFraction = null,
         syncProgressLabel = null,
-        isError = false,
     )
 }
 
@@ -88,7 +89,6 @@ internal fun StumpConnectionUiState.withStoredSession(
         activeAction = null,
         syncProgressFraction = null,
         syncProgressLabel = null,
-        isError = false,
     )
 }
 

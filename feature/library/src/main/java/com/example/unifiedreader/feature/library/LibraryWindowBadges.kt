@@ -69,18 +69,23 @@ private const val PAGED_WINDOW_BADGE_PREFIX_COUNT = 30
  * ([recomputedBadgeInputs]) change. The overlay unions the two, so a badge the recompute drops (the
  * Finished fade after "Mark as unread", Downloaded after deleting the file) would otherwise stay in the
  * window's copy until a new page loaded or the sort changed.
+ *
+ * Once the recompute's maps hold every badge ([isNeeded] false) there is nothing to fill: each resolve
+ * walks the whole loaded window (hundreds of roots, thousands of members, a few hundred ms and a lot
+ * of garbage) and redraws every card when it lands, so none runs and the overlay is empty.
  */
 @Composable
 internal fun rememberLibraryWindowBadges(
     renderedItems: List<ReadableItem>,
     resolver: suspend (List<ReadableItem>) -> LibraryWindowBadges,
     recomputedBadgeInputs: List<Any>,
+    isNeeded: Boolean = true,
 ): LibraryWindowBadges {
     val latestResolver by rememberUpdatedState(resolver)
     val windowSignature = renderedItems.size to
         (renderedItems.firstOrNull()?.id to renderedItems.lastOrNull()?.id)
-    return produceState(initialValue = LibraryWindowBadges(), windowSignature, recomputedBadgeInputs) {
-        if (renderedItems.isEmpty()) {
+    return produceState(initialValue = LibraryWindowBadges(), windowSignature, recomputedBadgeInputs, isNeeded) {
+        if (renderedItems.isEmpty() || !isNeeded) {
             value = LibraryWindowBadges()
             return@produceState
         }

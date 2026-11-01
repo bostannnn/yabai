@@ -1,5 +1,7 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.data.kavita.KAVITA_API_KEY_REJECTED_MESSAGE
+import com.example.unifiedreader.data.kavita.KAVITA_REFRESH_TOKEN_REJECTED_MESSAGE
 import com.example.unifiedreader.data.kavita.KavitaApi
 import com.example.unifiedreader.data.kavita.KavitaChapterCatalogEntry
 import com.example.unifiedreader.data.kavita.KavitaChapterInfoDto
@@ -59,7 +61,92 @@ class KavitaAuthHelpersTest {
         assertEquals("fresh-access-token", store.sessionFlow.value?.accessToken)
         assertEquals("fresh-api-key", store.sessionFlow.value?.apiKey)
     }
+
+    @Test
+    fun `stored session runner signs in with the api key when the refresh token is turned down`() = runBlocking {
+        val initialSession = storedSession(accessToken = "expired-access-token")
+        val store = FakeStore(initialSession)
+        val api = FakeApi(
+            refreshedSession = null,
+            keySession = KavitaSession(
+                accessToken = "key-access-token",
+                refreshToken = "key-refresh-token",
+                apiKey = "api-key",
+            ),
+        )
+        val runner = KavitaStoredSessionRequestRunner(store)
+
+        val result = runner.run(api = api, session = initialSession) { accessToken, _ ->
+            if (accessToken == "expired-access-token") throw KavitaUnauthorizedException()
+            accessToken
+        }
+
+        assertEquals("key-access-token", result)
+        assertEquals(listOf("api-key"), api.apiKeyLogins)
+        assertEquals("key-refresh-token", store.sessionFlow.value?.refreshToken)
+    }
+
+    @Test
+    fun `stored session runner renews a token past half its life before the request`() = runBlocking {
+        val now = 10_000_000_000L
+        val agingToken = testJwt(
+            issuedAtEpochSeconds = now / 1_000L - 2 * 86_400L,
+            expiresAtEpochSeconds = now / 1_000L + 86_400L,
+        )
+        val initialSession = storedSession(accessToken = agingToken)
+        val store = FakeStore(initialSession)
+        val api = FakeApi(
+            refreshedSession = KavitaSession(
+                accessToken = "fresh-access-token",
+                refreshToken = "fresh-refresh-token",
+                apiKey = null,
+            ),
+        )
+        val runner = KavitaStoredSessionRequestRunner(store, nowEpochMillis = { now })
+
+        val result = runner.run(api = api, session = initialSession) { accessToken, _ -> accessToken }
+
+        assertEquals("fresh-access-token", result)
+        assertEquals(1, api.refreshCount)
+        assertEquals("fresh-access-token", store.sessionFlow.value?.accessToken)
+        assertEquals("api-key", store.sessionFlow.value?.apiKey)
+    }
+
+    @Test
+    fun `early renewal that fails keeps the token and waits before trying again`() = runBlocking {
+        var now = 10_000_000_000L
+        val agingToken = testJwt(
+            issuedAtEpochSeconds = now / 1_000L - 2 * 86_400L,
+            expiresAtEpochSeconds = now / 1_000L + 86_400L,
+        )
+        val initialSession = storedSession(accessToken = agingToken)
+        val store = FakeStore(initialSession)
+        val api = FakeApi(refreshedSession = null, refreshFailure = IllegalStateException("Server error"))
+        val runner = KavitaStoredSessionRequestRunner(store, nowEpochMillis = { now })
+
+        val first = runner.run(api = api, session = initialSession) { accessToken, _ -> accessToken }
+        now += 10 * 60 * 1000L
+        val second = runner.run(api = api, session = initialSession) { accessToken, _ -> accessToken }
+        now += 60 * 60 * 1000L
+        runner.run(api = api, session = initialSession) { accessToken, _ -> accessToken }
+
+        assertEquals(agingToken, first)
+        assertEquals(agingToken, second)
+        assertEquals(2, api.refreshCount)
+        assertEquals(agingToken, store.sessionFlow.value?.accessToken)
+    }
 }
+
+private fun storedSession(
+    accessToken: String,
+): KavitaStoredSession = KavitaStoredSession(
+    displayName = "Kavita",
+    baseUrl = "https://kavita.example",
+    username = "reader",
+    accessToken = accessToken,
+    refreshToken = "refresh-token",
+    apiKey = "api-key",
+)
 
 private class FakeStore(
     initialSession: KavitaStoredSession?,
@@ -80,9 +167,14 @@ private class FakeStore(
 }
 
 private class FakeApi(
-    private val refreshedSession: KavitaSession,
+    // Null turns the refresh token down.
+    private val refreshedSession: KavitaSession?,
+    private val refreshFailure: Throwable? = null,
+    private val keySession: KavitaSession? = null,
 ) : KavitaApi {
     val pageRequests = mutableListOf<Pair<String, String?>>()
+    val apiKeyLogins = mutableListOf<String>()
+    var refreshCount = 0
 
     override suspend fun login(
         username: String,
@@ -93,7 +185,18 @@ private class FakeApi(
         refreshToken: String,
         accessToken: String?,
         apiKey: String?,
-    ): KavitaSession = refreshedSession
+    ): KavitaSession {
+        refreshCount += 1
+        refreshFailure?.let { throw it }
+        return refreshedSession ?: throw KavitaUnauthorizedException(KAVITA_REFRESH_TOKEN_REJECTED_MESSAGE)
+    }
+
+    override suspend fun loginWithApiKey(
+        apiKey: String,
+    ): KavitaSession {
+        apiKeyLogins += apiKey
+        return keySession ?: throw KavitaUnauthorizedException(KAVITA_API_KEY_REJECTED_MESSAGE)
+    }
 
     override suspend fun getLibraries(
         accessToken: String,

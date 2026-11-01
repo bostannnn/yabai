@@ -1,6 +1,9 @@
 package com.example.unifiedreader.feature.reader.core
 
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.max
@@ -15,8 +18,14 @@ class ReaderWorkCoordinator(
     private val lock = Any()
     private val activeReaderCountsByItemId = mutableMapOf<String, Int>()
     private val visiblePageLoadCountsByItemId = mutableMapOf<String, Int>()
+    private val visitStartsByItemId = mutableMapOf<String, Long>()
+    private var lastEndedVisit: EndedReaderVisit? = null
     private var openingUntilEpochMillis: Long = 0L
     private var stateChanged = CompletableDeferred<Unit>()
+    private val activeReaderItemIdsState = MutableStateFlow<Set<String>>(emptySet())
+
+    /** The books a reader shows right now, from [beginReaderSession] until its lease closes. */
+    val activeReaderItemIds: StateFlow<Set<String>> = activeReaderItemIdsState.asStateFlow()
 
     val isReaderOpeningOrActive: Boolean
         get() = synchronized(lock) {
@@ -30,6 +39,17 @@ class ReaderWorkCoordinator(
 
     val isReaderBestEffortWorkAllowed: Boolean
         get() = !hasVisiblePageLoads
+
+    /**
+     * When this visit to [itemId] began, while a reader shows it; null once the reader has left it.
+     * A reader back on the same book within [ReaderVisitResumeGraceMillis] (the activity recreated
+     * on rotation) continues the visit.
+     */
+    fun readerVisitStartedAt(
+        itemId: String,
+    ): Long? = synchronized(lock) {
+        visitStartsByItemId[itemId]
+    }
 
     fun notifyReaderOpening(
         itemId: String,
@@ -50,8 +70,16 @@ class ReaderWorkCoordinator(
         itemId: String,
     ): ReaderWorkLease {
         val signalToComplete = synchronized(lock) {
-            openingUntilEpochMillis = max(openingUntilEpochMillis, nowEpochMillis() + openingGraceMillis)
+            val now = nowEpochMillis()
+            openingUntilEpochMillis = max(openingUntilEpochMillis, now + openingGraceMillis)
             activeReaderCountsByItemId[itemId] = (activeReaderCountsByItemId[itemId] ?: 0) + 1
+            if (itemId !in visitStartsByItemId) {
+                visitStartsByItemId[itemId] = lastEndedVisit
+                    ?.takeIf { visit -> visit.itemId == itemId && now - visit.endedAtEpochMillis <= ReaderVisitResumeGraceMillis }
+                    ?.startedAtEpochMillis
+                    ?: now
+            }
+            activeReaderItemIdsState.value = activeReaderCountsByItemId.keys.toSet()
             stateChangedSignalLocked()
         }
         signalToComplete.complete(Unit)
@@ -98,9 +126,13 @@ class ReaderWorkCoordinator(
             val activeCount = activeReaderCountsByItemId[itemId] ?: return@synchronized null
             if (activeCount <= 1) {
                 activeReaderCountsByItemId.remove(itemId)
+                visitStartsByItemId.remove(itemId)?.let { startedAt ->
+                    lastEndedVisit = EndedReaderVisit(itemId, startedAt, endedAtEpochMillis = nowEpochMillis())
+                }
             } else {
                 activeReaderCountsByItemId[itemId] = activeCount - 1
             }
+            activeReaderItemIdsState.value = activeReaderCountsByItemId.keys.toSet()
             stateChangedSignalLocked()
         }
         signalToComplete?.complete(Unit)
@@ -168,6 +200,12 @@ class ReaderWorkCoordinator(
     }
 }
 
+private data class EndedReaderVisit(
+    val itemId: String,
+    val startedAtEpochMillis: Long,
+    val endedAtEpochMillis: Long,
+)
+
 private data class BackgroundWorkWait(
     val signal: CompletableDeferred<Unit>,
     val openingGraceRemainingMillis: Long?,
@@ -197,3 +235,4 @@ class ReaderWorkLease internal constructor(
 }
 
 private const val ReaderOpeningGraceMillis = 2_500L
+private const val ReaderVisitResumeGraceMillis = 10_000L

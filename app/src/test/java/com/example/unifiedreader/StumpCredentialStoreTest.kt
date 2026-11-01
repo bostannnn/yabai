@@ -49,7 +49,7 @@ class StumpCredentialStoreTest {
     }
 
     @Test
-    fun `store clears stored session when credential decrypt fails`() = runBlocking {
+    fun `store keeps stored session when credential decrypt fails`() = runBlocking {
         val preferences = ApplicationProvider.getApplicationContext<Context>()
             .getSharedPreferences("stump_credentials_test_${System.nanoTime()}", Context.MODE_PRIVATE)
         SharedPreferencesStumpCredentialStore(
@@ -71,7 +71,12 @@ class StumpCredentialStoreTest {
         )
 
         assertNull(store.sessionFlow.value)
-        assertTrue(preferences.all.isEmpty())
+        assertFalse(preferences.all.isEmpty())
+        val nextStartStore = SharedPreferencesStumpCredentialStore(
+            preferences = preferences,
+            cipher = PrefixStumpCredentialCipher(),
+        )
+        assertEquals("access-token", nextStartStore.sessionFlow.value?.accessToken)
     }
 }
 

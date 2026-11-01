@@ -60,6 +60,46 @@ class JournalRecordingAdaptersTest {
     }
 
     @Test
+    fun `comic backward page save records journal progress with the reader visit`() = runTest {
+        val delegate = RecordingAdaptersFakeComicReaderProgressStore(initialPage = 9)
+        val recorder = FakeJournalEventRecorder()
+        val store = JournalRecordingComicReaderProgressStore(
+            delegate = delegate,
+            journalEventRecorder = recorder,
+            visitStartedAt = { itemId -> 500L.takeIf { itemId == testComic.id } },
+            scope = this,
+        )
+
+        store.savePage(item = testComic, pageIndex = 2, pageCount = 10, isFinished = false)
+        advanceUntilIdle()
+
+        val input = recorder.inputs.single()
+        assertEquals(3, input.page)
+        assertEquals(false, input.isFinished)
+        assertEquals(500L, input.visitStartedAtEpochMillis)
+    }
+
+    @Test
+    fun `session saves carry the reader visit`() = runTest {
+        val recorder = FakeJournalEventRecorder()
+        val store = JournalRecordingReaderSessionStore(
+            delegate = RecordingAdaptersFakeReaderSessionStore(),
+            journalEventRecorder = recorder,
+            visitStartedAt = { itemId -> 700L.takeIf { itemId == testPdf.id } },
+            scope = this,
+        )
+
+        store.saveProgress(
+            item = testPdf,
+            locator = ReaderLocator(locatorType = LocatorType.PAGE, page = 3, percent = 0.4),
+            pageCount = 10,
+        )
+        advanceUntilIdle()
+
+        assertEquals(700L, recorder.inputs.single().visitStartedAtEpochMillis)
+    }
+
+    @Test
     fun `comic first automatic page save does not record journal progress`() = runTest {
         val delegate = RecordingAdaptersFakeComicReaderProgressStore(initialPage = null)
         val recorder = FakeJournalEventRecorder()

@@ -92,6 +92,58 @@ class KavitaApiTest {
     }
 
     @Test
+    fun `api key sign-in posts the key and reads the new tokens`() = runBlocking {
+        var requestedUrl: String? = null
+        val httpClient = HttpClient(
+            MockEngine { request ->
+                requestedUrl = request.url.toString()
+                respondJson("""{"username":"reader","token":"key-access","refreshToken":"key-refresh"}""")
+            },
+        ) {
+            install(ContentNegotiation) {
+                json(
+                    Json {
+                        ignoreUnknownKeys = true
+                        explicitNulls = false
+                    },
+                )
+            }
+        }
+        val api = KtorKavitaApi(
+            httpClient = httpClient,
+            baseUrl = "http://kavita.example/",
+        )
+
+        val session = api.loginWithApiKey("api-key")
+
+        assertEquals("http://kavita.example/api/Plugin/authenticate?apiKey=api-key&pluginName=yabai", requestedUrl)
+        assertEquals(
+            KavitaSession(accessToken = "key-access", refreshToken = "key-refresh", apiKey = "api-key"),
+            session,
+        )
+    }
+
+    @Test
+    fun `api key sign-in unauthorized reports the key rejection`() = runBlocking {
+        val httpClient = HttpClient(
+            MockEngine {
+                respondJson("", status = HttpStatusCode.Unauthorized)
+            },
+        )
+        val api = KtorKavitaApi(
+            httpClient = httpClient,
+            baseUrl = "http://kavita.example",
+        )
+
+        try {
+            api.loginWithApiKey("revoked-key")
+            fail("Expected the key to be turned down.")
+        } catch (exception: KavitaUnauthorizedException) {
+            assertEquals(KAVITA_API_KEY_REJECTED_MESSAGE, exception.message)
+        }
+    }
+
+    @Test
     fun `cover download problem response is summarized for users`() = runBlocking {
         val httpClient = HttpClient(
             MockEngine {
