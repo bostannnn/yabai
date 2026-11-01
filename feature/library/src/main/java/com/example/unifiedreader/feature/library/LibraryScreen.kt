@@ -285,7 +285,7 @@ fun LibraryScreen(
         if (!sortMode.usesAlphabetRail) {
             emptyList()
         } else {
-            items.map { item -> item.librarySortSection(sortMode, pageCountByItemId.pageCountOf(item)) }
+            items.map { item -> item.sortFilterLetter(sortMode) }
         }
     }
     // On the paged path the ordered set isn't in memory, so the rail comes from SQL (present letters +
@@ -304,7 +304,7 @@ fun LibraryScreen(
     // must not be called inside a branch — `isPaged` can flip when a runtime filter is applied) and the
     // paged one is selected when the grid is served by Room.
     val inMemorySortLetters = remember(itemAlphabetSections, sortMode) {
-        librarySortRailSections(itemAlphabetSections.filterNotNull(), sortMode)
+        alphabetNavigationSections(itemAlphabetSections.filterNotNull())
     }
     val inMemorySectionStarts = remember(itemAlphabetSections) { alphabetSectionStarts(itemAlphabetSections) }
     val pagedSortLetters = remember(pagedAlphabetSections) { pagedAlphabetSections.map(LibraryAlphabetSection::letter) }

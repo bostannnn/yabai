@@ -196,8 +196,9 @@ internal val LibrarySortMode.usesAlphabetRail: Boolean
     get() = when (this) {
         LibrarySortMode.AUTHOR,
         LibrarySortMode.TITLE,
-        LibrarySortMode.SERIES,
-        LibrarySortMode.PAGES -> true
+        LibrarySortMode.SERIES -> true
+        // Every cover says its length, and nobody jumps to "150 pages": no rail, as by date.
+        LibrarySortMode.PAGES,
         LibrarySortMode.DATE_ADDED,
         LibrarySortMode.LAST_READ,
         LibrarySortMode.ISSUE_COUNT -> false
