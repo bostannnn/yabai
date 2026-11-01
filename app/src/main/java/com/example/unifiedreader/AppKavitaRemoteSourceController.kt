@@ -3,6 +3,7 @@ package com.example.unifiedreader
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
 import com.example.unifiedreader.feature.settings.ServerConnectionAction
+import com.example.unifiedreader.feature.settings.syncProgressFillAfter
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.collectLatest
@@ -263,7 +264,7 @@ class AppKavitaRemoteSourceController @Inject constructor(
                                 kavitaConnection = state.kavitaConnection.copy(
                                     isConnecting = true,
                                     activeAction = ServerConnectionAction.Sync,
-                                    syncProgressFraction = kavitaSyncFillAfter(
+                                    syncProgressFraction = syncProgressFillAfter(
                                         current = state.kavitaConnection.syncProgressFraction,
                                         reported = progress.fraction,
                                     ),
@@ -328,7 +329,7 @@ class AppKavitaRemoteSourceController @Inject constructor(
                                 kavitaConnection = state.kavitaConnection.copy(
                                     isConnecting = true,
                                     activeAction = ServerConnectionAction.FastSync,
-                                    syncProgressFraction = kavitaSyncFillAfter(
+                                    syncProgressFraction = syncProgressFillAfter(
                                         current = state.kavitaConnection.syncProgressFraction,
                                         reported = progress.fraction,
                                     ),
@@ -452,17 +453,4 @@ class AppKavitaRemoteSourceController @Inject constructor(
             )
         }
     }
-}
-
-/**
- * The fill a Kavita sync's bar shows once a step reports [reported]: never less than [current], so a
- * sync that starts again on the backup address doesn't send it back, and still moving (null) until the
- * first step that can count its work.
- */
-internal fun kavitaSyncFillAfter(
-    current: Float?,
-    reported: Float?,
-): Float? {
-    val fill = reported?.coerceIn(0f, 1f) ?: return current
-    return if (current == null) fill else maxOf(current, fill)
 }

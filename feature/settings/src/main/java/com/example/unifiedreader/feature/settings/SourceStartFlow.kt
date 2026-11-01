@@ -281,7 +281,7 @@ private fun SourceConnectPage(
         Spacer(modifier = Modifier.height(28.dp))
         AppPanel(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(20.dp)) {
-                val sync = firstSyncState(connection, entry.lastSyncedAtEpochMillis)
+                val sync = firstSyncState(connection, entry.lastSyncedAtEpochMillis, startingSync = signingIn)
                 Text(text = sync.title, style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp), fontWeight = FontWeight.SemiBold)
                 if (sync.running) {
                     AppProgressBar(
@@ -309,9 +309,9 @@ private fun SourceConnectPage(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 16.dp),
                 )
-                if (sync.failed) {
+                if (sync.failed || sync.notStarted) {
                     AppTonalButton(onClick = entry.actions.onSync, modifier = Modifier.padding(top = 12.dp)) {
-                        Text(text = "Try again", fontWeight = FontWeight.SemiBold)
+                        Text(text = if (sync.failed) "Try again" else "Sync now", fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
