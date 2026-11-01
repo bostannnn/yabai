@@ -71,12 +71,6 @@ data class LibraryGridMetrics(
 
     val coverImageVariant: LibraryCoverImageVariant
         get() = libraryGridCoverImageVariant(cellSizeDp)
-
-    companion object {
-        /** The reading card and the shelves never go below Medium: at Small and Tiny they keep Medium's covers. */
-        fun aboveGrid(gridCellSizeDp: Int): LibraryGridMetrics =
-            LibraryGridMetrics(cellSizeDp = maxOf(gridCellSizeDp, LibraryCoverSize.Medium.cellSizeDp))
-    }
 }
 
 data class LibraryGridColumns(

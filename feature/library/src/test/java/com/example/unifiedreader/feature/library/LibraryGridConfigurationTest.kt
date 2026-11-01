@@ -61,14 +61,6 @@ class LibraryGridConfigurationTest {
     }
 
     @Test
-    fun `the reading card and shelves never go below Medium`() {
-        assertEquals(140, LibraryGridMetrics.aboveGrid(70).cellSizeDp)
-        assertEquals(140, LibraryGridMetrics.aboveGrid(96).cellSizeDp)
-        assertEquals(176, LibraryGridMetrics.aboveGrid(176).cellSizeDp)
-        assertEquals(240, LibraryGridMetrics.aboveGrid(240).cellSizeDp)
-    }
-
-    @Test
     fun `docked filters keep the covers near their undocked width instead of stretching`() {
         // Beside the 88 dp rail at 1280 dp, then with the 400 dp panel and its 24 dp gutter docked.
         val undockedWidth = (1280 - 88).dp
