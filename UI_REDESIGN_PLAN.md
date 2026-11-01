@@ -2209,6 +2209,42 @@ server, and the library refreshing by itself. Built on branch `claude/home-scree
       launch 14.5 min after, then on coming back once past 15, not on coming straight back again.
 - [ ] Seen on the tablet against the real servers.
 
+## The Finished screen, second look `[~]` (2026-11-01)
+
+Asked 2026-11-01: the card at the end of a book (9.1) "looks unfinished", and the stars so close to the left
+"feel more like a bug". From the code: the five 44 dp stars took 236 of the column's 392 dp at the start while
+"Tap to rate" sat at the far end of the line above them; Back to library was the one button, pinned to the end;
+"Add a private note" was a full-width pale pill that read as an empty field; everything hung off the left.
+Mocked on the canvas https://claude.ai/artifact/E5Fksn3XAnCj3CNj3mHbdb (today drawn from the code, A centred,
+B the cover beside, C today straightened; unrated, rated with a next issue, phone, Paper). Picked B.
+
+Built in worktree `book-review-finishing-screen-c4b5f7` (branch `claude/book-review-finishing-screen-c4b5f7`,
+from main 4c5c13cf):
+
+- [x] Design system first: the `FinishedScreen` screen (README + preview; `AppDialog`'s note on the card),
+      published to the artifact.
+- [x] Tablets: a 640 dp card (`JournalFinishedDefaults.besideCardWidth`) when it and the 24 dp window margins
+      fit (`journalFinishedCardLayout`). A 232 dp band, the tint deepened (black 22% on dark tints, the text colour
+      at 6% on light), holds the cover at 152 dp; the column beside it at the dialog's 24: FINISHED, the title
+      (26/30) clear of ×, the author; "Your rating" over 48 dp stars in 52 dp slots spread edge to edge
+      (`JournalRatingLayout.Spread`, which replaces `Leading`); the note as a pill that hugs "Add a private note"
+      and opens into the field; the next item's strip without a button; Back to library and Read next in equal
+      halves, 48 dp, or Back to library across in the accent when nothing is next. The card scrolls when the
+      window is short.
+- [x] Phones (`AppSheet`), and windows too narrow for 640 dp (a 440 dp card with ×): everything centred, the
+      cover at 96 (120 in the card), the heading, the stars over the hint (`JournalRatingLayout.Stacked`), the
+      note pill, the strip, the two buttons.
+- [x] Motion as 9.1 (card fade from 0.96, cover rise, stars popping in). `JournalFinishedScreen.kt` went from
+      12 literal paddings and 2 literal corners to 3 and 0 (baselines lowered). All unit tests pass (1,512 in
+      `testDebugUnitTest`).
+- [x] Emulator (a private clone `yabai_finished_35` on 5560, debug build, four Local test comics with the boards'
+      covers in `/sdcard/Download/finished-test`): the card at 800 dp portrait in the default light theme (a
+      rating of 3.5 and a note saved through Back to library) and in Graphite; at 411 dp the centred sheet; at
+      666 dp the centred 440 dp card with ×; at 1292 × 806 (the tablet's landscape) the card with the note open
+      and the keyboard up (the window pans; the field stays in view). Local comics get no next issue from the
+      reader, so the strip and Read next were seen through a throwaway build that faked one (reverted).
+- [ ] Tablet.
+
 ## Not yet designed
 
 Section 9: each step above gets its mock when it starts. Before it, nothing was left: downloads, the

@@ -2,7 +2,6 @@ package com.example.unifiedreader.feature.journal
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
@@ -36,14 +34,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -81,8 +85,9 @@ class JournalFinishedNext(
  * The screen at the end of a book: one surface in the cover's [colors] with the cover, "Finished",
  * the title and [subtitle], the journal's stars (a tap saves through [onRatingSelected]), a private
  * note kept in [reviewState] for the host to save when the screen closes, the [next] item, and Back
- * to library. A 440 dp card over the last page; a sheet on phones. ×, a tap outside or Back calls
- * [onDismiss], which leaves the reader on its last page.
+ * to library. On tablets a 640 dp card over the last page with the cover on a band beside the rest;
+ * on phones a sheet, and on windows too narrow for that card a 440 dp one, with everything centred.
+ * ×, a tap outside or Back calls [onDismiss], which leaves the reader on its last page.
  */
 @Composable
 fun JournalFinishedScreen(
@@ -99,7 +104,7 @@ fun JournalFinishedScreen(
     onDismiss: () -> Unit,
     next: JournalFinishedNext? = null,
 ) {
-    val content = @Composable { phone: Boolean, modifier: Modifier ->
+    val content = @Composable { layout: JournalFinishedLayout, modifier: Modifier ->
         JournalFinishedContent(
             item = item,
             title = title,
@@ -112,15 +117,16 @@ fun JournalFinishedScreen(
             backLabel = backLabel,
             onDismiss = onDismiss,
             next = next,
-            phone = phone,
+            layout = layout,
             modifier = modifier,
         )
     }
     if (currentAppWindowWidth() == AppWindowWidth.Compact) {
         AppSheet(onDismissRequest = onDismiss, containerColor = colors.tintStart, skipPartiallyExpanded = true) {
-            content(true, Modifier.coverTint(colors))
+            content(JournalFinishedLayout.Sheet, Modifier.coverTint(colors))
         }
     } else {
+        val layout = journalFinishedCardLayout(LocalConfiguration.current.screenWidthDp.dp)
         AppDialogHost(
             onDismissRequest = onDismiss,
             properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -130,10 +136,16 @@ fun JournalFinishedScreen(
             LaunchedEffect(Unit) { shown.animateTo(1f, AppMotion.effects()) }
             val shape = RoundedCornerShape(AppDialogCardDefaults.cornerRadius)
             content(
-                false,
+                layout,
                 Modifier
                     .padding(AppDialogCardDefaults.windowMargin)
-                    .widthIn(max = JournalFinishedDefaults.cardWidth)
+                    .widthIn(
+                        max = if (layout == JournalFinishedLayout.Beside) {
+                            JournalFinishedDefaults.besideCardWidth
+                        } else {
+                            JournalFinishedDefaults.cardWidth
+                        },
+                    )
                     .fillMaxWidth()
                     .graphicsLayer {
                         alpha = shown.value
@@ -147,6 +159,17 @@ fun JournalFinishedScreen(
     }
 }
 
+/** The cover beside the rest; everything centred in a card; or everything centred in a sheet. */
+internal enum class JournalFinishedLayout { Beside, Card, Sheet }
+
+/** The card for a window [windowWidth] wide: the cover beside the rest when 640 dp and its margins fit. */
+internal fun journalFinishedCardLayout(windowWidth: Dp): JournalFinishedLayout =
+    if (windowWidth >= JournalFinishedDefaults.besideCardWidth + AppDialogCardDefaults.windowMargin * 2) {
+        JournalFinishedLayout.Beside
+    } else {
+        JournalFinishedLayout.Card
+    }
+
 @Composable
 private fun JournalFinishedContent(
     item: ReadableItem,
@@ -157,78 +180,131 @@ private fun JournalFinishedContent(
     coverContent: @Composable (ReadableItem, Modifier) -> Unit,
     onRatingSelected: (Int?) -> Unit,
     onBackToLibrary: () -> Unit,
-    // "Back to the list" when the book was opened from one.
-    backLabel: String = "Back to library",
+    backLabel: String,
     onDismiss: () -> Unit,
     next: JournalFinishedNext?,
-    phone: Boolean,
+    layout: JournalFinishedLayout,
     modifier: Modifier,
 ) {
     // Quiet fills on the tint: the text colour at a low alpha, a little stronger on dark tints.
     val dark = isAppThemeDark
     val quiet = colors.content.copy(alpha = if (dark) 0.10f else 0.08f)
     val tonal = colors.content.copy(alpha = if (dark) 0.12f else 0.10f)
+    val stars = @Composable { stacked: Boolean, starsModifier: Modifier ->
+        JournalRatingEditor(
+            selectedRating = reviewState.selectedRating,
+            onRatingSelected = { rating ->
+                reviewState.selectedRating = rating
+                onRatingSelected(rating)
+            },
+            layout = if (stacked) JournalRatingLayout.Stacked else JournalRatingLayout.Spread,
+            animateIn = true,
+            modifier = starsModifier,
+        )
+    }
+    val nextStrip = @Composable { stripModifier: Modifier ->
+        next?.let { nextItem -> JournalFinishedNextStrip(next = nextItem, coverContent = coverContent, modifier = stripModifier) }
+    }
+    val actions = @Composable { actionsModifier: Modifier ->
+        JournalFinishedActions(
+            colors = colors,
+            tonal = tonal,
+            next = next,
+            onBackToLibrary = onBackToLibrary,
+            backLabel = backLabel,
+            modifier = actionsModifier,
+        )
+    }
     AppCoverAccentTheme(colors) {
         CompositionLocalProvider(LocalContentColor provides colors.content) {
             Box(modifier = modifier) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                        .padding(
-                            if (phone) {
-                                PaddingValues(start = AppLayout.inset, end = AppLayout.inset, top = 4.dp, bottom = AppLayout.inset)
-                            } else {
-                                PaddingValues(JournalFinishedDefaults.padding)
+                if (layout == JournalFinishedLayout.Beside) {
+                    // The band: the tint deepened behind the cover, the card's whole height.
+                    val band = if (dark) Color.Black.copy(alpha = 0.22f) else colors.content.copy(alpha = 0.06f)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                            .drawBehind {
+                                val bandWidth = JournalFinishedDefaults.bandWidth.toPx()
+                                val left = if (layoutDirection == LayoutDirection.Ltr) 0f else size.width - bandWidth
+                                drawRect(band, topLeft = Offset(left, 0f), size = Size(bandWidth, size.height))
                             },
-                        ),
-                    verticalArrangement = Arrangement.spacedBy(20.dp),
-                ) {
-                    JournalFinishedHero(
-                        item = item,
-                        title = title,
-                        subtitle = subtitle,
-                        accent = colors.accent,
-                        coverWidth = if (phone) JournalFinishedDefaults.phoneCoverWidth else JournalFinishedDefaults.coverWidth,
-                        coverContent = coverContent,
-                        // Room for the × at the top end of the card.
-                        modifier = Modifier.padding(end = if (phone) 0.dp else 40.dp),
-                    )
-                    JournalRatingEditor(
-                        selectedRating = reviewState.selectedRating,
-                        onRatingSelected = { rating ->
-                            reviewState.selectedRating = rating
-                            onRatingSelected(rating)
-                        },
-                        layout = JournalRatingLayout.Leading,
-                        animateIn = true,
-                    )
-                    JournalFinishedNote(reviewState = reviewState, fill = quiet)
-                    next?.let { nextItem ->
-                        JournalFinishedNextStrip(
-                            next = nextItem,
-                            colors = colors,
-                            coverContent = coverContent,
-                            showButton = !phone,
-                        )
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(JournalFinishedDefaults.bandWidth)
+                                .padding(vertical = JournalFinishedDefaults.bandCoverMargin),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            JournalFinishedCover(item = item, coverWidth = JournalFinishedDefaults.bandCoverWidth, coverContent = coverContent)
+                        }
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(AppDialogCardDefaults.padding),
+                        ) {
+                            JournalFinishedHeading(
+                                title = title,
+                                subtitle = subtitle,
+                                accent = colors.accent,
+                                centred = false,
+                                // Room for the × at the top end of the card.
+                                modifier = Modifier.padding(end = JournalFinishedDefaults.closeClearance),
+                            )
+                            stars(false, Modifier.padding(top = AppLayout.sectionGap))
+                            JournalFinishedNote(reviewState = reviewState, fill = quiet, centred = false)
+                            nextStrip(Modifier.padding(top = JournalFinishedDefaults.nextGap))
+                            actions(Modifier.padding(top = AppLayout.sectionGap))
+                        }
                     }
-                    JournalFinishedActions(
-                        colors = colors,
-                        tonal = tonal,
-                        next = next,
-                        phone = phone,
-                        onBackToLibrary = onBackToLibrary,
-                        backLabel = backLabel,
-                    )
+                } else {
+                    val sheet = layout == JournalFinishedLayout.Sheet
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                            .padding(
+                                if (sheet) {
+                                    PaddingValues(
+                                        start = AppLayout.inset,
+                                        end = AppLayout.inset,
+                                        top = JournalFinishedDefaults.sheetTop,
+                                        bottom = AppLayout.inset,
+                                    )
+                                } else {
+                                    PaddingValues(AppDialogCardDefaults.padding)
+                                },
+                            ),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        JournalFinishedCover(
+                            item = item,
+                            coverWidth = if (sheet) JournalFinishedDefaults.sheetCoverWidth else JournalFinishedDefaults.cardCoverWidth,
+                            coverContent = coverContent,
+                        )
+                        JournalFinishedHeading(
+                            title = title,
+                            subtitle = subtitle,
+                            accent = colors.accent,
+                            centred = true,
+                            modifier = Modifier.padding(top = JournalFinishedDefaults.coverGap),
+                        )
+                        stars(true, Modifier.padding(top = JournalFinishedDefaults.coverGap))
+                        JournalFinishedNote(reviewState = reviewState, fill = quiet, centred = true)
+                        nextStrip(Modifier.padding(top = AppLayout.sectionGap))
+                        actions(Modifier.padding(top = AppLayout.sectionGap))
+                    }
                 }
-                if (!phone) {
+                if (layout != JournalFinishedLayout.Sheet) {
                     AppTonalIconButton(
                         onClick = onDismiss,
                         colors = AppButtonDefaults.tonalIconColors(containerColor = quiet, contentColor = colors.content),
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(16.dp)
-                            .size(40.dp),
+                            .padding(JournalFinishedDefaults.closeMargin)
+                            .size(JournalFinishedDefaults.closeSize),
                     ) {
                         Icon(imageVector = AppIcons.Close, contentDescription = "Close", modifier = Modifier.size(22.dp))
                     }
@@ -238,16 +314,12 @@ private fun JournalFinishedContent(
     }
 }
 
-/** The cover rising into place beside the overline, the title and the subtitle. */
+/** The cover, rising into place as the screen opens. */
 @Composable
-private fun JournalFinishedHero(
+private fun JournalFinishedCover(
     item: ReadableItem,
-    title: String,
-    subtitle: String?,
-    accent: Color,
     coverWidth: Dp,
     coverContent: @Composable (ReadableItem, Modifier) -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     val rise = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
@@ -255,69 +327,83 @@ private fun JournalFinishedHero(
         rise.animateTo(1f, AppMotion.spatial())
     }
     val coverShape = RoundedCornerShape(JournalFinishedDefaults.coverCornerRadius)
-    Row(modifier = modifier, verticalAlignment = Alignment.Bottom) {
-        Box(
-            modifier = Modifier
-                .width(coverWidth)
-                .aspectRatio(LibraryCoverAspectRatio)
-                .graphicsLayer {
-                    translationY = (1f - rise.value) * JournalFinishedDefaults.coverRise.toPx()
-                    alpha = rise.value.coerceIn(0f, 1f)
-                }
-                .shadow(elevation = 18.dp, shape = coverShape, clip = false)
-                .clip(coverShape),
-        ) {
-            coverContent(item, Modifier.fillMaxSize())
-        }
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 18.dp),
-        ) {
-            Text(
-                text = "Finished".uppercase(),
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 0.08.em,
-                ),
-                color = accent,
-                maxLines = 1,
-            )
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontSize = 26.sp,
-                    lineHeight = 30.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = (-0.01).em,
-                ),
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 6.dp),
-            )
-            subtitle?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
-                    color = LocalContentColor.current.copy(alpha = 0.74f),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
+    Box(
+        modifier = Modifier
+            .width(coverWidth)
+            .aspectRatio(LibraryCoverAspectRatio)
+            .graphicsLayer {
+                translationY = (1f - rise.value) * JournalFinishedDefaults.coverRise.toPx()
+                alpha = rise.value.coerceIn(0f, 1f)
             }
+            .shadow(elevation = 18.dp, shape = coverShape, clip = false)
+            .clip(coverShape),
+    ) {
+        coverContent(item, Modifier.fillMaxSize())
+    }
+}
+
+/** "FINISHED" in the accent over the title and the subtitle, at the start or centred. */
+@Composable
+private fun JournalFinishedHeading(
+    title: String,
+    subtitle: String?,
+    accent: Color,
+    centred: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val align = if (centred) TextAlign.Center else TextAlign.Start
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = if (centred) Alignment.CenterHorizontally else Alignment.Start,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = "Finished".uppercase(),
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 0.08.em,
+            ),
+            color = accent,
+            maxLines = 1,
+            // 6 dp above the title, with the column's 4.
+            modifier = Modifier.padding(bottom = 2.dp),
+        )
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontSize = if (centred) 24.sp else 26.sp,
+                lineHeight = 30.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.01).em,
+            ),
+            textAlign = align,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
+        )
+        subtitle?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
+                color = LocalContentColor.current.copy(alpha = 0.74f),
+                textAlign = align,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
 
 /**
- * "Add a private note" as a pill until it is tapped, then the field (open from the start when a
- * note was written before). The host saves it when the screen closes.
+ * "Add a private note" as a pill that hugs its label until it is tapped, then the field across
+ * the column (open from the start when a note was written before). The host saves it when the
+ * screen closes.
  */
 @Composable
 private fun JournalFinishedNote(
     reviewState: JournalReviewState,
     fill: Color,
+    centred: Boolean,
 ) {
     var open by rememberSaveable { mutableStateOf(reviewState.reviewText.isNotBlank()) }
     var focusOnOpen by remember { mutableStateOf(false) }
@@ -329,8 +415,9 @@ private fun JournalFinishedNote(
             label = { Text(text = "Private note") },
             placeholder = { Text(text = "Only you can see this") },
             minLines = 3,
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(UnifiedReaderDefaultPresentationTokens.controlCornerRadius),
             modifier = Modifier
+                .padding(top = JournalFinishedDefaults.noteGap)
                 .fillMaxWidth()
                 .focusRequester(focusRequester),
         )
@@ -341,47 +428,49 @@ private fun JournalFinishedNote(
             }
         }
     } else {
-        val secondary = LocalContentColor.current.copy(alpha = 0.74f)
-        Row(
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
-                .clip(CircleShape)
-                .background(fill)
-                .clickable {
+                .padding(top = JournalFinishedDefaults.noteGap)
+                .fillMaxWidth(),
+            contentAlignment = if (centred) Alignment.Center else Alignment.CenterStart,
+        ) {
+            AppButton(
+                onClick = {
                     open = true
                     focusOnOpen = true
-                }
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Icon(imageVector = AppIcons.Edit, contentDescription = null, tint = secondary, modifier = Modifier.size(20.dp))
-            Text(
-                text = "Add a private note",
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium),
-                color = secondary,
-            )
+                },
+                colors = AppButtonDefaults.filledColors(containerColor = fill, contentColor = LocalContentColor.current),
+                contentPadding = JournalFinishedDefaults.noteButtonPadding,
+                modifier = Modifier.height(JournalFinishedDefaults.noteButtonHeight),
+            ) {
+                Icon(
+                    imageVector = AppIcons.Edit,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .padding(end = JournalFinishedDefaults.iconGap)
+                        .size(18.dp),
+                )
+                Text(text = "Add a private note", style = AppDialogCardDefaults.buttonTextStyle, maxLines = 1)
+            }
         }
     }
 }
 
-/** The next item's cover and title on a strip of its own, with Read next at its end on tablets. */
+/** The next item's cover and title on a strip of its own; Read next is with the other buttons. */
 @Composable
 private fun JournalFinishedNextStrip(
     next: JournalFinishedNext,
-    colors: AppCoverColors,
     coverContent: @Composable (ReadableItem, Modifier) -> Unit,
-    showButton: Boolean,
+    modifier: Modifier = Modifier,
 ) {
     // The strip sits a step away from the tint: deeper on dark tints, paler on light ones.
     val strip = MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = if (isAppThemeDark) 0.3f else 0.55f)
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(JournalFinishedDefaults.nextCornerRadius))
             .background(strip)
-            .padding(12.dp),
+            .padding(JournalFinishedDefaults.nextPadding),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -389,7 +478,7 @@ private fun JournalFinishedNextStrip(
             modifier = Modifier
                 .width(JournalFinishedDefaults.nextCoverWidth)
                 .aspectRatio(LibraryCoverAspectRatio)
-                .clip(RoundedCornerShape(4.dp)),
+                .clip(RoundedCornerShape(JournalFinishedDefaults.coverCornerRadius)),
         ) {
             coverContent(next.item, Modifier.fillMaxSize())
         }
@@ -408,84 +497,100 @@ private fun JournalFinishedNextStrip(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        if (showButton) JournalFinishedReadNext(colors = colors, onClick = next.onRead)
     }
 }
 
 /**
- * Back to library: tonal beside a next item, filled when it is the only way on. Phones put Read
- * next beside it, half the width each.
+ * Back to library and Read next across the column, half each; Back to library is tonal beside
+ * Read next and the accent when it is the only way on.
  */
 @Composable
 private fun JournalFinishedActions(
     colors: AppCoverColors,
     tonal: Color,
     next: JournalFinishedNext?,
-    phone: Boolean,
     onBackToLibrary: () -> Unit,
     // "Back to the list" when the book was opened from one.
-    backLabel: String = "Back to library",
+    backLabel: String,
+    modifier: Modifier = Modifier,
 ) {
-    val backColors = if (next != null) {
-        AppButtonDefaults.filledColors(containerColor = tonal, contentColor = colors.content)
-    } else {
-        AppButtonDefaults.filledColors(containerColor = colors.accent, contentColor = colors.onAccent)
-    }
+    val accent = AppButtonDefaults.filledColors(containerColor = colors.accent, contentColor = colors.onAccent)
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         AppButton(
             onClick = onBackToLibrary,
-            colors = backColors,
+            colors = if (next != null) AppButtonDefaults.filledColors(containerColor = tonal, contentColor = colors.content) else accent,
             contentPadding = JournalFinishedDefaults.buttonPadding,
             modifier = Modifier
-                .height(AppDialogCardDefaults.buttonHeight)
-                .then(if (phone) Modifier.weight(1f) else Modifier),
+                .weight(1f)
+                .height(JournalFinishedDefaults.buttonHeight),
         ) {
-            Text(text = backLabel, style = AppDialogCardDefaults.buttonTextStyle)
+            Text(text = backLabel, style = AppDialogCardDefaults.buttonTextStyle, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        if (phone && next != null) {
-            JournalFinishedReadNext(colors = colors, onClick = next.onRead, modifier = Modifier.weight(1f))
+        next?.let { nextItem ->
+            AppButton(
+                onClick = nextItem.onRead,
+                colors = accent,
+                contentPadding = JournalFinishedDefaults.buttonPadding,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(JournalFinishedDefaults.buttonHeight),
+            ) {
+                Icon(
+                    imageVector = AppIcons.MenuBook,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .padding(end = JournalFinishedDefaults.iconGap)
+                        .size(18.dp),
+                )
+                Text(text = "Read next", style = AppDialogCardDefaults.buttonTextStyle, maxLines = 1)
+            }
         }
-    }
-}
-
-@Composable
-private fun JournalFinishedReadNext(
-    colors: AppCoverColors,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    AppButton(
-        onClick = onClick,
-        colors = AppButtonDefaults.filledColors(containerColor = colors.accent, contentColor = colors.onAccent),
-        contentPadding = JournalFinishedDefaults.buttonPadding,
-        modifier = modifier.height(AppDialogCardDefaults.buttonHeight),
-    ) {
-        Icon(
-            imageVector = AppIcons.MenuBook,
-            contentDescription = null,
-            modifier = Modifier
-                .padding(end = 8.dp)
-                .size(18.dp),
-        )
-        Text(text = "Read next", style = AppDialogCardDefaults.buttonTextStyle, maxLines = 1)
     }
 }
 
 private const val CoverRiseDelayMillis = 60L
 
 object JournalFinishedDefaults {
+    /** The cover beside the rest, on tablets. */
+    val besideCardWidth: Dp = 640.dp
+
+    /** Everything centred, on a window too narrow for [besideCardWidth]. */
     val cardWidth: Dp = 440.dp
-    val padding: Dp = AppDialogCardDefaults.padding
-    val coverWidth: Dp = 112.dp
-    val phoneCoverWidth: Dp = 88.dp
+
+    /** The band behind the cover on [besideCardWidth], and the cover in it. */
+    val bandWidth: Dp = 232.dp
+    val bandCoverWidth: Dp = 152.dp
+    val bandCoverMargin: Dp = 36.dp
+
+    val cardCoverWidth: Dp = 120.dp
+    val sheetCoverWidth: Dp = 96.dp
     val coverCornerRadius: Dp = UnifiedReaderDefaultPresentationTokens.coverCornerRadius
 
     /** The cover rises this far into place as the screen opens. */
     val coverRise: Dp = 12.dp
-    val nextCoverWidth: Dp = 56.dp
+
+    /** Under the sheet's handle, and between the cover, the heading and the stars when centred. */
+    val sheetTop: Dp = 4.dp
+    val coverGap: Dp = 20.dp
+
+    /** × at the top end, and what the heading keeps clear of it. */
+    val closeSize: Dp = 40.dp
+    val closeMargin: Dp = 16.dp
+    val closeClearance: Dp = 40.dp
+
+    val noteGap: Dp = 16.dp
+    val noteButtonHeight: Dp = 40.dp
+    val noteButtonPadding: PaddingValues = PaddingValues(horizontal = 16.dp)
+    val iconGap: Dp = 8.dp
+
+    val nextGap: Dp = 20.dp
+    val nextPadding: Dp = 12.dp
+    val nextCoverWidth: Dp = 48.dp
     val nextCornerRadius: Dp = UnifiedReaderDefaultPresentationTokens.cardCornerRadius
+
+    val buttonHeight: Dp = 48.dp
     val buttonPadding: PaddingValues = PaddingValues(horizontal = 18.dp)
 }

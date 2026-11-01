@@ -99,10 +99,20 @@ class JournalRatingEditorTest {
 
     @Test
     fun `the Finished screen's hint says what a tap does, then the pick, then the rating`() {
-        assertEquals("Tap to rate", journalLeadingRatingHint(selectedRating = null, previewRating = null))
-        assertEquals("3.5", journalLeadingRatingHint(selectedRating = null, previewRating = 7))
-        assertEquals("4.0", journalLeadingRatingHint(selectedRating = 7, previewRating = 8))
-        assertEquals("Rated 3.5", journalLeadingRatingHint(selectedRating = 7, previewRating = null))
+        assertEquals("Tap to rate", journalFinishedRatingHint(selectedRating = null, previewRating = null))
+        assertEquals("3.5", journalFinishedRatingHint(selectedRating = null, previewRating = 7))
+        assertEquals("4.0", journalFinishedRatingHint(selectedRating = 7, previewRating = 8))
+        assertEquals("Rated 3.5", journalFinishedRatingHint(selectedRating = 7, previewRating = null))
+    }
+
+    @Test
+    fun `the Finished stars keep 52 dp slots and spread across the card's column`() {
+        // The 640 dp card's column: 640 - 232 band - 2 x 24 inset.
+        assertEquals(52.dp, finishedStarSlotSizeFor(360.dp))
+        assertEquals(25.dp, finishedStarSpreadGap(360.dp, 52.dp))
+        // A phone sheet narrow enough to squeeze them keeps the 4 dp gap and shrinks the slots.
+        assertEquals(48.dp, finishedStarSlotSizeFor(256.dp))
+        assertEquals(4.dp, finishedStarSpreadGap(256.dp, 48.dp))
     }
 
     private fun mappedRating(

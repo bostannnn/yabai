@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -60,8 +59,8 @@ private const val MaxRating = 10
 private const val MaxStars = 5
 private val RatingStarSlotSize = 46.dp
 private val RatingStarGap = 6.dp
-private val LeadingStarSlotSize = 44.dp
-private val LeadingStarGap = 4.dp
+private val FinishedStarSlotSize = 52.dp
+private val FinishedStarGap = 4.dp
 private const val StarEntranceDelayMillis = 220L
 private const val StarEntranceStaggerMillis = 50L
 
@@ -69,10 +68,11 @@ internal const val JournalRatingStarsTag = "journal-rating-stars"
 internal const val JournalRatingClearTag = "journal-rating-clear"
 
 /**
- * Where [JournalRatingEditor] puts things: the journal's stars centred under their label, or
- * the Finished screen's "Your rating" line over 40 dp stars at the start, in the content color.
+ * Where [JournalRatingEditor] puts things: the journal's stars centred under their label; the
+ * Finished card's "Your rating" line over 48 dp stars spread across the column ([Spread]); or the
+ * Finished sheet's 48 dp stars centred over the hint ([Stacked]). The last two in the content color.
  */
-enum class JournalRatingLayout { Centered, Leading }
+enum class JournalRatingLayout { Centered, Spread, Stacked }
 
 /**
  * Five stars on a 10-point scale: the left half of a star is a half. Tapping the current
@@ -89,13 +89,14 @@ fun JournalRatingEditor(
     val safeRating = selectedRating?.coerceIn(1, MaxRating)
     var previewRating by remember { mutableStateOf<Int?>(null) }
     val displayedRating = previewRating ?: safeRating
-    if (layout == JournalRatingLayout.Leading) {
-        JournalLeadingRatingEditor(
+    if (layout != JournalRatingLayout.Centered) {
+        JournalFinishedRatingEditor(
             displayedRating = displayedRating,
             selectedRating = safeRating,
             previewRating = previewRating,
             onPreviewRatingChanged = { previewRating = it },
             onRatingSelected = onRatingSelected,
+            stacked = layout == JournalRatingLayout.Stacked,
             animateIn = animateIn,
             modifier = modifier,
         )
@@ -125,48 +126,64 @@ fun JournalRatingEditor(
 }
 
 @Composable
-private fun JournalLeadingRatingEditor(
+private fun JournalFinishedRatingEditor(
     displayedRating: Int?,
     selectedRating: Int?,
     previewRating: Int?,
     onPreviewRatingChanged: (Int?) -> Unit,
     onRatingSelected: (Int?) -> Unit,
+    stacked: Boolean,
     animateIn: Boolean,
     modifier: Modifier,
 ) {
     val content = LocalContentColor.current
     val labelStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp)
+    val hint = journalFinishedRatingHint(selectedRating = selectedRating, previewRating = previewRating)
+    val hintStyle = labelStyle.copy(fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum")
+    val style = RatingStarStyle(empty = content.copy(alpha = 0.28f), emptyActive = content.copy(alpha = 0.4f))
     Column(
         modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = if (stacked) Alignment.CenterHorizontally else Alignment.Start,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "Your rating",
-                style = labelStyle.copy(fontWeight = FontWeight.SemiBold),
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                text = journalLeadingRatingHint(selectedRating = selectedRating, previewRating = previewRating),
-                style = labelStyle.copy(fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
-                color = content.copy(alpha = 0.74f),
+        if (!stacked) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Your rating",
+                    style = labelStyle.copy(fontWeight = FontWeight.SemiBold),
+                    modifier = Modifier.weight(1f),
+                )
+                Text(text = hint, style = hintStyle, color = content.copy(alpha = 0.74f))
+            }
+        }
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            val slot = finishedStarSlotSizeFor(maxWidth)
+            JournalRatingStars(
+                displayedRating = displayedRating,
+                selectedRating = selectedRating,
+                previewRating = previewRating,
+                onPreviewRatingChanged = onPreviewRatingChanged,
+                onRatingSelected = onRatingSelected,
+                starSlotSize = slot,
+                // Spread: the first and last star on the column's edges.
+                starGap = if (stacked) FinishedStarGap else finishedStarSpreadGap(maxWidth, slot),
+                style = style,
+                animateIn = animateIn,
             )
         }
-        JournalRatingStars(
-            displayedRating = displayedRating,
-            selectedRating = selectedRating,
-            previewRating = previewRating,
-            onPreviewRatingChanged = onPreviewRatingChanged,
-            onRatingSelected = onRatingSelected,
-            starSlotSize = LeadingStarSlotSize,
-            starGap = LeadingStarGap,
-            style = RatingStarStyle(empty = content.copy(alpha = 0.28f), emptyActive = content.copy(alpha = 0.4f)),
-            animateIn = animateIn,
-            // The slot's 2 dp inset, so the first star lines up with the text above it.
-            modifier = Modifier.offset(x = (-2).dp),
-        )
+        if (stacked) Text(text = hint, style = hintStyle, color = content.copy(alpha = 0.74f))
     }
 }
+
+/** The Finished stars' 52 dp slot, smaller when five of them and their gaps don't fit [maxWidth]. */
+internal fun finishedStarSlotSizeFor(maxWidth: Dp): Dp =
+    ((maxWidth - FinishedStarGap * (MaxStars - 1)) / MaxStars)
+        .coerceAtMost(FinishedStarSlotSize)
+        .coerceAtLeast(0.dp)
+
+/** The gap that spreads five [slot]s across [maxWidth], never under the stacked gap. */
+internal fun finishedStarSpreadGap(maxWidth: Dp, slot: Dp): Dp =
+    ((maxWidth - slot * MaxStars) / (MaxStars - 1)).coerceAtLeast(FinishedStarGap)
 
 /** The empty star colours: at rest, and once a star of the row is rated or being picked. */
 private class RatingStarStyle(val empty: Color, val emptyActive: Color)
@@ -417,8 +434,8 @@ private fun ratingStarRowWidth(
 
 private const val StarEntranceScale = 0.6f
 
-/** The Finished screen's hint after "Your rating": what a tap does, the pick, or the rating. */
-internal fun journalLeadingRatingHint(
+/** The Finished screen's hint by the stars: what a tap does, the pick, or the rating. */
+internal fun journalFinishedRatingHint(
     selectedRating: Int?,
     previewRating: Int?,
 ): String = when {
