@@ -13,9 +13,9 @@
   "groups": [],
   "lastChange": {
     "by": "bostannnn",
-    "at": "2026-11-01T15:10:00Z",
+    "at": "2026-11-01T19:30:00Z",
     "via": "Claude Code",
-    "note": "The Finished screen at the end of a book: on tablets a 640 card with the cover on a band beside the rating, note, next item and buttons; on phones the same, centred, in a sheet (FinishedScreen)"
+    "note": "A sync's bar: moving while its length can't be known, then filled by the counted work and never going back, the step as the row's text above it; a new fraction slides there instead of jumping (AppProgressBar)"
   },
   "layout": "files",
   "libraries": [],
