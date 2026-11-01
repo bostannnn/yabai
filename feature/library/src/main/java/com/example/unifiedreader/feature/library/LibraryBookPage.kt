@@ -393,6 +393,17 @@ private fun LibraryBookPageTop(
                                 trackColor = tint.track,
                             ),
                     )
+                    // Back to unread in one tap, where Mark finished is the tile above.
+                    if (libraryBookCanMarkUnread(item, progress)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            AppTextButton(
+                                onClick = { actionContext.onSetReadStatus(item, false) },
+                                colors = AppButtonDefaults.textColors(contentColor = tint.content),
+                            ) {
+                                Text(text = "Mark unread", fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
                 }
             }
         }

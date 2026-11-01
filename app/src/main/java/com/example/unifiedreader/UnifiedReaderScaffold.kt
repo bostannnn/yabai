@@ -263,6 +263,14 @@ fun UnifiedReaderScaffold(
         updateLibraryDownloadSelectionMode(false)
     }
 
+    fun markSelectedLibraryItemsRead(markAsRead: Boolean) {
+        val selectedItems = effectiveSelectableDownloadItems
+            .filter { item -> item.id in selectedDownloadItemIdSet }
+        if (selectedItems.isEmpty()) return
+        viewModel.onSetReadStatus(selectedItems, markAsRead)
+        updateLibraryDownloadSelectionMode(false)
+    }
+
     val kavitaReadingDirectionLibraries = remember(
         uiState.kavitaConnection.availableLibraries,
         uiState.comicReadingDirectionPreferences,
@@ -573,6 +581,7 @@ fun UnifiedReaderScaffold(
                                     onDownloadSelectionModeChanged = ::updateLibraryDownloadSelectionMode,
                                     onSelectAllDownloadItems = ::selectAllLibraryDownloadItems,
                                     onDownloadSelectedItems = ::downloadSelectedLibraryItems,
+                                    onMarkSelectedRead = ::markSelectedLibraryItemsRead,
                                     onAddSelectedToList = listsViewModel?.let {
                                         {
                                             val selectedItems = effectiveSelectableDownloadItems

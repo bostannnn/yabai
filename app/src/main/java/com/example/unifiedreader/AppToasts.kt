@@ -20,10 +20,10 @@ internal object AppToasts {
         icon = AppToastIcon.Error,
     )
 
-    fun readStatus(markedAsRead: Boolean): AppToastMessage = if (markedAsRead) {
-        AppToastMessage(text = "Marked as finished", icon = AppToastIcon.Done)
-    } else {
-        AppToastMessage(text = "Marked as unread", icon = AppToastIcon.Unread)
+    fun readStatus(markedAsRead: Boolean, count: Int = 1): AppToastMessage {
+        val status = if (markedAsRead) "finished" else "unread"
+        val text = if (count == 1) "Marked as $status" else "$count books marked as $status"
+        return AppToastMessage(text = text, icon = if (markedAsRead) AppToastIcon.Done else AppToastIcon.Unread)
     }
 
     fun removedFromLibrary(item: ReadableItem): AppToastMessage = AppToastMessage(

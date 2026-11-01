@@ -20,6 +20,13 @@ class ReadableItemManualReadStatusActionTest {
     }
 
     @Test
+    fun `local items expose manual read status actions`() {
+        assertTrue(
+            readableItem(sourceType = SourceType.LOCAL).supportsManualReadStatusAction(),
+        )
+    }
+
+    @Test
     fun `grimmory items still expose manual read status actions`() {
         assertTrue(
             readableItem(sourceType = SourceType.GRIMMORY).supportsManualReadStatusAction(),

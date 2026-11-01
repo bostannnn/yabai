@@ -164,6 +164,18 @@ internal fun libraryBookReadAction(
     else -> LibraryBookReadAction.MarkFinished
 }
 
+/**
+ * A book started and not finished can go back to unread in one tap, beside Mark finished: under
+ * its progress bar on the book page.
+ */
+internal fun libraryBookCanMarkUnread(
+    item: ReadableItem,
+    progress: ItemProgressSummary?,
+): Boolean = item.supportsManualReadStatusAction() &&
+    progress != null &&
+    !progress.isComplete &&
+    progress.fraction > 0f
+
 /** The book page's file actions: Download at the top, the removals in a row at the end. */
 internal enum class LibraryBookFileAction {
     RemoveImported,

@@ -5,16 +5,16 @@ import javax.inject.Inject
 class AppLibraryReadStatusController @Inject constructor(
     private val applyReadStatusChangeUseCase: ApplyReadStatusChangeUseCase,
 ) {
+    /** Marks [items] finished or unread; [onProgressChanged] runs once, with how many changed, when any did. */
     suspend fun setReadStatus(
-        item: ReadableItem,
+        items: List<ReadableItem>,
         markAsRead: Boolean,
-        onProgressChanged: () -> Unit,
+        onProgressChanged: (changed: Int) -> Unit,
     ) {
-        val result = applyReadStatusChangeUseCase(
-            item = item,
-            markAsRead = markAsRead,
-        )
-        if (!result.applied) return
-        onProgressChanged()
+        val changed = items.count { item ->
+            applyReadStatusChangeUseCase(item = item, markAsRead = markAsRead).applied
+        }
+        if (changed == 0) return
+        onProgressChanged(changed)
     }
 }

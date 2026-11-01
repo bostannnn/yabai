@@ -151,7 +151,8 @@ fun ReadableItem.supportsManualReadStatusAction(): Boolean = when (sourceType) {
     // Keep the workaround source-scoped so we can re-enable this once the Stump path matures.
     SourceType.STUMP -> false
     SourceType.GRIMMORY -> true
-    SourceType.LOCAL -> false
+    // Nothing to tell a server: the status only changes on this device.
+    SourceType.LOCAL -> true
 }
 
 fun ReadableItem.kavitaSeriesGroupKey(): String? {

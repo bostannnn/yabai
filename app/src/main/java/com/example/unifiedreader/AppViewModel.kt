@@ -636,16 +636,14 @@ class AppViewModel @Inject constructor(
         )
     }
 
-    fun onSetReadStatus(item: ReadableItem, markAsRead: Boolean) {
+    fun onSetReadStatus(item: ReadableItem, markAsRead: Boolean) = onSetReadStatus(listOf(item), markAsRead)
+
+    fun onSetReadStatus(items: List<ReadableItem>, markAsRead: Boolean) {
         viewModelScope.launch {
-            libraryReadStatusController.setReadStatus(
-                item = item,
-                markAsRead = markAsRead,
-                onProgressChanged = {
-                    refreshProgress()
-                    toasts.show(AppToasts.readStatus(markedAsRead = markAsRead))
-                },
-            )
+            libraryReadStatusController.setReadStatus(items, markAsRead) { changed ->
+                refreshProgress()
+                toasts.show(AppToasts.readStatus(markedAsRead = markAsRead, count = changed))
+            }
         }
     }
 

@@ -10,6 +10,7 @@ import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.util.Locale
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -239,6 +240,16 @@ class LibraryBookPageModelTest {
     }
 
     @Test
+    fun `a book started and not finished can go back to unread`() {
+        val grimmory = book(id = "g", title = "Book").copy(sourceType = SourceType.GRIMMORY, isLocalImport = false)
+        assertTrue(libraryBookCanMarkUnread(grimmory, ItemProgressSummary(label = "", fraction = 0.4f)))
+        assertFalse(libraryBookCanMarkUnread(grimmory, null))
+        assertFalse(libraryBookCanMarkUnread(grimmory, ItemProgressSummary(label = "", fraction = 0f)))
+        // Finished: the tile itself says Mark unread.
+        assertFalse(libraryBookCanMarkUnread(grimmory, ItemProgressSummary(label = "", fraction = 1f, isFinished = true)))
+    }
+
+    @Test
     fun `read and file actions follow the source and the file`() {
         val grimmory = book(id = "g", title = "Book").copy(sourceType = SourceType.GRIMMORY, isLocalImport = false)
         assertEquals(LibraryBookReadAction.MarkFinished, libraryBookReadAction(grimmory, null))
@@ -251,7 +262,9 @@ class LibraryBookPageModelTest {
             libraryBookReadAction(grimmory, ItemProgressSummary(label = "", fraction = 1f, isFinished = true)),
         )
         val local = book(id = "l", title = "Local")
-        assertNull(libraryBookReadAction(local, null))
+        assertEquals(LibraryBookReadAction.MarkFinished, libraryBookReadAction(local, null))
+        val stump = book(id = "s", title = "Stump").copy(sourceType = SourceType.STUMP, isLocalImport = false)
+        assertNull(libraryBookReadAction(stump, null))
         assertEquals(listOf(LibraryBookFileAction.RemoveImported), libraryBookFileActions(local, LibraryItemActionContext()))
         assertEquals(
             listOf(LibraryBookFileAction.Downloading),

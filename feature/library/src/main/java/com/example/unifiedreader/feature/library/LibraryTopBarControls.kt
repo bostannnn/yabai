@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -127,7 +128,7 @@ fun LibraryTopBarMoreMenu(
 /**
  * The bar that replaces the top bar while books are selected (it sits on the selected
  * container): close, how many are picked, Select all, Add to list (when [onAddToList] is given),
- * and Download N. Download is the selected
+ * Download N, then "•••" with Mark finished and Mark unread (when [onMarkRead] is given). Download is the selected
  * pair inverted, not `primary`: High Contrast's primary is as white as its selected container.
  */
 @Composable
@@ -139,6 +140,8 @@ fun LibrarySelectionTopBar(
     onDownload: () -> Unit,
     modifier: Modifier = Modifier,
     onAddToList: (() -> Unit)? = null,
+    // Marks the picked books finished (true) or unread (false).
+    onMarkRead: ((Boolean) -> Unit)? = null,
 ) {
     val selected = UnifiedReaderThemeTokens.colors.surfaceSelected
     val onSelected = UnifiedReaderThemeTokens.colors.onSurfaceSelected
@@ -190,6 +193,37 @@ fun LibrarySelectionTopBar(
                 text = if (selectedCount > 0) "Download $selectedCount" else "Download",
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(start = 8.dp),
+            )
+        }
+        if (onMarkRead != null) {
+            LibrarySelectionMoreMenu(enabled = selectedCount > 0, tint = onSelected, onMarkRead = onMarkRead)
+        }
+    }
+}
+
+@Composable
+private fun LibrarySelectionMoreMenu(enabled: Boolean, tint: Color, onMarkRead: (Boolean) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        AppIconButton(onClick = { expanded = true }, enabled = enabled) {
+            Icon(imageVector = AppIcons.MoreHoriz, contentDescription = "More for the selected books", tint = tint)
+        }
+        AppMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            AppMenuItem(
+                text = { Text(text = "Mark finished") },
+                leadingIcon = { Icon(imageVector = AppIcons.Check, contentDescription = null) },
+                onClick = {
+                    expanded = false
+                    onMarkRead(true)
+                },
+            )
+            AppMenuItem(
+                text = { Text(text = "Mark unread") },
+                leadingIcon = { Icon(imageVector = AppIcons.History, contentDescription = null) },
+                onClick = {
+                    expanded = false
+                    onMarkRead(false)
+                },
             )
         }
     }
