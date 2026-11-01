@@ -473,6 +473,10 @@ fun UnifiedReaderScaffold(
                                         val kindOf: (String) -> LibraryTagKind = { tag -> sortings.tagKindOf(tag) }
                                         kindOf
                                     },
+                                    onOpenBookPage = { item ->
+                                        pendingBookPageItemId = item.id
+                                        viewModel.openLibrarySource(item.sourceType)
+                                    },
                                 )
                             }
 

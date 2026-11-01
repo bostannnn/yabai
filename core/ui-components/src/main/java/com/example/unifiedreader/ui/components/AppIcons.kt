@@ -38,6 +38,8 @@ object AppIcons {
     val Home: ImageVector @Composable get() = icon(R.drawable.ic_home)
     val Info: ImageVector @Composable get() = icon(R.drawable.ic_info)
     val HourglassTop: ImageVector @Composable get() = icon(R.drawable.ic_hourglass_top)
+    val Keep: ImageVector @Composable get() = icon(R.drawable.ic_keep)
+    val KeepOff: ImageVector @Composable get() = icon(R.drawable.ic_keep_off)
     val KeyboardArrowLeft: ImageVector @Composable get() = icon(R.drawable.ic_keyboard_arrow_left)
     val KeyboardArrowRight: ImageVector @Composable get() = icon(R.drawable.ic_keyboard_arrow_right)
     val Menu: ImageVector @Composable get() = icon(R.drawable.ic_menu)
@@ -62,6 +64,8 @@ object AppIcons {
     val Toc: ImageVector @Composable get() = icon(R.drawable.ic_toc)
     val Tune: ImageVector @Composable get() = icon(R.drawable.ic_tune)
     val VerticalAlignTop: ImageVector @Composable get() = icon(R.drawable.ic_vertical_align_top)
+    val ViewList: ImageVector @Composable get() = icon(R.drawable.ic_view_list)
+    val VisibilityOff: ImageVector @Composable get() = icon(R.drawable.ic_visibility_off)
 
     @Composable
     private fun icon(@DrawableRes id: Int): ImageVector = ImageVector.vectorResource(id)

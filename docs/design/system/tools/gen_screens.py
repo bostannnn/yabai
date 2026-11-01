@@ -839,13 +839,13 @@ what_lists_shows = f"""
   {shows_switch("Empty shelves", "3 hold no books", False)}
   <div class="yb-divider is-full"></div>
   <div class="yb-sheet-section"><h3 class="yb-sheet-label" style="padding:0 20px">Everywhere</h3></div>
-  <div style="padding:4px 20px 8px;display:flex;flex-direction:column;gap:8px"><span class="yb-row-title">Finished lists</span><div class="yb-seg"><span class="is-selected">Fold at the end</span><span>Hide</span><span>With the rest</span></div></div>
+  <div style="padding:4px 20px 8px;display:flex;flex-direction:column;gap:8px"><span class="yb-row-title">Finished lists</span><div class="yb-seg"><span class="is-selected">At the end</span><span>Hide</span><span>With the rest</span></div></div>
   <div class="yb-divider is-full"></div>
   <div class="yb-sheet-section"><h3 class="yb-sheet-label" style="padding:0 20px">Hidden · 11</h3></div>
   {hidden_row("Kobo", "Grimmory · shelf · 12 books")}
   {hidden_row("Absolute Zero", "Kavita · reading list · 18 issues")}
   {hidden_row("After the Flood", "Kavita · reading list · 7 issues")}
-  <button class="yb-btn is-text" style="margin:4px 8px">Show all 11 hidden</button>
+  <button class="yb-btn is-text" style="margin:4px 8px">See all 11 hidden</button>
 </div>"""
 
 
@@ -1131,7 +1131,7 @@ Every list in one place, beside the sources in the rail and the drawer. All is a
 - **A list's menu** (`AppMenu`, from a long-press on a tile or a row, or ⋯ on its page): Pin to the top ("First on All and on Kavita"; Unpin with `keep_off` once pinned), Hide from Lists ("Stays on Kavita. Hidden brings it back."; Show again once hidden), Select several, then Edit, greyed with its reason when the list is someone else's ("Promoted by someone else: read-only"). The row or tile takes `surface-container-highest` while its menu is open.
 - **Select several** turns the bar into the selection bar (`surface-container-high`): Close, "5 selected", Select all, then Pin (tonal) and Hide (filled). Rows and tiles get an `AppRoundCheck` at their start and a picked one takes `primary-container`. Hide or Pin ends the selection; Hide's toast says "5 lists hidden" with Undo.
 - **Pinned, hidden, Recent and each place's choices live on this device only.** Nothing changes on Kavita or Grimmory, and a list hidden here still shows in their web apps.
-- **What Lists shows** (`AppSideSheet` from the bar's menu, `AppPanelHeader` with the line "On this device only. Nothing changes on the servers."): Kavita: Lists other people share (promoted by someone else), Collections. Grimmory: Public shelves of other people, Empty shelves. Everywhere: Finished lists (`AppSegmentedRow` Fold at the end, Hide, With the rest). Hidden · N: a row per hidden list (its place, kind and size) with Show, then Show all N hidden. A switch that is off takes that whole group out of All, the place and its chip's count.
+- **What Lists shows** (`AppSideSheet` from the bar's menu, `AppPanelHeader` with the line "On this device only. Nothing changes on the servers."): Kavita: Lists other people share (promoted by someone else), Collections. Grimmory: Public shelves of other people, Empty shelves. Everywhere: Finished lists (`AppSegmentedRow` At the end, Hide, With the rest). Hidden · N: a row per hidden list (its place, kind and size) with Show, the first five, then See all N hidden. A switch that is off takes that whole group out of All, the place and its chip's count.
 - **Search** narrows the picked place in two sections: Lists (names that match, as `AppListRow`s with the match in `primary`), then Books in your lists (`AppBookRow`s: the book, its author or series, and the lists holding it: "In Blood Moon Rising, 2 of 18 · Night Run"). A book's row opens its book page, where In your lists opens a list. Hidden lists are left out. "No list or book in a list matches “Moon”." when both are empty.
 - The servers' lists show while that server is connected; the app reads them again when Lists opens (at most every five minutes) and keeps the last copy for offline. Captions name the kind on All and under a place's All: "Reading list · 32 issues", "Collection · 9 series", "Magic shelf · 44 books", "Shelf · 55 books".
 - **Tiles** are `AppListCover` in the library grid's columns and gap, the name at 14 SemiBold and one caption line: "9 books"; "2 of 5 read" for a reading order with something read; "Updates itself · 23" with the `tune` badge for a list that works itself out.

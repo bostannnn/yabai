@@ -180,7 +180,7 @@ The shared emulator held this branch's earlier debug build at the old numbering 
 column but not the tag tables); its app data was cleared on 2026-10-31 at the user's go-ahead and the merged
 build (v35) installed, so it starts empty: no local books, lists, journal or server sessions.
 
-## Fourth pass: a Lists screen that stays short (designed 2026-11-01, not built)
+## Fourth pass: a Lists screen that stays short (built 2026-11-01)
 
 After 0.29.0 the user said Lists "is now working, but [not] very usable": 60+ Kavita lists and 60+ Grimmory lists
 always on screen, no way to find your way through them. Mocked as "Fourth pass" on the canvas (boards P4*, notes
@@ -310,3 +310,25 @@ To build (expected ownership):
 - 2026-11-01, fourth pass designed (see its section): canvas boards P4* and the Design System (ListsScreen,
   AppListRow, AppLetterStrip, four icons) on branch `claude/lists-menu-ux-redesign-4765ae`; main 0.29.1 merged in.
   Nothing built yet.
+- 2026-11-01, fourth pass built on the same branch (Room **v37**, `MIGRATION_36_37`). Kit: `AppListRow`,
+  `AppLetterStrip` (Cyrillic and other first letters get their own, after Z), icons `Keep`, `KeepOff`, `ViewList`,
+  `VisibilityOff`. Database: `list_preferences` (pin time, hidden, page opened), `list_settings` (key and value:
+  each place's kind, sort and Show as; What Lists shows), `server_lists.startYear`/`endYear` from Kavita.
+  `feature:lists`: `ListPreferences.kt` (store and choices), `ListsBrowse.kt` (pure: `ListsCatalog`, `overview`,
+  `placePage`, `search`, row lines), `ListsCells.kt` (the grid as a list of cells with their gaps, so the letter
+  strip can jump by index), `ListsScreen.kt`, `ListsParts.kt`, `WhatListsShowsSheet.kt`; `ListsRouteState` holds
+  the selection, the sheet flag and the grid's scroll (kept while a list's page is open). App: `AppListsViewModel`
+  (preferences, choices, pin, hide, page opened), `ListsTopBar` (⋯ with What Lists shows and Select several; the
+  selection bar with Select all, Pin and Hide and an Undo toast; ⋯ on a list's page with Pin and Hide), search's
+  books open their book page in the library. The Smart chip is gone (an old saved "smart" opens All).
+  Deviations from the mock, put back into the design system (v41): "At the end" for "Fold at the end" (it didn't fit
+  its segment), "See all N hidden".
+- Tests: `ListsBrowseTest` (9, replaces `ListsSectionsTest`), `ListPreferenceDaoTest` (2), the 36→37 migration,
+  `KavitaListsApiTest` (years). Checked on a private emulator copy (`yabai_lists_35`, port 5558, debug build) against
+  a stand-in Kavita (scratchpad `fake_kavita.py`: 62 reading lists, 4 collections, empty library) and 30 seeded lists
+  of your own: All as an overview (Pinned, Your lists in one row with See all, Kavita's sideways row with See all 66),
+  the Kavita place (tabs with counts, Sort, rows, A to Z with letters, the strip jumping to S, two columns in
+  landscape), the long-press menu (Edit greyed for a shared list), Pin, Select several and Hide with Undo, the
+  Hidden fold, What Lists shows, search (lists highlighted, books with where they are), Back from a place to All,
+  the scroll kept and Recent after a list's page. Not checked: Grimmory (no stand-in), covers in rows (the stand-in's
+  lists hold no issues), the real Kavita or the tablet, TalkBack on the letter strip.

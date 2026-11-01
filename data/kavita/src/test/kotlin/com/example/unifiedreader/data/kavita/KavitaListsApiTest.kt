@@ -53,11 +53,20 @@ class KavitaListsApiTest {
     }
 
     @Test
-    fun `reading lists say whose they are, and their issues come in order`() = runBlocking {
+    fun `reading lists say whose they are and their years, and their issues come in order`() = runBlocking {
         val lists = api {
-            respondJson("""[{"id":4,"title":"Eclipse War","itemCount":22,"promoted":true,"ownerUserName":"admin","coverImage":"x"},{"title":"no id"}]""")
+            respondJson(
+                """[{"id":4,"title":"Eclipse War","itemCount":22,"promoted":true,"ownerUserName":"admin","coverImage":"x","startingYear":2019,"endingYear":2020},""" +
+                    """{"id":5,"title":"Ashfall","itemCount":3,"startingYear":0,"endingYear":0},{"title":"no id"}]""",
+            )
         }.getReadingLists("token")
-        assertEquals(listOf(KavitaReadingList("4", "Eclipse War", 22, promoted = true, ownerUserName = "admin")), lists)
+        assertEquals(
+            listOf(
+                KavitaReadingList("4", "Eclipse War", 22, promoted = true, ownerUserName = "admin", startingYear = 2019, endingYear = 2020),
+                KavitaReadingList("5", "Ashfall", 3, promoted = false, ownerUserName = null),
+            ),
+            lists,
+        )
 
         val entries = api { respondJson("""[{"id":31,"order":1,"chapterId":700},{"id":30,"order":0,"chapterId":699}]""") }
             .getReadingListEntries("token", "4")
