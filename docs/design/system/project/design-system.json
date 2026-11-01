@@ -13,9 +13,9 @@
   "groups": [],
   "lastChange": {
     "by": "bostannnn",
-    "at": "2026-11-01T08:00:00Z",
+    "at": "2026-11-01T12:00:00Z",
     "via": "Claude Code",
-    "note": "No Browse page: Filters carries Set in, When, About and Mood with Find, and docks beside the library on Expanded (LibraryFilters); the home's All books row has Filters and sort; Tags and the search's tag strip say Filters"
+    "note": "Lists stays short with 60+ lists per server: All is an overview (card, Pinned, Your lists, a row per server with See all); a place shows its lists as rows (AppListRow) with kinds, Sort, Show as, Recent, A to Z and the AppLetterStrip; Pin, Hide, Select several, What Lists shows, and search split into lists and books (ListsScreen); keep, keep_off, view_list and visibility_off icons"
   },
   "layout": "files",
   "libraries": [],
