@@ -7,41 +7,55 @@ import org.junit.Test
 
 class LibraryReadingCardModelTest {
     @Test
-    fun `the place names the chapter over its title, the chapter alone, or the page`() {
-        assertEquals(
-            LibraryReadingCardPlace(label = "Chapter 4 of 6", line = "The Lighthouse Ledger"),
-            libraryReadingCardPlace(epub(chapterTitle = "The Lighthouse Ledger")),
-        )
-        assertEquals(LibraryReadingCardPlace(label = null, line = "Chapter 4 of 6"), libraryReadingCardPlace(epub(chapterTitle = null)))
-        assertEquals(LibraryReadingCardPlace(label = null, line = "Page 5 of 8"), libraryReadingCardPlace(comic()))
-        assertNull(libraryReadingCardPlace(ItemProgressSummary(label = "Resume at 40%", fraction = 0.4f)))
-        assertNull(libraryReadingCardPlace(null))
+    fun `on its own the card has one line, the author and the chapter or page`() {
+        assertEquals(listOf("Oona Fitch · Chapter 4 of 6"), libraryReadingCardLines("Oona Fitch", epub(chapterTitle = "The Ledger"), null, tall = false))
+        assertEquals(listOf("Issue 2 · Page 5 of 8"), libraryReadingCardLines("Issue 2", comic(), null, tall = false))
+        assertEquals(listOf("Page 5 of 8"), libraryReadingCardLines(null, comic(), null, tall = false))
+        assertEquals(listOf("Oona Fitch"), libraryReadingCardLines("Oona Fitch", ItemProgressSummary(label = "Resume at 40%", fraction = 0.4f), null, tall = false))
+        assertEquals(emptyList<String>(), libraryReadingCardLines(null, null, null, tall = false))
     }
 
     @Test
-    fun `a title that only numbers the chapter is left to the label`() {
+    fun `beside the shelves the author and the place get a line each, the place with the chapter's name`() {
+        assertEquals(
+            listOf("Oona Fitch", "Chapter 4 of 6 · The Lighthouse Ledger"),
+            libraryReadingCardLines("Oona Fitch", epub(chapterTitle = "The Lighthouse Ledger"), null, tall = true),
+        )
+        assertEquals(listOf("Oona Fitch", "Chapter 4 of 6"), libraryReadingCardLines("Oona Fitch", epub(chapterTitle = null), null, tall = true))
+        assertEquals(listOf("Page 5 of 8"), libraryReadingCardLines(null, comic(), null, tall = true))
+    }
+
+    @Test
+    fun `a reading order's footnote takes the place's spot`() {
+        val then = "Then Neon Ronin #13, The Long Eclipse #3"
+        assertEquals(listOf("Issue 12 · $then"), libraryReadingCardLines("Issue 12", comic(), then, tall = false))
+        assertEquals(listOf("Issue 12", then), libraryReadingCardLines("Issue 12", comic(), then, tall = true))
+    }
+
+    @Test
+    fun `a chapter name that only numbers the chapter is left out`() {
         listOf("Chapter 4", "chapter 4.", "Part II", "IV", "4", "Глава 4").forEach { title ->
-            assertEquals(title, LibraryReadingCardPlace(label = null, line = "Chapter 4 of 6"), libraryReadingCardPlace(epub(chapterTitle = title)))
+            assertEquals(title, listOf("Chapter 4 of 6"), libraryReadingCardLines(null, epub(chapterTitle = title), null, tall = true))
         }
         listOf("Chapter 4: The Ledger", "Civil Dawn", "Mix").forEach { title ->
-            assertEquals(title, title, libraryReadingCardPlace(epub(chapterTitle = title))?.line)
+            assertEquals(title, listOf("Chapter 4 of 6 · $title"), libraryReadingCardLines(null, epub(chapterTitle = title), null, tall = true))
         }
     }
 
     @Test
-    fun `the progress line adds the page only when the place names the chapter`() {
-        assertEquals("47% · Page 47 of 73", libraryReadingCardProgressLabel(epub(chapterTitle = "The Lighthouse Ledger")))
-        assertEquals("63%", libraryReadingCardProgressLabel(comic()))
-        assertEquals("Not started", libraryReadingCardProgressLabel(null))
+    fun `the bar's label is the percentage, with the time left when the pace is known`() {
+        assertEquals("47% · 25 min left", libraryReadingCardBarLabel(epub(chapterTitle = null), 25 * Minute))
+        assertEquals("63%", libraryReadingCardBarLabel(comic(), null))
+        assertEquals("Not started", libraryReadingCardBarLabel(null, 25 * Minute))
     }
 
     @Test
     fun `time left reads in minutes, then hours and minutes, then whole hours`() {
-        assertEquals("Less than a minute left", libraryReadingTimeLeftLabel(20_000L))
-        assertEquals("About 25 min left", libraryReadingTimeLeftLabel(25 * Minute + 10_000L))
-        assertEquals("About 1 h 20 min left", libraryReadingTimeLeftLabel(80 * Minute))
-        assertEquals("About 2 h left", libraryReadingTimeLeftLabel(120 * Minute))
-        assertEquals("About 13 h left", libraryReadingTimeLeftLabel(12 * 60 * Minute + 40 * Minute))
+        assertEquals("Under a minute left", libraryReadingTimeLeftLabel(20_000L))
+        assertEquals("25 min left", libraryReadingTimeLeftLabel(25 * Minute + 10_000L))
+        assertEquals("1 h 20 min left", libraryReadingTimeLeftLabel(80 * Minute))
+        assertEquals("2 h left", libraryReadingTimeLeftLabel(120 * Minute))
+        assertEquals("13 h left", libraryReadingTimeLeftLabel(12 * 60 * Minute + 40 * Minute))
     }
 
     @Test

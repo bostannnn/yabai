@@ -5,13 +5,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,13 +20,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.max
 import com.example.unifiedreader.feature.library.LibraryCoverAspectRatio
 import com.example.unifiedreader.feature.library.LibraryGridMetrics
 import com.example.unifiedreader.feature.library.LibraryReadingCardDefaults
-import com.example.unifiedreader.feature.library.isLibraryCompactWindow
 import com.example.unifiedreader.feature.library.libraryGridColumns
-import com.example.unifiedreader.feature.library.readingCardWidth
+import com.example.unifiedreader.feature.library.readingCardBesideWidth
 import com.example.unifiedreader.ui.components.appSkeletonPulse
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
@@ -38,6 +34,8 @@ internal const val LibraryShelvesSlotPlaceholderTag = "library-shelves-slot-plac
 internal fun ShelfPreviewPlaceholderRow(
     coverWidth: Dp,
     modifier: Modifier = Modifier,
+    count: Int = ShelfPreviewPlaceholderCount,
+    showSupportingLine: Boolean = true,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
     val presentation = UnifiedReaderThemeTokens.presentation
@@ -45,7 +43,7 @@ internal fun ShelfPreviewPlaceholderRow(
         modifier = modifier.appSkeletonPulse(),
         horizontalArrangement = Arrangement.spacedBy(presentation.shelfItemSpacing),
     ) {
-        repeat(ShelfPreviewPlaceholderCount) {
+        repeat(count) {
             // Same footprint as a loaded ShelfPreviewCard: a bare cover tile.
             Column(
                 modifier = Modifier.width(coverWidth),
@@ -65,14 +63,16 @@ internal fun ShelfPreviewPlaceholderRow(
                         .clip(RoundedCornerShape(presentation.coverCornerRadius))
                         .background(semanticColors.surfaceOverlay),
                 )
-                Box(
-                    modifier = Modifier
-                        .padding(top = 2.dp)
-                        .width(72.dp)
-                        .height(10.dp)
-                        .clip(RoundedCornerShape(presentation.coverCornerRadius))
-                        .background(semanticColors.surfaceOverlay),
-                )
+                if (showSupportingLine) {
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 2.dp)
+                            .width(72.dp)
+                            .height(10.dp)
+                            .clip(RoundedCornerShape(presentation.coverCornerRadius))
+                            .background(semanticColors.surfaceOverlay),
+                    )
+                }
                 Box(
                     modifier = Modifier
                         .padding(top = 2.dp)
@@ -96,22 +96,23 @@ internal fun LibraryShelvesSlotPlaceholder(
     modifier: Modifier = Modifier,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
-    val compact = isLibraryCompactWindow()
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
             .testTag(LibraryShelvesSlotPlaceholderTag),
     ) {
         val columns = with(LocalDensity.current) { libraryGridColumns(availableWidth = maxWidth, metrics = gridMetrics) }
-        val cardHeight = if (compact) {
-            LibraryReadingCardDefaults.compactCoverWidth * 1.5f + 96.dp
+        val cardWidth = columns.readingCardBesideWidth(gridMetrics.spacing)
+        // Beside the card the strip is Small, as many tiles as fill the shelves' share of the row.
+        val stripCoverWidth = if (cardWidth != null) ShelfBesideCardCoverWidth else columns.cellWidth
+        val stripCount = if (cardWidth != null) {
+            ((maxWidth - cardWidth) / (stripCoverWidth + gridMetrics.spacing)).toInt().coerceAtLeast(1)
         } else {
-            max(columns.cellWidth * 1.5f, LibraryReadingCardDefaults.minTextHeight) + LibraryReadingCardDefaults.padding * 2
+            ShelfPreviewPlaceholderCount
         }
         val card = @Composable { cardModifier: Modifier ->
             Box(
                 modifier = cardModifier
-                    .heightIn(min = cardHeight)
                     .appSkeletonPulse()
                     .clip(RoundedCornerShape(LibraryReadingCardDefaults.cornerRadius))
                     .background(semanticColors.surfaceRaised),
@@ -134,23 +135,23 @@ internal fun LibraryShelvesSlotPlaceholder(
                     }
                 }
                 ShelfPreviewPlaceholderRow(
-                    coverWidth = columns.cellWidth,
+                    coverWidth = stripCoverWidth,
+                    count = stripCount,
+                    showSupportingLine = cardWidth == null,
                     modifier = Modifier.padding(top = 14.dp),
                 )
             }
         }
-        val cardWidth = columns.readingCardWidth(gridMetrics.spacing)
         if (cardWidth != null) {
-            Row(
-                modifier = Modifier.height(IntrinsicSize.Min),
-                horizontalArrangement = Arrangement.spacedBy(gridMetrics.spacing),
-            ) {
-                card(Modifier.width(cardWidth).fillMaxHeight())
-                band(Modifier.weight(1f))
-            }
+            CardBesideBand(
+                cardWidth = cardWidth,
+                spacing = gridMetrics.spacing,
+                card = { card(Modifier.fillMaxSize()) },
+                band = { band(Modifier) },
+            )
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(StackedSpacing)) {
-                card(Modifier.fillMaxWidth())
+                card(Modifier.fillMaxWidth().height(LibraryReadingCardDefaults.height))
                 band(Modifier.fillMaxWidth())
             }
         }

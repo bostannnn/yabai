@@ -32,10 +32,15 @@ import com.example.unifiedreader.feature.library.LibraryCoverProgressBar
 import com.example.unifiedreader.feature.library.ResolvedLibraryCover
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
-/** Shelf covers match the grid's covers: the grid's cell width, 2:3 shape, and image size. */
+/**
+ * Shelf covers match the grid's covers: the grid's cell width, 2:3 shape, and image size. Beside
+ * the reading card they are Small and [showSupportingText] is off: the tiles keep the title and
+ * the progress and drop the author line.
+ */
 internal data class ShelfCoverLayout(
     val width: Dp,
     val imageVariant: LibraryCoverImageVariant,
+    val showSupportingText: Boolean = true,
 )
 
 @Composable
@@ -59,7 +64,7 @@ internal fun ShelfPreviewCard(
         LibraryCoverActionCard(
             item = item,
             title = title,
-            supportingText = supportingText,
+            supportingText = supportingText?.takeIf { covers.showSupportingText },
             trailingText = trailingText,
             coverImageUrlProvider = { coverItem, coverVariant ->
                 if (coverLoadingEnabled) {

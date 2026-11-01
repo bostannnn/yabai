@@ -1,24 +1,23 @@
 package com.example.unifiedreader.feature.library
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -27,37 +26,36 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.max
-import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.ui.components.AppButton
-import com.example.unifiedreader.ui.components.AppButtonDefaults
+import com.example.unifiedreader.core.model.libraryPrimaryText
+import com.example.unifiedreader.core.model.librarySecondaryText
+import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppLayout
-import com.example.unifiedreader.ui.components.AppPanel
+import com.example.unifiedreader.ui.components.appPressScale
 import com.example.unifiedreader.ui.theme.AppCoverColors
 import com.example.unifiedreader.ui.theme.UnifiedReaderDefaultPresentationTokens
 import java.time.ZoneId
 
 /**
- * The card for the book being read: its cover, an [overline] ("Continue reading", with when it
- * was last read), the title and author, where the reader is (the chapter and its name, or the
- * page), the progress with [timeLeftMillis] when the journal knows the pace, a bar broken at the
- * chapters, and Continue plus Details. On tablets ([compact] false) the cover is [coverWidth]
- * (the grid's cell width) beside the text; on phones it is 96 dp, with the progress and the
- * buttons under it. Tinted with the cover's colours, or the theme accent for a cover without any.
+ * The card for the book being read, small: its cover and, as tall as the cover, an [overline]
+ * ("Continue reading", with when it was last read) in the cover's accent, the title, the author and
+ * where the reader is ([libraryReadingCardLines]; a [footnote] such as a reading order's "Then ..."
+ * takes the place's spot), and the bar with the percentage and [timeLeftMillis] when the journal
+ * knows the pace. A tap on the card continues the book ([onContinue], announced as
+ * [continueLabel]); ••• opens its book page. On its own the card is
+ * [LibraryReadingCardDefaults.height] tall; [tall] (beside the shelves, given their height) the cover
+ * fills that height and the author and the place get a line each. Tinted with the cover's colours,
+ * or the theme accent for a cover without any.
  */
 @Composable
 fun LibraryReadingCard(
     item: ReadableItem,
     progress: ItemProgressSummary?,
     overline: String,
-    coverWidth: Dp,
-    compact: Boolean,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -> Unit,
     imageVariant: LibraryCoverImageVariant,
@@ -66,11 +64,8 @@ fun LibraryReadingCard(
     continueLabel: String = "Continue",
     actionContext: LibraryItemActionContext = LibraryItemActionContext(),
     timeLeftMillis: Long? = null,
-    // The second button: Details (the book page) unless given, as Open list on a reading order's card.
-    secondaryLabel: String = "Details",
-    onSecondary: (() -> Unit)? = null,
-    // A line under the progress, as a reading order's "Then ..." names the books after this one.
     footnote: String? = null,
+    tall: Boolean = false,
 ) {
     val lastReadAt = progress?.lastReadAtEpochMillis ?: 0L
     val headline = remember(overline, lastReadAt) {
@@ -91,203 +86,119 @@ fun LibraryReadingCard(
             onAccentContainer = scheme.onPrimaryContainer,
         ),
     )
-    val colors = LibraryReadingCardColors(
-        content = tint.content,
-        track = tint.track,
-        accent = tint.accent,
-        onAccent = tint.onAccent,
-    )
-    val cover = @Composable { width: Dp ->
-        Box(
-            modifier = Modifier
-                .width(width)
-                .shadow(elevation = 18.dp, shape = RoundedCornerShape(6.dp), clip = false),
-        ) {
-            VisibleResolvedLibraryCover(
-                item = item,
-                coverImageUrlProvider = coverImageUrlProvider,
-                onCoverVisible = onCoverVisible,
-                imageVariant = imageVariant,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(LibraryCoverAspectRatio),
-                emptyCoverContent = {
-                    LibraryCoverPlaceholder(item = item, reserveTopBadge = false, reserveBottomBadge = false)
-                },
-            )
-            progress?.takeIf { it.shouldShowCoverProgress }?.let { summary ->
-                LibraryCoverProgressBar(
-                    fraction = summary.fraction,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth(),
-                )
-            }
-        }
-    }
-    val actions = @Composable { fillContinue: Boolean ->
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            LibraryReadingCardContinue(
-                label = continueLabel,
-                colors = colors,
-                onClick = onContinue,
-                modifier = if (fillContinue) Modifier.weight(1f) else Modifier,
-            )
-            LibraryReadingCardDetails(
-                label = secondaryLabel,
-                colors = colors,
-                onClick = onSecondary ?: { actionContext.onOpenItemPage(item) },
-            )
-        }
-    }
+    val colors = LibraryReadingCardColors(content = tint.content, track = tint.track, accent = tint.accent)
+    val author = item.librarySecondaryText()
+    val lines = remember(author, progress, footnote, tall) { libraryReadingCardLines(author, progress, footnote, tall) }
 
     val cardShape = RoundedCornerShape(LibraryReadingCardDefaults.cornerRadius)
-    AppPanel(
+    val interactionSource = remember { MutableInteractionSource() }
+    Box(
         modifier = modifier
-            .fillMaxWidth()
+            .appPressScale(interactionSource)
             .clip(cardShape)
-            .coverTint(tint),
-        shape = cardShape,
-        color = Color.Transparent,
-        contentColor = colors.content,
+            .coverTint(tint)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = ripple(color = colors.content),
+                onClickLabel = continueLabel,
+                role = Role.Button,
+                onClick = onContinue,
+            ),
     ) {
-        if (compact) {
-            Column(modifier = Modifier.padding(LibraryReadingCardDefaults.padding)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(LibraryReadingCardDefaults.padding)) {
-                    cover(LibraryReadingCardDefaults.compactCoverWidth)
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .heightIn(min = LibraryReadingCardDefaults.compactCoverWidth * 1.5f),
-                    ) {
-                        LibraryReadingCardHead(item, progress, headline, compact = true)
-                    }
-                }
-                LibraryReadingCardProgress(progress, timeLeftMillis, colors, Modifier.padding(top = 16.dp))
-                footnote?.let { LibraryReadingCardFootnote(it, colors) }
-                Box(modifier = Modifier.padding(top = 16.dp)) { actions(true) }
-            }
-        } else {
-            // Given a height (beside the shelf tabs), the card fills it: the cover centres and the
-            // progress and buttons stay at the bottom. Otherwise it is as tall as its cover.
-            Row(
+        Row(
+            modifier = Modifier
+                .then(if (tall) Modifier.fillMaxHeight() else Modifier.height(LibraryReadingCardDefaults.height))
+                .padding(LibraryReadingCardDefaults.padding),
+            horizontalArrangement = Arrangement.spacedBy(LibraryReadingCardDefaults.coverGap),
+        ) {
+            Box(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .padding(LibraryReadingCardDefaults.padding),
-                horizontalArrangement = Arrangement.spacedBy(LibraryReadingCardDefaults.padding),
-                verticalAlignment = Alignment.CenterVertically,
+                    .aspectRatio(LibraryCoverAspectRatio, matchHeightConstraintsFirst = true)
+                    .shadow(elevation = 10.dp, shape = RoundedCornerShape(6.dp), clip = false),
             ) {
-                cover(coverWidth)
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .heightIn(min = max(coverWidth * 1.5f, LibraryReadingCardDefaults.minTextHeight)),
-                ) {
-                    LibraryReadingCardHead(item, progress, headline, compact = false)
-                    Spacer(modifier = Modifier.weight(1f))
-                    // At least this much under the place, so a two-line title doesn't run into the progress.
-                    LibraryReadingCardProgress(progress, timeLeftMillis, colors, Modifier.padding(top = 12.dp))
-                    footnote?.let { LibraryReadingCardFootnote(it, colors) }
-                    Box(modifier = Modifier.padding(top = 16.dp)) { actions(false) }
-                }
+                VisibleResolvedLibraryCover(
+                    item = item,
+                    coverImageUrlProvider = coverImageUrlProvider,
+                    onCoverVisible = onCoverVisible,
+                    imageVariant = imageVariant,
+                    modifier = Modifier.fillMaxSize(),
+                    emptyCoverContent = {
+                        LibraryCoverPlaceholder(item = item, reserveTopBadge = false, reserveBottomBadge = false)
+                    },
+                )
             }
+            LibraryReadingCardText(
+                title = item.libraryPrimaryText(),
+                overline = headline,
+                lines = lines,
+                progress = progress,
+                timeLeftMillis = timeLeftMillis,
+                colors = colors,
+                tall = tall,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+            )
         }
-    }
-}
-
-@Composable
-private fun LibraryReadingCardContinue(
-    label: String,
-    colors: LibraryReadingCardColors,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    AppButton(
-        onClick = onClick,
-        modifier = modifier.height(LibraryReadingCardDefaults.buttonHeight),
-        colors = AppButtonDefaults.filledColors(containerColor = colors.accent, contentColor = colors.onAccent),
-        contentPadding = LibraryReadingCardDefaults.buttonPadding,
-    ) {
-        Icon(
-            imageVector = AppIcons.MenuBook,
-            contentDescription = null,
-            modifier = Modifier
-                .padding(end = 8.dp)
-                .size(20.dp),
-        )
-        Text(text = label, style = LibraryReadingCardDefaults.buttonTextStyle())
-    }
-}
-
-@Composable
-private fun LibraryReadingCardFootnote(text: String, colors: LibraryReadingCardColors) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.bodyMedium,
-        color = colors.content.copy(alpha = 0.8f),
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.padding(top = AppLayout.headingGap),
-    )
-}
-
-/** Details opens the item's book page; a reading order's card puts Open list here instead. */
-@Composable
-private fun LibraryReadingCardDetails(
-    label: String,
-    colors: LibraryReadingCardColors,
-    onClick: () -> Unit,
-) {
-    AppButton(
-        onClick = onClick,
-        modifier = Modifier.height(LibraryReadingCardDefaults.buttonHeight),
-        colors = AppButtonDefaults.tonalColors(containerColor = colors.track, contentColor = colors.content),
-        contentPadding = LibraryReadingCardDefaults.buttonPadding,
-    ) {
-        Text(text = label, style = LibraryReadingCardDefaults.buttonTextStyle())
+        // In the card's top end corner: the 40 dp button draws the icon about 10 dp from both edges.
+        AppIconButton(
+            onClick = { actionContext.onOpenItemPage(item) },
+            modifier = Modifier.align(Alignment.TopEnd),
+        ) {
+            Icon(
+                imageVector = AppIcons.MoreHoriz,
+                contentDescription = "Details",
+                tint = colors.content.copy(alpha = 0.74f),
+                modifier = Modifier.size(20.dp),
+            )
+        }
     }
 }
 
 internal class LibraryReadingCardColors(
     val content: Color,
-    /** The progress track and the tonal button. */
+    /** The bar's track. */
     val track: Color,
+    /** The overline and the bar's fill. */
     val accent: Color,
-    val onAccent: Color,
 )
 
 object LibraryReadingCardDefaults {
     val cornerRadius: Dp = UnifiedReaderDefaultPresentationTokens.cardCornerRadius
     val padding: Dp = AppLayout.inset
-    val compactCoverWidth: Dp = 96.dp
-    val buttonHeight: Dp = 44.dp
-    val buttonPadding: PaddingValues = PaddingValues(horizontal = 20.dp)
 
-    /** The text column never gets shorter than this, so small covers leave room for the buttons. */
-    val minTextHeight: Dp = 214.dp
+    /** On its own (above the shelves, at the top of a series): an 80 dp cover inside the inset. */
+    val height: Dp = 160.dp
+    val coverGap: Dp = 16.dp
 
-    @Composable
-    internal fun buttonTextStyle() = MaterialTheme.typography.labelLarge.copy(fontSize = 15.sp, fontWeight = FontWeight.Bold)
+    /** The overline and the title keep this clear of the •••. */
+    internal val menuClearance: Dp = 28.dp
 }
 
 /**
- * At this many grid columns or more the reading card spans half of them instead of the whole row:
- * beside the shelf tabs on the home, and on its own above a series' issues.
+ * At this many grid columns or more the reading card sits beside the shelf tabs on the home, over
+ * [LibraryReadingCardBesideColumns] of them, and spans half of them above a series' issues.
  */
 const val LibraryReadingCardSideBySideColumns = 6
+
+/** Beside the shelves the card takes 2 of the 6 columns, about a third; the shelves take the rest. */
+const val LibraryReadingCardBesideColumns = 2
 
 /** The width of [cells] grid cells and the gaps between them. */
 private fun LibraryGridColumns.span(cells: Int, spacing: Dp): Dp = cellWidth * cells + spacing * (cells - 1)
 
-/** The reading card's width in these columns, or null below [LibraryReadingCardSideBySideColumns] (the full row). */
+/** The card's width beside the home's shelves, or null below [LibraryReadingCardSideBySideColumns] (above them, the full row). */
+fun LibraryGridColumns.readingCardBesideWidth(spacing: Dp): Dp? =
+    if (count >= LibraryReadingCardSideBySideColumns) span(LibraryReadingCardBesideColumns, spacing) else null
+
+/** The card's width above a series' issues: half the row from [LibraryReadingCardSideBySideColumns] columns, else null (the full row). */
 fun LibraryGridColumns.readingCardWidth(spacing: Dp): Dp? =
     if (count >= LibraryReadingCardSideBySideColumns) span(LibraryReadingCardSideBySideColumns / 2, spacing) else null
 
 /**
  * The top of a series: the reading card for [next], the issue being read or the next one to
- * start, with its cover at the grid's cell width ([gridMetrics]). On wide windows it is as wide as
- * the home's card, not the whole row.
+ * start. On wide windows it spans half the row ([gridMetrics] gives the columns), nothing beside it.
  */
 @Composable
 fun LibrarySeriesReadingCard(
@@ -303,7 +214,6 @@ fun LibrarySeriesReadingCard(
     overline: String? = null,
     timeLeftMillis: Long? = null,
 ) {
-    val compact = isLibraryCompactWindow()
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val columns = with(LocalDensity.current) { libraryGridColumns(availableWidth = maxWidth, metrics = gridMetrics) }
         val cardWidth = columns.readingCardWidth(gridMetrics.spacing)
@@ -312,15 +222,13 @@ fun LibrarySeriesReadingCard(
             progress = progress,
             overline = overline ?: if (next.inProgress) "Continue reading" else "Up next in this series",
             continueLabel = if (next.inProgress) "Continue" else "Start",
-            coverWidth = columns.cellWidth,
-            compact = compact,
             coverImageUrlProvider = coverImageUrlProvider,
             onCoverVisible = onCoverVisible,
             imageVariant = gridMetrics.coverImageVariant,
             onContinue = { onItemSelected(next.item) },
             actionContext = actionContext,
             timeLeftMillis = timeLeftMillis,
-            modifier = if (cardWidth != null) Modifier.width(cardWidth) else Modifier,
+            modifier = if (cardWidth != null) Modifier.width(cardWidth) else Modifier.fillMaxWidth(),
         )
     }
 }

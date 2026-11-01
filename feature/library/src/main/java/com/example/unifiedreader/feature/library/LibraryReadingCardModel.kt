@@ -1,43 +1,39 @@
 package com.example.unifiedreader.feature.library
 
 /**
- * Where the reader is, under the reading card's author: "Chapter 4 of 6" over the chapter's name,
- * the chapter alone until its name is saved (or when the name only numbers it), or the page for a
- * comic or a PDF.
+ * The lines under the reading card's title. On its own the card has one: the author and where the
+ * reader is ("Oona Fitch · Chapter 4 of 6", a comic's "Page 5 of 8"). [tall] (beside the shelves) it
+ * has room for two: the author, then the place with the chapter's name when the name says more
+ * than its number ("Chapter 4 of 6 · The Lighthouse Ledger"). A [footnote] (a reading order's
+ * "Then ...") takes the place's spot.
  */
-internal data class LibraryReadingCardPlace(
-    val label: String?,
-    val line: String,
-)
-
-internal fun libraryReadingCardPlace(progress: ItemProgressSummary?): LibraryReadingCardPlace? {
-    if (progress == null) return null
-    val chapter = progress.chapterLabel()
-    if (chapter != null) {
-        val title = progress.chapterTitle?.trim()?.takeUnless { it.isEmpty() || GenericChapterTitle.matches(it) }
-        return if (title != null) LibraryReadingCardPlace(label = chapter, line = title) else LibraryReadingCardPlace(label = null, line = chapter)
-    }
-    return progress.pageLabel()?.let { page -> LibraryReadingCardPlace(label = null, line = page) }
+internal fun libraryReadingCardLines(
+    author: String?,
+    progress: ItemProgressSummary?,
+    footnote: String?,
+    tall: Boolean,
+): List<String> {
+    val place = footnote ?: if (tall) progress?.namedPlace() else progress?.shortPlace()
+    return if (tall) listOfNotNull(author, place) else listOfNotNull(listOfNotNull(author, place).joinToString(" · ").ifEmpty { null })
 }
 
 /**
- * The line over the card's bar: the percentage, with the page when the place above names the
- * chapter ("47% · Page 47 of 73"); "Not started" without progress.
+ * The line beside the card's bar: the percentage, with the time left when the journal knows the
+ * pace ("47% · 25 min left"); "Not started" without progress.
  */
-internal fun libraryReadingCardProgressLabel(progress: ItemProgressSummary?): String {
+internal fun libraryReadingCardBarLabel(progress: ItemProgressSummary?, timeLeftMillis: Long?): String {
     if (progress == null) return "Not started"
-    val page = progress.pageLabel().takeIf { progress.chapterLabel() != null }
-    return listOfNotNull(progress.percentLabel, page).joinToString(" · ")
+    return listOfNotNull(progress.percentLabel, timeLeftMillis?.let(::libraryReadingTimeLeftLabel)).joinToString(" · ")
 }
 
-/** "About 25 min left", "About 1 h 20 min left", whole hours from ten on, "Less than a minute left". */
+/** "25 min left", "1 h 20 min left", whole hours from ten on, "Under a minute left". */
 internal fun libraryReadingTimeLeftLabel(millis: Long): String {
     val minutes = (millis + 30_000L) / 60_000L
-    if (minutes < 1L) return "Less than a minute left"
-    if (minutes < 60L) return "About $minutes min left"
+    if (minutes < 1L) return "Under a minute left"
+    if (minutes < 60L) return "$minutes min left"
     val hours = minutes / 60L
     val rest = minutes % 60L
-    return if (rest == 0L || hours >= 10L) "About ${(minutes + 30L) / 60L} h left" else "About $hours h $rest min left"
+    return if (rest == 0L || hours >= 10L) "${(minutes + 30L) / 60L} h left" else "$hours h $rest min left"
 }
 
 /**
@@ -56,6 +52,16 @@ internal fun libraryReadingCardSegments(progress: ItemProgressSummary?): List<Fl
     }
     if (breaks.isEmpty() || breaks.size >= MaxReadingCardSegments) return null
     return listOf(0f) + breaks + 1f
+}
+
+/** "Chapter 4 of 6" while the reader has placed the book in a chapter, else the page. */
+private fun ItemProgressSummary.shortPlace(): String? = chapterLabel() ?: pageLabel()
+
+/** The chapter with its name ("Chapter 4 of 6 · The Lighthouse Ledger") unless the name only numbers it, else the page. */
+private fun ItemProgressSummary.namedPlace(): String? {
+    val chapter = chapterLabel() ?: return pageLabel()
+    val title = chapterTitle?.trim()?.takeUnless { it.isEmpty() || GenericChapterTitle.matches(it) }
+    return if (title != null) "$chapter · $title" else chapter
 }
 
 /** "Chapter 4 of 6", while the reader has placed the book in a chapter. */

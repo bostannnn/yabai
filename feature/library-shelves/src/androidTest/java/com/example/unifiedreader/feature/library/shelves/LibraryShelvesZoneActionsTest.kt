@@ -58,7 +58,7 @@ class LibraryShelvesZoneActionsTest {
         composeRule.onNodeWithText("Akira").assertExists()
         // The card's book is not repeated in a tab, so with nothing else there are no tabs.
         assertTrue(composeRule.onAllNodesWithText("In progress").fetchSemanticsNodes().isEmpty())
-        composeRule.onNodeWithText("Details").assertExists().performClick()
+        composeRule.onNodeWithContentDescription("Details").assertExists().performClick()
         composeRule.runOnIdle { assertEquals(item, opened) }
     }
 
