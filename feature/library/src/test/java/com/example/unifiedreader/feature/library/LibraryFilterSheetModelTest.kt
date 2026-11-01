@@ -148,6 +148,8 @@ class LibraryFilterSheetModelTest {
         assertEquals("Showing 14 of 21", libraryFilterShowingLabel(shownCount = 14, totalCount = 21))
         assertEquals("Showing all 21", libraryFilterShowingLabel(shownCount = 21, totalCount = 21))
         assertEquals("Showing 3", libraryFilterShowingLabel(shownCount = 3, totalCount = null))
+        assertEquals("Showing 96 of 2,094", libraryFilterShowingLabel(shownCount = 96, totalCount = 2094))
+        assertEquals("Showing all 2,094", libraryFilterShowingLabel(shownCount = 2094, totalCount = 2094))
         assertEquals("Show 1 book", libraryFilterShowButtonLabel(1))
         assertEquals("Show 14 books", libraryFilterShowButtonLabel(14))
         assertEquals(5, libraryFacetValueCount(LibraryFilterPanel.Author, LibraryFilterState(), authorFacets))

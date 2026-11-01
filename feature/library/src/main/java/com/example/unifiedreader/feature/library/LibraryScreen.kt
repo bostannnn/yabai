@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.layout.NestedPrefetchScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -193,6 +194,9 @@ fun LibraryScreen(
     // On an Expanded window the filters dock beside the library instead of opening as a sheet.
     val dockFilters = currentAppWindowWidth() == AppWindowWidth.Expanded
     val filterDock = rememberLibraryFilterDockState()
+    // Docked open, the books the filters find start at content top: the reading card and shelves step
+    // aside, as for a search, and come back when the panel closes (a filter left on never hides them).
+    val shownTopContent = topContent.takeUnless { dockFilters && filterDock.open }
     val shownFilterFacets = rememberLibraryFilterFacetsWithTags(
         facets = filterFacets,
         pool = filterPool,
@@ -307,13 +311,27 @@ fun LibraryScreen(
         selectableIds = selectableDownloadItemIds,
         isPaged = isPaged,
     ).toSet()
+    val leadingContentItemCount = 1 +
+        (if (header != null) 1 else 0) +
+        (if (shownTopContent != null) 1 else 0)
+    // A change of picks opens the library at All books' row, the books they found, instead of at the
+    // reading card above it; a combination left further down still opens there.
+    val contextPicks = remember { LibraryContextPicks() }
+    val startPosition = remember(browseContextKey, initialScrollPosition, leadingContentItemCount) {
+        libraryStartScrollPosition(
+            saved = initialScrollPosition,
+            picksChanged = contextPicks.changedFor(browseContextKey, filterState),
+            resultsRowIndex = leadingContentItemCount - 1,
+        )
+    }
+    SideEffect { contextPicks.record(browseContextKey, filterState) }
     // The paged grid reloads from scratch on every sort or filter change, so it has nothing to
     // move and keeps a grid per browse context.
     val gridStateKey = if (isPaged || gridIdentityKey == null) browseContextKey else gridIdentityKey
     val gridState = remember(gridStateKey) {
         LazyGridState(
-            firstVisibleItemIndex = initialScrollPosition.index,
-            firstVisibleItemScrollOffset = initialScrollPosition.offset,
+            firstVisibleItemIndex = startPosition.index,
+            firstVisibleItemScrollOffset = startPosition.offset,
             prefetchStrategy = LibraryGridScrollPrefetchStrategy,
         )
     }
@@ -324,15 +342,15 @@ fun LibraryScreen(
     if (gridStateContextKey != browseContextKey) {
         LaunchedEffect(browseContextKey) {
             gridStateContextKey = browseContextKey
-            if (initialScrollPosition.index == 0) {
-                gridState.scrollToItem(0, initialScrollPosition.offset)
+            if (startPosition.index == 0) {
+                gridState.scrollToItem(0, startPosition.offset)
             }
         }
     }
     // Held, and not reported, until the grid can reach it (see LibraryScrollRestoreStep); a drag or
     // fling hands the position back to the user.
     var pendingScrollRestore by remember(browseContextKey) {
-        mutableStateOf(initialScrollPosition.takeIf { position -> position.index > 0 })
+        mutableStateOf(startPosition.takeIf { position -> position.index > 0 })
     }
     val dateAddedTopItemId = if (showSortControl && sortMode == LibrarySortMode.DATE_ADDED) {
         renderedItems.firstOrNull()?.id
@@ -354,9 +372,6 @@ fun LibraryScreen(
             withContext(Dispatchers.Default) { librarySearchTagSuggestions(searchPool, searchQuery, tagSorting) }
         }
     }
-    val leadingContentItemCount = 1 +
-        (if (header != null) 1 else 0) +
-        (if (topContent != null) 1 else 0)
     // A row that arrives above a grid still at its very top (the shelves, when the library was
     // drawn under a back gesture before they were computed) is scrolled into view: the lazy grid
     // would otherwise keep its old first row in place and leave the new one above the screen.
@@ -619,13 +634,13 @@ fun LibraryScreen(
                         LibraryHeaderBlock(header = header, compact = isLibraryCompactWindow())
                     }
                 }
-                if (topContent != null) {
+                if (shownTopContent != null) {
                     item(
                         key = "top-content",
                         contentType = LibraryScreenContentTypes.TopContent,
                         span = { GridItemSpan(maxLineSpan) },
                     ) {
-                        topContent(LibraryGridMetrics(cellSizeDp = gridPresentation.selectedGridSize.cellSizeDp))
+                        shownTopContent(LibraryGridMetrics(cellSizeDp = gridPresentation.selectedGridSize.cellSizeDp))
                     }
                 }
 

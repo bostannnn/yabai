@@ -137,10 +137,12 @@ class LibraryPageFilterTest {
     }
 
     @Test
-    fun `every source offers the pages panel right after reading status`() {
+    fun `every source offers the pages panel after what the books are and before where they are kept`() {
         SourceType.entries.forEach { source ->
             val panels = availableLibraryFilterPanels(source)
-            assertEquals(panels.indexOf(LibraryFilterPanel.ReadingStatus) + 1, panels.indexOf(LibraryFilterPanel.Pages))
+            val pages = panels.indexOf(LibraryFilterPanel.Pages)
+            assertTrue(pages > panels.indexOf(LibraryFilterPanel.Series))
+            assertEquals(panels.indexOf(LibraryFilterPanel.Format) - 1, pages)
         }
     }
 }

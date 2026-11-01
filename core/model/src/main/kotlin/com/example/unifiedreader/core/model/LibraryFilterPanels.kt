@@ -21,9 +21,9 @@ enum class LibraryFilterPanel(
 }
 
 /**
- * The panels a source's filter sheet offers, in their default order: reading status and length first,
- * then what the books are (places, times, themes, moods, genre, people and series), then where and how
- * they are kept.
+ * The panels a source's filter sheet offers, in their default order: reading status first, then what the
+ * books are (places, times, themes, moods, genre, people and series), then their length, then where and
+ * how they are kept. Pages' slider is half a docked panel tall, so it waits below what the books are.
  * Kavita and Stump have no moods; a local library has only its files' authors and series.
  */
 fun availableLibraryFilterPanels(
@@ -32,7 +32,6 @@ fun availableLibraryFilterPanels(
     SourceType.KAVITA,
     SourceType.STUMP -> listOf(
         LibraryFilterPanel.ReadingStatus,
-        LibraryFilterPanel.Pages,
         LibraryFilterPanel.SetIn,
         LibraryFilterPanel.When,
         LibraryFilterPanel.Tag,
@@ -40,6 +39,7 @@ fun availableLibraryFilterPanels(
         LibraryFilterPanel.Series,
         LibraryFilterPanel.Publisher,
         LibraryFilterPanel.Language,
+        LibraryFilterPanel.Pages,
         LibraryFilterPanel.Format,
         LibraryFilterPanel.Library,
         LibraryFilterPanel.Location,
@@ -47,7 +47,6 @@ fun availableLibraryFilterPanels(
 
     SourceType.GRIMMORY -> listOf(
         LibraryFilterPanel.ReadingStatus,
-        LibraryFilterPanel.Pages,
         LibraryFilterPanel.SetIn,
         LibraryFilterPanel.When,
         LibraryFilterPanel.Tag,
@@ -57,6 +56,7 @@ fun availableLibraryFilterPanels(
         LibraryFilterPanel.Series,
         LibraryFilterPanel.Publisher,
         LibraryFilterPanel.Language,
+        LibraryFilterPanel.Pages,
         LibraryFilterPanel.Format,
         LibraryFilterPanel.Library,
         LibraryFilterPanel.Location,
@@ -64,9 +64,9 @@ fun availableLibraryFilterPanels(
 
     SourceType.LOCAL -> listOf(
         LibraryFilterPanel.ReadingStatus,
-        LibraryFilterPanel.Pages,
         LibraryFilterPanel.Author,
         LibraryFilterPanel.Series,
+        LibraryFilterPanel.Pages,
         LibraryFilterPanel.Format,
         LibraryFilterPanel.Library,
         LibraryFilterPanel.Location,

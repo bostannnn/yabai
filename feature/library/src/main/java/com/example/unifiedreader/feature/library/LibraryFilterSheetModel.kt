@@ -6,6 +6,7 @@ import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibraryReadingStatus
 import com.example.unifiedreader.core.model.authorFacetKey
+import com.example.unifiedreader.ui.components.appCount
 
 // What the filter sheet shows, apart from how it draws it: the open chip groups, the facet rows'
 // summaries and the facet pages' grouped values.
@@ -304,11 +305,11 @@ internal fun libraryShownItemCount(
     else -> libraryFilterMatchingCount(filterState, facetCounts) ?: loadedCount
 }
 
-/** "Showing 14 of 21", or "Showing all 21" while nothing is filtered out. */
+/** "Showing 14 of 2,094", or "Showing all 2,094" while nothing is filtered out. */
 internal fun libraryFilterShowingLabel(shownCount: Int, totalCount: Int?): String = when {
-    totalCount == null -> "Showing $shownCount"
-    shownCount >= totalCount -> "Showing all $totalCount"
-    else -> "Showing $shownCount of $totalCount"
+    totalCount == null -> "Showing ${appCount(shownCount)}"
+    shownCount >= totalCount -> "Showing all ${appCount(totalCount)}"
+    else -> "Showing ${appCount(shownCount)} of ${appCount(totalCount)}"
 }
 
 /** The sheet's closing button: "Show 14 books". */
