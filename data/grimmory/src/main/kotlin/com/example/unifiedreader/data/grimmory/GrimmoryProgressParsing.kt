@@ -15,8 +15,11 @@ internal fun GrimmoryBookDto.toReadingProgress(
     item: ReadableItem,
 ): ReadingProgress? {
     val updatedAtEpochMillis = lastReadTime?.toEpochMillisOrNull()
+    val place = placeIn(item, updatedAtEpochMillis)
     val finishedAtEpochMillis = (dateFinished ?: dateFinishedSnake)?.toEpochMillisOrNull()
-    if (finishedAtEpochMillis != null) {
+    // Grimmory keeps the finish date when the place goes back (a book read again, or its end
+    // reached and left), and only its status says Reading then: that place is the one to keep.
+    if (finishedAtEpochMillis != null && (place == null || isRead())) {
         return ReadingProgress(
             itemId = item.id,
             locatorType = LocatorType.PERCENT,
@@ -25,6 +28,17 @@ internal fun GrimmoryBookDto.toReadingProgress(
             updatedAtEpochMillis = finishedAtEpochMillis,
         )
     }
+    return place
+}
+
+/** Read, or no status at all (a server that doesn't say): the finish date stands. */
+private fun GrimmoryBookDto.isRead(): Boolean =
+    readStatus?.trim()?.takeIf(String::isNotEmpty)?.equals("READ", ignoreCase = true) ?: true
+
+private fun GrimmoryBookDto.placeIn(
+    item: ReadableItem,
+    updatedAtEpochMillis: Long?,
+): ReadingProgress? {
     return when (item.format) {
         FormatType.EPUB -> epubProgress?.toReadingProgress(
             itemId = item.id,
