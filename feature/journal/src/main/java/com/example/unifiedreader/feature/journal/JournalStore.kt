@@ -27,14 +27,22 @@ class RoomJournalRepository(
 
     override fun observeSnapshot(): Flow<JournalSnapshot> = observeSnapshot(flowOf(emptyList()))
 
-    override fun observeSnapshot(extraCatalogItems: Flow<List<ReadableItem>>): Flow<JournalSnapshot> = combine(
-        journalDao.observeReadingEvents().map { entities -> entities.map { it.toDomain() } },
-        journalDao.observeReadingSessions().map { entities -> entities.map { it.toDomain() } },
-        journalDao.observeJournalEntries().map { entities -> entities.map { it.toDomain() } },
+    override fun observeSnapshot(extraCatalogItems: Flow<List<ReadableItem>>): Flow<JournalSnapshot> = snapshotFor(
         combine(
             remoteCatalogDao.observeLibraryItems().map { entities -> entities.map { it.toDomain() } },
             extraCatalogItems,
         ) { catalogItems, extraItems -> (catalogItems + extraItems).associateBy(ReadableItem::id) },
+    )
+
+    override fun observeSnapshotForCatalog(catalogItems: Flow<List<ReadableItem>>): Flow<JournalSnapshot> = snapshotFor(
+        catalogItems.map { items -> items.associateBy(ReadableItem::id) },
+    )
+
+    private fun snapshotFor(catalogItemsById: Flow<Map<String, ReadableItem>>): Flow<JournalSnapshot> = combine(
+        journalDao.observeReadingEvents().map { entities -> entities.map { it.toDomain() } },
+        journalDao.observeReadingSessions().map { entities -> entities.map { it.toDomain() } },
+        journalDao.observeJournalEntries().map { entities -> entities.map { it.toDomain() } },
+        catalogItemsById,
     ) { events, sessions, entries, catalogItemsById ->
         stateComputer.snapshot(
             events = events,

@@ -237,15 +237,28 @@ fun LibraryScreen(
     } else {
         LibraryWindowBadges()
     }
-    val effectiveProgressByItemId = windowBadges.displayProgressByItemId + progressByItemId
-    val effectiveRatingByItemId = windowBadges.displayRatingByItemId + ratingByItemId
-    val effectiveLocallyAvailableItemIds = locallyAvailableItemIds + windowBadges.locallyAvailableItemIds
-    val effectiveDownloadableItemIds =
-        downloadableItemIds + windowBadges.downloadActionAvailability.downloadableItemIds
+    // Kept across screen updates: the recompute's maps hold a whole server's items, so copying them on
+    // every recomposition costs more than the comparison of the keys.
+    val effectiveProgressByItemId = remember(windowBadges.displayProgressByItemId, progressByItemId) {
+        windowBadges.displayProgressByItemId.overlaidBy(progressByItemId)
+    }
+    val effectiveRatingByItemId = remember(windowBadges.displayRatingByItemId, ratingByItemId) {
+        windowBadges.displayRatingByItemId.overlaidBy(ratingByItemId)
+    }
+    val effectiveLocallyAvailableItemIds = remember(locallyAvailableItemIds, windowBadges.locallyAvailableItemIds) {
+        locallyAvailableItemIds.unionWith(windowBadges.locallyAvailableItemIds)
+    }
+    val windowDownloads = windowBadges.downloadActionAvailability
+    val effectiveDownloadableItemIds = remember(downloadableItemIds, windowDownloads.downloadableItemIds) {
+        downloadableItemIds.unionWith(windowDownloads.downloadableItemIds)
+    }
     val effectiveDeletableDownloadedItemIds =
-        deletableDownloadedItemIds + windowBadges.downloadActionAvailability.deletableDownloadedItemIds
-    val effectiveDownloadingItemIds =
-        downloadingItemIds + windowBadges.downloadActionAvailability.activeDownloadingItemIds
+        remember(deletableDownloadedItemIds, windowDownloads.deletableDownloadedItemIds) {
+            deletableDownloadedItemIds.unionWith(windowDownloads.deletableDownloadedItemIds)
+        }
+    val effectiveDownloadingItemIds = remember(downloadingItemIds, windowDownloads.activeDownloadingItemIds) {
+        downloadingItemIds.unionWith(windowDownloads.activeDownloadingItemIds)
+    }
     val itemActionContext = LibraryItemActionContext(
         progressByItemId = effectiveProgressByItemId,
         locallyAvailableItemIds = effectiveLocallyAvailableItemIds,

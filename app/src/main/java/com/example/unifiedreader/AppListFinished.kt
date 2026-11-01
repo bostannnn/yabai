@@ -70,10 +70,19 @@ internal fun rememberJournalFinishedLists(
     uiState: AppUiState,
 ): List<JournalFinishedList> {
     val kept by listsViewModel.finishedLists.collectAsStateWithLifecycle()
-    return remember(kept, uiState.items) {
-        val itemsById = uiState.items.associateBy(ReadableItem::id)
+    // The lists' books by id as already worked out off the main thread; failing that, only the books
+    // these lists hold, not a map of the whole catalog built as the Journal opens.
+    val sharedItemsById = listsViewModel.catalogData?.itemsById
+    return remember(kept, sharedItemsById ?: uiState.items) {
+        val itemsById = sharedItemsById ?: uiState.items.byIdOf(kept.orEmpty())
         kept.orEmpty().map { finished -> finished.toJournal(itemsById) }
     }
+}
+
+private fun List<ReadableItem>.byIdOf(lists: List<FinishedList>): Map<String, ReadableItem> {
+    val wanted = lists.flatMapTo(hashSetOf()) { finished -> finished.itemIds }
+    if (wanted.isEmpty()) return emptyMap()
+    return filter { item -> item.id in wanted }.associateBy(ReadableItem::id)
 }
 
 /** The library's cover for the journal's list mosaics and rows of covers. */

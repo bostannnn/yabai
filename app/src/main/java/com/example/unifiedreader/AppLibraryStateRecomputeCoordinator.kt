@@ -38,12 +38,7 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
             )
         },
     )
-    private val retainedRootShelvesBySource =
-        object : LinkedHashMap<SourceType, LibraryShelvesState>(RETAINED_ROOT_SHELVES_LIMIT, 0.75f, true) {
-            override fun removeEldestEntry(
-                eldest: MutableMap.MutableEntry<SourceType, LibraryShelvesState>,
-            ): Boolean = size > RETAINED_ROOT_SHELVES_LIMIT
-        }
+    private val retainedPresentations = AppLibraryRetainedPresentations()
 
     fun initialize(
         baseState: AppUiState,
@@ -66,7 +61,7 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
         appliedShelvesSignature = shelvesSignature.takeIf { projectedState.shouldReserveLibraryShelvesSlot }
         appliedShelvesState = computedShelvesState.takeIf { projectedState.shouldReserveLibraryShelvesSlot }
         return initializedState.also { state ->
-            retainRootShelves(state)
+            retainedPresentations.retain(state)
             latestState = state
         }
     }
@@ -106,7 +101,7 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
                 isLoading = mergedState.shouldShowLibraryShelvesLoading,
             )
             latestState = nextState
-            retainRootShelves(nextState)
+            retainedPresentations.retain(nextState)
             publishState(nextState)
         }
     }
@@ -117,14 +112,14 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
         scope: CoroutineScope,
         publishState: (AppUiState) -> Unit,
     ) {
-        val nextBaseState = transform(latestState ?: currentState)
+        val previousState = latestState ?: currentState
+        val nextBaseState = transform(previousState)
         latestState = nextBaseState
         // Don't recompute the (hidden) library grid/shelves while a reader is open over the library
         // tab. It stays topLevel == Library, so without this guard every progress/catalog update
         // during reading re-derives the whole catalog behind the reader. The current presentation is
         // preserved and a single recompute catches up when the reader closes.
-        val isLibraryPresentationActive = nextBaseState.topLevel == TopLevelDestination.Library &&
-            nextBaseState.activeReader == null
+        val isLibraryPresentationActive = nextBaseState.isLibraryPresentationActive
         val derivedSignature = nextBaseState.libraryDerivedStateSignature()
         val shelvesSignature = nextBaseState.libraryShelvesStateSignature()
         val shouldComputeDerived = isLibraryPresentationActive &&
@@ -132,6 +127,68 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
         val shouldComputeShelves = isLibraryPresentationActive &&
             nextBaseState.shouldReserveLibraryShelvesSlot &&
             shelvesSignature != appliedShelvesSignature
+        if (!shouldComputeDerived && !shouldComputeShelves) {
+            pendingRecompute.cancel()
+            val stablePresentationState = preserveCurrentLibraryPresentation(
+                state = nextBaseState,
+                currentState = currentState,
+            )
+            val stableState = presentShelvesState(
+                state = stablePresentationState,
+                isLoading = stablePresentationState.shouldShowLibraryShelvesLoading,
+            )
+            latestState = stableState
+            retainedPresentations.retain(stableState)
+            publishState(stableState)
+            return
+        }
+        // Opening a view (another server, back from a series, the reader closed, back from another tab)
+        // shows the view's last finished presentation at once and recomputes it in the background, so
+        // the tap is answered in the same frame instead of after the recompute (Kavita) or behind one
+        // on the main thread (the other servers). Data updates within a view still wait for a coherent
+        // presentation below.
+        if (nextBaseState.opensLibraryViewFrom(previousState)) {
+            retainedPresentations.presentationFor(nextBaseState)?.let { retainedPresentation ->
+                val retainedState = mergeAppliedLibraryState(nextBaseState.withLibraryPresentation(retainedPresentation))
+                val openedState = presentShelvesState(
+                    state = retainedState,
+                    isLoading = retainedState.shouldShowLibraryShelvesLoading,
+                )
+                latestState = openedState
+                publishState(openedState)
+                scheduleLibraryRecompute(
+                    baseState = nextBaseState,
+                    derivedSignature = derivedSignature,
+                    shelvesSignature = shelvesSignature,
+                    shouldComputeDerived = shouldComputeDerived,
+                    shouldComputeShelves = shouldComputeShelves,
+                    scope = scope,
+                    publishState = publishState,
+                )
+                return
+            }
+        }
+        // The other servers compute on the main thread below. When the recompute already running covers
+        // these inputs (a view opened above, or the last update's), show this update over the current
+        // presentation instead of computing the same thing again.
+        if (nextBaseState.selectedSource != SourceType.KAVITA &&
+            pendingRecompute.covers(
+                derivedKey = derivedSignature.takeIf { shouldComputeDerived },
+                shelvesKey = shelvesSignature.takeIf { shouldComputeShelves },
+            )
+        ) {
+            val waitingPresentationState = preserveCurrentLibraryPresentation(
+                state = nextBaseState,
+                currentState = previousState,
+            )
+            val waitingState = presentShelvesState(
+                state = waitingPresentationState,
+                isLoading = waitingPresentationState.shouldShowLibraryShelvesLoading,
+            )
+            latestState = waitingState
+            publishState(waitingState)
+            return
+        }
         if (shouldComputeShelves && nextBaseState.selectedSource == SourceType.KAVITA) {
             scheduleLibraryRecompute(
                 baseState = nextBaseState,
@@ -162,23 +219,8 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
             isLoading = mergedProjectedState.shouldShowLibraryShelvesLoading,
             retainedShelvesState = retainedShelvesState,
         )
-        if (!shouldComputeDerived && !shouldComputeShelves) {
-            pendingRecompute.cancel()
-            val stablePresentationState = preserveCurrentLibraryPresentation(
-                state = nextBaseState,
-                currentState = currentState,
-            )
-            val stableState = presentShelvesState(
-                state = stablePresentationState,
-                isLoading = stablePresentationState.shouldShowLibraryShelvesLoading,
-            )
-            latestState = stableState
-            retainRootShelves(stableState)
-            publishState(stableState)
-            return
-        }
         latestState = nextState
-        retainRootShelves(nextState)
+        retainedPresentations.retain(nextState)
         publishState(nextState)
         if (!shouldComputeDerived) {
             pendingRecompute.cancel()
@@ -231,7 +273,7 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
                     ),
                 )
                 latestState = mergedState
-                retainRootShelves(mergedState)
+                retainedPresentations.retain(mergedState)
                 publishState(mergedState)
             },
         )
@@ -279,9 +321,7 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
         retainedAppliedShelvesStateFor(shelvesSignature)?.let { shelvesState ->
             return shelvesState
         }
-        return retainedRootShelvesBySource[state.selectedSource]
-            ?.takeIf { shelvesState -> shelvesState.hasOnlyCurrentItems(state) }
-            ?.asLoading()
+        return retainedPresentations.loadingRootShelvesFor(state)
     }
 
     private fun retainedAppliedShelvesStateFor(
@@ -295,32 +335,10 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
             ?.asLoading()
     }
 
-    private fun retainRootShelves(
-        state: AppUiState,
-    ) {
-        if (!state.shouldReserveLibraryShelvesSlot) return
-        val shelvesState = state.libraryShelvesState
-            .takeIf(LibraryShelvesState::hasContent)
-            ?.ready()
-            ?: return
-        retainedRootShelvesBySource[state.selectedSource] = shelvesState
-    }
-
     private fun preserveCurrentLibraryPresentation(
         state: AppUiState,
         currentState: AppUiState,
-    ): AppUiState = state.copy(
-        sourceItems = currentState.sourceItems,
-        selectedLibraryFilterFacets = currentState.selectedLibraryFilterFacets,
-        selectedSourceLibraryTitlesById = currentState.selectedSourceLibraryTitlesById,
-        displayProgressByItemId = currentState.displayProgressByItemId,
-        displayRatingByItemId = currentState.displayRatingByItemId,
-        displayPageCountByItemId = currentState.displayPageCountByItemId,
-        remoteDownloadActionAvailability = currentState.remoteDownloadActionAvailability,
-        visibleItems = currentState.visibleItems,
-        libraryBrowseContextKey = currentState.libraryBrowseContextKey,
-        libraryShelvesState = currentState.libraryShelvesState,
-    )
+    ): AppUiState = state.withLibraryPresentation(currentState.libraryPresentation())
 }
 
 private data class AppLibraryDerivedStateSignature(
@@ -375,22 +393,6 @@ private val AppUiState.shouldShowLibraryShelvesLoading: Boolean
         !isSelectedSourceHydrated &&
         !libraryShelvesState.hasContent
 
-private fun LibraryShelvesState.hasOnlyCurrentItems(
-    state: AppUiState,
-): Boolean {
-    val currentItemIds = state.items.mapTo(hashSetOf(), com.example.unifiedreader.core.model.ReadableItem::id)
-    return allItemIds().all(currentItemIds::contains)
-}
-
-private fun LibraryShelvesState.allItemIds(): List<String> = buildList {
-    continueReading.forEach { item -> add(item.item.id) }
-    nextInSeries.forEach { item ->
-        add(item.item.id)
-        add(item.currentItem.id)
-    }
-    recentlyFinished.forEach { item -> add(item.item.id) }
-}
-
 private class IdentityBox<T : Any?>(
     private val value: T,
 ) {
@@ -401,4 +403,3 @@ private class IdentityBox<T : Any?>(
     override fun hashCode(): Int = System.identityHashCode(value)
 }
 
-private const val RETAINED_ROOT_SHELVES_LIMIT = 4

@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibraryFilterPanel
@@ -1061,15 +1060,14 @@ class AppViewModel @Inject constructor(
     /**
      * The full journal snapshot (stats/timelines/summaries + catalog join), null until the first
      * one is built. This is expensive, so the shell only wires the lightweight
-     * [JournalRepository.observeWriteState] into [uiState]; the Journal tab collects this while it
-     * is on screen, and the last snapshot is kept for [JournalSnapshotKeepAliveMillis] after, so
-     * coming back to the tab shows it at once instead of building it again.
+     * [JournalRepository.observeWriteState] into [uiState]; the shell collects this while it is on
+     * screen once the library has loaded (so the Journal tab opens on a finished snapshot), and the
+     * last snapshot is kept for [JournalSnapshotKeepAliveMillis] after, which a reader outlasts. The
+     * books are matched to the catalog already in [uiState], not to a fresh read of the stored one.
      */
     val journalFullSnapshotFlow: StateFlow<com.example.unifiedreader.journal.JournalSnapshot?> =
-        journalRepository.observeSnapshot(
-            extraCatalogItems = androidx.compose.runtime.snapshotFlow { uiState.items }
-                .distinctUntilChanged()
-                .map { items -> items.filter { item -> item.sourceType == SourceType.LOCAL } },
+        journalRepository.observeSnapshotForCatalog(
+            catalogItems = androidx.compose.runtime.snapshotFlow { uiState.items }.distinctUntilChanged(),
         ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(JournalSnapshotKeepAliveMillis), null)
 
     private fun updateUiState(
