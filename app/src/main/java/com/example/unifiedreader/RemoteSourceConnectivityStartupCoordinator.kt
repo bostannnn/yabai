@@ -2,8 +2,8 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.data.kavita.KAVITA_REFRESH_TOKEN_MISSING_MESSAGE
 import com.example.unifiedreader.data.kavita.KavitaUnauthorizedException
+import com.example.unifiedreader.data.kavita.renewSession
 import com.example.unifiedreader.data.stump.StumpUnauthorizedException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -125,19 +125,13 @@ class KavitaRemoteSourceHealthCheck @Inject constructor(
             try {
                 api.getLibraries(activeSession.accessToken)
             } catch (_: KavitaUnauthorizedException) {
-                val refreshToken = activeSession.refreshToken?.takeIf(String::isNotBlank)
-                    ?: throw KavitaUnauthorizedException(KAVITA_REFRESH_TOKEN_MISSING_MESSAGE)
-                val refreshedSession = api.refreshSession(
-                    refreshToken = refreshToken,
-                    accessToken = activeSession.accessToken,
-                    apiKey = activeSession.apiKey,
-                )
-                kavitaCredentialStore.save(
-                    activeSession.copy(
-                        accessToken = refreshedSession.accessToken,
-                        refreshToken = refreshedSession.refreshToken,
-                        apiKey = refreshedSession.apiKey ?: activeSession.apiKey,
+                kavitaCredentialStore.saveRenewedTokens(
+                    renewed = api.renewSession(
+                        accessToken = activeSession.accessToken,
+                        refreshToken = activeSession.refreshToken,
+                        apiKey = activeSession.apiKey,
                     ),
+                    runSession = activeSession,
                 )
             }
         }
