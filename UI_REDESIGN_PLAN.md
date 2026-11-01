@@ -2132,6 +2132,31 @@ Built on branch `browse-redesign` (from main fde6e6c0):
 - [ ] Seen on the tablet with real covers; phone frames; About grouped by the tag areas (needs a theme-to-area
       map).
 
+### Browse on the tablet: first fixes `[~]` (2026-11-01)
+
+The user used Browse on the tablet and raised five things. Fixed now (branch `claude/browse-menu-ux-issues-15f807`):
+
+- [x] **Moods never showed.** The app dropped Grimmory's `moods` (all 2,094 books have them, 16 values; paces such as
+      Medium-paced come with them). Now read from the list (`GrimmoryBookMetadataDto.moods`, kept by
+      `stripForListView`), stored in `readable_items.bookMoodsJson` (**Room v36**, `MIGRATION_35_36`), and carried into
+      `BookMetadata.moods`, so the Mood row and smart lists by mood work after the next Grimmory sync. Grimmory's
+      book-level `shelves` are dropped the same way (Your shelves stays empty); not done.
+- [x] **Rows couldn't be moved.** Rows' shown rows lead with a drag handle (kit: `AppSettingsRow(leading)` and
+      `AppReorderHandleIcon`); the order is kept per source (`library_browse_row_order_<source>`), the rows left out
+      keep their places, and a row never placed comes back after the row it follows by default
+      (`LibraryBrowseRowSettings.arranging`, `libraryBrowseRowOrder`). The landing, the pane and the tabs follow it.
+- [x] **Removing the last chip started the landing over at the top.** The landing sits in a `SaveableStateHolder`
+      while something is picked, so it comes back at the same scroll, each rail where it was and About unfolded.
+- Seen on `yabai_settings_35` with a stand-in Grimmory serving the 31 October snapshot: the Mood row with the
+  snapshot's counts, Mood dragged to the top in Rows and first on the landing and in the tabs, Steampunk picked deep
+  in an unfolded About and removed (the landing came back exactly as left). 1,709 unit tests pass.
+- [ ] **Tags are one long list** (313 in About on that snapshot). Discussed: not the user's metadata standard, something
+      that works for any library; tested on the snapshot, grouping each theme under the genre its books carry far more
+      often than the library does puts 240 of 284 themes in sensible groups, 44 broad ones fit none. Not decided.
+- [ ] **Browse and Filters do one job twice, and Filters is quicker.** Discussed: keep both as two ways into one set of
+      picks shown on the All books grid, and make Browse pick in place with a Show N books button, row tabs, Find,
+      and a faster count. Not decided; explained again with a picture on 2026-11-01.
+
 ## Not yet designed
 
 Section 9: each step above gets its mock when it starts. Before it, nothing was left: downloads, the

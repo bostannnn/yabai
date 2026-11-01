@@ -13,9 +13,9 @@
   "groups": [],
   "lastChange": {
     "by": "bostannnn",
-    "at": "2026-10-31T20:00:00Z",
+    "at": "2026-11-01T06:10:00Z",
     "via": "Claude Code",
-    "note": "Tags: Settings › Tags and the sort sheet (you sort, the app suggests), Kavita's Locations in Set in, Browse's Places and times panel, the long press on tag chips, the sell icon"
+    "note": "Browse: rows move by a drag handle in Rows (kept per source; a new row keeps its spot), the landing page comes back where you left it, Mood from Grimmory's moods; AppSettingsRow's leading drag handle (AppReorderHandleIcon)"
   },
   "layout": "files",
   "libraries": [],
