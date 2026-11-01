@@ -269,7 +269,9 @@ class AppViewModelRemoteDownloadsTest {
         val seriesItem = viewModel.uiState.visibleItems.single()
 
         viewModel.onDownloadRemoteItem(seriesItem)
-        shadowOf(Looper.getMainLooper()).idle()
+        waitForUiState {
+            viewModel.uiState.downloadedRemoteItemIds == setOf(firstIssue.id, secondIssue.id)
+        }
 
         assertEquals(
             setOf(firstIssue.id, secondIssue.id),
@@ -593,12 +595,12 @@ class AppViewModelRemoteDownloadsTest {
             ),
         )
         viewModel.onSourceSelected(SourceType.STUMP)
-        shadowOf(Looper.getMainLooper()).idle()
+        waitForUiState { remoteComic.id in viewModel.uiState.downloadedRemoteItemIds }
 
         assertTrue(remoteComic.id in viewModel.uiState.downloadedRemoteItemIds)
 
         viewModel.onDeleteRemoteLocalFile(remoteComic)
-        shadowOf(Looper.getMainLooper()).idle()
+        waitForUiState { viewModel.uiState.downloadedRemoteItemIds.isEmpty() }
 
         assertTrue(viewModel.uiState.downloadedRemoteItemIds.isEmpty())
     }
@@ -639,7 +641,9 @@ class AppViewModelRemoteDownloadsTest {
             ),
         )
         viewModel.onSourceSelected(SourceType.STUMP)
-        shadowOf(Looper.getMainLooper()).idle()
+        waitForUiState {
+            viewModel.uiState.downloadedRemoteItemIds == setOf(firstIssue.id, secondIssue.id)
+        }
         val seriesItem = viewModel.uiState.visibleItems.single()
 
         assertTrue(seriesItem.isStumpSeriesContainer())
@@ -653,7 +657,10 @@ class AppViewModelRemoteDownloadsTest {
         )
 
         viewModel.onDeleteRemoteLocalFile(seriesItem)
-        shadowOf(Looper.getMainLooper()).idle()
+        waitForUiState {
+            viewModel.uiState.downloadedRemoteItemIds.isEmpty() &&
+                viewModel.uiState.locallyAvailableRemoteItemIds.isEmpty()
+        }
 
         assertTrue(viewModel.uiState.downloadedRemoteItemIds.isEmpty())
         assertTrue(viewModel.uiState.locallyAvailableRemoteItemIds.isEmpty())
@@ -678,12 +685,12 @@ class AppViewModelRemoteDownloadsTest {
             grimmoryContentRepository = grimmoryContentRepository,
         )
         viewModel.onSourceSelected(SourceType.GRIMMORY)
-        shadowOf(Looper.getMainLooper()).idle()
+        waitForUiState { viewModel.uiState.downloadedRemoteItemIds == setOf(remoteBook.id) }
 
         assertEquals(setOf(remoteBook.id), viewModel.uiState.downloadedRemoteItemIds)
 
         viewModel.onDeleteRemoteLocalFile(remoteBook)
-        shadowOf(Looper.getMainLooper()).idle()
+        waitForUiState { viewModel.uiState.downloadedRemoteItemIds.isEmpty() }
 
         assertTrue(viewModel.uiState.downloadedRemoteItemIds.isEmpty())
         assertEquals(
@@ -692,6 +699,7 @@ class AppViewModelRemoteDownloadsTest {
         )
     }
 
+    // The downloaded-books refresh runs on a background dispatcher, so one looper idle doesn't wait for it.
     private fun waitForUiState(
         condition: () -> Boolean,
     ) {

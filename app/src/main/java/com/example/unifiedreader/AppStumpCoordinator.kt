@@ -74,7 +74,7 @@ class AppStumpCoordinator @Inject constructor(
                         username = input.username,
                     ),
                     successConnectionMessage = connectionSuccessMessage(
-                        message = "Connected to Stump. Tap Sync Stump to import the library.",
+                        message = "Connected to Stump. Tap Sync now to get your library.",
                         cleartextWarningMessage = input.cleartextWarningMessage,
                     ),
                     failurePrefix = "Unable to connect to Stump",

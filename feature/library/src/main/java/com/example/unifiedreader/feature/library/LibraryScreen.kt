@@ -668,7 +668,9 @@ fun LibraryScreen(
                         contentType = LibraryScreenContentTypes.TopContent,
                         span = { GridItemSpan(maxLineSpan) },
                     ) {
-                        shownTopContent(LibraryGridMetrics.aboveGrid(gridPresentation.selectedGridSize.cellSizeDp))
+                        // The default size whatever the cover size: the slider sizes All books only, so its row, which the
+                        // sort menu hangs from, stays put (Huge stacked the reading card and pushed the row off screen).
+                        shownTopContent(LibraryGridMetrics())
                     }
                 }
 

@@ -73,7 +73,7 @@ class AppGrimmoryCoordinatorTest {
         val success = result as GrimmoryConnectExecutionResult.Success
         assertEquals(3, success.libraryCount)
         assertEquals(
-            "Connected to Grimmory. Tap Sync Grimmory to import the library.",
+            "Connected to Grimmory. Tap Sync now to get your library.",
             success.connection.message,
         )
         assertTrue(success.connection.hasStoredSession)

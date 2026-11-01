@@ -73,7 +73,7 @@ class AppGrimmoryCoordinator @Inject constructor(
                         username = input.username,
                     ),
                     successConnectionMessage = connectionSuccessMessage(
-                        message = "Connected to Grimmory. Tap Sync Grimmory to import the library.",
+                        message = "Connected to Grimmory. Tap Sync now to get your library.",
                         cleartextWarningMessage = input.cleartextWarningMessage,
                     ),
                     failurePrefix = "Unable to connect to Grimmory",

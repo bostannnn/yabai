@@ -295,12 +295,16 @@ private fun SourceConnectPage(
                     Text(
                         text = detail,
                         style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
-                        color = if (sync.failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (sync.failed || sync.warning) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 8.dp),
                     )
                 }
                 Text(
-                    text = "Books appear as they arrive, so you can start reading now. $name opens first when you start the app.",
+                    text = if (sync.running) {
+                        "Your books appear when it's done, and you can leave this page meanwhile. $name opens first when you start the app."
+                    } else {
+                        "$name opens first when you start the app."
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 16.dp),

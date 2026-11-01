@@ -121,6 +121,20 @@ Fifth session (2026-10-21), on `claude/app-review-remaining-81a1e7`:
   - Opening and closing a book without moving no longer re-stamps its progress (`d75a460b`). Comics: saving the page already stored keeps the stored progress and its timestamp (`ComicsReaderSessionAdapter.savePage`). EPUB: Readium reports where the book opened and again as it settles there (on the emulator: 12.5 % then 13 %, same position), and the close and stop saves re-saved regardless. A location report now counts as a move only after the page is touched (observed on the surface before its content, so curl drags count) or a seek or contents jump is issued. Readium positions can't decide it: they follow compressed size, so the lorem-ipsum test book had one position per chapter, and in a real book one can span more than a page. PDF already saved only after navigating. The EPUB progress labels moved to `EpubProgressLabels.kt`, so the `EpubReaderEntry.kt` hotspot shrank. Checked on a private emulator (`yabai_review_35`, debug build, local EPUB and CBZ, the `reading_progress` row read with `sqlite3`): opening and closing without moving, or Home and back, kept the stored timestamp; a page turn, a thumbnail jump and a contents jump saved.
   - Each push reads the server's copy first (Kavita `get-progress`, Grimmory's book entry, Stump's progress) and keeps it, as CLEAN, instead of pushing when the rule a pull follows says it is newer (`6a0efd73`, `PendingProgressPush.kt`), so push and pull agree. That rule now gives a save that isn't pushed yet a 2-minute tolerance (`PENDING_LOCAL_PROGRESS_CLOCK_TOLERANCE_MILLIS`), in pulls too. The server stamps each push with its own clock when it lands, and the auto-flush runs 1.5 s after each save, so a page turned while a push is in flight, or a server clock running ahead, would otherwise make this device's own last push look newer than its next save, and reading would jump back. A read on another device more than 2 minutes after the local save wins. Left open: a server clock more than 2 minutes ahead brings that back; the robust fix stores the server's stamp of each push (a schema change). Cost: one more request per pushed save. Unit tests only; not checked against live servers or with two devices.
 
+Grimmory sync review (2026-11-01), on `claude/grimmory-sync-review-320669` (`d5527f74`, unit tests only, not on a device):
+
+- New: the Grimmory journal push had the #43 pattern. A flush passes only the pending items (the book just closed), so every other book's dirty
+  rating or review was marked FAILED with "No Grimmory catalog item". `pushDirtyGrimmoryJournalEntries` now takes `itemsAreWholeCatalog`: outside
+  the batch it leaves the entry for later; in a catalog sync an entry for a book deleted on the server is marked CLEAN and no longer retried (it
+  then leaves the journal at the next Sync now, as Kavita's does). That is the "journal pushes fail for deleted books" half of #39.
+- The Grimmory journal push now rethrows an unreachable server for the address failover, the check #19 left open.
+- The address failover no longer wraps the whole Grimmory sync: only the fetch moves address and starts over. The uploads after the save
+  (`GrimmoryCatalogSyncUploads`) have their own failover and come back as not uploaded instead of failing a sync whose books were saved, so the
+  session is saved too. Part of #29 for Grimmory; a token refreshed during the fetch is still lost if the fetch then fails. Kavita and Stump keep
+  the whole-sync failover.
+- Sync now writes only the changes, like the refresh. The library refresh loads reading history for the books read on the server since the last
+  pull (`GrimmoryJournalPullScope`, which reads each clean journal entry's remote time) and skips the pull when nothing changed.
+
 #41, #8 and #12 were done in that order (third session) because restoring a reader at cold start is what
 triggers the first two. #41 and #8 have unit tests only.
 

@@ -33,6 +33,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -166,7 +167,158 @@ class GrimmoryCatalogSyncServiceTest {
     }
 
     @Test
-    fun `refresh after a sync with nothing new writes nothing and leaves the journal history to the sync`() = runBlocking {
+    fun `sync with nothing new on the server writes nothing and keeps the covers`() = runBlocking {
+        val item = grimmoryItem(remoteId = "book-1", libraryRemoteId = "g-books")
+        val writer = RecordingRemoteCatalogWriter(
+            stored = StoredRemoteCatalog(
+                libraries = listOf(grimmoryLibrary("g-books").toEntity()),
+                items = listOf(item.toEntity(updatedAtEpochMillis = 5L)),
+            ),
+        )
+        val service = GrimmoryCatalogSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ ->
+                FakeGrimmoryApi(
+                    libraries = listOf(grimmoryLibrary("g-books")),
+                    allBookEntries = listOf(GrimmoryBookCatalogEntry(item = item, progress = null)),
+                )
+            },
+            remoteCatalogWriter = writer,
+        )
+
+        val result = service.sync(
+            GrimmoryCatalogSyncRequest(
+                displayName = "Grimmory",
+                baseUrl = "https://grimmory.example/",
+                username = "user",
+                password = "password",
+            ),
+        )
+
+        assertFalse(result.hasCatalogChanges)
+        assertEquals(0, writer.replaceCalls)
+        assertTrue(writer.deltas.isEmpty())
+        assertEquals(1, result.itemCount)
+    }
+
+    @Test
+    fun `sync keeps the saved catalog and reports the upload when the server stops answering after the save`() = runBlocking {
+        val readerSessionStore = GrimmoryTestReaderSessionStore()
+        val item = grimmoryItem(remoteId = "42", libraryRemoteId = "g-books", format = FormatType.PDF, pageCount = 120)
+        readerSessionStore.saveProgress(
+            item = item,
+            locator = ReaderLocator(locatorType = LocatorType.PAGE, page = 9, percent = 0.4),
+            syncState = SyncState.DIRTY,
+            pageCount = item.pageCount,
+        )
+        val api = FakeGrimmoryApi(
+            libraries = listOf(grimmoryLibrary("g-books")),
+            allBookEntries = listOf(GrimmoryBookCatalogEntry(item = item, progress = null)),
+        ).apply { progressFailure = java.net.ConnectException("No route to host") }
+        val writer = RecordingRemoteCatalogWriter()
+        val service = GrimmoryCatalogSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            remoteCatalogWriter = writer,
+            readerSessionStore = readerSessionStore,
+        )
+
+        val result = service.sync(
+            GrimmoryCatalogSyncRequest(
+                displayName = "Grimmory",
+                baseUrl = "https://grimmory.example/",
+                username = "user",
+                password = "password",
+            ),
+        )
+
+        assertEquals(listOf(item.id), writer.items.map(ReadableItemEntity::id))
+        assertTrue(result.progressPushFailures.single() is java.net.ConnectException)
+        assertEquals("access-token", result.session?.accessToken)
+        // Still waiting to upload, not failed.
+        assertEquals(SyncState.DIRTY, readerSessionStore.getProgress(item)?.syncState)
+        assertEquals(1, api.bookAccessTokens.size)
+    }
+
+    @Test
+    fun `an upload the main address drops is retried on the backup without fetching the catalog again`() = runBlocking {
+        val readerSessionStore = GrimmoryTestReaderSessionStore()
+        val item = grimmoryItem(remoteId = "42", libraryRemoteId = "g-books", format = FormatType.PDF, pageCount = 120)
+        readerSessionStore.saveProgress(
+            item = item,
+            locator = ReaderLocator(locatorType = LocatorType.PAGE, page = 9, percent = 0.4),
+            syncState = SyncState.DIRTY,
+            pageCount = item.pageCount,
+        )
+        val entries = listOf(GrimmoryBookCatalogEntry(item = item, progress = null))
+        val home = FakeGrimmoryApi(libraries = listOf(grimmoryLibrary("g-books")), allBookEntries = entries)
+            .apply { progressFailure = java.net.ConnectException("No route to host") }
+        val backup = FakeGrimmoryApi(libraries = listOf(grimmoryLibrary("g-books")), allBookEntries = entries)
+        val writer = RecordingRemoteCatalogWriter()
+        val service = GrimmoryCatalogSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { baseUrl ->
+                if (baseUrl == "https://backup.example/") backup else home
+            },
+            remoteCatalogWriter = writer,
+            readerSessionStore = readerSessionStore,
+        )
+
+        val result = service.sync(
+            GrimmoryCatalogSyncRequest(
+                displayName = "Grimmory",
+                baseUrl = "https://grimmory.example/",
+                backupBaseUrl = "https://backup.example/",
+                username = "user",
+                password = "password",
+            ),
+        )
+
+        assertTrue(result.progressPushFailures.isEmpty())
+        assertEquals("https://backup.example/", result.activeBaseUrl)
+        assertEquals("42", backup.progressUpdates.single().bookId)
+        assertTrue(backup.bookAccessTokens.isEmpty())
+        assertEquals(1, writer.replaceCalls)
+        assertEquals(SyncState.CLEAN, readerSessionStore.getProgress(item)?.syncState)
+    }
+
+    @Test
+    fun `refresh loads reading history only for a book read on the server since the last sync`() = runBlocking {
+        val readBook = grimmoryItem(remoteId = "book-1", libraryRemoteId = "g-books")
+        val otherBook = grimmoryItem(remoteId = "book-2", libraryRemoteId = "g-books")
+        var entries = listOf(
+            GrimmoryBookCatalogEntry(item = readBook, progress = null, lastReadTime = "2026-10-30T20:00:00Z"),
+            GrimmoryBookCatalogEntry(item = otherBook, progress = null, lastReadTime = "2026-10-29T20:00:00Z"),
+        )
+        val journalRepository = GrimmoryRecordingJournalRepository()
+        val service = GrimmoryCatalogSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ ->
+                FakeGrimmoryApi(libraries = listOf(grimmoryLibrary("g-books")), allBookEntries = entries)
+            },
+            remoteCatalogWriter = RecordingRemoteCatalogWriter(),
+            journalRepository = journalRepository,
+        )
+        val request = GrimmoryCatalogSyncRequest(
+            displayName = "Grimmory",
+            baseUrl = "https://grimmory.example/",
+            username = "user",
+            password = "password",
+        )
+        service.sync(request)
+        // Read on Grimmory's web reader after that sync.
+        entries = listOf(entries[0].copy(lastReadTime = "2026-11-01T09:00:00Z"), entries[1])
+        val api = FakeGrimmoryApi(libraries = listOf(grimmoryLibrary("g-books")), allBookEntries = entries)
+        val refreshService = GrimmoryCatalogSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            remoteCatalogWriter = RecordingRemoteCatalogWriter(),
+            journalRepository = journalRepository,
+        )
+
+        refreshService.refresh(request)
+
+        assertEquals(listOf("book-1"), api.sessionRequests)
+        assertEquals(2, journalRepository.replaceCount)
+    }
+
+    @Test
+    fun `refresh after a sync with nothing new writes nothing and loads no journal history`() = runBlocking {
         val writer = RecordingRemoteCatalogWriter()
         val listItem = grimmoryItem(remoteId = "book-1", libraryRemoteId = "g-books")
         val api = FakeGrimmoryApi(
@@ -278,14 +430,18 @@ class GrimmoryCatalogSyncServiceTest {
     }
 
     @Test
-    fun `sync emits determinate grimmory progress updates`() = runBlocking {
+    fun `sync's bar moves until the book list is in, then fills by the counted work`() = runBlocking {
+        val readBooks = (1..3).map { number -> grimmoryItem(remoteId = "book-$number", libraryRemoteId = "g-books") }
         val api = FakeGrimmoryApi(
             libraries = listOf(grimmoryLibrary("g-books")),
-            allBookEntries = emptyList(),
+            allBookEntries = readBooks.map { item ->
+                GrimmoryBookCatalogEntry(item = item, progress = null, lastReadTime = "2026-10-30T20:00:00Z")
+            },
         )
         val service = GrimmoryCatalogSyncService(
             grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
             remoteCatalogWriter = RecordingRemoteCatalogWriter(),
+            journalRepository = GrimmoryRecordingJournalRepository(),
         )
         val progressUpdates = mutableListOf<GrimmorySyncProgress>()
 
@@ -299,10 +455,79 @@ class GrimmoryCatalogSyncServiceTest {
             onProgress = progressUpdates::add,
         )
 
-        assertTrue(progressUpdates.any { update -> update.message == "Loading Grimmory libraries..." })
-        assertTrue(progressUpdates.any { update -> update.message == "Loading Grimmory books..." })
-        assertTrue(progressUpdates.any { update -> update.message == "Saving Grimmory catalog..." })
-        assertTrue(progressUpdates.any { update -> update.message == "Applying Grimmory progress..." })
+        assertEquals(
+            listOf(
+                "Connecting",
+                "Getting the book list",
+                "Saving the library",
+                "Uploading reading progress",
+                "Reading history",
+                "Reading history · 0 of 3 books",
+                "Reading history · 1 of 3 books",
+                "Reading history · 2 of 3 books",
+                "Reading history · 3 of 3 books",
+                "Uploading journal changes",
+            ),
+            progressUpdates.map(GrimmorySyncProgress::message).distinct(),
+        )
+        // Moving (no fraction) only before the first counted step, and never going back after it.
+        val fractions = progressUpdates.map(GrimmorySyncProgress::fraction)
+        val firstCounted = fractions.indexOfFirst { fraction -> fraction != null }
+        assertEquals(listOf(null, null), fractions.take(firstCounted))
+        val counted = fractions.drop(firstCounted).map { fraction -> checkNotNull(fraction) }
+        assertEquals(counted.sorted(), counted)
+        assertTrue(counted.last() < 1f)
+    }
+
+    @Test
+    fun `sync works off the caller's thread and hands it every step there, in order, before returning`() = runBlocking {
+        val callerThread = Thread.currentThread()
+        val worker = java.util.concurrent.Executors.newSingleThreadExecutor { runnable -> Thread(runnable, "grimmory-sync-work") }
+        val api = FakeGrimmoryApi(
+            libraries = listOf(grimmoryLibrary("g-books")),
+            allBookEntries = listOf(
+                GrimmoryBookCatalogEntry(
+                    item = grimmoryItem(remoteId = "book-1", libraryRemoteId = "g-books"),
+                    progress = null,
+                    lastReadTime = "2026-10-30T20:00:00Z",
+                ),
+            ),
+        )
+        val service = GrimmoryCatalogSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            remoteCatalogWriter = RecordingRemoteCatalogWriter(),
+            journalRepository = GrimmoryRecordingJournalRepository(),
+            workDispatcher = worker.asCoroutineDispatcher(),
+        )
+        val stepThreads = mutableListOf<Thread>()
+        val steps = mutableListOf<String>()
+
+        try {
+            service.sync(
+                request = GrimmoryCatalogSyncRequest(
+                    displayName = "Grimmory",
+                    baseUrl = "https://grimmory.example/",
+                    username = "user",
+                    accessToken = "saved-access-token",
+                ),
+                onProgress = { step ->
+                    stepThreads += Thread.currentThread()
+                    steps += step.message
+                },
+            )
+        } finally {
+            worker.shutdown()
+        }
+
+        assertEquals("grimmory-sync-work", api.bookListThread?.name)
+        assertTrue(stepThreads.isNotEmpty() && stepThreads.all { thread -> thread === callerThread })
+        assertEquals("Uploading journal changes", steps.last())
+    }
+
+    @Test
+    fun `reading history counts one book without a plural and large counts with separators`() {
+        assertEquals("Reading history · 1 of 1 book", GrimmorySyncSteps.readingHistory(loaded = 1, total = 1).message)
+        assertEquals("Reading history · 1,200 of 2,161 books", GrimmorySyncSteps.readingHistory(loaded = 1200, total = 2161).message)
     }
 
     @Test
@@ -845,6 +1070,11 @@ private class GrimmoryRecordingJournalRepository(
         sourceType: SourceType,
     ): List<ItemJournalEntry> = dirtyEntries.filter { entry -> entry.sourceType == sourceType }
 
+    // As the database would: the last pull's entries are the clean ones.
+    override suspend fun getCleanJournalEntriesForSource(
+        sourceType: SourceType,
+    ): List<ItemJournalEntry> = lastEntries.filter { entry -> entry.sourceType == sourceType }
+
     override suspend fun replaceCleanSourceJournalCache(
         sourceType: SourceType,
         events: List<JournalReadingEvent>,
@@ -906,6 +1136,11 @@ private class FakeGrimmoryApi(
     val unauthorizedLibraryTokens = mutableSetOf<String>()
     val unauthorizedProgressTokens = mutableSetOf<String>()
     val unauthorizedNotebookTokens = mutableSetOf<String>()
+    // The books' histories load in parallel, on the sync's worker threads.
+    val sessionRequests: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+    var bookListThread: Thread? = null
+    // Thrown by every progress upload, such as a server that stopped answering.
+    var progressFailure: Throwable? = null
 
     override suspend fun login(
         username: String,
@@ -949,6 +1184,7 @@ private class FakeGrimmoryApi(
         accessToken: String,
     ): List<GrimmoryBookCatalogEntry> {
         bookAccessTokens += accessToken
+        bookListThread = Thread.currentThread()
         return allBookEntries
     }
 
@@ -978,6 +1214,7 @@ private class FakeGrimmoryApi(
         if (accessToken in unauthorizedProgressTokens) {
             throw GrimmoryUnauthorizedException()
         }
+        progressFailure?.let { throw it }
         progressUpdates += progress
     }
 
@@ -998,7 +1235,10 @@ private class FakeGrimmoryApi(
         accessToken: String,
         bookId: String,
         pageSize: Int,
-    ): List<GrimmoryReadingSessionDto> = emptyList()
+    ): List<GrimmoryReadingSessionDto> {
+        sessionRequests += bookId
+        return emptyList()
+    }
 }
 
 private class GrimmoryTestReaderSessionStore : ReaderSessionStore {

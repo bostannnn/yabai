@@ -36,7 +36,10 @@ import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import java.io.File
+import java.util.Collections
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -123,6 +126,46 @@ class KavitaCatalogSyncServiceTest {
         val fills = progressUpdates.mapNotNull(KavitaSyncProgress::fraction)
         assertEquals(fills.sorted(), fills)
         assertTrue(fills.last() > 0.9f)
+    }
+
+    @Test
+    fun `sync works off the caller's thread and reports each step on it`() {
+        val callerExecutor = Executors.newSingleThreadExecutor { work -> Thread(work, "caller") }
+        val api = FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = listOf(
+                kavitaSeriesEntry(id = "12", libraryId = "5"),
+                kavitaSeriesEntry(id = "13", libraryId = "5"),
+            ),
+        )
+        val service = KavitaCatalogSyncService(
+            kavitaApiFactory = KavitaApiFactory { _ -> api },
+            remoteCatalogWriter = RecordingKavitaRemoteCatalogWriter(),
+        )
+        val progressThreadNames = mutableListOf<String>()
+        val progressMessages = mutableListOf<String>()
+
+        try {
+            runBlocking(callerExecutor.asCoroutineDispatcher()) {
+                service.sync(
+                    request = savedSessionRequest(),
+                    onProgress = { step ->
+                        progressThreadNames += Thread.currentThread().name
+                        progressMessages += step.message
+                    },
+                )
+            }
+        } finally {
+            callerExecutor.shutdown()
+        }
+
+        assertTrue(api.seriesThreadNames.isNotEmpty())
+        // Thread names carry the coroutine after " @" when tests run with coroutine debugging.
+        assertTrue(api.seriesThreadNames.none { name -> name.substringBefore(" @") == "caller" })
+        assertEquals(setOf("caller"), progressThreadNames.map { name -> name.substringBefore(" @") }.toSet())
+        // Every step reached the caller before the sync returned, in order.
+        assertEquals("Connecting", progressMessages.first())
+        assertEquals("Uploading journal changes", progressMessages.last())
     }
 
     @Test
@@ -342,7 +385,7 @@ class KavitaCatalogSyncServiceTest {
         )
 
         assertEquals(listOf("saved-access-token"), api.libraryAccessTokens)
-        assertEquals(listOf("12", "13"), api.detailRequests)
+        assertEquals(listOf("12", "13"), api.detailRequests.sorted())
         assertEquals(listOf("saved-refresh-token"), api.refreshTokens)
         assertEquals(listOf("refreshed-access-token"), renewedPairs.map(KavitaSession::accessToken))
         assertEquals("refreshed-access-token", result.session?.accessToken)
@@ -708,7 +751,7 @@ class KavitaCatalogSyncServiceTest {
                 kavitaApiFactory = KavitaApiFactory { _ -> api },
                 remoteCatalogWriter = writer,
             ).fastSync(request = request)
-            assertEquals(listOf("12", "13"), api.detailRequests)
+            assertEquals(listOf("12", "13"), api.detailRequests.sorted())
         }
         val changedApi = FakeKavitaApi(
             libraries = listOf(kavitaLibrary("5")),
@@ -1619,8 +1662,10 @@ private class FakeKavitaApi(
     ),
 ) : KavitaApi {
     val seriesApiKeys = mutableListOf<String?>()
-    val detailRequests = mutableListOf<String>()
-    val progressRequests = mutableListOf<String>()
+    val seriesThreadNames = mutableListOf<String>()
+    // The sync's requests run on background threads, some at once.
+    val detailRequests: MutableList<String> = Collections.synchronizedList(mutableListOf())
+    val progressRequests: MutableList<String> = Collections.synchronizedList(mutableListOf())
     val currentUserAccessTokens = mutableListOf<String>()
     val libraryAccessTokens = mutableListOf<String>()
     val refreshTokens = mutableListOf<String>()
@@ -1658,6 +1703,7 @@ private class FakeKavitaApi(
         accessToken: String,
         apiKey: String?,
     ): List<KavitaSeriesEntry> {
+        seriesThreadNames += Thread.currentThread().name
         seriesApiKeys += apiKey
         if (remainingUnauthorizedSeriesRequests > 0) {
             remainingUnauthorizedSeriesRequests -= 1

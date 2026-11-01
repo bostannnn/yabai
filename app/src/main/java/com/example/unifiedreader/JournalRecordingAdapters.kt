@@ -16,9 +16,15 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
+/**
+ * Records the reader's progress in the journal. [visitStartedAt] says when the reader's visit to a
+ * book began (`ReaderWorkCoordinator.readerVisitStartedAt`), so turning back from the end takes
+ * back the finish made on that visit.
+ */
 class JournalRecordingReaderSessionStore(
     private val delegate: ReaderSessionStore,
     private val journalEventRecorder: JournalEventRecorder,
+    private val visitStartedAt: (itemId: String) -> Long? = { null },
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) : ReaderSessionStore by delegate {
     override fun saveProgress(
@@ -39,6 +45,7 @@ class JournalRecordingReaderSessionStore(
             pageCount = pageCount,
             updatedAtEpochMillis = updatedAtEpochMillis,
         )
+        val visitStartedAt = visitStartedAt(item.id)
         scope.launch {
             journalEventRecorder.recordReaderProgress(
                 JournalProgressInput(
@@ -48,6 +55,7 @@ class JournalRecordingReaderSessionStore(
                     pageCount = pageCount ?: item.pageCount,
                     isFinished = isFinished,
                     occurredAtEpochMillis = updatedAtEpochMillis,
+                    visitStartedAtEpochMillis = visitStartedAt,
                 ),
             )
         }
@@ -66,6 +74,7 @@ class JournalRecordingReaderSessionStore(
 class JournalRecordingComicReaderProgressStore(
     private val delegate: ComicReaderProgressStore,
     private val journalEventRecorder: JournalEventRecorder,
+    private val visitStartedAt: (itemId: String) -> Long? = { null },
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) : ComicReaderProgressStore by delegate {
     override fun savePage(
@@ -87,13 +96,16 @@ class JournalRecordingComicReaderProgressStore(
             pageCount = pageCount,
             isFinished = isFinished,
         )
+        // Back as well as forward: turning back from the last page takes back a finish, and going
+        // back to the start of a finished comic reads it again (the journal decides which).
         val shouldRecordJournalProgress = if (safePageIndex != null && previousPageIndex != null) {
-            safePageIndex > previousPageIndex
+            safePageIndex != previousPageIndex
         } else {
             false
         }
         if (!shouldRecordJournalProgress) return
         val displayPage = safePageIndex?.plus(1)
+        val visitStartedAt = visitStartedAt(item.id)
         scope.launch {
             journalEventRecorder.recordReaderProgress(
                 JournalProgressInput(
@@ -107,6 +119,7 @@ class JournalRecordingComicReaderProgressStore(
                     pageCount = safePageCount.takeIf { it > 0 },
                     isFinished = isFinished,
                     occurredAtEpochMillis = System.currentTimeMillis(),
+                    visitStartedAtEpochMillis = visitStartedAt,
                 ),
             )
         }

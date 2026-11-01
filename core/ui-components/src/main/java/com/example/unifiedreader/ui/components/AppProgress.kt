@@ -61,8 +61,9 @@ fun AppLinearProgress(
 
 /**
  * A thin pill bar: [fraction] of the way in [progressColor] on [trackColor], or, while there is no
- * [fraction], Material's moving bar on the same track. The update download, a first sync,
- * downloads and the EPUB contents' footer all use it.
+ * [fraction], Material's moving bar on the same track. The update download, a sync, downloads and
+ * the EPUB contents' footer all use it. A new fraction slides there on a spring that doesn't
+ * overshoot, so a filling bar never runs past the work; only the draw phase reads the motion.
  */
 @Composable
 fun AppProgressBar(
@@ -76,7 +77,17 @@ fun AppProgressBar(
         .height(height)
         .clip(CircleShape)
     if (fraction != null) {
-        Box(modifier = barModifier.appProgressFill(fraction = fraction, progressColor = progressColor, trackColor = trackColor))
+        val shown = animateFloatAsState(
+            targetValue = fraction.coerceIn(0f, 1f),
+            animationSpec = AppMotion.effects(),
+            label = "appProgressBar",
+        )
+        Box(
+            modifier = barModifier.drawBehind {
+                drawRect(trackColor)
+                drawRect(progressColor, size = Size(size.width * shown.value, size.height))
+            },
+        )
     } else {
         AppLinearProgress(modifier = barModifier, color = progressColor, trackColor = trackColor)
     }

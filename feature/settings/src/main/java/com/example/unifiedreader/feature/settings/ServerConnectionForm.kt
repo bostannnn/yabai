@@ -25,7 +25,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppButtonSpinner
-import com.example.unifiedreader.ui.components.AppLinearProgress
 import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.components.AppTextField
 
@@ -157,7 +156,7 @@ internal fun ServerConnectionForm(
                     },
                 )
                 if (fullWidthConnect) {
-                    ServerConnectionStatus(state = state, actionState = actionState)
+                    ServerConnectionStatus(state = state)
                     AppButton(
                         onClick = onConnect,
                         enabled = state.canConnect,
@@ -178,7 +177,6 @@ internal fun ServerConnectionForm(
                     ) {
                         ServerConnectionStatus(
                             state = state,
-                            actionState = actionState,
                             modifier = Modifier.weight(1f),
                         )
                         AppButton(
@@ -195,44 +193,29 @@ internal fun ServerConnectionForm(
     }
 }
 
-/** Under the form: the connection's progress while it signs in, else what to do or what went wrong. */
+/**
+ * Under the form: what to do, what went wrong, or what it is doing ("Connecting to Grimmory."). A sign-in
+ * shows no bar: the Connect button's spinner covers its one request, and a sync's bar is the Sync row's.
+ */
 @Composable
 private fun ServerConnectionStatus(
     state: ServerConnectionFormState,
-    actionState: ServerConnectionActionState,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        val connecting = actionState.activeAction == ServerConnectionAction.Connect
-        if (connecting && state.syncProgressLabel != null) {
-            AppLinearProgress(
-                progress = { state.syncProgressFraction ?: 0f },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                text = state.syncProgressLabel,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+    Text(
+        text = state.message ?: if (state.hasStoredSession) {
+            "Signed in. Reconnect after changing the address or account."
         } else {
-            Text(
-                text = state.message ?: if (state.hasStoredSession) {
-                    "Signed in. Reconnect after changing the address or account."
-                } else {
-                    "Sign in to sync this server's libraries."
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (state.isError && state.message != null) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            )
-        }
-    }
+            "Sign in to sync this server's libraries."
+        },
+        style = MaterialTheme.typography.bodyMedium,
+        color = if (state.isError && state.message != null) {
+            MaterialTheme.colorScheme.error
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
+        modifier = modifier,
+    )
 }
 
 @Composable
