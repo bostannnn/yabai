@@ -28,6 +28,7 @@ class AppLaunchSplashThemeTest {
             val scheme = staticUnifiedReaderColorScheme(mode, systemDarkTheme = mode.isDark)
             assertEquals("$style background", scheme.background.toArgb(), color(style, "windowSplashScreenBackground", colors))
             assertEquals("$style mark", scheme.primary.toArgb(), color(style, "launchMarkColor", colors))
+            assertEquals("$style opaque details", scheme.background.toArgb(), color(style, "launchPaperColor", colors))
             assertEquals("$style bar icons", (!mode.isDark).toString(), item(style, "android:windowLightStatusBar"))
         }
     }
@@ -39,8 +40,10 @@ class AppLaunchSplashThemeTest {
         val dark = staticUnifiedReaderColorScheme(ThemeMode.SystemDynamic, systemDarkTheme = true)
         assertEquals(light.background.toArgb(), color(style, "windowSplashScreenBackground", colors))
         assertEquals(light.primary.toArgb(), color(style, "launchMarkColor", colors))
+        assertEquals(light.background.toArgb(), color(style, "launchPaperColor", colors))
         assertEquals(dark.background.toArgb(), color(style, "windowSplashScreenBackground", nightColors))
         assertEquals(dark.primary.toArgb(), color(style, "launchMarkColor", nightColors))
+        assertEquals(dark.background.toArgb(), color(style, "launchPaperColor", nightColors))
     }
 
     @Test
@@ -50,8 +53,10 @@ class AppLaunchSplashThemeTest {
         val graphite = staticUnifiedReaderColorScheme(ThemeMode.Graphite, systemDarkTheme = true)
         assertEquals(paper.background.toArgb(), color(style, "windowSplashScreenBackground", colors))
         assertEquals(paper.primary.toArgb(), color(style, "launchMarkColor", colors))
+        assertEquals(paper.background.toArgb(), color(style, "launchPaperColor", colors))
         assertEquals(graphite.background.toArgb(), color(style, "windowSplashScreenBackground", nightColors))
         assertEquals(graphite.primary.toArgb(), color(style, "launchMarkColor", nightColors))
+        assertEquals(graphite.background.toArgb(), color(style, "launchPaperColor", nightColors))
     }
 
     @Test
@@ -60,6 +65,7 @@ class AppLaunchSplashThemeTest {
             val style = "Theme.UnifiedReader.Launch.${splash.name}"
             assertEquals("$style icon", "@drawable/launch_mark", item(style, "windowSplashScreenAnimatedIcon"))
             assertEquals("$style next theme", "@style/Theme.UnifiedReader", item(style, "postSplashScreenTheme"))
+            assertEquals("$style motion duration", "820", item(style, "windowSplashScreenAnimationDuration"))
             assertTrue("$style is used by a theme", ThemeMode.entries.any { it.launchSplash == splash })
         }
     }

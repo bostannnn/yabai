@@ -1426,6 +1426,17 @@ behind the app was the same light or dark grey.
 - [x] Tablet (0.19.0, 2026-10-25, see "Tablet pass over 9.1-9.8"): Graphite's splash, held 120 ms on the first
       start after the install, then 81 and 0 ms; the 800 ms limit was never reached. Too short to catch the
       splash itself with `screencap`.
+- [x] Book hop (2026-11-01): approved third motion study implemented as a single 820 ms native animated
+      vector on Android 12+, with the matching static pose on Android 9–11. Oni has a complete body,
+      rounded arms and feet, opaque facial details, and lands into a dipping book with fluttering pages.
+      Every frame fits the system icon mask; saved theme colours, the existing readiness hold and
+      Android's own hand-off remain in use. No extra startup delay. Canonical art and motion:
+      `docs/design/system/project/components/AppLaunchSplash/`; generator:
+      `docs/design/system/tools/gen_launch_splash.py`.
+      Debug build and 20 focused unit/rule checks pass; the native drawable test passes for every
+      palette on an isolated Android 15 emulator. Launch recordings confirm the full hop and the static
+      pose with system animations disabled. Verification notes:
+      `docs/design/system/project/components/AppLaunchSplash/verification.md`.
 
 ### 9.4 Library tiles and the shelf browser `[~]` (shelf-browser, tile-meta)
 

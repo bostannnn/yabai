@@ -2,4 +2,6 @@
 <resources>
     <!-- The splash mark's colour (drawable/launch_mark.xml), set by each Theme.UnifiedReader.Launch style. -->
     <attr name="launchMarkColor" format="color" />
+    <!-- Opaque facial details and book pages, always equal to this splash's background. -->
+    <attr name="launchPaperColor" format="color" />
 </resources>

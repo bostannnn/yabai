@@ -25,7 +25,7 @@ Read the Layout and spacing and the Names and titles sections before changing an
 - **Shape.** Five radii: `radius-cover` 6, `radius-control` 12, `radius-container` 20, `radius-sheet` 28, `radius-pill`. Buttons, chips, segmented rows, tabs and the search field are pills; panels and the bar are containers; dialogs and sheets are sheets. No other radius.
 - **Elevation.** Content is flat on the ground. Only floating things cast a shadow: the top bar (6), side sheets (16), dialogs and menus (their kit defaults). Panels have no border and no shadow.
 - **Glass.** One blurred material (Haze) for the top bar, the drawer and the reader bars and panels, tinted at 0.86 for bars and 0.72 for the large reader panes. Where blur is unavailable the fallback is opaque.
-- **Motion.** AppMotion owns durations and easing: fade-through between top-level screens, shared axis into a page and back, predictive back on every screen and sheet, a press shrink on buttons and chips. Nothing bounces; nothing moves on its own while idle.
+- **Motion.** AppMotion owns durations and easing: fade-through between top-level screens, shared axis into a page and back, predictive back on every screen and sheet, a press shrink on buttons and chips. Nothing bounces; nothing moves on its own while idle. The launch-only [Book hop](components/AppLaunchSplash/README.md) is the approved playful exception: one 820 ms native icon animation, with no added startup wait.
 - **States.** Pressed: the control shrinks a little and its corners morph toward square. Selected: `primary-container`. Disabled: Material's 38% content alpha. Focus: Material's default indicator.
 
 ## Iconography
