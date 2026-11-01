@@ -49,7 +49,7 @@ class GrimmoryCredentialStoreTest {
     }
 
     @Test
-    fun `store clears stored session when credential decrypt fails`() = runBlocking {
+    fun `store keeps stored session when credential decrypt fails`() = runBlocking {
         val preferences = ApplicationProvider.getApplicationContext<Context>()
             .getSharedPreferences("grimmory_credentials_test_${System.nanoTime()}", Context.MODE_PRIVATE)
         SharedPreferencesGrimmoryCredentialStore(
@@ -71,7 +71,12 @@ class GrimmoryCredentialStoreTest {
         )
 
         assertNull(store.sessionFlow.value)
-        assertTrue(preferences.all.isEmpty())
+        assertFalse(preferences.all.isEmpty())
+        val nextStartStore = SharedPreferencesGrimmoryCredentialStore(
+            preferences = preferences,
+            cipher = PrefixCredentialCipher(),
+        )
+        assertEquals("access-token", nextStartStore.sessionFlow.value?.accessToken)
     }
 }
 

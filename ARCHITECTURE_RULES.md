@@ -135,6 +135,7 @@ The visible grid items, shelves, filter summary, browse key, sort/filter/search 
 For Kavita landing, shelves, collections, reading lists, and filtered series views:
 
 - keep the previous coherent presentation or show one unified loading state while membership or derived presentation is recomputing
+- never hold navigation itself until a recompute lands: opening a view (another server, back from a series or the reader, back from another tab) shows that view's last finished presentation at once (`AppLibraryRetainedPresentations`) and recomputes it in the background; only a view with nothing retained (its first visit since launch) waits
 - do not make shelves appear, disappear, or resize after the grid has already presented the new item set
 - covers may load independently, but card sizes and list/grid positions must remain stable
 - root shelves, selected collection/list content, and filtered series grids must not be computed by unrelated timing paths that visibly fight each other

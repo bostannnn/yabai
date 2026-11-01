@@ -59,6 +59,7 @@ fun SettingsScreen(
     onLibraryFilterPanelsChanged: (SourceType, List<LibraryFilterPanel>) -> Unit,
     syncSettings: SyncSettingsUiState,
     onRetrySync: () -> Unit,
+    onKeepUploadsOnDevice: () -> Unit,
     onLibraryDirectionSelected: (String, ComicReadingDirection) -> Unit,
     onLibraryReaderModeSelected: (String, ComicReaderMode) -> Unit,
     versionName: String,
@@ -131,6 +132,7 @@ fun SettingsScreen(
                 SettingsPage.SyncStatus -> SyncStatusSettingsPage(
                     state = syncSettings,
                     onRetrySync = onRetrySync,
+                    onKeepUploadsOnDevice = onKeepUploadsOnDevice,
                     contentTopInset = contentTopInset,
                     horizontalPadding = horizontalPadding,
                 )

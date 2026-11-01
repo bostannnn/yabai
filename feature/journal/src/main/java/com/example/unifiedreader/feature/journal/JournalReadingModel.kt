@@ -48,7 +48,7 @@ internal fun JournalPeriodOverview.whatYouRead(): JournalWhatYouRead {
                     sessions.flatMap { session -> session.activeDayKeys(start, end) }
                 ).distinct().size,
             pages = journalItemPages(events, sessions, millis),
-            finishedAtEpochMillis = summary.finishedAtEpochMillis?.takeIf { at -> at in start until end },
+            finishedAtEpochMillis = summary.finishedAtWithin(start, end),
         )
     }.sortedWith(
         compareByDescending<JournalReadItem> { item -> item.readingMillis }

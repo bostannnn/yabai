@@ -183,6 +183,17 @@ data class JournalItemSummary(
             .filter { event -> event.eventType == JournalReadingEventType.FINISHED }
             .maxOfOrNull(JournalReadingEvent::occurredAtEpochMillis)
 
+    /** The latest finish from [startEpochMillis] until [endEpochMillis]: a book read twice is finished in each period. */
+    fun finishedAtWithin(
+        startEpochMillis: Long,
+        endEpochMillis: Long,
+    ): Long? = events
+        .filter { event ->
+            event.eventType == JournalReadingEventType.FINISHED &&
+                event.occurredAtEpochMillis in startEpochMillis until endEpochMillis
+        }
+        .maxOfOrNull(JournalReadingEvent::occurredAtEpochMillis)
+
     val lastActivityAtEpochMillis: Long
         get() = listOfNotNull(
             events.maxOfOrNull(JournalReadingEvent::occurredAtEpochMillis),
@@ -263,6 +274,11 @@ data class JournalProgressInput(
     val pageCount: Int?,
     val isFinished: Boolean,
     val occurredAtEpochMillis: Long,
+    /**
+     * When this visit to the book began, while a reader shows it: a finish recorded since then is
+     * taken back when the place moves back from the end. Null outside the reader.
+     */
+    val visitStartedAtEpochMillis: Long? = null,
 )
 
 data class JournalReadingSessionInput(
@@ -293,6 +309,13 @@ interface JournalRepository : JournalEventRecorder {
      * files, which the server catalog does not hold, so their pages show the library's names.
      */
     fun observeSnapshot(extraCatalogItems: Flow<List<ReadableItem>>): Flow<JournalSnapshot> = observeSnapshot()
+
+    /**
+     * [observeSnapshot], matching the journal's books to [catalogItems] alone: the whole catalog the
+     * caller already holds in memory, so the stored catalog isn't read and decoded again for it.
+     */
+    fun observeSnapshotForCatalog(catalogItems: Flow<List<ReadableItem>>): Flow<JournalSnapshot> =
+        observeSnapshot(catalogItems)
 
     /**
      * Lightweight journal write-state (raw events/sessions/entries only, no catalog join and no

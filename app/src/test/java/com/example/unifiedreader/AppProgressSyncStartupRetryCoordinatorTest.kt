@@ -69,6 +69,7 @@ class AppProgressSyncStartupRetryCoordinatorTest {
             flushPendingRemoteArtifactsUseCase = flushUseCase,
             remoteItemLocalAvailability = RemoteItemLocalAvailability(emptyList()),
             remoteSourceConnectivityPolicy = connectivityPolicy,
+            remoteCatalogReadiness = FakeRemoteCatalogReadiness(),
             autoFlushPolicy = autoFlushPolicy,
         ).observeDirtyProgress(
             scope = backgroundScope,

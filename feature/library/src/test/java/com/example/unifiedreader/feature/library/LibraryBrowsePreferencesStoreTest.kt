@@ -2,6 +2,7 @@ package com.example.unifiedreader.feature.library
 
 import android.app.Application
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
@@ -27,6 +28,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
@@ -38,17 +40,8 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class LibraryBrowsePreferencesStoreTest {
     @Test
-    fun `persists per-source filters and sort modes`() = runBlocking {
-        val file = File.createTempFile("library-browse-preferences", ".preferences_pb")
-        val startupPreferences = testStartupPreferences()
-        val dataStore = PreferenceDataStoreFactory.create(
-            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-            produceFile = { file },
-        )
-        val store = DataStoreLibraryBrowsePreferencesStore(
-            dataStore = dataStore,
-            startupPreferences = startupPreferences,
-        )
+    fun `persists per-source filters and sort modes`() = storeTest {
+        val store = readyStore("library-browse-preferences")
         val filters = LibraryFilterState(
             formats = setOf(FormatType.EPUB),
             libraries = setOf("kavita:library:books"),
@@ -78,17 +71,8 @@ class LibraryBrowsePreferencesStoreTest {
     }
 
     @Test
-    fun `default sort mode is last read and is not stored explicitly`() = runBlocking {
-        val file = File.createTempFile("library-browse-default-sort", ".preferences_pb")
-        val startupPreferences = testStartupPreferences()
-        val dataStore = PreferenceDataStoreFactory.create(
-            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-            produceFile = { file },
-        )
-        val store = DataStoreLibraryBrowsePreferencesStore(
-            dataStore = dataStore,
-            startupPreferences = startupPreferences,
-        )
+    fun `default sort mode is last read and is not stored explicitly`() = storeTest {
+        val store = readyStore("library-browse-default-sort")
 
         store.setSortMode(SourceType.LOCAL, LibrarySortMode.TITLE)
         // The flow starts without a LOCAL sort, so wait for TITLE first or the check below proves nothing.
@@ -104,17 +88,8 @@ class LibraryBrowsePreferencesStoreTest {
     }
 
     @Test
-    fun `persists custom filter panel order per source`() = runBlocking {
-        val file = File.createTempFile("library-browse-filter-panels", ".preferences_pb")
-        val startupPreferences = testStartupPreferences()
-        val dataStore = PreferenceDataStoreFactory.create(
-            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-            produceFile = { file },
-        )
-        val store = DataStoreLibraryBrowsePreferencesStore(
-            dataStore = dataStore,
-            startupPreferences = startupPreferences,
-        )
+    fun `persists custom filter panel order per source`() = storeTest {
+        val store = readyStore("library-browse-filter-panels")
         val panels = listOf(
             LibraryFilterPanel.Format,
             LibraryFilterPanel.Tag,
@@ -134,17 +109,9 @@ class LibraryBrowsePreferencesStoreTest {
     }
 
     @Test
-    fun `normalizes persisted grid cell size`() = runBlocking {
-        val file = File.createTempFile("library-browse-grid-size", ".preferences_pb")
+    fun `normalizes persisted grid cell size`() = storeTest {
         val startupPreferences = testStartupPreferences()
-        val dataStore = PreferenceDataStoreFactory.create(
-            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-            produceFile = { file },
-        )
-        val store = DataStoreLibraryBrowsePreferencesStore(
-            dataStore = dataStore,
-            startupPreferences = startupPreferences,
-        )
+        val store = readyStore("library-browse-grid-size", startupPreferences)
 
         store.setGridCellSizeDp(149)
 
@@ -157,17 +124,9 @@ class LibraryBrowsePreferencesStoreTest {
     }
 
     @Test
-    fun `default grid cell size is not stored explicitly`() = runBlocking {
-        val file = File.createTempFile("library-browse-default-grid-size", ".preferences_pb")
+    fun `default grid cell size is not stored explicitly`() = storeTest {
         val startupPreferences = testStartupPreferences()
-        val dataStore = PreferenceDataStoreFactory.create(
-            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-            produceFile = { file },
-        )
-        val store = DataStoreLibraryBrowsePreferencesStore(
-            dataStore = dataStore,
-            startupPreferences = startupPreferences,
-        )
+        val store = readyStore("library-browse-default-grid-size", startupPreferences)
 
         // Wait for each value to come back through the store's flow: it mirrors every DataStore
         // emission into the startup preferences, so an unobserved 140 could land there after the
@@ -185,17 +144,9 @@ class LibraryBrowsePreferencesStoreTest {
     }
 
     @Test
-    fun `persists fade read items preference`() = runBlocking {
-        val file = File.createTempFile("library-browse-fade-read", ".preferences_pb")
+    fun `persists fade read items preference`() = storeTest {
         val startupPreferences = testStartupPreferences()
-        val dataStore = PreferenceDataStoreFactory.create(
-            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-            produceFile = { file },
-        )
-        val store = DataStoreLibraryBrowsePreferencesStore(
-            dataStore = dataStore,
-            startupPreferences = startupPreferences,
-        )
+        val store = readyStore("library-browse-fade-read", startupPreferences)
 
         store.setFadeReadItems(true)
 
@@ -208,7 +159,7 @@ class LibraryBrowsePreferencesStoreTest {
     }
 
     @Test
-    fun `io fallback retries and resumes preferences observation`() = runBlocking {
+    fun `io fallback retries and resumes preferences observation`() = storeTest {
         val dataStore = RecoveringPreferencesDataStore()
         val store = DataStoreLibraryBrowsePreferencesStore(
             dataStore = dataStore,
@@ -231,7 +182,7 @@ class LibraryBrowsePreferencesStoreTest {
     }
 
     @Test
-    fun `startup cache seeds initial preferences before datastore emits`() = runBlocking {
+    fun `startup cache seeds initial preferences before datastore emits`() = storeTest {
         val context = ApplicationProvider.getApplicationContext<Application>()
         val suffix = System.nanoTime().toString()
         val startupPreferences = context.getSharedPreferences(
@@ -276,6 +227,49 @@ private fun testStartupPreferences() = ApplicationProvider.getApplicationContext
     "library-browse-test-${System.nanoTime()}",
     Context.MODE_PRIVATE,
 )
+
+/** runBlocking with a deadline: a value that never reaches the store's flow fails the test instead of stalling the build. */
+private fun storeTest(block: suspend CoroutineScope.() -> Unit) = runBlocking {
+    withTimeout(StoreTestTimeoutMillis) { block() }
+}
+
+private const val StoreTestTimeoutMillis = 30_000L
+
+/**
+ * A store over a fresh preferences file, returned once its collector has read the file. DataStore 1.1.1 can drop an
+ * edit made while a collector's first read is still running (2 runs in 300 under load, and the test then waited
+ * forever); in the app the store has long finished that read before anything is edited.
+ */
+private suspend fun readyStore(
+    name: String,
+    startupPreferences: SharedPreferences = testStartupPreferences(),
+): DataStoreLibraryBrowsePreferencesStore {
+    val dataStore = FirstReadSignallingDataStore(
+        PreferenceDataStoreFactory.create(
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+            produceFile = { File.createTempFile(name, ".preferences_pb") },
+        ),
+    )
+    val store = DataStoreLibraryBrowsePreferencesStore(
+        dataStore = dataStore,
+        startupPreferences = startupPreferences,
+    )
+    dataStore.firstRead.await()
+    return store
+}
+
+/** Passes everything to [delegate], and completes [firstRead] once its data has emitted. */
+private class FirstReadSignallingDataStore(
+    private val delegate: DataStore<Preferences>,
+) : DataStore<Preferences> {
+    val firstRead = CompletableDeferred<Unit>()
+
+    override val data: Flow<Preferences> = delegate.data.onEach { firstRead.complete(Unit) }
+
+    override suspend fun updateData(
+        transform: suspend (t: Preferences) -> Preferences,
+    ): Preferences = delegate.updateData(transform)
+}
 
 /** A DataStore whose data never emits, for what the store shows before it has read anything. */
 private class SilentPreferencesDataStore : DataStore<Preferences> {

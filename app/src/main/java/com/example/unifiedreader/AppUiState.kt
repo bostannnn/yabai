@@ -110,6 +110,8 @@ data class AppUiState(
     val displayRatingByItemId: Map<String, LibraryRatingBadgeState> = emptyMap(),
     val displayPageCountByItemId: Map<String, Int> = emptyMap(),
     val remoteDownloadActionAvailability: RemoteDownloadActionAvailability = RemoteDownloadActionAvailability(),
+    // The badge maps above are a full compute's (download availability included); see LibraryDerivedState.hasAllBadges.
+    val libraryHasAllBadges: Boolean = false,
     val visibleItems: List<ReadableItem> = emptyList(),
     val libraryBrowseContextKey: String = "",
     // Ordered item ids restored from the last-rendered cold-start view, per source. Applied only
@@ -271,23 +273,55 @@ private fun AppUiState.selectedLibraryRemoteItemLocalStateSourceLibraryScopeIds(
 }
 
 internal fun List<ReadableItem>.remoteItemLocalStateSourceLibraryScopeIds(): Set<String> =
-    asSequence()
-        .filter { item -> item.sourceType != SourceType.LOCAL }
-        .mapTo(linkedSetOf()) { item -> item.remoteItemLocalStateSourceLibraryScopeId() }
+    RemoteItemScopeIds.of(this).sourceLibraryScopeIds
 
 internal fun ReadableItem.remoteItemLocalStateSourceLibraryScopeId(): String = "${sourceType.name}:$libraryId"
 
-internal fun List<ReadableItem>.remoteItemLocalStateScopeItemIds(): Set<String> = buildSet {
-    this@remoteItemLocalStateScopeItemIds.forEach { item ->
+internal fun List<ReadableItem>.remoteItemLocalStateScopeItemIds(): Set<String> = RemoteItemScopeIds.of(this).itemIds
+
+internal fun List<ReadableItem>.remoteItemLocalAvailabilityScopeIds(): Set<String> =
+    RemoteItemScopeIds.of(this).availabilityScopeIds
+
+/**
+ * The remote-item scope sets of one list of items, each worked out once. The catalog's sets are asked
+ * for again and again (every catalog update, every progress and downloads refresh, each a pass over
+ * every item with a string or two per item), mostly on the main thread, so the last list's are kept.
+ * Only the last list's: a catalog update replaces it, and part lists ([computeRemoteItemLocalStateScopeItemIds])
+ * don't go through here.
+ */
+internal class RemoteItemScopeIds private constructor(
+    val items: List<ReadableItem>,
+) {
+    val itemIds: Set<String> by lazy { items.computeRemoteItemLocalStateScopeItemIds() }
+    val availabilityScopeIds: Set<String> by lazy { items.computeRemoteItemLocalAvailabilityScopeIds(itemIds) }
+    val sourceLibraryScopeIds: Set<String> by lazy {
+        items.asSequence()
+            .filter { item -> item.sourceType != SourceType.LOCAL }
+            .mapTo(linkedSetOf()) { item -> item.remoteItemLocalStateSourceLibraryScopeId() }
+    }
+
+    companion object {
+        @Volatile
+        private var last: RemoteItemScopeIds? = null
+
+        fun of(items: List<ReadableItem>): RemoteItemScopeIds =
+            last?.takeIf { cached -> cached.items === items } ?: RemoteItemScopeIds(items).also { last = it }
+    }
+}
+
+internal fun List<ReadableItem>.computeRemoteItemLocalStateScopeItemIds(): Set<String> = buildSet {
+    this@computeRemoteItemLocalStateScopeItemIds.forEach { item ->
         if (item.sourceType != SourceType.LOCAL) {
             add(item.id)
         }
     }
 }
 
-internal fun List<ReadableItem>.remoteItemLocalAvailabilityScopeIds(): Set<String> = buildSet {
-    addAll(remoteItemLocalStateScopeItemIds())
-    this@remoteItemLocalAvailabilityScopeIds.forEach { item ->
+internal fun List<ReadableItem>.computeRemoteItemLocalAvailabilityScopeIds(
+    itemIds: Set<String> = computeRemoteItemLocalStateScopeItemIds(),
+): Set<String> = buildSet {
+    addAll(itemIds)
+    this@computeRemoteItemLocalAvailabilityScopeIds.forEach { item ->
         when (item.sourceType) {
             SourceType.KAVITA -> item.kavitaSeriesGroupKey()?.let(::kavitaSeriesContainerId)
             SourceType.STUMP -> item.stumpSeriesGroupKey()?.let(::stumpSeriesContainerId)

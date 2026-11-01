@@ -5,10 +5,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.unifiedreader.core.model.LibrarySortMode
 import org.junit.Assert.assertEquals
@@ -44,11 +46,12 @@ class LibraryBrowseOptionsSelectorTest {
             .performClick()
 
         composeRule.onNodeWithText("Cover size").assertExists()
-        composeRule.onNodeWithText("Medium").assertExists()
-        composeRule.onNodeWithTag(LibraryGridSizeOptionTagPrefix + "140")
-            .performClick()
+        composeRule.onNodeWithText("Large").assertExists()
+        composeRule.onNodeWithTag(LibraryGridSizeSliderTag)
+            .performSemanticsAction(SemanticsActions.SetProgress) { setProgress -> setProgress(0f) }
 
-        assertEquals(140, selectedGridCellSizeDp)
+        assertEquals(70, selectedGridCellSizeDp)
+        composeRule.onNodeWithText("Tiny").assertExists()
     }
 
     @Test

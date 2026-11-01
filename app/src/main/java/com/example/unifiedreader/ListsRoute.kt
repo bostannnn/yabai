@@ -54,15 +54,11 @@ import com.example.unifiedreader.feature.lists.UserListKind
 import com.example.unifiedreader.feature.lists.UserListPage
 import com.example.unifiedreader.feature.lists.books
 import com.example.unifiedreader.feature.lists.keepDownloadedLine
-import com.example.unifiedreader.feature.lists.listItemsById
 import com.example.unifiedreader.feature.lists.nextToKeepDownloaded
 import com.example.unifiedreader.feature.lists.orderedForScreen
 import com.example.unifiedreader.feature.lists.readingOrderUnderWay
 import com.example.unifiedreader.feature.lists.sortedEntries
-import com.example.unifiedreader.feature.lists.stalledList
 import com.example.unifiedreader.feature.lists.toDraft
-import com.example.unifiedreader.feature.lists.toUserList
-import com.example.unifiedreader.feature.lists.withSmartBooks
 import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.AppListRowDefaults
@@ -98,20 +94,18 @@ internal fun ListsRoute(
     val storedShelves by listsViewModel.shelves.collectAsStateWithLifecycle()
     val preferences by listsViewModel.preferences.collectAsStateWithLifecycle()
     val choices by listsViewModel.choices.collectAsStateWithLifecycle()
-    // With the series Kavita's collections hold, which the catalog lists only as issues.
-    val itemsById = remember(uiState.items, storedShelves) { listItemsById(uiState.items, storedShelves.orEmpty()) }
+    // The books by id (with the series Kavita's collections hold, which the catalog lists only as issues),
+    // smart lists, Stalled and the servers' lists, worked out off the main thread; opening Lists shows
+    // the last ones at once.
+    val catalogData = rememberListsCatalogData(listsViewModel, uiState, computeNowWhenMissing = true).value
+        ?: error("Lists' catalog data is worked out at once when none is kept")
+    val itemsById = catalogData.itemsById
     SideEffect { listsViewModel.catalog = itemsById }
     val progress = uiState.progressByItemId
-    val stalled = remember(uiState.items, progress) {
-        stalledList(uiState.items, progress, nowEpochMillis = System.currentTimeMillis())
-    }
     val onDevice = uiState.locallyAvailableRemoteItemIds
-    val resolved = remember(stored, uiState.items, progress, onDevice) { stored.withSmartBooks(uiState.items, progress, onDevice) }
-    val lists = remember(resolved, stalled) { orderedForScreen(resolved, stalled) }
+    val lists = remember(catalogData) { orderedForScreen(catalogData.stored, catalogData.stalled) }
     val connected = connectedListServers(uiState)
-    val shelves = remember(storedShelves, itemsById, connected) {
-        storedShelves.orEmpty().filter { shelf -> shelf.sourceType in connected }.map { shelf -> shelf.toUserList(itemsById) }
-    }
+    val shelves = catalogData.shelves
     LaunchedEffect(connected) { if (connected.isNotEmpty()) listsViewModel.refreshShelves() }
     val onShelfFailure = rememberShelfFailureToast()
     val cover = rememberListCover(viewModel)

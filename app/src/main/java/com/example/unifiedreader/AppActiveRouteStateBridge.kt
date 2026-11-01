@@ -7,7 +7,8 @@ import com.example.unifiedreader.core.model.belongsToStumpSeries
 import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
 
 internal fun AppUiState.toActiveRouteSnapshot(): AppActiveRouteSnapshot {
-    val readerItem = selectedItem.takeIf { activeReader != null }
+    // Only with a reader open: [selectedItem] looks through the whole catalog, on every state update.
+    val readerItem = if (activeReader != null) selectedItem else null
     return AppActiveRouteSnapshot(
         topLevel = topLevel,
         selectedSource = readerItem?.sourceType ?: selectedSource,

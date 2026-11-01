@@ -1,6 +1,8 @@
 package com.example.unifiedreader.feature.library
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -13,9 +15,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -29,8 +36,8 @@ import com.example.unifiedreader.ui.components.AppMenuChoiceItem
 import com.example.unifiedreader.ui.components.AppMenuDefaults
 import com.example.unifiedreader.ui.components.AppMenuHeading
 import com.example.unifiedreader.ui.components.AppMenuSwitchItem
-import com.example.unifiedreader.ui.components.AppSegment
-import com.example.unifiedreader.ui.components.AppSegmentedRow
+import com.example.unifiedreader.ui.components.AppSlider
+import kotlin.math.roundToInt
 
 data class LibraryBrowseOption(
     val id: String,
@@ -146,33 +153,39 @@ fun LibraryBrowseOptionsMenu(
                 )
             }
             if (showGridSizeOptions) {
-                // A setting like the switch above: the menu stays open so the grid can be seen changing.
-                Text(
-                    text = "Cover size",
-                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 14.sp),
-                    modifier = Modifier.padding(
-                        start = AppMenuDefaults.horizontalPadding,
-                        end = AppMenuDefaults.horizontalPadding,
-                        top = 8.dp,
-                        bottom = 8.dp,
-                    ),
-                )
-                AppSegmentedRow(
+                // A setting like the switch above: the menu stays open, and the grid follows the slider as it moves.
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = AppMenuDefaults.horizontalPadding, end = AppMenuDefaults.horizontalPadding, bottom = 12.dp),
+                        .padding(start = AppMenuDefaults.horizontalPadding, end = AppMenuDefaults.horizontalPadding, top = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    LibraryCoverSize.entries.forEach { size ->
-                        AppSegment(
-                            selected = size == coverSize,
-                            onClick = {
-                                if (size != coverSize) onGridCellSizeDpChanged(size.cellSizeDp)
-                            },
-                            label = { Text(text = size.label, maxLines = 1) },
-                            modifier = Modifier.testTag(LibraryGridSizeOptionTagPrefix + size.cellSizeDp),
-                        )
-                    }
+                    Text(text = "Cover size", style = MaterialTheme.typography.bodyLarge.copy(fontSize = 14.sp))
+                    Text(
+                        text = coverSize.label,
+                        style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
+                AppSlider(
+                    value = coverSize.ordinal.toFloat(),
+                    onValueChange = { position ->
+                        val picked = LibraryCoverSize.entries[position.roundToInt().coerceIn(0, LibraryCoverSize.entries.lastIndex)]
+                        if (picked != coverSize) onGridCellSizeDpChanged(picked.cellSizeDp)
+                    },
+                    valueRange = 0f..LibraryCoverSize.entries.lastIndex.toFloat(),
+                    // The stops between the two ends.
+                    steps = LibraryCoverSize.entries.size - 2,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = AppMenuDefaults.horizontalPadding, end = AppMenuDefaults.horizontalPadding, bottom = 8.dp)
+                        .testTag(LibraryGridSizeSliderTag)
+                        .semantics {
+                            contentDescription = "Cover size"
+                            stateDescription = coverSize.label
+                        },
+                )
             }
         }
     }

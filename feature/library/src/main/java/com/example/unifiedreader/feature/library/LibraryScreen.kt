@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridItemScope
 import androidx.compose.foundation.lazy.grid.LazyGridLayoutInfo
@@ -186,6 +187,9 @@ fun LibraryScreen(
     // Must stay false for the large non-paged views (other sources, filtered-runtime) — resolving the
     // whole in-memory list would be wasteful.
     resolveWindowBadgesForVisibleItems: Boolean = false,
+    // False once the recompute's badge maps are complete (download availability included): the window
+    // lookup then has nothing to add.
+    windowBadgesNeeded: Boolean = true,
 ) {
     val pagedItems = pagedGridItems?.collectAsLazyPagingItems()
     val isPaged = pagedItems != null
@@ -196,7 +200,8 @@ fun LibraryScreen(
     val filterDock = rememberLibraryFilterDockState()
     // Docked open, the books the filters find start at content top: the reading card and shelves step
     // aside, as for a search, and come back when the panel closes (a filter left on never hides them).
-    val shownTopContent = topContent.takeUnless { dockFilters && filterDock.open }
+    val filtersDocked = dockFilters && filterDock.open
+    val shownTopContent = topContent.takeUnless { filtersDocked }
     val shownFilterFacets = rememberLibraryFilterFacetsWithTags(
         facets = filterFacets,
         pool = filterPool,
@@ -231,19 +236,33 @@ fun LibraryScreen(
                 deletableDownloadedItemIds,
                 downloadingItemIds,
             ),
+            isNeeded = windowBadgesNeeded,
         )
     } else {
         LibraryWindowBadges()
     }
-    val effectiveProgressByItemId = windowBadges.displayProgressByItemId + progressByItemId
-    val effectiveRatingByItemId = windowBadges.displayRatingByItemId + ratingByItemId
-    val effectiveLocallyAvailableItemIds = locallyAvailableItemIds + windowBadges.locallyAvailableItemIds
-    val effectiveDownloadableItemIds =
-        downloadableItemIds + windowBadges.downloadActionAvailability.downloadableItemIds
+    // Kept across screen updates: the recompute's maps hold a whole server's items, so copying them on
+    // every recomposition costs more than the comparison of the keys.
+    val effectiveProgressByItemId = remember(windowBadges.displayProgressByItemId, progressByItemId) {
+        windowBadges.displayProgressByItemId.overlaidBy(progressByItemId)
+    }
+    val effectiveRatingByItemId = remember(windowBadges.displayRatingByItemId, ratingByItemId) {
+        windowBadges.displayRatingByItemId.overlaidBy(ratingByItemId)
+    }
+    val effectiveLocallyAvailableItemIds = remember(locallyAvailableItemIds, windowBadges.locallyAvailableItemIds) {
+        locallyAvailableItemIds.unionWith(windowBadges.locallyAvailableItemIds)
+    }
+    val windowDownloads = windowBadges.downloadActionAvailability
+    val effectiveDownloadableItemIds = remember(downloadableItemIds, windowDownloads.downloadableItemIds) {
+        downloadableItemIds.unionWith(windowDownloads.downloadableItemIds)
+    }
     val effectiveDeletableDownloadedItemIds =
-        deletableDownloadedItemIds + windowBadges.downloadActionAvailability.deletableDownloadedItemIds
-    val effectiveDownloadingItemIds =
-        downloadingItemIds + windowBadges.downloadActionAvailability.activeDownloadingItemIds
+        remember(deletableDownloadedItemIds, windowDownloads.deletableDownloadedItemIds) {
+            deletableDownloadedItemIds.unionWith(windowDownloads.deletableDownloadedItemIds)
+        }
+    val effectiveDownloadingItemIds = remember(downloadingItemIds, windowDownloads.activeDownloadingItemIds) {
+        downloadingItemIds.unionWith(windowDownloads.activeDownloadingItemIds)
+    }
     val itemActionContext = LibraryItemActionContext(
         progressByItemId = effectiveProgressByItemId,
         locallyAvailableItemIds = effectiveLocallyAvailableItemIds,
@@ -539,17 +558,21 @@ fun LibraryScreen(
             } else {
                 gutter
             }
-            val gridPresentation = remember(maxWidth, gutter, gridEndPadding, gridCellSizeDp) {
+            // The docked panel takes its width and the gutter after it; the covers keep the size they had without it.
+            val undockedMaxWidth = if (filtersDocked) maxWidth + AppLayout.sheetWidth + gutter else maxWidth
+            val gridPresentation = remember(maxWidth, undockedMaxWidth, gutter, gridEndPadding, gridCellSizeDp) {
                 libraryGridPresentation(
                     maxWidth = maxWidth,
                     startPadding = gutter,
                     endPadding = gridEndPadding,
                     requestedGridCellSizeDp = gridCellSizeDp,
+                    undockedMaxWidth = undockedMaxWidth,
                 )
             }
             val gridCoverImageVariant = libraryGridCoverImageVariant(
                 gridPresentation.selectedGridSize.cellSizeDp,
             )
+            val showGridTitles = LibraryCoverSize.of(gridPresentation.selectedGridSize.cellSizeDp).showsTitle
             VisibleRemoteCoverPrefetcher(
                 browseContextKey = browseContextKey,
                 gridState = gridState,
@@ -584,6 +607,7 @@ fun LibraryScreen(
                         preferIssueLabels -> itemSeriesBrowsePrimaryText(item)
                         else -> itemPrimaryText(item)
                     },
+                    showTitle = showGridTitles,
                     isSelectionMode = isDownloadSelectionMode,
                     isSelected = item.id in selectedDownloadItemIdSet,
                     onClick = { onItemSelected(item) },
@@ -609,11 +633,15 @@ fun LibraryScreen(
             }
 
             LazyVerticalGrid(
-                columns = LibraryViewMode.Grid.gridCells(
-                    maxWidth = maxWidth,
-                    maxHeight = maxHeight,
-                    gridCellSizeDp = gridPresentation.selectedGridSize.cellSizeDp,
-                ),
+                columns = if (gridPresentation.fixedColumns) {
+                    GridCells.Fixed(gridPresentation.selectedGridSize.columnCount)
+                } else {
+                    LibraryViewMode.Grid.gridCells(
+                        maxWidth = maxWidth,
+                        maxHeight = maxHeight,
+                        gridCellSizeDp = gridPresentation.selectedGridSize.cellSizeDp,
+                    )
+                },
                 state = gridState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
@@ -640,7 +668,9 @@ fun LibraryScreen(
                         contentType = LibraryScreenContentTypes.TopContent,
                         span = { GridItemSpan(maxLineSpan) },
                     ) {
-                        shownTopContent(LibraryGridMetrics(cellSizeDp = gridPresentation.selectedGridSize.cellSizeDp))
+                        // The default size whatever the cover size: the slider sizes All books only, so its row, which the
+                        // sort menu hangs from, stays put (Huge stacked the reading card and pushed the row off screen).
+                        shownTopContent(LibraryGridMetrics())
                     }
                 }
 
@@ -685,7 +715,7 @@ fun LibraryScreen(
                                     else -> filterDock.show()
                                 }
                             },
-                            filtersOpen = dockFilters && filterDock.open,
+                            filtersOpen = filtersDocked,
                             onFilterStateChanged = onFilterStateChanged,
                             onSortModeChanged = onSortModeChanged,
                             onGridCellSizeDpChanged = onGridCellSizeDpChanged,
@@ -829,7 +859,7 @@ fun LibraryScreen(
             }
         }
 
-        if (dockFilters && filterDock.open) {
+        if (filtersDocked) {
             LibraryFilterDockedPanel(
                 filterPanels = filterPanels,
                 filterState = filterState,

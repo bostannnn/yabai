@@ -843,12 +843,14 @@ object AppModule {
         remoteDownloadDataSources: List<@JvmSuppressWildcards RemoteItemDownloadDataSource>,
         remoteDocumentReadCache: RemoteDocumentReadCache,
         readerDisplay: ReaderDisplayPreferences,
+        readerWorkCoordinator: ReaderWorkCoordinator,
     ): List<@JvmSuppressWildcards ReaderScreenFactory> = listOf(
         comicsReaderFactory(
             pageSource = comicPageSource,
             progressStore = JournalRecordingComicReaderProgressStore(
                 delegate = adapter,
                 journalEventRecorder = journalEventRecorder,
+                visitStartedAt = readerWorkCoordinator::readerVisitStartedAt,
             ),
             preferencesStore = adapter,
             journalReadingSessionRecorder = journalReadingSessionRecorder,
@@ -858,6 +860,7 @@ object AppModule {
             sessionStore = JournalRecordingReaderSessionStore(
                 delegate = readerSessionStore,
                 journalEventRecorder = journalEventRecorder,
+                visitStartedAt = readerWorkCoordinator::readerVisitStartedAt,
             ),
             journalReadingSessionRecorder = journalReadingSessionRecorder,
             documentUriProvider = { item ->
@@ -873,6 +876,7 @@ object AppModule {
             sessionStore = JournalRecordingReaderSessionStore(
                 delegate = readerSessionStore,
                 journalEventRecorder = journalEventRecorder,
+                visitStartedAt = readerWorkCoordinator::readerVisitStartedAt,
             ),
             journalReadingSessionRecorder = journalReadingSessionRecorder,
             documentUriProvider = { item ->

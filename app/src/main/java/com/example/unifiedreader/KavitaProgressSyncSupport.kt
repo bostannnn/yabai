@@ -19,18 +19,13 @@ import kotlin.coroutines.cancellation.CancellationException
 
 internal suspend fun pushDirtyKavitaProgress(
     api: KavitaApi,
-    initialAccessToken: String,
-    initialRefreshToken: String?,
-    initialApiKey: String?,
+    tokens: KavitaRunTokens,
     items: List<com.example.unifiedreader.core.model.ReadableItem>,
     readerSessionStore: ReaderSessionStore,
     // True only when `items` is the whole Kavita catalog (a catalog sync), so a dirty snapshot
     // missing from it was deleted on the server. A pending flush passes a subset.
     itemsAreWholeCatalog: Boolean,
-): KavitaTokenRefreshResult<List<Throwable>> {
-    var activeAccessToken = initialAccessToken
-    var activeRefreshToken = initialRefreshToken
-    var latestSession: com.example.unifiedreader.data.kavita.KavitaSession? = null
+): List<Throwable> {
     val failures = mutableListOf<Throwable>()
     val itemById = items.associateBy(com.example.unifiedreader.core.model.ReadableItem::id)
     // The store holds every source's progress; the others push their own.
@@ -59,17 +54,13 @@ internal suspend fun pushDirtyKavitaProgress(
         }
         val chapterId = item.remoteId ?: return@forEach
         runCatching {
-            api.runWithTokenRefresh(
-                initialAccessToken = activeAccessToken,
-                initialRefreshToken = activeRefreshToken,
-                initialApiKey = initialApiKey,
-            ) { token, _ ->
+            tokens.run push@{ token, _ ->
                 val serverCopy = progress.newerServerCopy(
                     remote = api.getProgress(accessToken = token, chapterId = chapterId)
                         .toReadingProgress(itemId = item.id, pageCount = item.pageCount),
                     localRefinesRemote = ::kavitaLocalRefinesRemote,
                 )
-                if (serverCopy != null) return@runWithTokenRefresh PendingProgressPush.ServerNewer(serverCopy)
+                if (serverCopy != null) return@push PendingProgressPush.ServerNewer(serverCopy)
                 val progressPage = if (progress.isExplicitUnreadReset) 0 else progress.kavitaPageNum(item)
                 val update = item.toKavitaProgressUpdate(
                     page = progressPage,
@@ -83,7 +74,7 @@ internal suspend fun pushDirtyKavitaProgress(
                     page = progressPage,
                     isFinished = progress.isFinished,
                     updatedAtEpochMillis = progress.updatedAtEpochMillis,
-                ) ?: return@runWithTokenRefresh PendingProgressPush.Skipped
+                ) ?: return@push PendingProgressPush.Skipped
                 api.updateProgress(
                     accessToken = token,
                     progress = update,
@@ -91,10 +82,7 @@ internal suspend fun pushDirtyKavitaProgress(
                 PendingProgressPush.Pushed
             }
         }.onSuccess { uploadResult ->
-            activeAccessToken = uploadResult.accessToken
-            activeRefreshToken = uploadResult.refreshToken
-            latestSession = uploadResult.refreshedSession ?: latestSession
-            readerSessionStore.settlePendingProgress(progress, uploadResult.value)
+            readerSessionStore.settlePendingProgress(progress, uploadResult)
         }.onFailure { throwable ->
             if (throwable is CancellationException) {
                 throw throwable
@@ -108,12 +96,7 @@ internal suspend fun pushDirtyKavitaProgress(
         }
     }
 
-    return KavitaTokenRefreshResult(
-        value = failures.toList(),
-        accessToken = activeAccessToken,
-        refreshToken = activeRefreshToken,
-        refreshedSession = latestSession,
-    )
+    return failures.toList()
 }
 
 private val KavitaItemIdPrefix = SourceType.KAVITA.remoteItemId(remoteId = "")

@@ -59,16 +59,40 @@ HUB_GROUPS = [
 ]
 
 
-def hub(selected_theme=True, selected=None):
+def hub(selected_theme=True, selected=None, supporting=None):
     selected = selected or ("Theme" if selected_theme else None)
+    supporting = supporting or {}
     out = []
     for label, rows in HUB_GROUPS:
         rs = []
         for title, sup, icon, extra in rows:
             tr = (theme_preview() + chev()) if extra == "theme" else "chev"
-            rs.append(row(title, sup, icon, tr, selected=(title == selected)))
+            rs.append(row(title, supporting.get(title, sup), icon, tr, selected=(title == selected)))
         out.append(group(label, rs))
     return "".join(out)
+
+
+def queue_row(title, line, state, failed=False):
+    colour = "var(--error)" if failed else "var(--on-surface-variant)"
+    return row(title, line, None, f'<span style="font:700 14px/20px var(--font-sans);color:{colour}">{state}</span>')
+
+
+def sync_page():
+    """Reading progress sync with one upload waiting and two books gone from the library."""
+    waiting = queue_row("The Left Hand of Darkness", "Progress · since 30 Oct", "Waiting")
+    gone = [
+        row("Moths of Lisbon", "Grimmory · Progress, 2 reading sessions", None, None),
+        row("A Field Guide to Fog", "Grimmory · Journal entry", None, None),
+    ]
+    return ('<div style="display:flex;flex-direction:column;gap:14px">'
+            '<div style="display:flex;gap:10px;align-items:center"><span class="yb-pill">1 waiting since 30 Oct</span>'
+            '<span class="yb-supporting" style="font-size:14px">Last tried today at 09:14</span></div>'
+            '<div><button class="yb-btn is-filled">Retry now</button></div></div>'
+            f'{group("Grimmory", [waiting])}'
+            '<div style="display:flex;flex-direction:column;gap:8px">'
+            f'{group("No longer in your library", gone)}'
+            '<p class="yb-supporting" style="margin:0 20px">These books left your library on the server, so what you read in them can&#8217;t upload. Keep it on this device: your journal keeps it and the app stops trying.</p>'
+            '<div style="margin:6px 20px 0"><button class="yb-btn is-tonal">Keep on this device</button></div></div>')
 
 
 def theme_page():
@@ -96,6 +120,19 @@ settings_expanded = f"""
   </div>
 </div>"""
 
+settings_sync_expanded = f"""
+<div class="yb-device" style="width:{W}px;height:{H}px">
+  {statusbar()}
+  <div class="yb-device-body">
+    {rail("Settings")}
+    <div class="yb-pane" style="--yb-gutter:24px">
+      <div style="position:absolute;top:84px;left:24px;width:320px;display:flex;flex-direction:column;gap:24px">{hub(selected="Reading progress sync", supporting={"Reading progress sync": "1 item waiting to upload"})}</div>
+      <div style="position:absolute;top:84px;left:368px;right:24px;display:flex;flex-direction:column;gap:24px;max-width:800px">{sync_page()}</div>
+      <div class="yb-spec">{g(24)}{g(344)}{g(368)}{h(84)}<span class="t" style="left:700px;top:62px">84 content top, both panes</span></div>
+    </div>
+  </div>
+</div>"""
+
 PW, PH = 412, 915
 settings_compact = f"""
 <div class="yb-device yb-compact" style="width:{PW}px;height:{PH}px">
@@ -109,7 +146,7 @@ settings_compact = f"""
   </div>
 </div>"""
 
-comp("SettingsScreen", "Screens", 1820, """
+comp("SettingsScreen", "Screens", 2660, """
 # Settings
 
 The settings hub and its pages, on the frame in Layout and spacing.
@@ -119,11 +156,20 @@ The settings hub and its pages, on the frame in Layout and spacing.
 - **Gutter 24** from Medium, 16 on phones; the panes are a gutter apart. Group labels sit on the panel's edge, and so does a page's one-line intro.
 - A page opened on Compact or Medium shows Back and its name in the bar, and the bar has no glass until something scrolls under it.
 - The open page is marked by the selected hub row (`primary-container`); the page itself carries no title.
+
+## Reading progress sync
+
+What waits to upload, and why. With nothing waiting, one row says "Everything is uploaded".
+
+- **Waiting uploads.** An `AppStatusPill` with how many and since when (`error-container` once one failed), "Last tried …", then Retry now, the page's one filled button. Then a group per server, a book's uploads of one kind on one row, "Waiting" or "Failed" at the end, and the server's last error under the group.
+- **Books no longer in your library.** An upload whose book is no longer in the app's copy of its server's library can't go anywhere: the server removed the book, so no retry helps. Those leave the count and the server groups for their own group, last on the page, "No longer in your library": one row per book, "Grimmory · Progress, 2 reading sessions", nothing at the end. Under it one line says why, and a tonal **Keep on this device** stops the uploads and keeps everything: the journal keeps the sessions and the entry, the progress stays, and the app stops trying. Nothing is deleted, so it needs no confirm. A server whose library the app holds no books from (signed out, never synced) proves nothing, so its uploads stay waiting.
+- **The hub row** says what is waiting ("1 item waiting to upload", in `error` once one failed); with only gone books, "1 book no longer in your library"; otherwise "Up to date".
 """, f"""
 <div class="yb" style="padding:16px">
   {TOGGLE}
   <div id="screens" style="display:flex;flex-direction:column;gap:28px">
     <div><div class="yb-caption" style="margin-bottom:8px">Expanded, 1280 × 800: rail, hub, Theme page</div>{settings_expanded}</div>
+    <div><div class="yb-caption" style="margin-bottom:8px">Expanded: Reading progress sync, one upload waiting and two books no longer in the library</div>{settings_sync_expanded}</div>
     <div style="display:flex;gap:28px;align-items:flex-start">
       <div><div class="yb-caption" style="margin-bottom:8px">Compact, 412: the hub</div>{settings_compact}</div>
       <div class="yb-caption" style="max-width:520px;padding-top:24px;line-height:20px">
@@ -185,8 +231,9 @@ A source's library: the bar with its search field, the reading card, the shelf t
 
 - **Gutter 24** from Medium (16 on phones): the bar's glass, the reading card, the tabs, the heading and the grid share both edges.
 - Content top 84, bottom 24. The grid's gap is 16.
+- **Cover size** (the sort menu's View): a slider with five stops, Tiny, Small, Medium, Large and Huge, the name at the label's end in `primary`; covers at least 70, 96, 140, 176 and 240 wide. Large is the default. The grid fits as many columns as that minimum allows and shares out the rest of the width: on a phone Tiny gives 4 columns, Small 3, Medium 2, Large 1 or 2 (360 or 411 wide), Huge 1. The grid follows the slider as it moves, and the menu stays open. Tiny drops the title under the cover (the cover says it); the line under it keeps the progress or length and the •••. The reading card and the shelves keep the default (Large) covers at every size: the slider sizes All books only, so All books' row, which the menu hangs from, stays where it is while the slider moves. See all's grid follows the same size.
 - All books is `AppSectionHeading`, on the gutter line, with Filters, a chip per applied value and sort at its end. Filters narrows the library by anything its books carry, places, times, themes and moods included (see Filters); there is no separate Browse page.
-- **On Expanded, Filters docks** beside the library: a 400 wide panel on the right gutter from content top to content bottom, the bar and the grid taking the width left of it (the grid keeps the 176 minimum cover width, so it loses columns). While it is open the reading card and the shelves step aside, so All books' row is at content top; they come back when it closes. The Filters chip shows and hides it.
+- **On Expanded, Filters docks** beside the library: a 400 wide panel on the right gutter from content top to content bottom, the bar and the grid taking the width left of it. The covers keep the width they had before it opened: the grid loses columns, and the ones left come as close to that width as whole columns allow instead of stretching to fill. While it is open the reading card and the shelves step aside, so All books' row is at content top; they come back when it closes. The Filters chip shows and hides it.
 - The reading card's inside inset is `inset` 20 at every width and its corners `radius-container` 20.
 - No source name anywhere on the screen: the search field says it.
 - **The jump rail** runs down the right edge for a sort that groups: the letters for Title, Author and Series, and for Pages the page ranges the filter's slider stops at (0, 10, 20, 30, 40, 50, 75, 100, 150, 200, 250, 300, 400, 500, 750, 1k), each where its range starts (150 holds 150 to 199), then `?` for books with no page count. Only sections with books show.

@@ -12,6 +12,7 @@ import com.example.unifiedreader.data.repository.RemoteJournalPusher
 import com.example.unifiedreader.data.repository.RemoteSyncArtifact
 import com.example.unifiedreader.data.repository.SourceRemoteJournalPusher
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
+import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import com.example.unifiedreader.journal.JournalItemRef
 import com.example.unifiedreader.journal.JournalProgressInput
 import com.example.unifiedreader.journal.ItemJournalEntry
@@ -82,6 +83,136 @@ class AppPendingProgressFlushCoordinatorTest {
 
         assertEquals(listOf(listOf(item.id)), sync.invocations)
         assertEquals(listOf(emptyList<SourceProgressSyncFailure>()), reportedFailures)
+    }
+
+    @Test
+    fun `book end in the open reader is uploaded once the reader leaves the book`() = runTest {
+        val item = remotePendingItem()
+        val readerSessionStore = FakeReaderSessionStore().apply {
+            saveProgress(
+                item = item,
+                locator = ReaderLocator(locatorType = LocatorType.PERCENT, percent = 1.0),
+                isFinished = true,
+                syncState = SyncState.DIRTY,
+                pageCount = item.pageCount,
+                updatedAtEpochMillis = 123L,
+            )
+        }
+        val sync = RecordingPendingSourceProgressSync()
+        val readerWorkCoordinator = ReaderWorkCoordinator()
+        val reader = readerWorkCoordinator.beginReaderSession(item.id)
+        val coordinator = testPendingProgressFlushCoordinator(
+            readerSessionStore = readerSessionStore,
+            readableItemRepository = FakeReadableItemRepository(items = listOf(item)),
+            flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
+                sourceProgressSyncRegistry = SourceProgressSyncRegistry(listOf(sync)),
+            ),
+            remoteItemLocalAvailability = RemoteItemLocalAvailability(emptyList()),
+            remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply { markReachable(SourceType.GRIMMORY) },
+            readerWorkCoordinator = readerWorkCoordinator,
+        )
+
+        coordinator.observeDirtyProgress(
+            scope = backgroundScope,
+            catalogItemsProvider = { listOf(item) },
+            stateProvider = { AppUiState() },
+            onSyncFailures = {},
+        )
+        advanceTimeBy(1600)
+        runCurrent()
+
+        assertTrue(sync.invocations.isEmpty())
+
+        reader.close()
+        advanceTimeBy(1600)
+        runCurrent()
+
+        assertEquals(listOf(listOf(item.id)), sync.invocations)
+    }
+
+    @Test
+    fun `place before the end in the open reader is uploaded while reading`() = runTest {
+        val item = remotePendingItem()
+        val readerSessionStore = FakeReaderSessionStore().apply {
+            saveProgress(
+                item = item,
+                locator = ReaderLocator(locatorType = LocatorType.PERCENT, percent = 0.4),
+                syncState = SyncState.DIRTY,
+                pageCount = item.pageCount,
+                updatedAtEpochMillis = 123L,
+            )
+        }
+        val sync = RecordingPendingSourceProgressSync()
+        val readerWorkCoordinator = ReaderWorkCoordinator().apply { beginReaderSession(item.id) }
+        val coordinator = testPendingProgressFlushCoordinator(
+            readerSessionStore = readerSessionStore,
+            readableItemRepository = FakeReadableItemRepository(items = listOf(item)),
+            flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
+                sourceProgressSyncRegistry = SourceProgressSyncRegistry(listOf(sync)),
+            ),
+            remoteItemLocalAvailability = RemoteItemLocalAvailability(emptyList()),
+            remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply { markReachable(SourceType.GRIMMORY) },
+            readerWorkCoordinator = readerWorkCoordinator,
+        )
+
+        coordinator.observeDirtyProgress(
+            scope = backgroundScope,
+            catalogItemsProvider = { listOf(item) },
+            stateProvider = { AppUiState() },
+            onSyncFailures = {},
+        )
+        advanceTimeBy(1600)
+        runCurrent()
+
+        assertEquals(listOf(listOf(item.id)), sync.invocations)
+    }
+
+    @Test
+    fun `explicit flush keeps the open book end until the reader is left`() = runTest {
+        val item = remotePendingItem()
+        val readerSessionStore = FakeReaderSessionStore().apply {
+            saveProgress(
+                item = item,
+                locator = ReaderLocator(locatorType = LocatorType.PERCENT, percent = 0.996),
+                syncState = SyncState.DIRTY,
+                pageCount = item.pageCount,
+                updatedAtEpochMillis = 123L,
+            )
+        }
+        val sync = RecordingPendingSourceProgressSync()
+        val readerWorkCoordinator = ReaderWorkCoordinator().apply { beginReaderSession(item.id) }
+        val coordinator = testPendingProgressFlushCoordinator(
+            readerSessionStore = readerSessionStore,
+            readableItemRepository = FakeReadableItemRepository(items = listOf(item)),
+            flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
+                sourceProgressSyncRegistry = SourceProgressSyncRegistry(listOf(sync)),
+            ),
+            remoteItemLocalAvailability = RemoteItemLocalAvailability(emptyList()),
+            remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy().apply { markReachable(SourceType.GRIMMORY) },
+            readerWorkCoordinator = readerWorkCoordinator,
+        )
+
+        // The app going to the background (or the screen turning off) while the book is open.
+        coordinator.flushPendingProgress(
+            catalogItems = listOf(item),
+            selectedItem = item,
+            scope = backgroundScope,
+            onSyncFailures = {},
+        )
+        runCurrent()
+
+        assertTrue(sync.invocations.isEmpty())
+
+        coordinator.flushPendingProgress(
+            catalogItems = listOf(item),
+            selectedItem = item,
+            scope = backgroundScope,
+            onSyncFailures = {},
+            isLeavingReader = true,
+        )
+        runCurrent()
+
+        assertEquals(listOf(listOf(item.id)), sync.invocations)
     }
 
     @Test
@@ -968,6 +1099,8 @@ private fun testPendingProgressFlushCoordinator(
     remoteJournalPusher: RemoteJournalPusher = NoOpRemoteJournalPusher,
     journalRepository: JournalRepository = EmptyJournalRepository,
     autoFlushPolicy: AppRemoteArtifactAutoFlushPolicy = AppRemoteArtifactAutoFlushPolicy(),
+    remoteCatalogReadiness: RemoteCatalogReadiness = FakeRemoteCatalogReadiness(),
+    readerWorkCoordinator: ReaderWorkCoordinator = ReaderWorkCoordinator(),
 ): AppPendingProgressFlushCoordinator = AppPendingProgressFlushCoordinator(
     readerSessionStore = readerSessionStore,
     readableItemRepository = readableItemRepository,
@@ -979,7 +1112,9 @@ private fun testPendingProgressFlushCoordinator(
     ),
     remoteItemLocalAvailability = remoteItemLocalAvailability,
     remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+    remoteCatalogReadiness = remoteCatalogReadiness,
     autoFlushPolicy = autoFlushPolicy,
+    readerWorkCoordinator = readerWorkCoordinator,
 )
 
 private object EmptyJournalRepository : JournalRepository {

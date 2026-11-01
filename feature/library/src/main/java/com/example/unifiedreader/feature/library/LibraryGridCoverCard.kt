@@ -36,6 +36,7 @@ internal fun GridCoverCard(
     // The tile's length while the grid is sorted by pages; it takes the meta line's place.
     lengthLabel: String? = null,
     title: String = itemPrimaryText(item),
+    showTitle: Boolean = true,
     isSelectionMode: Boolean = false,
     isSelected: Boolean = false,
     onClick: () -> Unit,
@@ -60,6 +61,7 @@ internal fun GridCoverCard(
     LibraryCoverActionCard(
         item = item,
         title = title,
+        showTitle = showTitle,
         coverImageUrlProvider = coverImageUrlProvider,
         imageVariant = imageVariant,
         isDownloaded = isDownloaded,
