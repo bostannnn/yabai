@@ -260,3 +260,12 @@ build (v35) installed, so it starts empty: no local books, lists, journal or ser
 - Not checked: anything against a real Kavita (reading lists, Want to read on Kavita) or the real Grimmory; the
   Expanded rail; drag to reorder; the restart fix (needs the app killed with a book open). Local books still can't be
   multi-selected in the library (a library selection change, not lists).
+- 2026-11-01, after 0.28.0 on the tablet: "I don't see content of kavita collections in new lists menu, but reading
+  list is shown". A collection keeps its series as `kavita:series:<library>::<id>`, but Lists looked them up in the
+  catalog, which holds only issues, so `toUserList` dropped every series (reading lists hold issue ids, which it
+  finds). Fixed with `listItemsById` (`CollectionSeries.kt`): the catalog by id plus each series a collection holds,
+  a comic series built as the library's grid builds it (`buildKavitaSeriesContainer`, opens series browse), a book
+  series as its first book (the library shows Kavita books one by one; a book series of several books shows only
+  its first). `toUserList` keeps the server's id on each entry, so taking a book series off still names the
+  series. `CollectionSeriesTest` (3). Kavita's `series-by-collection` was checked in its source: with no page size
+  it sends every series. The book page's In your lists still doesn't name collections.

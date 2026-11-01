@@ -41,10 +41,12 @@ fun UserList.books(
     itemsById: Map<String, ReadableItem>,
     progressByItemId: Map<String, ItemProgressSummary>,
 ): List<UserListBook> = sortedEntries().map { entry ->
+    val item = itemsById[entry.itemId]
     UserListBook(
         entry = entry,
-        item = itemsById[entry.itemId],
-        progress = progressByItemId[entry.itemId],
+        item = item,
+        // A collection's book series is found as its book, whose progress it shows.
+        progress = progressByItemId[item?.id ?: entry.itemId],
     )
 }
 
