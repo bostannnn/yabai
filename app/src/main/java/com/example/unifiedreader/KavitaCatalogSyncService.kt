@@ -19,11 +19,16 @@ import com.example.unifiedreader.journal.JournalRepository
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
 
 fun interface KavitaApiFactory {
     fun create(
@@ -57,6 +62,9 @@ class KavitaCatalogSyncService(
     private val readerSessionStore: ReaderSessionStore? = null,
     private val journalRepository: JournalRepository? = null,
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
+    // The sync's own work: decoding the book list, comparing it with the stored catalog, saving. Off the
+    // main thread, where a large library froze the app for seconds after the book list arrived.
+    private val workDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : KavitaCatalogSyncer {
     private val progressSyncStore: ProgressSyncStore? = readerSessionStore?.let(::ReaderSessionProgressStoreAdapter)
 
@@ -82,6 +90,39 @@ class KavitaCatalogSyncService(
     }
 
     override suspend fun sync(
+        request: KavitaCatalogSyncRequest,
+        onProgress: (KavitaSyncProgress) -> Unit,
+        onSessionRenewed: suspend (KavitaSession) -> Unit,
+    ): KavitaCatalogSyncResult = offCallerThread(onProgress) { progress ->
+        syncCatalog(request, progress, onSessionRenewed)
+    }
+
+    override suspend fun fastSync(
+        request: KavitaCatalogSyncRequest,
+        onProgress: (KavitaSyncProgress) -> Unit,
+        onSessionRenewed: suspend (KavitaSession) -> Unit,
+    ): KavitaCatalogSyncResult = offCallerThread(onProgress) { progress ->
+        fastSyncCatalog(request, progress, onSessionRenewed)
+    }
+
+    /**
+     * Runs [work] on [workDispatcher] and relays its progress to [onProgress] in the caller's context, in
+     * order and all of it before returning, so the caller's state is only ever touched on its own thread.
+     */
+    private suspend fun <T> offCallerThread(
+        onProgress: (KavitaSyncProgress) -> Unit,
+        work: suspend (onProgress: (KavitaSyncProgress) -> Unit) -> T,
+    ): T = coroutineScope {
+        val steps = Channel<KavitaSyncProgress>(Channel.UNLIMITED)
+        launch { for (step in steps) onProgress(step) }
+        try {
+            withContext(workDispatcher) { work { step -> steps.trySend(step) } }
+        } finally {
+            steps.close()
+        }
+    }
+
+    private suspend fun syncCatalog(
         request: KavitaCatalogSyncRequest,
         onProgress: (KavitaSyncProgress) -> Unit,
         onSessionRenewed: suspend (KavitaSession) -> Unit,
@@ -172,7 +213,7 @@ class KavitaCatalogSyncService(
         return result.value.copy(activeBaseUrl = result.activeBaseUrl)
     }
 
-    override suspend fun fastSync(
+    private suspend fun fastSyncCatalog(
         request: KavitaCatalogSyncRequest,
         onProgress: (KavitaSyncProgress) -> Unit,
         onSessionRenewed: suspend (KavitaSession) -> Unit,
@@ -375,9 +416,12 @@ class KavitaCatalogSyncService(
                         },
                         progressWasFetched = item.remoteId != null,
                     ).also {
-                        val completed = completedItemCount.incrementAndGet()
-                        if (shouldReportSeriesProgress(completed, items.size, reportedItemCount, KAVITA_PROGRESS_REPORT_STEPS)) {
-                            onProgress(KavitaSyncSteps.readingProgress(loaded = completed, total = items.size))
+                        // Counted and reported together: the requests finish on several threads at once.
+                        synchronized(completedItemCount) {
+                            val completed = completedItemCount.incrementAndGet()
+                            if (shouldReportSeriesProgress(completed, items.size, reportedItemCount, KAVITA_PROGRESS_REPORT_STEPS)) {
+                                onProgress(KavitaSyncSteps.readingProgress(loaded = completed, total = items.size))
+                            }
                         }
                     }
                 }
@@ -453,9 +497,11 @@ class KavitaCatalogSyncService(
                     series = seriesEntry,
                 )
             }.also {
-                val loaded = loadedSeriesCount.incrementAndGet()
-                if (shouldReportSeriesProgress(loaded, series.size, reportedSeriesCount, KAVITA_SERIES_REPORT_STEPS)) {
-                    onProgress(KavitaSyncSteps.bookDetails(loaded = loaded, total = series.size))
+                synchronized(loadedSeriesCount) {
+                    val loaded = loadedSeriesCount.incrementAndGet()
+                    if (shouldReportSeriesProgress(loaded, series.size, reportedSeriesCount, KAVITA_SERIES_REPORT_STEPS)) {
+                        onProgress(KavitaSyncSteps.bookDetails(loaded = loaded, total = series.size))
+                    }
                 }
             }
         }
