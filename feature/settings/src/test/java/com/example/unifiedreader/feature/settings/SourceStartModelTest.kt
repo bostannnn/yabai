@@ -29,6 +29,17 @@ class SourceStartModelTest {
 
         assertEquals(
             FirstSyncState(title = "Getting your library", detail = null, running = true),
+            firstSyncState(connection, lastSyncedAtEpochMillis = null, startingSync = true, nowEpochMillis = now),
+        )
+    }
+
+    @Test
+    fun `signed in, never synced and nothing running offers the sync instead of a bar that never fills`() {
+        // The app was closed before the first sync, or after one that failed: the error didn't survive.
+        val connection = KavitaConnectionUiState(hasStoredSession = true)
+
+        assertEquals(
+            FirstSyncState(title = "Your library hasn't synced yet", detail = null, running = false, notStarted = true),
             firstSyncState(connection, lastSyncedAtEpochMillis = null, nowEpochMillis = now),
         )
     }

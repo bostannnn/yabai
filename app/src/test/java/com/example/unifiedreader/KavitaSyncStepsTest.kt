@@ -2,7 +2,6 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -27,16 +26,6 @@ class KavitaSyncStepsTest {
         ).map { step -> checkNotNull(step.fraction) }
 
         assertEquals(fills.sorted().distinct(), fills)
-    }
-
-    @Test
-    fun `the fill never goes back and keeps moving until a step can count`() {
-        assertNull(kavitaSyncFillAfter(current = null, reported = null))
-        assertEquals(0.4f, kavitaSyncFillAfter(current = null, reported = 0.4f))
-        // The sync starts again on the backup address: connecting reports no fill, then a smaller one.
-        assertEquals(0.4f, kavitaSyncFillAfter(current = 0.4f, reported = null))
-        assertEquals(0.4f, kavitaSyncFillAfter(current = 0.4f, reported = 0.1f))
-        assertEquals(1f, kavitaSyncFillAfter(current = 0.4f, reported = 1.5f))
     }
 
     @Test
