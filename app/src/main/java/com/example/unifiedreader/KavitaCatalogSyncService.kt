@@ -93,10 +93,10 @@ class KavitaCatalogSyncService(
             activeBaseUrl = request.activeBaseUrl,
         ) { selectedBaseUrl ->
             val api = kavitaApiFactory.create(selectedBaseUrl)
+            onProgress(KavitaSyncSteps.connecting)
             val tokens = api.runTokensFor(request, onSessionRenewed)
-            onProgress(KavitaSyncProgress(message = "Loading Kavita libraries...", fraction = 0.05f))
             val libraries = tokens.run { token, _ -> api.getLibraries(token) }
-            onProgress(KavitaSyncProgress(message = "Loading Kavita series...", fraction = 0.15f))
+            onProgress(KavitaSyncSteps.bookList)
             val series = tokens.run { token, apiKey ->
                 api.getSeries(
                     accessToken = token,
@@ -120,11 +120,9 @@ class KavitaCatalogSyncService(
                 remoteCatalogWriter = remoteCatalogWriter,
                 progressSyncStore = progressSyncStore,
                 nowEpochMillis = syncStartedAt,
-                onProgress = { message, fraction ->
-                    onProgress(KavitaSyncProgress(message = message, fraction = fraction))
-                },
-                savingMessage = "Saving Kavita catalog...",
-                applyingProgressMessage = "Applying Kavita progress...",
+                onProgress = { _, fraction -> onProgress(KavitaSyncSteps.saving(fraction)) },
+                savingMessage = KavitaSyncSteps.saving(0f).message,
+                applyingProgressMessage = KavitaSyncSteps.saving(1f).message,
                 itemOf = KavitaChapterCatalogEntry::item,
                 progressOf = KavitaChapterCatalogEntry::progress,
                 missingRemoteClearsLocal = KavitaChapterCatalogEntry::isExplicitUnreadReset,
@@ -141,6 +139,7 @@ class KavitaCatalogSyncService(
                         api = api,
                         tokens = tokens,
                         items = items,
+                        onProgress = onProgress,
                     ),
                 )
             }
@@ -150,6 +149,7 @@ class KavitaCatalogSyncService(
                     tokens = tokens,
                     libraries = fetch.libraries,
                     entries = fetch.entries,
+                    onProgress = onProgress,
                 )
             }.onFailure { error ->
                 if (error is CancellationException) throw error
@@ -158,6 +158,7 @@ class KavitaCatalogSyncService(
                 api = api,
                 tokens = tokens,
                 entries = fetch.entries.map(KavitaChapterCatalogEntry::item),
+                onProgress = onProgress,
             )
             KavitaCatalogSyncResult(
                 libraryCount = syncOutcome.libraryCount,
@@ -183,10 +184,10 @@ class KavitaCatalogSyncService(
             activeBaseUrl = request.activeBaseUrl,
         ) { selectedBaseUrl ->
             val api = kavitaApiFactory.create(selectedBaseUrl)
+            onProgress(KavitaSyncSteps.connecting)
             val tokens = api.runTokensFor(request, onSessionRenewed)
-            onProgress(KavitaSyncProgress(message = "Loading Kavita libraries...", fraction = 0.05f))
             val libraries = tokens.run { token, _ -> api.getLibraries(token) }
-            onProgress(KavitaSyncProgress(message = "Checking Kavita catalog changes...", fraction = 0.15f))
+            onProgress(KavitaSyncSteps.checkingChanges)
             val series = tokens.run { token, apiKey ->
                 api.getSeries(
                     accessToken = token,
@@ -204,17 +205,12 @@ class KavitaCatalogSyncService(
                 existingSyncGroups = existingSyncGroups,
                 recentlyUpdatedSeries = recentlyUpdatedSeries,
             )
-            val changedEntries = if (changedSeries.isEmpty()) {
-                onProgress(KavitaSyncProgress(message = "No Kavita catalog changes found.", fraction = 0.85f))
-                emptyList()
-            } else {
-                fetchSeriesEntries(
-                    api = api,
-                    tokens = tokens,
-                    series = changedSeries,
-                    onProgress = onProgress,
-                )
-            }
+            val changedEntries = fetchSeriesEntries(
+                api = api,
+                tokens = tokens,
+                series = changedSeries,
+                onProgress = onProgress,
+            )
             val deltaPlan = buildKavitaFastCatalogDeltaPlan(
                 libraries = libraries,
                 series = series,
@@ -232,7 +228,7 @@ class KavitaCatalogSyncService(
                 pullUnchangedProgress = request.pullUnchangedProgressDuringFastSync,
                 onProgress = onProgress,
             )
-            onProgress(KavitaSyncProgress(message = "Saving Kavita catalog changes...", fraction = 0.92f))
+            onProgress(KavitaSyncSteps.saving(0f))
             remoteCatalogWriter.applySourceCatalogDelta(
                 RemoteCatalogDelta(
                     sourceType = SourceType.KAVITA,
@@ -258,6 +254,7 @@ class KavitaCatalogSyncService(
                 api = api,
                 tokens = tokens,
                 items = deltaPlan.currentItems,
+                onProgress = onProgress,
             )
             if (request.pullJournalDuringFastSync) {
                 runCatching {
@@ -266,6 +263,7 @@ class KavitaCatalogSyncService(
                         tokens = tokens,
                         libraries = deltaPlan.libraries,
                         entries = progressEntries,
+                        onProgress = onProgress,
                     )
                 }.onFailure { error ->
                     if (error is CancellationException) throw error
@@ -275,6 +273,7 @@ class KavitaCatalogSyncService(
                 api = api,
                 tokens = tokens,
                 entries = deltaPlan.currentItems,
+                onProgress = onProgress,
             )
             KavitaCatalogSyncResult(
                 libraryCount = deltaPlan.libraries.size,
@@ -294,8 +293,10 @@ class KavitaCatalogSyncService(
         api: KavitaApi,
         tokens: KavitaRunTokens,
         items: List<ReadableItem>,
+        onProgress: (KavitaSyncProgress) -> Unit,
     ): List<Throwable> {
         val store = readerSessionStore ?: return emptyList()
+        onProgress(KavitaSyncSteps.uploadingProgress)
         return pushDirtyKavitaProgress(
             api = api,
             tokens = tokens,
@@ -334,7 +335,7 @@ class KavitaCatalogSyncService(
         nowEpochMillis: Long,
         onProgress: (KavitaSyncProgress) -> Unit,
     ) {
-        onProgress(KavitaSyncProgress(message = "Applying Kavita progress...", fraction = 0.97f))
+        onProgress(KavitaSyncSteps.saving(1f))
         applyRemoteCatalogProgress(
             entries = entries,
             progressSyncStore = progressSyncStore,
@@ -356,7 +357,7 @@ class KavitaCatalogSyncService(
         val detailRequestLimiter = Semaphore(KAVITA_PROGRESS_REQUEST_CONCURRENCY)
         val completedItemCount = AtomicInteger(0)
         val reportedItemCount = AtomicInteger(0)
-        onProgress(KavitaSyncProgress(message = "Loading Kavita progress 0/${items.size}...", fraction = 0.94f))
+        onProgress(KavitaSyncSteps.readingProgress(loaded = 0, total = items.size))
         items.map { item ->
             async {
                 detailRequestLimiter.withPermit {
@@ -376,13 +377,7 @@ class KavitaCatalogSyncService(
                     ).also {
                         val completed = completedItemCount.incrementAndGet()
                         if (shouldReportSeriesProgress(completed, items.size, reportedItemCount, KAVITA_PROGRESS_REPORT_STEPS)) {
-                            val fraction = 0.94f + (0.025f * completed.toFloat() / items.size.toFloat())
-                            onProgress(
-                                KavitaSyncProgress(
-                                    message = "Loading Kavita progress $completed/${items.size}...",
-                                    fraction = fraction.coerceIn(0.94f, 0.965f),
-                                ),
-                            )
+                            onProgress(KavitaSyncSteps.readingProgress(loaded = completed, total = items.size))
                         }
                     }
                 }
@@ -394,7 +389,9 @@ class KavitaCatalogSyncService(
         api: KavitaApi,
         tokens: KavitaRunTokens,
         entries: List<ReadableItem>,
+        onProgress: (KavitaSyncProgress) -> Unit,
     ): List<Throwable> = tokens.run { accessToken, _ ->
+        onProgress(KavitaSyncSteps.uploadingJournal)
         pushDirtyKavitaJournalEntries(
             api = api,
             accessToken = accessToken,
@@ -409,7 +406,9 @@ class KavitaCatalogSyncService(
         tokens: KavitaRunTokens,
         libraries: List<com.example.unifiedreader.core.model.Library>,
         entries: List<KavitaChapterCatalogEntry>,
+        onProgress: (KavitaSyncProgress) -> Unit,
     ) = tokens.run { accessToken, _ ->
+        onProgress(KavitaSyncSteps.readingHistory)
         pullKavitaJournalCache(
             api = api,
             accessToken = accessToken,
@@ -431,24 +430,34 @@ class KavitaCatalogSyncService(
         throw KavitaRecentUpdatesUnavailableException(error)
     }
 
+    // Counts the series as their books arrive (KavitaSyncSteps.bookDetails); none to read is no step.
     internal suspend fun fetchSeriesEntries(
         api: KavitaApi,
         tokens: KavitaRunTokens,
         series: List<KavitaSeriesEntry>,
         onProgress: (KavitaSyncProgress) -> Unit,
-    ): List<KavitaChapterCatalogEntry> = fetchSeriesEntriesWithProgress(
-        sourceLabel = "Kavita",
-        series = series,
-        detailRequestConcurrency = KAVITA_SERIES_DETAIL_REQUEST_CONCURRENCY,
-        onProgress = { message, fraction ->
-            onProgress(KavitaSyncProgress(message = message, fraction = fraction))
-        },
-    ) { seriesEntry ->
-        tokens.run { accessToken, _ ->
-            api.getSeriesDetail(
-                accessToken = accessToken,
-                series = seriesEntry,
-            )
+    ): List<KavitaChapterCatalogEntry> {
+        if (series.isEmpty()) return emptyList()
+        val loadedSeriesCount = AtomicInteger(0)
+        val reportedSeriesCount = AtomicInteger(0)
+        onProgress(KavitaSyncSteps.bookDetails(loaded = 0, total = series.size))
+        return fetchSeriesEntriesWithProgress(
+            sourceLabel = "Kavita",
+            series = series,
+            detailRequestConcurrency = KAVITA_SERIES_DETAIL_REQUEST_CONCURRENCY,
+            onProgress = { _, _ -> },
+        ) { seriesEntry ->
+            tokens.run { accessToken, _ ->
+                api.getSeriesDetail(
+                    accessToken = accessToken,
+                    series = seriesEntry,
+                )
+            }.also {
+                val loaded = loadedSeriesCount.incrementAndGet()
+                if (shouldReportSeriesProgress(loaded, series.size, reportedSeriesCount, KAVITA_SERIES_REPORT_STEPS)) {
+                    onProgress(KavitaSyncSteps.bookDetails(loaded = loaded, total = series.size))
+                }
+            }
         }
     }
 }
@@ -516,7 +525,8 @@ data class KavitaCatalogConnectionResult(
 
 data class KavitaSyncProgress(
     val message: String,
-    val fraction: Float,
+    // Null while the step's length can't be known: the bar moves instead of filling (KavitaSyncSteps).
+    val fraction: Float?,
 )
 
 data class KavitaCatalogSyncResult(
@@ -537,3 +547,6 @@ internal val KavitaCatalogSyncResult.hasCatalogChanges: Boolean
 private const val KAVITA_SERIES_DETAIL_REQUEST_CONCURRENCY = 1
 private const val KAVITA_PROGRESS_REQUEST_CONCURRENCY = 6
 private const val KAVITA_PROGRESS_REPORT_STEPS = 24
+
+// A step for each 1% of the series, so the count above the bar keeps moving on a large library.
+private const val KAVITA_SERIES_REPORT_STEPS = 100

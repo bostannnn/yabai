@@ -105,10 +105,49 @@ class KavitaCatalogSyncServiceTest {
             onProgress = progressUpdates::add,
         )
 
-        assertTrue(progressUpdates.any { update -> update.message == "Loading Kavita libraries..." })
-        assertTrue(progressUpdates.any { update -> update.message.startsWith("Loading Kavita series 3/3") })
-        assertTrue(progressUpdates.any { update -> update.message == "Saving Kavita catalog..." })
-        assertTrue(progressUpdates.any { update -> update.message == "Applying Kavita progress..." })
+        assertEquals(
+            listOf(
+                "Connecting",
+                "Getting the book list",
+                "Book details · 0 of 3 series",
+                "Book details · 1 of 3 series",
+                "Book details · 2 of 3 series",
+                "Book details · 3 of 3 series",
+                "Saving the library",
+                "Reading history",
+                "Uploading journal changes",
+            ),
+            progressUpdates.map(KavitaSyncProgress::message).distinct(),
+        )
+        assertEquals(listOf(null, null), progressUpdates.take(2).map(KavitaSyncProgress::fraction))
+        val fills = progressUpdates.mapNotNull(KavitaSyncProgress::fraction)
+        assertEquals(fills.sorted(), fills)
+        assertTrue(fills.last() > 0.9f)
+    }
+
+    @Test
+    fun `fast sync with nothing changed goes from checking straight to saving`() = runBlocking {
+        val series = kavitaSeriesEntry(id = "12", libraryId = "5")
+        val api = FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = listOf(series),
+        )
+        val writer = RecordingKavitaRemoteCatalogWriter()
+        val service = KavitaCatalogSyncService(
+            kavitaApiFactory = KavitaApiFactory { _ -> api },
+            remoteCatalogWriter = writer,
+        )
+        service.fastSync(request = savedSessionRequest())
+        val progressUpdates = mutableListOf<KavitaSyncProgress>()
+
+        service.fastSync(
+            request = savedSessionRequest(),
+            onProgress = progressUpdates::add,
+        )
+
+        val messages = progressUpdates.map(KavitaSyncProgress::message).distinct()
+        assertEquals(listOf("Connecting", "Checking for changes", "Saving the library"), messages.take(3))
+        assertTrue(messages.none { message -> message.startsWith("Book details") })
     }
 
     @Test
