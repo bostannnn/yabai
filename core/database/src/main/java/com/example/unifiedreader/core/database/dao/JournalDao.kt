@@ -72,6 +72,9 @@ abstract class JournalDao {
     @Query("DELETE FROM journal_reading_events WHERE itemId = :itemId")
     abstract fun deleteReadingEventsForItem(itemId: String): Int
 
+    @Query("DELETE FROM journal_reading_events WHERE itemId = :itemId AND eventType = 'FINISHED' AND occurredAtEpochMillis >= :sinceEpochMillis")
+    abstract fun deleteFinishedReadingEventsForItemSince(itemId: String, sinceEpochMillis: Long): Int
+
     @Query("DELETE FROM journal_reading_events WHERE sourceType = :sourceType AND syncState = 'CLEAN'")
     abstract fun deleteCleanReadingEventsForSource(sourceType: String): Int
 

@@ -340,7 +340,8 @@ interface JournalRepository : JournalEventRecorder {
 
     suspend fun deleteItemJournal(itemId: String)
 
-    suspend fun clearReadingEventsForItem(itemId: String) = Unit
+    /** Takes back the book's finishes recorded since [sinceEpochMillis]; its other reading days stay. */
+    suspend fun takeBackFinishesSince(itemId: String, sinceEpochMillis: Long) = Unit
 
     suspend fun getReadingSessionsForItem(itemId: String): List<JournalReadingSession> = emptyList()
 

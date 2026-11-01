@@ -79,7 +79,11 @@ class ApplyReadStatusChangeUseCase @Inject constructor(
                 ),
             )
         } else {
-            repository.clearReadingEventsForItem(item.id)
+            // A finish from the last day was a mistake to undo; an older one is a read worth keeping,
+            // and the book's reading days stay either way.
+            repository.takeBackFinishesSince(item.id, updatedAtEpochMillis - MarkUnreadTakeBackMillis)
         }
     }
 }
+
+private const val MarkUnreadTakeBackMillis = 24L * 60 * 60 * 1000

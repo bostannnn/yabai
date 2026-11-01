@@ -81,7 +81,10 @@ class ApplyReadStatusChangeUseCaseTest {
         assertTrue(snapshot.isExplicitUnreadReset)
         assertEquals(0.0, snapshot.percent ?: -1.0, 0.0001)
         assertEquals(SyncState.DIRTY, snapshot.syncState)
-        assertEquals(listOf(grimmoryBook().id), journalRepository.clearedReadingEventItemIds)
+        // Only a finish from the last day goes; the book's reading days stay.
+        val (itemId, since) = journalRepository.takenBackFinishes.single()
+        assertEquals(grimmoryBook().id, itemId)
+        assertTrue(System.currentTimeMillis() - since in 23L * 60 * 60 * 1000..25L * 60 * 60 * 1000)
     }
 
     @Test
@@ -260,7 +263,7 @@ private class RecordingSourceProgressSync(
 private class RecordingReadStatusJournalRepository : JournalRepository {
     private val snapshot = MutableStateFlow(JournalSnapshot())
     val recordedProgress = mutableListOf<JournalProgressInput>()
-    val clearedReadingEventItemIds = mutableListOf<String>()
+    val takenBackFinishes = mutableListOf<Pair<String, Long>>()
 
     override fun observeSnapshot(): Flow<JournalSnapshot> = snapshot
 
@@ -274,8 +277,8 @@ private class RecordingReadStatusJournalRepository : JournalRepository {
 
     override suspend fun deleteItemJournal(itemId: String) = Unit
 
-    override suspend fun clearReadingEventsForItem(itemId: String) {
-        clearedReadingEventItemIds += itemId
+    override suspend fun takeBackFinishesSince(itemId: String, sinceEpochMillis: Long) {
+        takenBackFinishes += itemId to sinceEpochMillis
     }
 
     override suspend fun replaceCleanSourceJournalCache(

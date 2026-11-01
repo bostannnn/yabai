@@ -156,11 +156,12 @@ class RoomJournalRepository(
         }
     }
 
-    override suspend fun clearReadingEventsForItem(
+    override suspend fun takeBackFinishesSince(
         itemId: String,
+        sinceEpochMillis: Long,
     ) {
         withContext(Dispatchers.IO) {
-            journalDao.deleteReadingEventsForItem(itemId)
+            journalDao.deleteFinishedReadingEventsForItemSince(itemId, sinceEpochMillis)
         }
     }
 
