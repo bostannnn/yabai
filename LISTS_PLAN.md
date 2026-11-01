@@ -332,3 +332,6 @@ To build (expected ownership):
   Hidden fold, What Lists shows, search (lists highlighted, books with where they are), Back from a place to All,
   the scroll kept and Recent after a list's page. Not checked: Grimmory (no stand-in), covers in rows (the stand-in's
   lists hold no issues), the real Kavita or the tablet, TalkBack on the letter strip.
+- 2026-11-01, merged: main's library refresh (4c5c13cf) merged into the branch (7c9d3508, the full suite passing
+  after it), then main fast-forwarded to the branch. Not pushed, not released, not on the tablet. The next release
+  carries Room v37.
