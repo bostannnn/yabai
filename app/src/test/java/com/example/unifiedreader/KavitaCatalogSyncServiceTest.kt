@@ -20,6 +20,7 @@ import com.example.unifiedreader.data.kavita.KavitaProgressDto
 import com.example.unifiedreader.data.kavita.KavitaProgressUpdate
 import com.example.unifiedreader.data.kavita.KavitaReadingHistoryItemDto
 import com.example.unifiedreader.data.kavita.KavitaSeriesEntry
+import com.example.unifiedreader.data.kavita.KavitaSeriesMetadata
 import com.example.unifiedreader.data.kavita.KavitaSeriesUpdateEntry
 import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.data.kavita.KavitaUnauthorizedException
@@ -559,6 +560,54 @@ class KavitaCatalogSyncServiceTest {
         assertTrue(secondApi.detailRequests.isEmpty())
         assertEquals(1, secondApi.recentlyUpdatedRequests)
         assertEquals(listOf(SourceType.KAVITA.remoteItemId("99")), writer.lastItems.map { it.id })
+    }
+
+    @Test
+    fun `fast sync reads a series again when its genres or tags change on the server`() = runBlocking {
+        val series = kavitaSeriesEntry(id = "12", libraryId = "5", addedAtEpochMillis = 500L)
+        val writer = RecordingKavitaRemoteCatalogWriter()
+        val request = savedSessionRequest()
+        val entries = mapOf(
+            "12" to listOf(kavitaChapterEntry(chapterId = "99", libraryId = "5", seriesId = "12")),
+        )
+        val firstApi = FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = listOf(series),
+            entriesBySeriesId = entries,
+            metadataBySeriesId = mapOf("12" to KavitaSeriesMetadata(genres = listOf("Fantasy"))),
+        )
+        KavitaCatalogSyncService(
+            kavitaApiFactory = KavitaApiFactory { _ -> firstApi },
+            remoteCatalogWriter = writer,
+        ).sync(request = request)
+        val unchangedApi = FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = listOf(series),
+            entriesBySeriesId = entries,
+            metadataBySeriesId = mapOf("12" to KavitaSeriesMetadata(genres = listOf("Fantasy"))),
+        )
+        KavitaCatalogSyncService(
+            kavitaApiFactory = KavitaApiFactory { _ -> unchangedApi },
+            remoteCatalogWriter = writer,
+        ).fastSync(request = request)
+        val editedApi = FakeKavitaApi(
+            libraries = listOf(kavitaLibrary("5")),
+            series = listOf(series),
+            entriesBySeriesId = entries,
+            metadataBySeriesId = mapOf(
+                "12" to KavitaSeriesMetadata(genres = listOf("Fantasy"), tags = listOf("Found Family")),
+            ),
+        )
+
+        KavitaCatalogSyncService(
+            kavitaApiFactory = KavitaApiFactory { _ -> editedApi },
+            remoteCatalogWriter = writer,
+        ).fastSync(request = request)
+
+        assertEquals(listOf("Fantasy"), firstApi.detailSeries.single().genres)
+        assertTrue(unchangedApi.detailRequests.isEmpty())
+        assertEquals(listOf("12"), editedApi.detailRequests)
+        assertEquals(listOf("Found Family"), editedApi.detailSeries.single().tags)
     }
 
     @Test
@@ -1655,6 +1704,7 @@ private class FakeKavitaApi(
     // Series-detail requests with these tokens are turned down; these series fail outright.
     private val unauthorizedDetailTokens: Set<String> = emptySet(),
     private val detailFailuresBySeriesId: Map<String, Throwable> = emptyMap(),
+    private val metadataBySeriesId: Map<String, KavitaSeriesMetadata> = emptyMap(),
     private val refreshedSession: KavitaSession = KavitaSession(
         accessToken = "refreshed-access-token",
         refreshToken = "refreshed-refresh-token",
@@ -1665,6 +1715,7 @@ private class FakeKavitaApi(
     val seriesThreadNames = mutableListOf<String>()
     // The sync's requests run on background threads, some at once.
     val detailRequests: MutableList<String> = Collections.synchronizedList(mutableListOf())
+    val detailSeries: MutableList<KavitaSeriesEntry> = Collections.synchronizedList(mutableListOf())
     val progressRequests: MutableList<String> = Collections.synchronizedList(mutableListOf())
     val currentUserAccessTokens = mutableListOf<String>()
     val libraryAccessTokens = mutableListOf<String>()
@@ -1733,11 +1784,17 @@ private class FakeKavitaApi(
             if (accessToken in unauthorizedDetailTokens) throw KavitaUnauthorizedException()
             detailFailuresBySeriesId[series.id]?.let { throw it }
             detailRequests += series.id
+            detailSeries += series
             return entriesBySeriesId[series.id].orEmpty()
         } finally {
             inFlightDetailRequests.decrementAndGet()
         }
     }
+
+    override suspend fun getSeriesMetadata(
+        accessToken: String,
+        seriesId: String,
+    ): KavitaSeriesMetadata? = metadataBySeriesId[seriesId]
 
     override suspend fun getProgress(
         accessToken: String,

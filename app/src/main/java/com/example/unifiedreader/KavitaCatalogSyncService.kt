@@ -138,12 +138,16 @@ class KavitaCatalogSyncService(
             val tokens = api.runTokensFor(request, onSessionRenewed)
             val libraries = tokens.run { token, _ -> api.getLibraries(token) }
             onProgress(KavitaSyncSteps.bookList)
-            val series = tokens.run { token, apiKey ->
-                api.getSeries(
-                    accessToken = token,
-                    apiKey = apiKey,
-                )
-            }
+            val series = withKavitaSeriesMetadata(
+                api = api,
+                tokens = tokens,
+                series = tokens.run { token, apiKey ->
+                    api.getSeries(
+                        accessToken = token,
+                        apiKey = apiKey,
+                    )
+                },
+            )
             val catalogFetch = fetchKavitaCatalog(
                 api = api,
                 tokens = tokens,
@@ -229,12 +233,16 @@ class KavitaCatalogSyncService(
             val tokens = api.runTokensFor(request, onSessionRenewed)
             val libraries = tokens.run { token, _ -> api.getLibraries(token) }
             onProgress(KavitaSyncSteps.checkingChanges)
-            val series = tokens.run { token, apiKey ->
-                api.getSeries(
-                    accessToken = token,
-                    apiKey = apiKey,
-                )
-            }
+            val series = withKavitaSeriesMetadata(
+                api = api,
+                tokens = tokens,
+                series = tokens.run { token, apiKey ->
+                    api.getSeries(
+                        accessToken = token,
+                        apiKey = apiKey,
+                    )
+                },
+            )
             val recentlyUpdatedSeries = fetchRecentlyUpdatedSeries(
                 api = api,
                 tokens = tokens,

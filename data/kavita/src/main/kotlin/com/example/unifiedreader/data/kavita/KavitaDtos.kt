@@ -89,11 +89,6 @@ internal data class KavitaSeriesDetailDto(
 )
 
 @Serializable
-internal data class KavitaSeriesMetadataDto(
-    val summary: String? = null,
-)
-
-@Serializable
 internal data class KavitaVolumeDto(
     val id: Int? = null,
     val name: String? = null,
@@ -662,33 +657,33 @@ private fun KavitaChapterDto.chapterPencillers(
 
 private fun KavitaChapterDto.chapterGenres(
     series: KavitaSeriesEntry,
-): List<String> = genres.toFacetNames().ifEmpty { series.genres }
+): List<String> = genres.toFacetNames().plusDistinct(series.genres)
 
 private fun KavitaChapterDto.chapterTags(
     series: KavitaSeriesEntry,
-): List<String> = tags.toTagNames().ifEmpty { series.tags }
+): List<String> = tags.toTagNames().plusDistinct(series.tags)
 
 private fun KavitaChapterDto.chapterLanguages(
     series: KavitaSeriesEntry,
 ): List<String> = language.toFacetNames().ifEmpty { series.languages }
 
-private fun String?.toFacetNames(): List<String> = listOfNotNull(
+internal fun String?.toFacetNames(): List<String> = listOfNotNull(
     this?.trim()?.takeIf(String::isNotBlank),
 )
 
-private fun List<KavitaPersonDto>?.toPublisherNames(): List<String> = orEmpty()
+internal fun List<KavitaPersonDto>?.toPublisherNames(): List<String> = orEmpty()
     .mapNotNull { publisher -> publisher.name?.trim()?.takeIf(String::isNotBlank) }
     .distinctBy(String::lowercase)
 
-private fun List<KavitaPersonDto>?.toPersonNames(): List<String> = orEmpty()
+internal fun List<KavitaPersonDto>?.toPersonNames(): List<String> = orEmpty()
     .mapNotNull { person -> person.name?.trim()?.takeIf(String::isNotBlank) }
     .distinctBy(String::lowercase)
 
-private fun List<KavitaGenreTagDto>?.toFacetNames(): List<String> = orEmpty()
+internal fun List<KavitaGenreTagDto>?.toFacetNames(): List<String> = orEmpty()
     .mapNotNull { facet -> facet.title?.trim()?.takeIf(String::isNotBlank) }
     .distinctBy(String::lowercase)
 
-private fun List<KavitaTagDto>?.toTagNames(): List<String> = orEmpty()
+internal fun List<KavitaTagDto>?.toTagNames(): List<String> = orEmpty()
     .mapNotNull { tag -> tag.title?.trim()?.takeIf(String::isNotBlank) }
     .distinctBy(String::lowercase)
 

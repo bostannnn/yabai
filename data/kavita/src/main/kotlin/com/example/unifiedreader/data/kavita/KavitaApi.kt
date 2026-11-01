@@ -94,6 +94,12 @@ interface KavitaApi {
         seriesId: String,
     ): String? = error("Fetching a Kavita series summary is not implemented.")
 
+    /** The series' own genres, tags and people (KavitaSeriesMetadata); null where the API has none. */
+    suspend fun getSeriesMetadata(
+        accessToken: String,
+        seriesId: String,
+    ): KavitaSeriesMetadata? = null
+
     suspend fun updateProgress(
         accessToken: String,
         progress: KavitaProgressUpdate,
@@ -454,7 +460,12 @@ class KtorKavitaApi(
     override suspend fun getSeriesSummary(
         accessToken: String,
         seriesId: String,
-    ): String? = authenticatedRequest {
+    ): String? = getSeriesMetadata(accessToken, seriesId)?.summary
+
+    override suspend fun getSeriesMetadata(
+        accessToken: String,
+        seriesId: String,
+    ): KavitaSeriesMetadata? = authenticatedRequest {
         val response = httpClient.get("$normalizedBaseUrl/api/Series/metadata") {
             bearerAuth(accessToken)
             url {
@@ -465,7 +476,7 @@ class KtorKavitaApi(
         if (response.status == HttpStatusCode.NoContent) {
             return@authenticatedRequest null
         }
-        response.body<KavitaSeriesMetadataDto>().summary?.takeIf(String::isNotBlank)
+        response.body<KavitaSeriesMetadataDto>().toMetadata()
     }
 
     override suspend fun updateProgress(

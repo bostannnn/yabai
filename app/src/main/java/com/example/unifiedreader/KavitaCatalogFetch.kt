@@ -267,6 +267,7 @@ private fun String.normalizedKavitaCoverUrlForFingerprint(): String =
 
 // v2: chapters carry their release year; every series is read again once for it.
 // v3: chapters carry their Locations, so every series is read once more.
-private const val KAVITA_CATALOG_FINGERPRINT_VERSION = "v3"
+// v4: series carry their own metadata's genres, tags and people (withKavitaSeriesMetadata).
+private const val KAVITA_CATALOG_FINGERPRINT_VERSION = "v4"
 private const val KAVITA_CATALOG_FINGERPRINT_FIELD_SEPARATOR = "\u001F"
 private const val KAVITA_CATALOG_FINGERPRINT_LIST_SEPARATOR = "\u001E"
