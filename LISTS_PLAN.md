@@ -180,6 +180,44 @@ The shared emulator held this branch's earlier debug build at the old numbering 
 column but not the tag tables); its app data was cleared on 2026-10-31 at the user's go-ahead and the merged
 build (v35) installed, so it starts empty: no local books, lists, journal or server sessions.
 
+## Fourth pass: a Lists screen that stays short (designed 2026-11-01, not built)
+
+After 0.29.0 the user said Lists "is now working, but [not] very usable": 60+ Kavita lists and 60+ Grimmory lists
+always on screen, no way to find your way through them. Mocked as "Fourth pass" on the canvas (boards P4*, notes
+r1-r4). The user picked **A** (All as an overview, a server's lists as rows) over B (two panes on the tablet); the
+other three choices were taken as proposed (no Smart chip, a row per server on All, Back from a place returns to
+All). Design system first: `ListsScreen` rewritten, new `AppListRow` and `AppLetterStrip`, icons `keep`, `keep_off`,
+`view_list`, `visibility_off` (Material Symbols Rounded, from google/material-design-icons); Design System artifact
+versions 37 and 38.
+
+- **Place row**: All, Your lists, then Kavita and Grimmory; no Smart chip (smart lists and magic shelves become a
+  kind inside their place). Counts leave hidden lists out. Back from a place returns to All.
+- **All, the overview**: the card, Pinned (every pinned list, captions naming the place), Your lists (one row, See
+  all when more), then one sideways row per server (opened lately first, then by name, twelve at most) with See all N
+  in the heading, and "11 lists hidden · What Lists shows" under it.
+- **A place**: a tool row (kinds as tab pills with counts, Sort: Name, Recently opened, Most books, Year for Kavita;
+  Show as rows or covers), Recent (up to six opened lately), then everything not finished in the sort's order; by name
+  under letter labels with `AppLetterStrip` past 20 lists; Finished and Hidden folded at the end. Rows by default for
+  Kavita and Grimmory, covers for Your lists; each place keeps its kind, sort and Show as.
+- **Pin, Hide, Select several**: a long-press menu on a tile or row (or ⋯ on a list's page); the selection bar has
+  Select all, Pin and Hide; Hide's toast has Undo. All of it on this device only; nothing changes on a server.
+- **What Lists shows** (bar menu, side sheet): Kavita lists other people share, Collections; Grimmory public shelves
+  of other people, empty shelves; Finished lists (Fold at the end, Hide, With the rest); the hidden lists with Show.
+- **Search** splits into Lists (names) and Books in your lists (each book with the lists holding it).
+
+To build (expected ownership):
+
+- `core:database`: a per-list preferences table (list id, pinned time, hidden, last opened) for every list kind, and
+  the reading list's first and last year on `server_lists`: one migration from v36 (check main's version first).
+- `data:kavita`: keep `startingYear`/`endingYear` from `api/ReadingList/lists` on `KavitaReadingList` (the DTO already
+  has them; the mapping drops them).
+- `core:ui-components`: `AppListRow`, `AppLetterStrip`, the four drawables in `AppIcons`. The library's multi-select
+  bar lives in `feature:library` (`LibraryDownloadSelection.kt`); a shared selection bar would go into the kit.
+- `feature:lists`: `ListsFilter` loses Smart; the overview and place page replace the single grid in `ListsScreen`
+  (split into files: it must not become a hotspot); the list menu, selection, What Lists shows, search sections;
+  per-place choices in the route's saved state or the preferences table.
+- `app`: `AppListsViewModel` hands the preferences store to the composition.
+
 ## Ownership
 
 - `core:database`: entities, `UserListDao`, `MIGRATION_30_31`; `ServerListEntity`, `ServerListItemEntity`,
@@ -269,3 +307,6 @@ build (v35) installed, so it starts empty: no local books, lists, journal or ser
   its first). `toUserList` keeps the server's id on each entry, so taking a book series off still names the
   series. `CollectionSeriesTest` (3). Kavita's `series-by-collection` was checked in its source: with no page size
   it sends every series. The book page's In your lists still doesn't name collections.
+- 2026-11-01, fourth pass designed (see its section): canvas boards P4* and the Design System (ListsScreen,
+  AppListRow, AppLetterStrip, four icons) on branch `claude/lists-menu-ux-redesign-4765ae`; main 0.29.1 merged in.
+  Nothing built yet.

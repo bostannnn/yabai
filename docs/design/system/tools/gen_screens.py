@@ -571,7 +571,7 @@ def grid(tiles, cols=6):
     return f'<div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:16px">{"".join(tiles)}</div>'
 
 
-LISTS_H = 1800  # All, the whole page
+LISTS_H = 2040  # All, the whole page
 
 
 def place_row(selected, counts=(("All", None), ("Your lists", 5), ("Kavita", 64), ("Grimmory", 61)), style=""):
@@ -630,7 +630,9 @@ def under_way_card():
 
 def bar(menu=False):
     lead = f'<button class="yb-icon-btn">{ic("menu")}</button>' if menu else ""
-    return (f'<div class="yb-bar">{lead}<div class="yb-search">{ic("search")}<span>Search lists</span></div><span class="yb-spacer"></span>'
+    # On a phone the search field takes the bar's room; on wider windows it stops at its maximum and a spacer follows.
+    spacer = "" if menu else '<span class="yb-spacer"></span>'
+    return (f'<div class="yb-bar">{lead}<div class="yb-search">{ic("search")}<span>Search lists</span></div>{spacer}'
             f'<button class="yb-icon-btn">{ic("add")}</button><button class="yb-icon-btn">{ic("more_vert")}</button></div>')
 
 
@@ -760,7 +762,7 @@ grimmory_phone_end = f"""
   {statusbar()}
   <div class="yb-device-body" style="flex-direction:column">
     <div class="yb-pane">
-      <div class="yb-bar is-glass" style="z-index:1"><button class="yb-icon-btn">{ic("menu")}</button><div class="yb-search">{ic("search")}<span>Search lists</span></div><span class="yb-spacer"></span><button class="yb-icon-btn">{ic("add")}</button><button class="yb-icon-btn">{ic("more_vert")}</button></div>
+      <div class="yb-bar is-glass" style="z-index:1"><button class="yb-icon-btn">{ic("menu")}</button><div class="yb-search">{ic("search")}<span>Search lists</span></div><button class="yb-icon-btn">{ic("add")}</button><button class="yb-icon-btn">{ic("more_vert")}</button></div>
       {letter_strip("W", line=15, style="right:0;top:250px")}
       <div class="yb-scroll" style="top:40px;gap:16px">
         {letter_group("T", [list_row("Translated fiction", "Shelf · 38 books", [0, 6, 2, 5]), list_row("Travel", "Shelf · 21 books", [6, 0, 7, 2])], cols=1)}
@@ -1105,7 +1107,7 @@ list_finished = f"""
 </div>"""
 
 
-comp("ListsScreen", "Screens", 9400, """
+comp("ListsScreen", "Screens", 11500, """
 # Lists
 
 Every list in one place, beside the sources in the rail and the drawer. All is a short overview that stays the same length however many lists the servers hold; a place's chip shows all its lists, as rows you can sort, narrow and jump through.
