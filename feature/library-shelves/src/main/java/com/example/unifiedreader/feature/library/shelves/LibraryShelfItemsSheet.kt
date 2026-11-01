@@ -46,13 +46,13 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverActionCard
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.LibraryCoverProgressBar
+import com.example.unifiedreader.feature.library.LibraryCoverSize
 import com.example.unifiedreader.feature.library.LibraryItemActionContext
 import com.example.unifiedreader.feature.library.LibraryItemPageButton
 import com.example.unifiedreader.feature.library.defaultLibraryGridCellSizeDp
 import com.example.unifiedreader.feature.library.isDownloaded
 import com.example.unifiedreader.feature.library.libraryGridCoverImageVariant
 import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
-import com.example.unifiedreader.feature.library.minLibraryGridCellSizeDp
 import com.example.unifiedreader.feature.library.sanitizeLibraryGridCellSizeDp
 import com.example.unifiedreader.ui.components.AppBackground
 import com.example.unifiedreader.ui.components.AppButton
@@ -316,7 +316,7 @@ private fun ShelfBrowserGrid(
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onItemSelected: (ReadableItem) -> Unit,
 ) {
-    val compactGrid = gridCellSizeDp <= minLibraryGridCellSizeDp
+    val compactGrid = gridCellSizeDp <= LibraryCoverSize.Medium.cellSizeDp
     LazyVerticalGrid(
         columns = GridCells.Adaptive(gridCellSizeDp.dp),
         state = gridState,
@@ -338,7 +338,7 @@ private fun ShelfBrowserGrid(
         ) { entry ->
             ShelfBrowserGridCard(
                 entry = entry,
-                compact = compactGrid,
+                coverSize = LibraryCoverSize.of(gridCellSizeDp),
                 imageVariant = libraryGridCoverImageVariant(gridCellSizeDp),
                 itemActionContext = itemActionContext,
                 coverImageUrlProvider = coverImageUrlProvider,
@@ -422,7 +422,7 @@ private fun ShelfBrowserList(
 @Composable
 private fun ShelfBrowserGridCard(
     entry: LibraryShelfBrowserEntry,
-    compact: Boolean,
+    coverSize: LibraryCoverSize,
     imageVariant: LibraryCoverImageVariant,
     itemActionContext: LibraryItemActionContext,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
@@ -432,14 +432,15 @@ private fun ShelfBrowserGridCard(
     LibraryCoverActionCard(
         item = entry.item,
         title = entry.title,
-        supportingText = entry.supportingText,
+        showTitle = coverSize.showsTitle,
+        supportingText = entry.supportingText.takeIf { coverSize.showsTitle },
         trailingText = entry.trailingText,
         coverImageUrlProvider = coverImageUrlProvider,
         imageVariant = imageVariant,
         isDownloaded = itemActionContext.isDownloaded(entry.item),
         isRead = entry.isRead,
         onClick = onItemSelected,
-        titleStyle = if (compact) {
+        titleStyle = if (coverSize <= LibraryCoverSize.Medium) {
             MaterialTheme.typography.labelMedium
         } else {
             MaterialTheme.typography.titleSmall

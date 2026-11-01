@@ -18,6 +18,14 @@ internal class AppLibraryPendingRecompute(
     private var pendingShelvesKey: Any? = null
     private var pendingJob: Job? = null
 
+    /** A recompute is running for [derivedKey] and [shelvesKey] (null: that part isn't needed). */
+    fun covers(
+        derivedKey: Any?,
+        shelvesKey: Any?,
+    ): Boolean = pendingJob != null &&
+        (derivedKey == null || derivedKey == pendingDerivedKey) &&
+        (shelvesKey == null || shelvesKey == pendingShelvesKey)
+
     fun cancel() {
         pendingJob?.cancel()
         pendingJob = null

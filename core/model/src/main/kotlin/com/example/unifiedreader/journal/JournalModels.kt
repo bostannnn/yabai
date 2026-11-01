@@ -295,6 +295,13 @@ interface JournalRepository : JournalEventRecorder {
     fun observeSnapshot(extraCatalogItems: Flow<List<ReadableItem>>): Flow<JournalSnapshot> = observeSnapshot()
 
     /**
+     * [observeSnapshot], matching the journal's books to [catalogItems] alone: the whole catalog the
+     * caller already holds in memory, so the stored catalog isn't read and decoded again for it.
+     */
+    fun observeSnapshotForCatalog(catalogItems: Flow<List<ReadableItem>>): Flow<JournalSnapshot> =
+        observeSnapshot(catalogItems)
+
+    /**
      * Lightweight journal write-state (raw events/sessions/entries only, no catalog join and no
      * stats/summaries computation). This is all the library badges and the remote-sync path need,
      * so it can be observed eagerly at startup without the heavy per-catalog [observeSnapshot] work.

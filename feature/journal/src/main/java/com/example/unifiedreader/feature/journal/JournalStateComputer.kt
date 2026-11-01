@@ -433,9 +433,14 @@ private class JournalCatalogItemLookup(
     catalogItems: Collection<ReadableItem>,
 ) {
     private val byId = catalogItems.associateBy(ReadableItem::id)
-    private val byKey = catalogItems
-        .flatMap { item -> item.journalCatalogMatchKeys().map { key -> key to item } }
-        .groupBy({ (key, _) -> key }, { (_, item) -> item })
+
+    // Normalizes up to three titles of every book in the catalog, so it is built only when a journal
+    // book isn't found by its id; most are.
+    private val byKey by lazy(LazyThreadSafetyMode.NONE) {
+        catalogItems
+            .flatMap { item -> item.journalCatalogMatchKeys().map { key -> key to item } }
+            .groupBy({ (key, _) -> key }, { (_, item) -> item })
+    }
 
     fun find(
         itemId: String,

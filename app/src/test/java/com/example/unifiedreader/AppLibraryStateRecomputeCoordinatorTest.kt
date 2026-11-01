@@ -429,20 +429,29 @@ class AppLibraryStateRecomputeCoordinatorTest {
             publishState = backStates::add,
         )
 
-        assertTrue(backStates.isEmpty())
+        // The root's last presentation shows at once, as it was when the series opened.
+        assertEquals(1, backStates.size)
+        val reopenedState = backStates.single()
+        assertEquals(null, reopenedState.selectedKavitaSeriesKey)
+        assertTrue(reopenedState.shouldReserveLibraryShelvesSlot)
+        assertEquals(1, reopenedState.visibleItems.size)
+        assertTrue(reopenedState.libraryShelvesState.hasContent)
+        assertFalse(reopenedState.libraryShelvesState.isLoading)
+        assertEquals(0.35f, reopenedState.libraryShelvesState.continueReading.single().progress.fraction)
 
         advanceUntilIdle()
 
-        assertEquals(1, backStates.size)
-        assertTrue(backStates.single().shouldReserveLibraryShelvesSlot)
-        assertEquals(1, backStates.single().visibleItems.size)
-        assertTrue(backStates.single().libraryShelvesState.hasContent)
-        assertFalse(backStates.single().libraryShelvesState.isLoading)
+        assertEquals(2, backStates.size)
+        val refreshedState = backStates.last()
+        assertTrue(refreshedState.shouldReserveLibraryShelvesSlot)
+        assertEquals(1, refreshedState.visibleItems.size)
+        assertTrue(refreshedState.libraryShelvesState.hasContent)
+        assertFalse(refreshedState.libraryShelvesState.isLoading)
         assertEquals(
             item.id,
-            backStates.single().libraryShelvesState.continueReading.single().item.id,
+            refreshedState.libraryShelvesState.continueReading.single().item.id,
         )
-        assertEquals(0.65f, backStates.single().libraryShelvesState.continueReading.single().progress.fraction)
+        assertEquals(0.65f, refreshedState.libraryShelvesState.continueReading.single().progress.fraction)
     }
 
     @Test
@@ -523,20 +532,25 @@ class AppLibraryStateRecomputeCoordinatorTest {
             publishState = backStates::add,
         )
 
-        assertTrue(backStates.isEmpty())
+        // The refreshed root presentation shows at once, then the recompute brings the new progress.
+        assertEquals(1, backStates.size)
+        assertTrue(backStates.single().libraryShelvesState.hasContent)
+        assertFalse(backStates.single().libraryShelvesState.isLoading)
+        assertEquals(0.45f, backStates.single().libraryShelvesState.continueReading.single().progress.fraction)
 
         advanceUntilIdle()
 
-        assertEquals(1, backStates.size)
-        assertTrue(backStates.single().shouldReserveLibraryShelvesSlot)
-        assertEquals(1, backStates.single().visibleItems.size)
-        assertTrue(backStates.single().libraryShelvesState.hasContent)
-        assertFalse(backStates.single().libraryShelvesState.isLoading)
+        assertEquals(2, backStates.size)
+        val refreshedState = backStates.last()
+        assertTrue(refreshedState.shouldReserveLibraryShelvesSlot)
+        assertEquals(1, refreshedState.visibleItems.size)
+        assertTrue(refreshedState.libraryShelvesState.hasContent)
+        assertFalse(refreshedState.libraryShelvesState.isLoading)
         assertEquals(
             refreshedItem.id,
-            backStates.single().libraryShelvesState.continueReading.single().item.id,
+            refreshedState.libraryShelvesState.continueReading.single().item.id,
         )
-        assertEquals(0.65f, backStates.single().libraryShelvesState.continueReading.single().progress.fraction)
+        assertEquals(0.65f, refreshedState.libraryShelvesState.continueReading.single().progress.fraction)
     }
 
     @Test
@@ -665,6 +679,191 @@ class AppLibraryStateRecomputeCoordinatorTest {
         assertTrue(shelves.hasContent)
         assertEquals(listOf(item.id), shelves.continueReading.map { entry -> entry.item.id })
     }
+
+    @Test
+    fun `switching servers shows each server's last presentation at once`() = runTest {
+        val coordinator = createCoordinator(StandardTestDispatcher(testScheduler))
+        val initialState = coordinator.initialize(twoServerLibraryState())
+        val grimmoryStates = mutableListOf<AppUiState>()
+
+        // The first visit to Grimmory has nothing to show yet, so it computes as before.
+        coordinator.updateState(
+            currentState = initialState,
+            transform = { state -> state.copy(selectedSource = SourceType.GRIMMORY) },
+            scope = this,
+            publishState = grimmoryStates::add,
+        )
+        advanceUntilIdle()
+        val grimmoryState = grimmoryStates.last()
+        assertEquals(listOf(grimmoryBook.id), grimmoryState.visibleItems.map { item -> item.id })
+        val kavitaStates = mutableListOf<AppUiState>()
+
+        coordinator.updateState(
+            currentState = grimmoryState,
+            transform = { state -> state.copy(selectedSource = SourceType.KAVITA) },
+            scope = this,
+            publishState = kavitaStates::add,
+        )
+
+        // Kavita's last presentation is published in the same call, not after the recompute.
+        assertEquals(1, kavitaStates.size)
+        assertEquals(SourceType.KAVITA, kavitaStates.single().selectedSource)
+        assertSame(initialState.visibleItems, kavitaStates.single().visibleItems)
+        assertTrue(kavitaStates.single().libraryShelvesState.hasContent)
+        assertFalse(kavitaStates.single().libraryShelvesState.isLoading)
+        assertEquals(kavitaBook.id, kavitaStates.single().libraryShelvesState.continueReading.single().item.id)
+
+        advanceUntilIdle()
+
+        assertEquals(2, kavitaStates.size)
+        assertEquals(listOf(kavitaBook.id), kavitaStates.last().visibleItems.map { item -> item.id })
+        assertEquals(kavitaBook.id, kavitaStates.last().libraryShelvesState.continueReading.single().item.id)
+        val backToGrimmoryStates = mutableListOf<AppUiState>()
+
+        coordinator.updateState(
+            currentState = kavitaStates.last(),
+            transform = { state -> state.copy(selectedSource = SourceType.GRIMMORY) },
+            scope = this,
+            publishState = backToGrimmoryStates::add,
+        )
+
+        // The same lists as Grimmory's last presentation: nothing was recomputed on the caller's thread.
+        assertEquals(1, backToGrimmoryStates.size)
+        assertSame(grimmoryState.visibleItems, backToGrimmoryStates.single().visibleItems)
+        assertSame(grimmoryState.libraryShelvesState.continueReading, backToGrimmoryStates.single().libraryShelvesState.continueReading)
+
+        // An unrelated update while that recompute runs doesn't compute it again on the caller's thread.
+        coordinator.updateState(
+            currentState = backToGrimmoryStates.single(),
+            transform = { state -> state.copy(libraryScrollToTopRequest = state.libraryScrollToTopRequest + 1L) },
+            scope = this,
+            publishState = backToGrimmoryStates::add,
+        )
+
+        assertEquals(2, backToGrimmoryStates.size)
+        assertSame(grimmoryState.visibleItems, backToGrimmoryStates.last().visibleItems)
+
+        advanceUntilIdle()
+
+        assertEquals(3, backToGrimmoryStates.size)
+        assertEquals(SourceType.GRIMMORY, backToGrimmoryStates.last().selectedSource)
+        assertEquals(listOf(grimmoryBook.id), backToGrimmoryStates.last().visibleItems.map { item -> item.id })
+        assertEquals(grimmoryBook.id, backToGrimmoryStates.last().libraryShelvesState.continueReading.single().item.id)
+    }
+
+    @Test
+    fun `closing the reader shows the library at once`() = runTest {
+        val coordinator = createCoordinator(StandardTestDispatcher(testScheduler))
+        val initialState = coordinator.initialize(twoServerLibraryState())
+        val readerStates = mutableListOf<AppUiState>()
+
+        coordinator.updateState(
+            currentState = initialState,
+            transform = { state -> state.copy(selectedItemId = kavitaBook.id, activeReader = FormatType.EPUB) },
+            scope = this,
+            publishState = readerStates::add,
+        )
+        coordinator.updateState(
+            currentState = readerStates.last(),
+            transform = { state ->
+                state.copy(
+                    progressByItemId = state.progressByItemId + (
+                        kavitaBook.id to ItemProgressSummary(label = "Continue", fraction = 0.8f, lastReadAtEpochMillis = 90L)
+                        ),
+                )
+            },
+            scope = this,
+            publishState = readerStates::add,
+        )
+        advanceUntilIdle()
+        val closedStates = mutableListOf<AppUiState>()
+
+        coordinator.updateState(
+            currentState = readerStates.last(),
+            transform = { state -> state.copy(selectedItemId = null, activeReader = null) },
+            scope = this,
+            publishState = closedStates::add,
+        )
+
+        // The reader closes in the same call, over the library as it was when the book opened.
+        assertEquals(1, closedStates.size)
+        assertEquals(null, closedStates.single().activeReader)
+        assertSame(initialState.visibleItems, closedStates.single().visibleItems)
+        assertEquals(0.35f, closedStates.single().libraryShelvesState.continueReading.single().progress.fraction)
+
+        advanceUntilIdle()
+
+        assertEquals(2, closedStates.size)
+        assertEquals(0.8f, closedStates.last().libraryShelvesState.continueReading.single().progress.fraction)
+    }
+
+    @Test
+    fun `a last presentation showing a book no longer in the catalog waits for the recompute`() = runTest {
+        val coordinator = createCoordinator(StandardTestDispatcher(testScheduler))
+        val initialState = coordinator.initialize(twoServerLibraryState())
+        val grimmoryStates = mutableListOf<AppUiState>()
+        coordinator.updateState(
+            currentState = initialState,
+            transform = { state -> state.copy(selectedSource = SourceType.GRIMMORY) },
+            scope = this,
+            publishState = grimmoryStates::add,
+        )
+        advanceUntilIdle()
+        val otherKavitaBook = sampleItem(id = "book-2", title = "Other Book", format = FormatType.EPUB)
+        val kavitaStates = mutableListOf<AppUiState>()
+
+        coordinator.updateState(
+            currentState = grimmoryStates.last(),
+            transform = { state ->
+                state.copy(
+                    selectedSource = SourceType.KAVITA,
+                    items = listOf(otherKavitaBook, grimmoryBook),
+                    progressByItemId = mapOf(
+                        otherKavitaBook.id to ItemProgressSummary(label = "Continue", fraction = 0.2f, lastReadAtEpochMillis = 70L),
+                        grimmoryBook.id to state.progressByItemId.getValue(grimmoryBook.id),
+                    ),
+                )
+            },
+            scope = this,
+            publishState = kavitaStates::add,
+        )
+
+        // Its shelves held book-1, which is gone: nothing stale is shown, the recompute is awaited.
+        assertTrue(kavitaStates.isEmpty())
+
+        advanceUntilIdle()
+
+        assertEquals(1, kavitaStates.size)
+        assertEquals(listOf(otherKavitaBook.id), kavitaStates.single().visibleItems.map { item -> item.id })
+        assertEquals(otherKavitaBook.id, kavitaStates.single().libraryShelvesState.continueReading.single().item.id)
+    }
+
+    private val kavitaBook = sampleItem(id = "book-1", title = "Kavita Book", format = FormatType.EPUB)
+
+    private val grimmoryBook = ReadableItem(
+        id = "grimmory:book:1",
+        sourceType = SourceType.GRIMMORY,
+        libraryId = SourceType.GRIMMORY.remoteLibraryId("g-books"),
+        remoteId = "1",
+        title = "Grimmory Book",
+        format = FormatType.EPUB,
+    )
+
+    private fun twoServerLibraryState(): AppUiState = sampleLibraryState().copy(
+        libraries = sampleLibraryState().libraries + Library(
+            id = SourceType.GRIMMORY.remoteLibraryId("g-books"),
+            sourceType = SourceType.GRIMMORY,
+            title = "Books",
+            remoteId = "g-books",
+            contentType = LibraryContentType.BOOKS,
+        ),
+        items = listOf(kavitaBook, grimmoryBook),
+        progressByItemId = mapOf(
+            kavitaBook.id to ItemProgressSummary(label = "Continue", fraction = 0.35f, lastReadAtEpochMillis = 25L),
+            grimmoryBook.id to ItemProgressSummary(label = "Continue", fraction = 0.5f, lastReadAtEpochMillis = 40L),
+        ),
+        hydratedSources = setOf(SourceType.KAVITA, SourceType.GRIMMORY),
+    )
 
     private fun createCoordinator(
         testDispatcher: TestDispatcher,
