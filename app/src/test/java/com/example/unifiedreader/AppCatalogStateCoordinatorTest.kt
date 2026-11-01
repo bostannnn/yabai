@@ -96,6 +96,7 @@ class AppCatalogStateCoordinatorTest {
             remoteDownloadDataSources = listOf(downloadDataSource),
         )
         val catalogStateCoordinator = AppCatalogStateCoordinator(
+            appDispatchers = appDispatchers,
             libraryRepository = FakeLibraryRepository(libraries = libraries),
             readableItemRepository = readableItemRepository,
             localDocumentRepository = localDocumentRepository,
@@ -194,6 +195,7 @@ class AppCatalogStateCoordinatorTest {
             remoteDownloadDataSources = listOf(downloadDataSource),
         )
         val catalogStateCoordinator = AppCatalogStateCoordinator(
+            appDispatchers = appDispatchers,
             libraryRepository = FakeLibraryRepository(libraries = libraries),
             readableItemRepository = readableItemRepository,
             localDocumentRepository = localDocumentRepository,
@@ -309,6 +311,7 @@ class AppCatalogStateCoordinatorTest {
             remoteDownloadDataSources = listOf(downloadDataSource),
         )
         val catalogStateCoordinator = AppCatalogStateCoordinator(
+            appDispatchers = appDispatchers,
             libraryRepository = FakeLibraryRepository(libraries = libraries),
             readableItemRepository = readableItemRepository,
             localDocumentRepository = localDocumentRepository,
@@ -430,6 +433,7 @@ class AppCatalogStateCoordinatorTest {
             remoteDownloadDataSources = listOf(downloadDataSource),
         )
         val catalogStateCoordinator = AppCatalogStateCoordinator(
+            appDispatchers = appDispatchers,
             libraryRepository = FakeLibraryRepository(),
             readableItemRepository = FakeReadableItemRepository(items = listOf(item)),
             localDocumentRepository = localDocumentRepository,
@@ -549,6 +553,7 @@ class AppCatalogStateCoordinatorTest {
             remoteDownloadDataSources = listOf(downloadDataSource),
         )
         val catalogStateCoordinator = AppCatalogStateCoordinator(
+            appDispatchers = appDispatchers,
             libraryRepository = FakeLibraryRepository(libraries = libraries),
             readableItemRepository = readableItemRepository,
             localDocumentRepository = localDocumentRepository,
@@ -675,6 +680,7 @@ class AppCatalogStateCoordinatorTest {
             remoteDownloadDataSources = listOf(downloadDataSource),
         )
         val catalogStateCoordinator = AppCatalogStateCoordinator(
+            appDispatchers = appDispatchers,
             libraryRepository = FakeLibraryRepository(libraries = libraries),
             readableItemRepository = readableItemRepository,
             localDocumentRepository = localDocumentRepository,
@@ -801,6 +807,7 @@ class AppCatalogStateCoordinatorTest {
             remoteDownloadDataSources = listOf(downloadDataSource),
         )
         val catalogStateCoordinator = AppCatalogStateCoordinator(
+            appDispatchers = appDispatchers,
             libraryRepository = FakeLibraryRepository(libraries = libraries),
             readableItemRepository = FakeReadableItemRepository(items = listOf(issue)),
             localDocumentRepository = localDocumentRepository,
@@ -877,6 +884,95 @@ class AppCatalogStateCoordinatorTest {
     }
 
     @Test
+    fun `availability refresh lands while a library recompute holds the screen back`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val appDispatchers = AppDispatchers(
+            io = dispatcher,
+            default = dispatcher,
+        )
+        val libraryId = SourceType.KAVITA.remoteLibraryId("k-comics")
+        val issue = ReadableItem(
+            id = "issue-1",
+            sourceType = SourceType.KAVITA,
+            libraryId = libraryId,
+            remoteId = "issue-1",
+            title = "Akira 1",
+            format = FormatType.CBZ,
+        )
+        val libraries = listOf(
+            Library(
+                id = libraryId,
+                sourceType = SourceType.KAVITA,
+                title = "Comics",
+                remoteId = "k-comics",
+                contentType = LibraryContentType.COMICS,
+            ),
+        )
+        val localDocumentRepository = FakeLocalDocumentRepository()
+        val readerSessionStore = FakeReaderSessionStore()
+        val downloadDataSource = ControlledRemoteDownloadDataSource(
+            sourceType = SourceType.KAVITA,
+            initialStoredItemIds = setOf(issue.id),
+        )
+        val libraryStateAssembler = AppLibraryStateAssembler(
+            localDocumentRepository = localDocumentRepository,
+            remoteDownloadDataSources = listOf(downloadDataSource),
+        )
+        val catalogStateCoordinator = AppCatalogStateCoordinator(
+            appDispatchers = appDispatchers,
+            libraryRepository = FakeLibraryRepository(libraries = libraries),
+            readableItemRepository = FakeReadableItemRepository(items = listOf(issue)),
+            localDocumentRepository = localDocumentRepository,
+            libraryStateAssembler = libraryStateAssembler,
+            observeAppCatalogSnapshotsUseCase = ObserveAppCatalogSnapshotsUseCase(
+                settingsPreferencesStore = FakeSettingsPreferencesStore(),
+                libraryRepository = FakeLibraryRepository(libraries = libraries),
+                readableItemRepository = FakeReadableItemRepository(items = listOf(issue)),
+                remoteCatalogReadiness = FakeRemoteCatalogReadiness(),
+                localDocumentRepository = localDocumentRepository,
+                readerSessionStore = readerSessionStore,
+                libraryStateAssembler = libraryStateAssembler,
+                appDispatchers = appDispatchers,
+            ),
+            readerSessionStore = readerSessionStore,
+            remoteCoverController = RemoteCoverController(
+                kavitaCoverRepository = FakeKavitaCoverRepository(),
+                stumpCoverRepository = FakeStumpCoverRepository(),
+                grimmoryCoverRepository = FakeGrimmoryCoverRepository(),
+                kavitaCredentialStore = FakeKavitaCredentialStore(),
+                stumpCredentialStore = FakeStumpCredentialStore(),
+                grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
+                remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
+                visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
+                appDispatchers = appDispatchers,
+            ),
+        )
+        var latestState = AppUiState(
+            libraries = libraries,
+            items = listOf(issue),
+            selectedSource = SourceType.KAVITA,
+            hydratedSources = setOf(SourceType.KAVITA),
+        )
+        // A Kavita recompute is pending: updates go into its latest state, and the screen keeps the
+        // state it showed before them until the recompute lands.
+        val shownState = latestState
+        val updateState: AppUiStateUpdater = { reducer -> latestState = reducer(latestState) }
+
+        catalogStateCoordinator.refreshDownloadedRemoteItemIdsAsync(
+            scope = this,
+            stateProvider = { shownState },
+            updateState = updateState,
+            items = latestState.items,
+        )
+        assertTrue(latestState.isRemoteItemLocalStateRefreshing)
+        advanceUntilIdle()
+
+        assertEquals(setOf(issue.id), latestState.downloadedRemoteItemIds)
+        assertTrue(latestState.isRemoteItemLocalStateKnown)
+        assertFalse(latestState.isRemoteItemLocalStateRefreshing)
+    }
+
+    @Test
     fun `availability refresh failure settles pending state with preserved known ids`() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val appDispatchers = AppDispatchers(
@@ -899,6 +995,7 @@ class AppCatalogStateCoordinatorTest {
             remoteDownloadDataSources = listOf(downloadDataSource),
         )
         val catalogStateCoordinator = AppCatalogStateCoordinator(
+            appDispatchers = appDispatchers,
             libraryRepository = FakeLibraryRepository(),
             readableItemRepository = FakeReadableItemRepository(items = listOf(item)),
             localDocumentRepository = localDocumentRepository,
@@ -1000,6 +1097,7 @@ class AppCatalogStateCoordinatorTest {
             remoteDownloadDataSources = listOf(downloadDataSource),
         )
         val catalogStateCoordinator = AppCatalogStateCoordinator(
+            appDispatchers = appDispatchers,
             libraryRepository = FakeLibraryRepository(),
             readableItemRepository = FakeReadableItemRepository(items = listOf(item)),
             localDocumentRepository = localDocumentRepository,
@@ -1080,6 +1178,7 @@ class AppCatalogStateCoordinatorTest {
             remoteDownloadDataSources = listOf(downloadDataSource),
         )
         val catalogStateCoordinator = AppCatalogStateCoordinator(
+            appDispatchers = appDispatchers,
             libraryRepository = FakeLibraryRepository(),
             readableItemRepository = FakeReadableItemRepository(items = listOf(item)),
             localDocumentRepository = localDocumentRepository,

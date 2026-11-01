@@ -240,8 +240,17 @@ internal suspend fun <StoredSession : StoredSourceSession, Session> persistRemot
             username,
         )
     } ?: fallbackSession?.let { savedSession ->
+        // The saved session as it is now, while it is still this account: the copy taken before the
+        // run would undo a token renewal saved while it ran.
+        val currentSession = sessionStore.sessionFlow.value?.takeIf { session ->
+            session.matchesServerIdentity(
+                baseUrl = savedSession.baseUrl,
+                backupBaseUrl = savedSession.backupBaseUrl,
+                username = savedSession.username,
+            )
+        } ?: savedSession
         restoreFallbackSession(
-            savedSession,
+            currentSession,
             displayName,
             baseUrl,
             backupBaseUrl,

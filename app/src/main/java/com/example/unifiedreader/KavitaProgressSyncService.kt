@@ -74,25 +74,18 @@ class KavitaProgressSyncService @Inject constructor(
                 currentSession.copy(activeBaseUrl = activeBaseUrl)
             },
         ) { api, activeSession ->
-            val result = pushDirtyKavitaProgress(
+            val tokens = KavitaRunTokens(
                 api = api,
-                initialAccessToken = activeSession.accessToken,
-                initialRefreshToken = activeSession.refreshToken,
-                initialApiKey = activeSession.apiKey,
+                initial = activeSession.toKavitaSession(),
+                onRenewed = { renewed -> kavitaCredentialStore.saveRenewedTokens(renewed, activeSession) },
+            )
+            pushDirtyKavitaProgress(
+                api = api,
+                tokens = tokens,
                 items = kavitaItems,
                 readerSessionStore = readerSessionStore,
                 itemsAreWholeCatalog = false,
-            )
-            result.refreshedSession?.let { refreshedSession ->
-                kavitaCredentialStore.save(
-                    activeSession.copy(
-                        accessToken = refreshedSession.accessToken,
-                        refreshToken = refreshedSession.refreshToken,
-                        apiKey = refreshedSession.apiKey ?: activeSession.apiKey,
-                    ),
-                )
-            }
-            result.value.map { throwable ->
+            ).map { throwable ->
                 SourceProgressSyncFailure(
                     sourceType = sourceType,
                     throwable = throwable,

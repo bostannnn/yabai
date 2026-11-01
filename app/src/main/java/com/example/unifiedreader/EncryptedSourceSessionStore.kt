@@ -1,6 +1,7 @@
 package com.example.unifiedreader
 
 import android.content.SharedPreferences
+import android.util.Log
 import java.io.IOException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -40,11 +41,14 @@ internal class EncryptedSourceSessionStore<T>(
         sessionState.value = null
     }
 
+    // A read that fails keeps what is saved. The keystore can fail for a moment, after a reboot or on
+    // some phones, and deleting then signed the server out for good; the next start reads it again,
+    // and signing in again overwrites it.
     private fun loadStoredSession(): T? {
         return try {
             readSession(::decrypt)
-        } catch (_: Exception) {
-            preferences.edit().clear().apply()
+        } catch (throwable: Exception) {
+            Log.w(LOG_TAG, "Unable to read the saved sign-in; keeping it for the next start.", throwable)
             null
         }
     }
@@ -53,3 +57,5 @@ internal class EncryptedSourceSessionStore<T>(
         key: String,
     ): String? = preferences.getString(key, null)?.let(cipher::decrypt)
 }
+
+private const val LOG_TAG = "UnifiedReaderCredentials"

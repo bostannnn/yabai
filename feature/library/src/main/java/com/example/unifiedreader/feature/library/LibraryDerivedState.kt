@@ -41,4 +41,7 @@ data class LibraryDerivedState(
     val remoteDownloadActionAvailability: RemoteDownloadActionAvailability = RemoteDownloadActionAvailability(),
     val visibleItems: List<ReadableItem> = emptyList(),
     val libraryBrowseContextKey: String = "",
+    // False from [LibraryDerivedStateComputer.computeQuick], which leaves the download availability out:
+    // until a full compute lands, the paged grid fills the on-screen badges from bounded sources.
+    val hasAllBadges: Boolean = true,
 )

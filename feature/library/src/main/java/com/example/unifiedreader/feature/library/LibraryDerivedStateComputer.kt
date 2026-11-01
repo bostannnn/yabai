@@ -185,6 +185,7 @@ class LibraryDerivedStateComputer @Inject constructor() {
                 progressByItemId = displayProgressByItemId,
             ),
             remoteDownloadActionAvailability = RemoteDownloadActionAvailability(),
+            hasAllBadges = false,
             visibleItems = if (input.pagedGridActive) {
                 sourceItems
             } else {

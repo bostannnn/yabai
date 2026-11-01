@@ -38,6 +38,14 @@ interface KavitaApi {
         apiKey: String? = null,
     ): KavitaSession
 
+    /**
+     * Signs in with the account's API key in place of the password (Kavita's plugin sign-in), for a
+     * session whose refresh token was turned down. An API without it ends a renewal at the refresh token.
+     */
+    suspend fun loginWithApiKey(
+        apiKey: String,
+    ): KavitaSession = throw KavitaUnauthorizedException(KAVITA_API_KEY_REJECTED_MESSAGE)
+
     suspend fun getLibraries(
         accessToken: String,
     ): List<Library>
@@ -209,6 +217,11 @@ const val KAVITA_REFRESH_TOKEN_REJECTED_MESSAGE =
     "Kavita refresh token was rejected. Sign in to Kavita again."
 const val KAVITA_REFRESH_TOKEN_MISSING_MESSAGE =
     "Kavita saved session has no refresh token. Sign in to Kavita again."
+const val KAVITA_API_KEY_REJECTED_MESSAGE =
+    "Kavita turned down the saved API key. Sign in to Kavita again."
+
+// The name Kavita's log gives this app when it signs in with the API key.
+private const val KAVITA_PLUGIN_NAME = "yabai"
 
 class KavitaUnauthorizedException(
     message: String = KAVITA_ACCESS_TOKEN_REJECTED_MESSAGE,
@@ -272,6 +285,24 @@ class KtorKavitaApi(
             apiKey = apiKey ?: activeApiKey,
         ).also { session ->
             activeApiKey = session.apiKey
+        }
+    }
+
+    override suspend fun loginWithApiKey(
+        apiKey: String,
+    ): KavitaSession {
+        val response = httpClient.post("$normalizedBaseUrl/api/Plugin/authenticate") {
+            url {
+                parameters.append("apiKey", apiKey)
+                parameters.append("pluginName", KAVITA_PLUGIN_NAME)
+            }
+        }
+        response.throwIfKavitaError(
+            unauthorizedMessage = KAVITA_API_KEY_REJECTED_MESSAGE,
+        )
+        val session = response.body<KavitaUserDto>().toSession()
+        return session.copy(apiKey = session.apiKey ?: apiKey).also { signedIn ->
+            activeApiKey = signedIn.apiKey
         }
     }
 

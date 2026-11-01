@@ -99,7 +99,7 @@ class EncryptedSourceSessionStoreTest {
     }
 
     @Test
-    fun `store clears persisted session when decrypt fails`() {
+    fun `store keeps persisted session when decrypt fails`() {
         val preferences = ApplicationProvider.getApplicationContext<Context>()
             .getSharedPreferences("encrypted_store_test_${System.nanoTime()}", Context.MODE_PRIVATE)
         val seededStore = createStore(
@@ -117,13 +117,26 @@ class EncryptedSourceSessionStoreTest {
             )
         }
 
+        val savedValues = preferences.all.toMap()
         val store = createStore(
             preferences = preferences,
             cipher = FailingTestCredentialCipher(),
         )
 
         assertNull(store.sessionFlow.value)
-        assertTrue(preferences.all.isEmpty())
+        assertEquals(savedValues, preferences.all)
+        val nextStartStore = createStore(
+            preferences = preferences,
+            cipher = PrefixTestCredentialCipher(),
+        )
+        assertEquals(
+            TestEncryptedSession(
+                displayName = "Server",
+                accessToken = "access-token",
+                optionalSecret = "secret",
+            ),
+            nextStartStore.sessionFlow.value,
+        )
     }
 }
 

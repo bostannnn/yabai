@@ -363,6 +363,7 @@ internal fun LibraryRoute(
                     // Series browse is non-paged but bounded (one series' issues); resolve its badges early
                     // too so download status commits with the grid instead of waiting for the async recompute.
                     resolveWindowBadgesForVisibleItems = frame.uiState.isSeriesBrowseActive,
+                    windowBadgesNeeded = !frame.uiState.libraryHasAllBadges,
                 )
             }
         }

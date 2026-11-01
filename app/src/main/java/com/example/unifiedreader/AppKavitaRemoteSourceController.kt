@@ -185,8 +185,8 @@ class AppKavitaRemoteSourceController @Inject constructor(
                         kavitaConnection = preparation.activeConnection.copy(
                             isConnecting = true,
                             activeAction = ServerConnectionAction.Sync,
-                            syncProgressFraction = 0f,
-                            syncProgressLabel = "Preparing Kavita sync...",
+                            syncProgressFraction = KavitaSyncSteps.connecting.fraction,
+                            syncProgressLabel = KavitaSyncSteps.connecting.message,
                             message = "Syncing Kavita library.",
                             isError = false,
                         ),
@@ -228,8 +228,8 @@ class AppKavitaRemoteSourceController @Inject constructor(
                         kavitaConnection = preparation.activeConnection.copy(
                             isConnecting = true,
                             activeAction = ServerConnectionAction.FastSync,
-                            syncProgressFraction = 0f,
-                            syncProgressLabel = "Preparing Kavita fast sync...",
+                            syncProgressFraction = KavitaSyncSteps.connecting.fraction,
+                            syncProgressLabel = KavitaSyncSteps.connecting.message,
                             message = "Fast syncing Kavita library.",
                             isError = false,
                         ),
@@ -263,7 +263,10 @@ class AppKavitaRemoteSourceController @Inject constructor(
                                 kavitaConnection = state.kavitaConnection.copy(
                                     isConnecting = true,
                                     activeAction = ServerConnectionAction.Sync,
-                                    syncProgressFraction = progress.fraction.coerceIn(0f, 1f),
+                                    syncProgressFraction = kavitaSyncFillAfter(
+                                        current = state.kavitaConnection.syncProgressFraction,
+                                        reported = progress.fraction,
+                                    ),
                                     syncProgressLabel = progress.message,
                                     message = "Syncing Kavita library.",
                                     isError = false,
@@ -325,7 +328,10 @@ class AppKavitaRemoteSourceController @Inject constructor(
                                 kavitaConnection = state.kavitaConnection.copy(
                                     isConnecting = true,
                                     activeAction = ServerConnectionAction.FastSync,
-                                    syncProgressFraction = progress.fraction.coerceIn(0f, 1f),
+                                    syncProgressFraction = kavitaSyncFillAfter(
+                                        current = state.kavitaConnection.syncProgressFraction,
+                                        reported = progress.fraction,
+                                    ),
                                     syncProgressLabel = progress.message,
                                     message = "Fast syncing Kavita library.",
                                     isError = false,
@@ -446,4 +452,17 @@ class AppKavitaRemoteSourceController @Inject constructor(
             )
         }
     }
+}
+
+/**
+ * The fill a Kavita sync's bar shows once a step reports [reported]: never less than [current], so a
+ * sync that starts again on the backup address doesn't send it back, and still moving (null) until the
+ * first step that can count its work.
+ */
+internal fun kavitaSyncFillAfter(
+    current: Float?,
+    reported: Float?,
+): Float? {
+    val fill = reported?.coerceIn(0f, 1f) ?: return current
+    return if (current == null) fill else maxOf(current, fill)
 }

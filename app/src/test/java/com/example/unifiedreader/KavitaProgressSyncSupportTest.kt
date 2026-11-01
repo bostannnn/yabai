@@ -64,9 +64,7 @@ class KavitaProgressSyncSupportTest {
 
         pushDirtyKavitaProgress(
             api = api,
-            initialAccessToken = "access-token",
-            initialRefreshToken = null,
-            initialApiKey = null,
+            tokens = KavitaRunTokens(api, KavitaSession("access-token", null, null)),
             items = listOf(item),
             readerSessionStore = store,
             itemsAreWholeCatalog = true,
@@ -109,9 +107,7 @@ class KavitaProgressSyncSupportTest {
 
         pushDirtyKavitaProgress(
             api = api,
-            initialAccessToken = "access-token",
-            initialRefreshToken = null,
-            initialApiKey = null,
+            tokens = KavitaRunTokens(api, KavitaSession("access-token", null, null)),
             items = listOf(item),
             readerSessionStore = store,
             itemsAreWholeCatalog = true,
@@ -166,9 +162,7 @@ class KavitaProgressSyncSupportTest {
 
         pushDirtyKavitaProgress(
             api = api,
-            initialAccessToken = "access-token",
-            initialRefreshToken = null,
-            initialApiKey = null,
+            tokens = KavitaRunTokens(api, KavitaSession("access-token", null, null)),
             items = listOf(item),
             readerSessionStore = store,
             itemsAreWholeCatalog = true,
@@ -213,9 +207,7 @@ class KavitaProgressSyncSupportTest {
 
         pushDirtyKavitaProgress(
             api = api,
-            initialAccessToken = "access-token",
-            initialRefreshToken = null,
-            initialApiKey = null,
+            tokens = KavitaRunTokens(api, KavitaSession("access-token", null, null)),
             items = listOf(item),
             readerSessionStore = store,
             itemsAreWholeCatalog = true,
@@ -254,15 +246,14 @@ class KavitaProgressSyncSupportTest {
             backupBaseUrl = "https://kavita.example.com",
             activeBaseUrl = null,
         ) { baseUrl ->
+            val api = if (baseUrl.startsWith("http://192.168.")) lanApi else backupApi
             pushDirtyKavitaProgress(
-                api = if (baseUrl.startsWith("http://192.168.")) lanApi else backupApi,
-                initialAccessToken = "access-token",
-                initialRefreshToken = null,
-                initialApiKey = null,
+                api = api,
+                tokens = KavitaRunTokens(api, KavitaSession("access-token", null, null)),
                 items = listOf(item),
                 readerSessionStore = store,
                 itemsAreWholeCatalog = false,
-            ).value
+            )
         }
 
         assertEquals("https://kavita.example.com", result.activeBaseUrl)
@@ -303,16 +294,14 @@ class KavitaProgressSyncSupportTest {
 
         val result = pushDirtyKavitaProgress(
             api = api,
-            initialAccessToken = "access-token",
-            initialRefreshToken = null,
-            initialApiKey = null,
+            tokens = KavitaRunTokens(api, KavitaSession("access-token", null, null)),
             items = emptyList(),
             readerSessionStore = store,
             itemsAreWholeCatalog = true,
         )
 
         val snapshot = checkNotNull(store.progressByItemIdFlow.value[item.id])
-        assertTrue(result.value.isEmpty())
+        assertTrue(result.isEmpty())
         assertTrue(api.progressUpdates.isEmpty())
         assertEquals(0, api.chapterInfoRequests)
         assertEquals(SyncState.CLEAN, snapshot.syncState)
@@ -363,15 +352,13 @@ class KavitaProgressSyncSupportTest {
 
         val result = pushDirtyKavitaProgress(
             api = api,
-            initialAccessToken = "access-token",
-            initialRefreshToken = null,
-            initialApiKey = null,
+            tokens = KavitaRunTokens(api, KavitaSession("access-token", null, null)),
             items = listOf(flushedItem),
             readerSessionStore = store,
             itemsAreWholeCatalog = false,
         )
 
-        assertTrue(result.value.isEmpty())
+        assertTrue(result.isEmpty())
         assertEquals(listOf(42), api.progressUpdates.map(KavitaProgressUpdate::chapterId))
         val progress = store.progressByItemIdFlow.value
         assertEquals(SyncState.CLEAN, progress[flushedItem.id]?.syncState)
@@ -427,15 +414,13 @@ class KavitaProgressSyncSupportTest {
 
         val result = pushDirtyKavitaProgress(
             api = api,
-            initialAccessToken = "access-token",
-            initialRefreshToken = null,
-            initialApiKey = null,
+            tokens = KavitaRunTokens(api, KavitaSession("access-token", null, null)),
             items = emptyList(),
             readerSessionStore = store,
             itemsAreWholeCatalog = true,
         )
 
-        assertTrue(result.value.isEmpty())
+        assertTrue(result.isEmpty())
         assertTrue(api.progressUpdates.isEmpty())
         assertEquals(SyncState.DIRTY, store.progressByItemIdFlow.value[stumpItem.id]?.syncState)
         val grimmoryReset = checkNotNull(store.progressByItemIdFlow.value[grimmoryItem.id])
@@ -477,9 +462,7 @@ class KavitaProgressSyncSupportTest {
 
         pushDirtyKavitaProgress(
             api = api,
-            initialAccessToken = "access-token",
-            initialRefreshToken = null,
-            initialApiKey = null,
+            tokens = KavitaRunTokens(api, KavitaSession("access-token", null, null)),
             items = listOf(item),
             readerSessionStore = store,
             itemsAreWholeCatalog = true,
@@ -512,15 +495,13 @@ class KavitaProgressSyncSupportTest {
 
         val failures = pushDirtyKavitaProgress(
             api = api,
-            initialAccessToken = "access-token",
-            initialRefreshToken = null,
-            initialApiKey = null,
+            tokens = KavitaRunTokens(api, KavitaSession("access-token", null, null)),
             items = listOf(item),
             readerSessionStore = store,
             itemsAreWholeCatalog = false,
         )
 
-        assertEquals(emptyList<Throwable>(), failures.value)
+        assertEquals(emptyList<Throwable>(), failures)
         assertTrue(api.progressUpdates.isEmpty())
         val kept = checkNotNull(store.progressByItemIdFlow.value[item.id])
         assertEquals(10, kept.page)
@@ -545,9 +526,7 @@ class KavitaProgressSyncSupportTest {
 
         pushDirtyKavitaProgress(
             api = api,
-            initialAccessToken = "access-token",
-            initialRefreshToken = null,
-            initialApiKey = null,
+            tokens = KavitaRunTokens(api, KavitaSession("access-token", null, null)),
             items = listOf(item),
             readerSessionStore = store,
             itemsAreWholeCatalog = false,
@@ -593,9 +572,7 @@ class KavitaProgressSyncSupportTest {
 
         pushDirtyKavitaProgress(
             api = api,
-            initialAccessToken = "access-token",
-            initialRefreshToken = null,
-            initialApiKey = null,
+            tokens = KavitaRunTokens(api, KavitaSession("access-token", null, null)),
             items = listOf(item),
             readerSessionStore = store,
             itemsAreWholeCatalog = true,
@@ -640,9 +617,7 @@ class KavitaProgressSyncSupportTest {
         try {
             pushDirtyKavitaProgress(
                 api = api,
-                initialAccessToken = "access-token",
-                initialRefreshToken = null,
-                initialApiKey = null,
+                tokens = KavitaRunTokens(api, KavitaSession("access-token", null, null)),
                 items = listOf(item),
                 readerSessionStore = store,
                 itemsAreWholeCatalog = true,
