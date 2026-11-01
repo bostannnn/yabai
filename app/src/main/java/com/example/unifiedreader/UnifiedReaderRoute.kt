@@ -1,5 +1,8 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.SourceType
+import kotlinx.coroutines.delay
+import androidx.lifecycle.repeatOnLifecycle
 import android.content.ComponentCallbacks2
 import android.content.ContentResolver
 import android.content.Intent
@@ -234,16 +237,23 @@ fun UnifiedReaderAppContent(
                         listsViewModel = listsViewModel,
                     )
                     KeepReaderListContext(uiState = uiState, viewModel = viewModel)
+                    val isLibraryVisible = !isReaderMode &&
+                        uiState.topLevel == TopLevelDestination.Library &&
+                        !viewModel.isDownloadsSheetVisible &&
+                        uiState.readerCompletionState == null
+                    LibraryAutoRefresh(
+                        isLibraryVisible = isLibraryVisible,
+                        selectedSource = uiState.selectedSource,
+                        isSourceConnected = uiState.remoteConnection(uiState.selectedSource)?.hasStoredSession == true,
+                        onLibraryShown = viewModel::onLibraryShown,
+                    )
                     if (updateController != null) {
                         AppUpdateHost(
                             controller = updateController,
                             state = updateState,
                             actions = updateActions,
                             isReaderOpen = isReaderMode,
-                            isLibraryVisible = !isReaderMode &&
-                                uiState.topLevel == TopLevelDestination.Library &&
-                                !viewModel.isDownloadsSheetVisible &&
-                                uiState.readerCompletionState == null,
+                            isLibraryVisible = isLibraryVisible,
                         )
                     }
                 }
@@ -286,4 +296,26 @@ internal fun importDocumentIntoApp(
     viewModel.onDocumentImported(uri)
 }
 
+/**
+ * Each time the library shows while the app is in front (the app opening or coming back, another
+ * source, a reader or sheet closed), after it settles: the view model refreshes it if it is due.
+ */
+@Composable
+private fun LibraryAutoRefresh(
+    isLibraryVisible: Boolean,
+    selectedSource: SourceType,
+    isSourceConnected: Boolean,
+    onLibraryShown: () -> Unit,
+) {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(lifecycle, isLibraryVisible, selectedSource, isSourceConnected) {
+        if (!isLibraryVisible || !isSourceConnected) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            // After the library has presented, so the refresh never competes with cold start.
+            delay(LIBRARY_AUTO_REFRESH_SETTLE_MILLIS)
+            onLibraryShown()
+        }
+    }
+}
 
+private const val LIBRARY_AUTO_REFRESH_SETTLE_MILLIS = 2_000L

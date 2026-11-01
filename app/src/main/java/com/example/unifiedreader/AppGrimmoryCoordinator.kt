@@ -133,11 +133,14 @@ class AppGrimmoryCoordinator @Inject constructor(
         preparation: GrimmorySyncPreparation.Ready,
         clearCoverState: suspend () -> Unit,
         onProgress: (GrimmorySyncProgress) -> Unit = {},
+        // The library's refresh (GrimmoryCatalogSyncer.refresh) instead of the full sync.
+        refresh: Boolean = false,
     ): GrimmorySyncExecutionResult = runSuspendCatchingPreservingCancellation {
-        val result = grimmoryCatalogSyncer.sync(
-            request = preparation.request,
-            onProgress = onProgress,
-        )
+        val result = if (refresh) {
+            grimmoryCatalogSyncer.refresh(request = preparation.request, onProgress = onProgress)
+        } else {
+            grimmoryCatalogSyncer.sync(request = preparation.request, onProgress = onProgress)
+        }
         persistRemoteSession(
             sessionStore = grimmoryCredentialStore,
             session = result.session,
@@ -167,7 +170,9 @@ class AppGrimmoryCoordinator @Inject constructor(
             },
         )
         remoteSourceConnectivityPolicy.markReachable(SourceType.GRIMMORY)
-        clearCoverState()
+        if (result.hasCatalogChanges) {
+            clearCoverState()
+        }
         val progressPushWarning = progressPushWarningMessage(
             sourceLabel = "Grimmory",
             failures = result.progressPushFailures,

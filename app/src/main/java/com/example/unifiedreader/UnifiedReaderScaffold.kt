@@ -56,7 +56,6 @@ import com.example.unifiedreader.feature.navigation.navigationSources
 import com.example.unifiedreader.feature.navigation.sourceNavigationUsesRail
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
-import com.example.unifiedreader.feature.settings.ServerConnectionAction
 import com.example.unifiedreader.feature.settings.SettingsPage
 import com.example.unifiedreader.feature.settings.SettingsPageSaver
 import com.example.unifiedreader.feature.settings.SettingsTagsPage
@@ -559,21 +558,11 @@ fun UnifiedReaderScaffold(
                                         selectedCount = selectedDownloadItemIdSet.size,
                                         selectableCount = effectiveSelectableDownloadItemIds.size,
                                     ),
-                                    refreshState = LibraryRefreshTopBarState(
-                                        isVisible = uiState.selectedSource == SourceType.KAVITA &&
-                                            uiState.kavitaConnection.hasStoredSession,
-                                        isEnabled = uiState.selectedSource == SourceType.KAVITA &&
-                                            uiState.kavitaConnection.hasStoredSession &&
-                                            !uiState.kavitaConnection.isConnecting,
-                                        isRefreshing = uiState.selectedSource == SourceType.KAVITA &&
-                                            uiState.kavitaConnection.hasStoredSession &&
-                                            uiState.kavitaConnection.isConnecting &&
-                                            uiState.kavitaConnection.activeAction == ServerConnectionAction.FastSync,
-                                    ),
+                                    refreshState = uiState.libraryRefreshTopBarState(),
                                     onSourceConnectivityClick = viewModel::retrySelectedSourceConnection,
                                     onDrawerClick = openDrawer,
                                     onSearchQueryChanged = viewModel::onLibrarySearchQueryChanged,
-                                    onRefreshClick = viewModel::fastSyncKavitaLibraryInPlace,
+                                    onRefreshClick = viewModel::refreshSelectedRemoteLibrary,
                                     downloadsButtonState = viewModel.downloadsSnapshot.buttonState,
                                     onDownloadsClick = viewModel::showDownloadsSheet,
                                     onDownloadSelectionModeChanged = ::updateLibraryDownloadSelectionMode,

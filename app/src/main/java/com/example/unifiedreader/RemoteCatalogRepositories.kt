@@ -383,6 +383,15 @@ class RoomRemoteCatalogRepository(
             .map(ReadableItemLibraryEntity::toDomain)
     }
 
+    override suspend fun getStoredSourceCatalog(
+        sourceType: SourceType,
+    ): StoredRemoteCatalog = withContext(ioDispatcher) {
+        StoredRemoteCatalog(
+            libraries = remoteCatalogDao.getLibraries().filter { library -> library.sourceType == sourceType.name },
+            items = remoteCatalogDao.getItemsForSourceType(sourceType.name),
+        )
+    }
+
     override suspend fun getItemById(
         itemId: String,
     ): ReadableItem? = withContext(ioDispatcher) {

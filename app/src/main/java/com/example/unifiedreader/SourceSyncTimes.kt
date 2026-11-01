@@ -31,6 +31,10 @@ class SourceSyncTimeStore internal constructor(
     fun markSynced(sourceType: SourceType, atEpochMillis: Long = System.currentTimeMillis()) {
         preferences?.edit { putLong(sourceType.name, atEpochMillis) }
     }
+
+    /** When [sourceType] last synced; null if it never has since sync times were kept (0.17.0). */
+    fun lastSyncedAt(sourceType: SourceType): Long? =
+        preferences?.getLong(sourceType.name, 0L)?.takeIf { it > 0L }
 }
 
 /** The stored sync times, kept current while the caller is on screen. */

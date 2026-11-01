@@ -121,11 +121,18 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
         }
     }
 
+    /**
+     * Syncs the library. [inPlace] is the library's own refresh: it saves only the books that
+     * changed and leaves you where you are; otherwise (Settings' Sync now) the whole catalog is
+     * saved and the app opens the library.
+     */
     fun refresh(
         stateProvider: AppUiStateProvider,
         updateState: AppUiStateUpdater,
         scope: CoroutineScope,
+        inPlace: Boolean = false,
     ) {
+        val action = if (inPlace) ServerConnectionAction.FastSync else ServerConnectionAction.Sync
         when (val preparation = grimmoryCoordinator.prepareRefresh(stateProvider().grimmoryConnection)) {
             GrimmorySyncPreparation.MissingSession -> {
                 updateState { state ->
@@ -150,7 +157,7 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
                     state.copy(
                         grimmoryConnection = preparation.activeConnection.copy(
                             isConnecting = true,
-                            activeAction = ServerConnectionAction.Sync,
+                            activeAction = action,
                             syncProgressFraction = 0f,
                             syncProgressLabel = "Preparing Grimmory sync...",
                             message = "Syncing Grimmory library.",
@@ -158,7 +165,7 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
                         ),
                     )
                 }
-                startSync(preparation, updateState, scope)
+                startSync(preparation, updateState, scope, inPlace)
             }
         }
     }
@@ -167,18 +174,21 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
         preparation: GrimmorySyncPreparation.Ready,
         updateState: AppUiStateUpdater,
         scope: CoroutineScope,
+        inPlace: Boolean,
     ) {
+        val action = if (inPlace) ServerConnectionAction.FastSync else ServerConnectionAction.Sync
         scope.launch {
             when (
                 val result = grimmoryCoordinator.executeSync(
                     preparation = preparation,
                     clearCoverState = ::resetCoverState,
+                    refresh = inPlace,
                     onProgress = { progress ->
                         updateState { state ->
                             state.copy(
                                 grimmoryConnection = state.grimmoryConnection.copy(
                                     isConnecting = true,
-                                    activeAction = ServerConnectionAction.Sync,
+                                    activeAction = action,
                                     syncProgressFraction = progress.fraction.coerceIn(0f, 1f),
                                     syncProgressLabel = progress.message,
                                     message = "Syncing Grimmory library.",
@@ -192,13 +202,18 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
                 is GrimmorySyncExecutionResult.Success -> {
                     sourceSyncTimes.markSynced(SourceType.GRIMMORY)
                     updateState { state ->
-                        state.copy(
-                            topLevel = TopLevelDestination.Library,
-                            selectedSource = SourceType.GRIMMORY,
-                            selectedItemId = null,
-                            activeReader = null,
-                            grimmoryConnection = result.connection.copy(activeAction = null),
-                        )
+                        val syncedConnection = result.connection.copy(activeAction = null)
+                        if (inPlace) {
+                            state.copy(grimmoryConnection = syncedConnection)
+                        } else {
+                            state.copy(
+                                topLevel = TopLevelDestination.Library,
+                                selectedSource = SourceType.GRIMMORY,
+                                selectedItemId = null,
+                                activeReader = null,
+                                grimmoryConnection = syncedConnection,
+                            )
+                        }
                     }
                 }
                 is GrimmorySyncExecutionResult.Failure -> {

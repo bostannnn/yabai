@@ -2764,7 +2764,7 @@ class AppViewModelTest {
 
         viewModel.onItemSelected(seriesContainer)
         shadowOf(Looper.getMainLooper()).idle()
-        viewModel.fastSyncKavitaLibraryInPlace()
+        viewModel.refreshSelectedRemoteLibrary()
         shadowOf(Looper.getMainLooper()).idle()
 
         assertEquals(seriesKey, viewModel.uiState.selectedKavitaSeriesKey)
@@ -3351,6 +3351,68 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `library refresh on grimmory keeps the open book and saves only what changed`() {
+        val syncer = FakeGrimmoryCatalogSyncer(
+            result = GrimmoryCatalogSyncResult(
+                libraryCount = 1,
+                itemCount = 1,
+                supportedFormatCounts = mapOf(FormatType.EPUB to 1),
+                hasCatalogChanges = false,
+            ),
+        )
+        val grimmoryItem = sampleItem(
+            id = "grimmory:item:book-1",
+            title = "Grimmory Book",
+            format = FormatType.EPUB,
+        ).copy(
+            sourceType = SourceType.GRIMMORY,
+            libraryId = SourceType.GRIMMORY.remoteLibraryId("grimmory-books"),
+            remoteId = "book-1",
+        )
+        val viewModel = createViewModel(
+            sampleItems = listOf(grimmoryItem),
+            grimmoryCatalogSyncer = syncer,
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(savedGrimmorySession()),
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+        viewModel.openLibrarySource(SourceType.GRIMMORY)
+        viewModel.onItemSelected(grimmoryItem)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        viewModel.refreshSelectedRemoteLibrary()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(1, syncer.refreshCount)
+        assertNull(syncer.lastSyncRequest)
+        assertEquals(grimmoryItem.id, viewModel.uiState.selectedItemId)
+        assertEquals(SourceType.GRIMMORY, viewModel.uiState.selectedSource)
+        assertNull(viewModel.uiState.grimmoryConnection.activeAction)
+        assertEquals(false, viewModel.uiState.grimmoryConnection.isConnecting)
+        clearViewModel(viewModel)
+    }
+
+    @Test
+    fun `grimmory library refreshes by itself when shown and not again right after`() {
+        val syncer = FakeGrimmoryCatalogSyncer()
+        val viewModel = createViewModel(
+            grimmoryCatalogSyncer = syncer,
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(savedGrimmorySession()),
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+        viewModel.openLibrarySource(SourceType.GRIMMORY)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        viewModel.onLibraryShown()
+        shadowOf(Looper.getMainLooper()).idle()
+        viewModel.onLibraryShown()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(1, syncer.refreshCount)
+        assertNull(syncer.lastSyncRequest)
+        clearViewModel(viewModel)
+    }
+
+    @Test
     fun `cached grimmory cover is published after visible prefetch`() {
         val credentialStore = FakeGrimmoryCredentialStore(
             GrimmoryStoredSession(
@@ -3597,4 +3659,12 @@ private fun downloadedKavitaEpub(): ReadableItem = sampleItem(
     sourceType = SourceType.KAVITA,
     libraryId = SourceType.KAVITA.remoteLibraryId("kavita-books"),
     remoteId = "chapter-7",
+)
+
+private fun savedGrimmorySession() = GrimmoryStoredSession(
+    displayName = "Home Grimmory",
+    baseUrl = "https://grimmory.example",
+    username = "reader",
+    accessToken = "saved-access-token",
+    refreshToken = "saved-refresh-token",
 )

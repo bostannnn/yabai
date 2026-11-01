@@ -155,10 +155,15 @@ class AppStumpRemoteSourceController @Inject constructor(
         }
     }
 
+    /**
+     * Syncs the library. [inPlace] is the library's own refresh, which leaves you where you are;
+     * otherwise (Settings' Sync now) the app opens the library when it is done.
+     */
     fun refresh(
         stateProvider: AppUiStateProvider,
         updateState: AppUiStateUpdater,
         scope: CoroutineScope,
+        inPlace: Boolean = false,
     ) {
         when (val preparation = stumpCoordinator.prepareRefresh(stateProvider().stumpConnection)) {
             StumpSyncPreparation.MissingSession -> {
@@ -192,7 +197,7 @@ class AppStumpRemoteSourceController @Inject constructor(
                         ),
                     )
                 }
-                startSync(preparation, updateState, scope)
+                startSync(preparation, updateState, scope, inPlace)
             }
         }
     }
@@ -201,6 +206,7 @@ class AppStumpRemoteSourceController @Inject constructor(
         preparation: StumpSyncPreparation.Ready,
         updateState: AppUiStateUpdater,
         scope: CoroutineScope,
+        inPlace: Boolean,
     ) {
         scope.launch {
             when (
@@ -233,18 +239,23 @@ class AppStumpRemoteSourceController @Inject constructor(
                     )
                     clearPageCache()
                     updateState { state ->
-                        state.copy(
-                            topLevel = TopLevelDestination.Library,
-                            selectedSource = SourceType.STUMP,
-                            selectedItemId = null,
-                            activeReader = null,
-                            selectedKavitaSeriesKey = null,
-                            selectedStumpSeriesKey = null,
-                            stumpConnection = result.connection.copy(
-                                activeAction = null,
-                                availableLibraries = result.availableLibraries,
-                            ),
+                        val syncedConnection = result.connection.copy(
+                            activeAction = null,
+                            availableLibraries = result.availableLibraries,
                         )
+                        if (inPlace) {
+                            state.copy(stumpConnection = syncedConnection)
+                        } else {
+                            state.copy(
+                                topLevel = TopLevelDestination.Library,
+                                selectedSource = SourceType.STUMP,
+                                selectedItemId = null,
+                                activeReader = null,
+                                selectedKavitaSeriesKey = null,
+                                selectedStumpSeriesKey = null,
+                                stumpConnection = syncedConnection,
+                            )
+                        }
                     }
                 }
                 is StumpSyncExecutionResult.Failure -> {

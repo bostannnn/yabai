@@ -728,8 +728,8 @@ build that treated Local books as downloadable and showed Refresh as running. No
 - [x] Top bar: at 840 dp and wider search is a field in the bar ("Search titles, authors, series",
       the kit's new `AppSearchField`, also used by the search bar and the facet pages); narrower, the
       icon and search bar as before. The Select button is gone. "•••" (`LibraryTopBarMoreMenu`) holds
-      "Import a file" and, on Kavita, "Refresh library" (the button turns the progress ring while it
-      runs); on server sources, "Long-press a cover to select books for download." under the items
+      "Import a file" and, on a server, "Refresh library" (the button turns the progress ring while it
+      runs; on Kavita only until 2026-11-01); on server sources, "Long-press a cover to select books for download." under the items
       until the first selection (`LibrarySelectionTip`, a flag in the `library_tips` preferences).
       The Journal keeps its own + button.
 - [x] Selection bar (`LibrarySelectionTopBar`): the top bar on `surfaceSelected` (`AppTopBar` gained
@@ -2183,6 +2183,31 @@ The user chose the upgraded Filters, docked on the tablet. Built on branch `clau
       ("Filter by") filter the library; the tag sort sheet's link reads "Filter by it · N". The Rows sheet and its
       drag order from earlier the same day went with it (Settings › Filter chips orders the sections).
 - [ ] Seen on the tablet.
+
+### Library refresh `[~]` (2026-11-01)
+
+The user had to sync from Settings after adding books on the server. Picked: Refresh library in "•••" on every
+server, and the library refreshing by itself. Built on branch `claude/home-screen-refresh-icon-db3694`:
+
+- [x] Design system first: `LibraryHome` gains the Refresh rule (published DS v40).
+- [x] "•••" shows Refresh library on Kavita, Grimmory and Stump (`libraryRefreshTopBarState`), the ring on "•••"
+      during any sync of that library. It runs `refreshSelectedRemoteLibrary`: Kavita's fast sync, Grimmory's new
+      refresh, Stump's sync; all three stay where you are (no jump to the library, the open book page stays).
+- [x] Grimmory's refresh (`GrimmoryCatalogSyncer.refresh`): the sync's fetch, then `planRemoteCatalogRefresh`
+      compares each book's row with the stored one (`getStoredSourceCatalog`, full rows: the library reads trim
+      descriptions to 512) and writes only new, changed and removed books, nothing when none; covers reset only
+      after a change. It skips the journal's reading-history pull (one request per book read); Sync now keeps it.
+- [x] By itself (`AppLibraryAutoRefreshCoordinator`): each time the library shows (open, back to the app, another
+      source, a reader or sheet closed), 2 s after it settles, Kavita and Grimmory refresh once their last sync is
+      15 minutes old or more, not sooner after a failed try; offline, unconnected or busy servers are skipped.
+      Stump only by hand (its sync loads every series).
+- [x] Emulator (5556, debug build, a local stand-in Grimmory serving the 2026-10-31 export, 2,108 books): with
+      nothing new a refresh made 2 requests (libraries, book list), wrote no rows and logged no `LibraryPerf`
+      recompute; Sync now made 35 (32 reading-session calls, the notebook export) and rewrote all 2,109 rows. A book
+      added on the server: one row written, one recompute (26 ms), All books 2,094 → 2,109 counting 14 the earlier
+      stand-in lacked. By itself: refreshed 4 s after a launch with the last sync 20 min old (ring on "•••"), not at a
+      launch 14.5 min after, then on coming back once past 15, not on coming straight back again.
+- [ ] Seen on the tablet against the real servers.
 
 ## Not yet designed
 
