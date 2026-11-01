@@ -301,7 +301,7 @@ A list as a row, for a page that holds many lists: a place on Lists (Kavita, Gri
 - At the end, `on-surface-variant`: `keep` (18) when pinned, `tune` (18) when it updates itself, then the `navigate_next` chevron.
 - Long-press opens the list's menu (Pin, Hide, Select several, Edit); the row takes `surface-container-highest` while the menu is open.
 - Selecting several: an `AppRoundCheck` before the cover and no chevron; a picked row takes `primary-container`.
-- Rows sit in an `AppPanel` with 4 above and below, no dividers; two columns of rows on Expanded, one below it.
+- Rows sit in an `AppPanel` with 4 above and below, an `AppListRowDivider` between two rows: the hairline starts under the text (inset 20 + cover 40 + 14), so the covers read as one column. Two columns of rows on Expanded, each its own panel, `grid-gap` 16 apart; one below it. `AppBookRow`s in a panel take the same divider.
 """, f"""
 <div class="yb yb-ground" style="padding:24px;width:520px;display:flex;flex-direction:column;gap:16px">
   <div class="yb-panel" style="padding:4px 0">
@@ -366,6 +366,7 @@ The sheet for anything opened over a screen: the book page, filters, downloads, 
 - Kit: `AppSideSheet(onDismissRequest)`; **one width**, `sheet-width` 400, for every sheet (it takes no width). Corners 28 like dialogs and bottom sheets.
 - Header: `AppPanelHeader`. Body inset 20. Section labels inside: `AppSheetLabel` (`sheet-label`, 13 Bold, `on-surface-variant`), 14 above, 8 to their content. A sheet with two levels (downloads: a section over its days) puts `AppGroupLabel` above `AppSheetLabel`.
 - Hairlines between a sheet's sections: `AppSheetDivider`, the sheet's width less the inset on both sides, `outline-variant` at `AppDividerDefaults.alpha` (60%).
+- A section's body (chips, value rows, a slider) ends with `AppSheetSectionEnd`, `grid-gap` 16, before the next divider, the same under every kind of section; nothing sits on a divider. A section that ends in a row (`AppSettingsRow`, a value row that opens a page) leaves it out: the row carries its own padding.
 - A footer action is a full-width filled button with 20 around it.
 """, f"""
 <div class="yb yb-ground" style="padding:24px;display:flex;justify-content:flex-end;width:480px">

@@ -20,6 +20,8 @@ Icons artifacts; a unit test enforces this. UI font: bundled Manrope; icons: Mat
   fixed (with commits), what is next, and the product decisions. Its status section says where work stopped.
 - `LISTS_PLAN.md` is the live handoff for the lists feature (your own lists and reading orders): what version 1
   holds, what waits for version 2, and the ownership of each piece.
+- `UI_POLISH_PLAN.md` is the live handoff for the 2026-11-01 polish pass (Lists, Journal, Filters, Pages sort,
+  Mark unread): the steps in order, where each problem lives in the code, and the open questions.
 - `CURRENT_STATUS.md`, `ROADMAP.md` and the other plan docs are historical (April-July 2026).
 
 ## UI work (design system)

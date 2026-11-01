@@ -15,6 +15,6 @@ One way to narrow a source's library: by anything its books carry, the places, t
   - **Mood:** chips (Grimmory's moods, paces such as Fast-paced among them).
   - **Genre:** chips, 10, then "All 49 genres".
   - **Author, Series, Publisher, Language:** a value row (52) with its top three values and counts on the line under its name ("Ryu Murakami 5 · Yukio Mishima 4 · Edogawa Rampo 4"), what is picked ("Any") at its end, opening the section's full list.
-  - **Pages:** the range slider. It comes after the sections of what the books are, because it is half a docked panel tall.
+  - **Pages:** the range slider: the histogram, the slider and its scale `heading-gap` 8 apart, then From and To `grid-gap` 16 apart, then Include unknown length (when some books have none). It comes after the sections of what the books are, because it is half a docked panel tall.
 - **Counts narrow.** Each section counts the books every other section leaves. Two picks in one section mean either one (Japan or France); picks in different sections narrow (Japan and Dark).
 - Save as list keeps the picks as a smart list's rules.
