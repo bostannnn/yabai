@@ -206,8 +206,9 @@ class AppLibraryStateRecomputeCoordinator @Inject constructor(
             appliedShelvesState = libraryShelvesStateComputer.compute(nextBaseState.toLibraryShelvesInput())
         }
         val projectedState = if (shouldComputeDerived) {
-            nextBaseState.withLibraryDerivedState(
-                libraryDerivedStateComputer.computeQuick(nextBaseState.toLibraryDerivedStateInput()),
+            nextBaseState.withQuickLibraryDerivedState(
+                derivedState = libraryDerivedStateComputer.computeQuick(nextBaseState.toLibraryDerivedStateInput()),
+                previousState = previousState,
             )
         } else {
             nextBaseState

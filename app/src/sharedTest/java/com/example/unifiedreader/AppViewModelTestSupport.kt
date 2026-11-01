@@ -194,6 +194,7 @@ internal fun createViewModel(
         remoteCoverController = remoteCoverController,
     )
     val catalogStateCoordinator = AppCatalogStateCoordinator(
+        appDispatchers = appDispatchers,
         libraryRepository = libraryRepository,
         readableItemRepository = readableItemRepository,
         localDocumentRepository = importedRepository,

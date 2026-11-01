@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.common.AppDispatchers
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
@@ -10,7 +11,9 @@ import com.example.unifiedreader.data.repository.ReadableItemRepository
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class AppCatalogStateCoordinator @Inject constructor(
     libraryRepository: LibraryRepository,
@@ -20,10 +23,12 @@ class AppCatalogStateCoordinator @Inject constructor(
     private val observeAppCatalogSnapshotsUseCase: ObserveAppCatalogSnapshotsUseCase,
     private val readerSessionStore: com.example.unifiedreader.feature.reader.core.ReaderSessionStore,
     private val remoteCoverController: RemoteCoverController,
+    private val appDispatchers: AppDispatchers,
 ) {
     private var catalogLibraries = libraryRepository.getLibraries()
     private var catalogItems = readableItemRepository.getItems()
     private var remoteItemLocalStateRefreshRequestId = 0L
+    private var remoteItemLocalStateRefreshJob: Job? = null
 
     fun catalogItems(): List<ReadableItem> = catalogItems
 
@@ -191,55 +196,51 @@ class AppCatalogStateCoordinator @Inject constructor(
         val requestedItemIds = items.remoteItemLocalStateScopeItemIds()
         val requestedAvailabilityScopeIds = items.remoteItemLocalAvailabilityScopeIds()
         val requestId = ++remoteItemLocalStateRefreshRequestId
+        // Taken from the state the update produces, not the state on screen: while a library recompute
+        // is pending the two differ, and an anchor from the screen never matched again, so the refresh
+        // was always dropped.
+        var refreshAnchor: RemoteItemLocalStateRefreshAnchor? = null
         updateState { state ->
             state.withRemoteItemLocalStateRefreshPending(
                 itemIds = requestedItemIds,
                 availabilityScopeIds = requestedAvailabilityScopeIds,
-            )
+            ).also { pendingState -> refreshAnchor = pendingState.remoteItemLocalStateRefreshAnchor() }
         }
-        val refreshAnchor = stateProvider().remoteItemLocalStateRefreshAnchor()
-        scope.launch {
+        val anchor = refreshAnchor ?: return
+        // A newer refresh replaces this one: its scan of every downloaded file and its cache write
+        // would only be thrown away.
+        remoteItemLocalStateRefreshJob?.cancel()
+        remoteItemLocalStateRefreshJob = scope.launch {
             val remoteItemLocalState = try {
-                libraryStateAssembler.loadRemoteItemLocalState(items)
+                // Off the main thread: besides the file checks it walks the catalog and writes the cache.
+                withContext(appDispatchers.default) { libraryStateAssembler.loadRemoteItemLocalState(items) }
             } catch (error: Throwable) {
                 if (error is CancellationException) throw error
                 settleFailedRemoteItemLocalStateRefresh(
                     requestId = requestId,
-                    refreshAnchor = refreshAnchor,
+                    refreshAnchor = anchor,
                     requestedItemIds = requestedItemIds,
                     requestedAvailabilityScopeIds = requestedAvailabilityScopeIds,
-                    stateProvider = stateProvider,
                     updateState = updateState,
                 )
                 return@launch
             }
-            val currentState = stateProvider()
-            if (
-                requestId != remoteItemLocalStateRefreshRequestId ||
-                currentState.remoteItemLocalStateRefreshAnchor() != refreshAnchor
-            ) {
-                return@launch
-            }
-            val currentItemIds = currentState.items.remoteItemLocalStateScopeItemIds()
-            val currentAvailabilityScopeIds = currentState.items.remoteItemLocalAvailabilityScopeIds()
-            if (
-                currentItemIds == requestedItemIds &&
-                currentAvailabilityScopeIds == requestedAvailabilityScopeIds
-            ) {
-                updateState { state ->
-                    if (state.remoteItemLocalStateRefreshAnchor() != refreshAnchor) {
-                        state
-                    } else {
-                        state.withRemoteItemLocalState(
-                            downloadedRemoteItemIds = remoteItemLocalState.downloadedItemIds,
-                            locallyAvailableRemoteItemIds = remoteItemLocalState.locallyAvailableItemIds,
-                            itemIds = requestedItemIds,
-                            availabilityScopeIds = requestedAvailabilityScopeIds,
-                            isKnown = true,
-                            knownSourceLibraryScopeIds = remoteItemLocalState.knownSourceLibraryScopeIds,
-                            isRefreshing = false,
-                        )
-                    }
+            if (requestId != remoteItemLocalStateRefreshRequestId) return@launch
+            // The anchor holds the requested scope: a catalog change since then moved it, and the
+            // catalog's own refresh follows.
+            updateState { state ->
+                if (state.remoteItemLocalStateRefreshAnchor() != anchor) {
+                    state
+                } else {
+                    state.withRemoteItemLocalState(
+                        downloadedRemoteItemIds = remoteItemLocalState.downloadedItemIds,
+                        locallyAvailableRemoteItemIds = remoteItemLocalState.locallyAvailableItemIds,
+                        itemIds = requestedItemIds,
+                        availabilityScopeIds = requestedAvailabilityScopeIds,
+                        isKnown = true,
+                        knownSourceLibraryScopeIds = remoteItemLocalState.knownSourceLibraryScopeIds,
+                        isRefreshing = false,
+                    )
                 }
             }
         }
@@ -250,16 +251,9 @@ class AppCatalogStateCoordinator @Inject constructor(
         refreshAnchor: RemoteItemLocalStateRefreshAnchor,
         requestedItemIds: Set<String>,
         requestedAvailabilityScopeIds: Set<String>,
-        stateProvider: AppUiStateProvider,
         updateState: AppUiStateUpdater,
     ) {
-        val currentState = stateProvider()
-        if (
-            requestId != remoteItemLocalStateRefreshRequestId ||
-            currentState.remoteItemLocalStateRefreshAnchor() != refreshAnchor
-        ) {
-            return
-        }
+        if (requestId != remoteItemLocalStateRefreshRequestId) return
         updateState { state ->
             if (state.remoteItemLocalStateRefreshAnchor() != refreshAnchor) {
                 state

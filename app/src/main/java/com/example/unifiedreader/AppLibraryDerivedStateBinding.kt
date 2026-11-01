@@ -49,6 +49,30 @@ internal fun AppUiState.withLibraryDerivedState(
     displayRatingByItemId = derivedState.displayRatingByItemId,
     displayPageCountByItemId = derivedState.pageCountByItemId,
     remoteDownloadActionAvailability = derivedState.remoteDownloadActionAvailability,
+    libraryHasAllBadges = derivedState.hasAllBadges,
     visibleItems = derivedState.visibleItems,
     libraryBrowseContextKey = derivedState.libraryBrowseContextKey,
 )
+
+/**
+ * [withLibraryDerivedState] for a quick compute, which leaves the download availability out. When
+ * [previousState] showed the same server and series with all its badges, its availability (over every
+ * item of the server, whatever the filters) is kept until the full compute lands, so the download
+ * badges neither drop out nor need the paged grid's bounded lookup meanwhile.
+ */
+internal fun AppUiState.withQuickLibraryDerivedState(
+    derivedState: LibraryDerivedState,
+    previousState: AppUiState,
+): AppUiState {
+    val keepsAvailability = previousState.libraryHasAllBadges &&
+        previousState.selectedSource == selectedSource &&
+        previousState.selectedKavitaSeriesKey == selectedKavitaSeriesKey &&
+        previousState.selectedStumpSeriesKey == selectedStumpSeriesKey
+    if (!keepsAvailability) return withLibraryDerivedState(derivedState)
+    return withLibraryDerivedState(
+        derivedState.copy(
+            remoteDownloadActionAvailability = previousState.remoteDownloadActionAvailability,
+            hasAllBadges = true,
+        ),
+    )
+}
