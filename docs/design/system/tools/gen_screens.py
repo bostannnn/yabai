@@ -895,4 +895,143 @@ Every list in one place, beside the sources in the rail and the drawer: the read
 </div>""", width=1312, page=True, script=TOGGLE_SCRIPT)
 
 
+# ------------------------------------------------------------------ Finished (the end of a book)
+# Cover colours as appCoverColors gives them for two of the emulator's covers (dark themes).
+GLASS = {"title": "Glass Meridian", "sub": "J. R. Okafor", "bg": "#3b2350", "ink": "#f4c7a1",
+         "ts": "#302858", "te": "#61385d", "fg": "#f6eef1", "acc": "#dba4ba", "on": "#331421"}
+COURIER = {"title": "Star Courier #1", "sub": "Issue 1", "bg": "#0f4c5c", "ink": "#f6f1e7",
+           "ts": "#23415c", "te": "#6f622a", "fg": "#f6eef1", "acc": "#f5e289", "on": "#423705"}
+
+
+def rgba(hex_colour, alpha):
+    n = int(hex_colour[1:], 16)
+    return f"rgb({n >> 16 & 255} {n >> 8 & 255} {n & 255} / {alpha})"
+
+
+def fin_cover(b, width, font, title=None, shadow="0 16px 36px rgb(0 0 0 / .5)"):
+    return (f'<div class="yb-cover" style="width:{width}px;font-size:{font}px;background:{b["bg"]};color:{b["ink"]};flex:none;box-shadow:{shadow}">'
+            f'<b>{title or b["title"]}</b><small>{b["sub"] if not title else ""}</small></div>')
+
+
+def fin_stars(b, rating, spread):
+    stars = []
+    for k in range(5):
+        part = max(0, min(2, rating - 2 * k))
+        name, colour = ("star_filled", b["acc"]) if part == 2 else ("star_half", b["acc"]) if part == 1 else ("star", rgba(b["fg"], .28))
+        stars.append(f'<span style="width:52px;height:52px;display:flex;align-items:center;justify-content:center;color:{colour}">{ic(name, 48)}</span>')
+    layout = "justify-content:space-between;margin:4px -2px 0" if spread else "justify-content:center;gap:4px;margin-top:20px"
+    return f'<div style="display:flex;align-items:center;height:56px;{layout}">{"".join(stars)}</div>'
+
+
+def fin_hint(rating):
+    return f"Rated {rating / 2:.1f}" if rating else "Tap to rate"
+
+
+def fin_pill(b):
+    return (f'<span style="display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:var(--radius-pill);'
+            f'background:{rgba(b["fg"], .10)};font:600 14px/20px var(--font-sans)">{ic("edit", 18)}Add a private note</span>')
+
+
+def fin_note(b):
+    return (f'<div style="margin-top:16px;padding:10px 16px 12px;border-radius:var(--radius-control);box-shadow:inset 0 0 0 1px {rgba(b["fg"], .38)}">'
+            f'<div style="font:600 12px/16px var(--font-sans);color:{b["acc"]}">Private note</div>'
+            f'<div style="margin-top:4px;font:400 15px/22px var(--font-sans);min-height:66px">The ending earns the slow start. Lend it to Ira.</div></div>')
+
+
+def fin_next(b, top):
+    nxt = dict(b, title="Star Courier #2")
+    return (f'<div style="display:flex;align-items:center;gap:14px;margin-top:{top}px;padding:12px;border-radius:var(--radius-container);background:rgb(11 13 15 / .3)">'
+            f'{fin_cover(nxt, 48, 6, shadow="none")}<div style="display:flex;flex-direction:column;gap:2px">'
+            f'<span style="font:500 12px/16px var(--font-sans);color:{rgba(b["fg"], .74)}">Up next in Star Courier</span>'
+            f'<span style="font:600 15px/20px var(--font-sans)">Star Courier #2</span></div></div>')
+
+
+def fin_buttons(b, has_next):
+    back = rgba(b["fg"], .12) if has_next else b["acc"]
+    back_ink = b["fg"] if has_next else b["on"]
+    btn = "flex:1 1 0;height:48px;border:0;border-radius:var(--radius-pill);display:flex;align-items:center;justify-content:center;gap:8px;font:600 15px/20px var(--font-sans)"
+    read = f'<span style="{btn};background:{b["acc"]};color:{b["on"]}">{ic("menu_book", 18)}Read next</span>' if has_next else ""
+    return f'<span style="{btn};background:{back};color:{back_ink}">Back to library</span>{read}'
+
+
+def fin_tint(b, reach):
+    return f'background:radial-gradient(circle {reach}px at 100% 100%,{b["te"]},{rgba(b["te"], 0)}),{b["ts"]};color:{b["fg"]}'
+
+
+def finished_card(b, rating, note=False, has_next=False):
+    head = (f'<div style="font:800 11.5px/16px var(--font-sans);letter-spacing:.08em;color:{b["acc"]}">FINISHED</div>'
+            f'<div style="margin-top:6px;padding-right:40px;font:700 26px/30px var(--font-sans);letter-spacing:-.01em">{b["title"]}</div>'
+            f'<div style="margin-top:4px;font:500 14px/20px var(--font-sans);color:{rgba(b["fg"], .74)}">{b["sub"]}</div>')
+    rating_row = (f'<div style="display:flex;margin-top:24px;font:13px/18px var(--font-sans)"><span style="flex:1;font-weight:600">Your rating</span>'
+                  f'<span style="font-weight:500;color:{rgba(b["fg"], .74)}">{fin_hint(rating)}</span></div>{fin_stars(b, rating, True)}')
+    note_html = fin_note(b) if note else f'<div style="display:flex;margin-top:16px">{fin_pill(b)}</div>'
+    return (f'<div style="position:relative;width:640px;display:flex;border-radius:var(--radius-sheet);overflow:hidden;{fin_tint(b, 610)};box-shadow:0 24px 64px rgb(0 0 0 / .5)">'
+            f'<div style="flex:none;width:232px;display:flex;align-items:center;justify-content:center;padding:36px 0;background:rgb(0 0 0 / .22)">{fin_cover(b, 152, 19)}</div>'
+            f'<div style="flex:1;min-width:0;display:flex;flex-direction:column;padding:24px">{head}{rating_row}{note_html}'
+            f'{fin_next(b, 20) if has_next else ""}<div style="display:flex;gap:10px;margin-top:auto;padding-top:24px">{fin_buttons(b, has_next)}</div></div>'
+            f'<span style="position:absolute;top:16px;right:16px;width:40px;height:40px;border-radius:50%;background:{rgba(b["fg"], .10)};display:flex;align-items:center;justify-content:center">{ic("close", 22)}</span>'
+            f'</div>')
+
+
+def reader_page(w, h, pad, lines):
+    bars = "".join(f'<i style="display:block;height:10px;margin:0 0 17px;border-radius:5px;background:#b9bec4;opacity:.55;width:{92 - (i * 37) % 23}%"></i>' for i in range(lines))
+    return (f'<div style="position:absolute;inset:0;background:#0b0d0f;padding:{pad}">{bars}</div>'
+            f'<div style="position:absolute;inset:0;background:rgb(0 0 0 / .6)"></div>')
+
+
+finished_tablet = f"""
+<div class="yb-device" style="width:{W}px;height:{H}px">
+  {reader_page(W, H, "64px 120px", 28)}
+  <div style="position:absolute;left:{(W - 640) // 2}px;top:50%;transform:translateY(-50%)">{finished_card(GLASS, 0)}</div>
+  <div class="yb-spec">{g((W - 640) // 2, "640 card")}{g((W - 640) // 2 + 232, "232 band")}{g((W - 640) // 2 + 256, "24 inset", top=60)}{g((W + 640) // 2 - 24)}</div>
+</div>"""
+
+PW, PH = 412, 892
+fb = COURIER
+finished_phone = f"""
+<div class="yb-device" style="width:{PW}px;height:{PH}px">
+  {reader_page(PW, PH, "48px 22px", 34)}
+  <div style="position:absolute;left:0;right:0;bottom:0;border-radius:var(--radius-sheet) var(--radius-sheet) 0 0;{fin_tint(fb, 660)};padding:0 20px 36px">
+    <div style="display:flex;justify-content:center;padding:22px 0"><i style="width:32px;height:4px;border-radius:2px;background:{rgba(fb["fg"], .4)}"></i></div>
+    <div style="display:flex;flex-direction:column;align-items:center;text-align:center">
+      {fin_cover(fb, 96, 12)}
+      <div style="margin-top:20px;font:800 11.5px/16px var(--font-sans);letter-spacing:.08em;color:{fb["acc"]}">FINISHED</div>
+      <div style="margin-top:6px;font:700 24px/30px var(--font-sans);letter-spacing:-.01em">{fb["title"]}</div>
+      <div style="margin-top:4px;font:500 14px/20px var(--font-sans);color:{rgba(fb["fg"], .74)}">{fb["sub"]}</div>
+      {fin_stars(fb, 8, False)}
+      <div style="margin-top:4px;font:500 13px/18px var(--font-sans);color:{rgba(fb["fg"], .74)}">{fin_hint(8)}</div>
+      <div style="margin-top:16px">{fin_pill(fb)}</div>
+    </div>
+    {fin_next(fb, 24)}
+    <div style="display:flex;gap:10px;margin-top:24px">{fin_buttons(fb, True)}</div>
+  </div>
+  <div class="yb-spec">{g(20, "20 inset")}{g(PW - 20)}</div>
+</div>"""
+
+comp("FinishedScreen", "Screens", 1900, """
+# Finished
+
+The screen at the end of a book (`JournalFinishedScreen`, feature:journal; app `ReaderFinishedHost`): one surface in the cover's colours (`coverTint`, the book page's `AppCoverColors`) over the last page. It opens when the last page is reached; ×, Back or a tap outside leaves the reader on that page.
+
+- **Tablets (Medium and Expanded, when 640 + two 24 window margins fit): the cover beside.** A 640 card at `radius-sheet` 28 in a dialog window. On the left a 232 band, the tint deepened (black at 22% on a dark tint, the text colour at 6% on a light one), with the cover at 152 centred in it and a 36 margin above and below. On the right a column at `inset-dialog` 24: × (40, at 16 from the top and end), FINISHED (11.5 ExtraBold, 0.08 em, the cover's accent), the title (26/30 Bold, 40 clear of ×), the author (14 Medium, the text colour at 74%).
+- **Rating**: 24 below, "Your rating" (13 SemiBold) with the hint at the end ("Tap to rate", the value while picking, "Rated 3.5"), then five 48 stars in 52 slots spread across the column, the first and last on its edges. Empty stars are the text colour at 28%, rated ones the accent. A tap saves; the left half of a star is a half; tapping the rating again clears it.
+- **Note**: 16 below, "Add a private note" as a pill that hugs its label (40 tall, `edit` 18, 14 SemiBold, the text colour at 10% behind it, 8% on a light tint), which opens into the field ("Private note", "Only you can see this", `radius-control`) across the column. It saves when the screen closes, whichever way.
+- **Next**: 20 below, when something follows (the series, or the list the book was opened from): a strip at `radius-container` (the theme's lowest surface at 30% on dark tints, 55% on light) with the next cover at 48, "Up next in Star Courier" (12 Medium, 74%) over its title (15 SemiBold). No button in it.
+- **Buttons** at the foot of the column, 24 clear of what is above: Back to library (Back to the list when opened from one) and Read next, equal halves, 48 tall; Back to library is tonal (the text colour at 12%, 10% on a light tint) beside Read next and the accent when it is the only one, across the column.
+- **Phones (Compact), and windows too narrow for the 640 card**: everything centred, in a bottom sheet in the tint (the card at 440 with × on a narrow window): the cover at 96 (120 in the card), FINISHED, the title at 24/30, the author; the stars centred with 4 between them and the hint under them; the note pill centred; then the next strip and the two buttons across. Sides `inset` 20 in the sheet, `inset-dialog` 24 in the card.
+- **Motion**: the card fades in from 0.96 (the sheet slides up by itself), the cover rises 12 after 60 ms, the stars pop in from 0.6 one after another. All at once with animations off.
+""", f"""
+<div class="yb" style="padding:16px">
+  {TOGGLE}
+  <div id="screens">
+    <div class="yb-caption" style="margin-bottom:8px">Expanded, 1280 &#215; 800: just finished, not rated, nothing next</div>{finished_tablet}
+    <div class="yb-caption" style="margin:24px 0 8px">Rated 3.5, a note, and the next issue &#183; a phone, 412 wide</div>
+    <div style="display:flex;gap:40px;align-items:flex-start">
+      <div class="yb-ground" style="padding:40px;border-radius:18px;background:#0b0d0f">{finished_card(COURIER, 7, note=True, has_next=True)}</div>
+      {finished_phone}
+    </div>
+  </div>
+</div>""", width=1312, page=True, script=TOGGLE_SCRIPT)
+
+
 print("screens written")

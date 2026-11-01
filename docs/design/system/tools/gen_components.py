@@ -305,7 +305,7 @@ A question or a short form over the screen: `AppDialogCard` up to 380 wide, `rad
 - Kit: `AppDialog`, `AppDialogCard`, `AppListDialog` (a searchable list), `AppDialogConfirmButton` / `AppDialogDismissButton`.
 - A destructive confirm is `error` / `on-error`.
 - A search field inside a dialog uses `AppSearchFieldDefaults.dialogContainerColor`.
-- The Finished screen keeps its own 440 card, but takes its padding from `AppDialogCardDefaults`.
+- The Finished screen keeps its own card (640 with the cover beside, see FinishedScreen), with the dialog's corners, padding and window margin from `AppDialogCardDefaults`.
 """, f"""
 <div class="yb yb-ground" style="padding:24px;width:440px">
   <div class="yb-dialog">
