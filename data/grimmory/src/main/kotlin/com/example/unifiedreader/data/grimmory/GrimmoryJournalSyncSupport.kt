@@ -13,7 +13,6 @@ import com.example.unifiedreader.journal.journalMediaType
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -144,7 +143,9 @@ private suspend fun pullGrimmoryReadingSessionEvents(
     val limiter = Semaphore(GRIMMORY_READING_SESSION_FETCH_CONCURRENCY)
     val total = entries.size
     val reportEvery = (total / GRIMMORY_READING_HISTORY_PROGRESS_REPORTS).coerceAtLeast(1)
-    val loaded = AtomicInteger(0)
+    // The books load in parallel, on several threads: count and report under one lock, so the count only rises.
+    val countLock = Any()
+    var loaded = 0
     if (total > 0) onBookLoaded(0, total)
     val pulls = entries.map { entry ->
         async {
@@ -176,8 +177,10 @@ private suspend fun pullGrimmoryReadingSessionEvents(
                     )
                 }
             }.also {
-                val done = loaded.incrementAndGet()
-                if (done == total || done % reportEvery == 0) onBookLoaded(done, total)
+                synchronized(countLock) {
+                    loaded += 1
+                    if (loaded == total || loaded % reportEvery == 0) onBookLoaded(loaded, total)
+                }
             }
         }
     }.awaitAll()

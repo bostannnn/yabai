@@ -33,6 +33,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -476,6 +477,51 @@ class GrimmoryCatalogSyncServiceTest {
         val counted = fractions.drop(firstCounted).map { fraction -> checkNotNull(fraction) }
         assertEquals(counted.sorted(), counted)
         assertTrue(counted.last() < 1f)
+    }
+
+    @Test
+    fun `sync works off the caller's thread and hands it every step there, in order, before returning`() = runBlocking {
+        val callerThread = Thread.currentThread()
+        val worker = java.util.concurrent.Executors.newSingleThreadExecutor { runnable -> Thread(runnable, "grimmory-sync-work") }
+        val api = FakeGrimmoryApi(
+            libraries = listOf(grimmoryLibrary("g-books")),
+            allBookEntries = listOf(
+                GrimmoryBookCatalogEntry(
+                    item = grimmoryItem(remoteId = "book-1", libraryRemoteId = "g-books"),
+                    progress = null,
+                    lastReadTime = "2026-10-30T20:00:00Z",
+                ),
+            ),
+        )
+        val service = GrimmoryCatalogSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            remoteCatalogWriter = RecordingRemoteCatalogWriter(),
+            journalRepository = GrimmoryRecordingJournalRepository(),
+            workDispatcher = worker.asCoroutineDispatcher(),
+        )
+        val stepThreads = mutableListOf<Thread>()
+        val steps = mutableListOf<String>()
+
+        try {
+            service.sync(
+                request = GrimmoryCatalogSyncRequest(
+                    displayName = "Grimmory",
+                    baseUrl = "https://grimmory.example/",
+                    username = "user",
+                    accessToken = "saved-access-token",
+                ),
+                onProgress = { step ->
+                    stepThreads += Thread.currentThread()
+                    steps += step.message
+                },
+            )
+        } finally {
+            worker.shutdown()
+        }
+
+        assertEquals("grimmory-sync-work", api.bookListThread?.name)
+        assertTrue(stepThreads.isNotEmpty() && stepThreads.all { thread -> thread === callerThread })
+        assertEquals("Uploading journal changes", steps.last())
     }
 
     @Test
@@ -1090,7 +1136,9 @@ private class FakeGrimmoryApi(
     val unauthorizedLibraryTokens = mutableSetOf<String>()
     val unauthorizedProgressTokens = mutableSetOf<String>()
     val unauthorizedNotebookTokens = mutableSetOf<String>()
-    val sessionRequests = mutableListOf<String>()
+    // The books' histories load in parallel, on the sync's worker threads.
+    val sessionRequests: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+    var bookListThread: Thread? = null
     // Thrown by every progress upload, such as a server that stopped answering.
     var progressFailure: Throwable? = null
 
@@ -1136,6 +1184,7 @@ private class FakeGrimmoryApi(
         accessToken: String,
     ): List<GrimmoryBookCatalogEntry> {
         bookAccessTokens += accessToken
+        bookListThread = Thread.currentThread()
         return allBookEntries
     }
 

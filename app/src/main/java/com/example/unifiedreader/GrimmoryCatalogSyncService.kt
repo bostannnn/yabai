@@ -9,6 +9,12 @@ import com.example.unifiedreader.data.grimmory.enrichGrimmoryJournalCatalogMetad
 import com.example.unifiedreader.core.model.progress.ProgressSyncStore
 import com.example.unifiedreader.journal.JournalRepository
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 fun interface GrimmoryApiFactory {
     fun create(
@@ -16,6 +22,7 @@ fun interface GrimmoryApiFactory {
     ): GrimmoryApi
 }
 
+/** Each sync hands [GrimmorySyncProgress] to its `onProgress` on the caller's thread, in order, before it returns. */
 interface GrimmoryCatalogSyncer {
     suspend fun connect(
         request: GrimmoryCatalogSyncRequest,
@@ -42,6 +49,9 @@ class GrimmoryCatalogSyncService(
     private val readerSessionStore: ReaderSessionStore? = null,
     private val journalRepository: JournalRepository? = null,
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
+    // Decoding the book list (2,000 books, megabytes of JSON), comparing it with the saved library and the
+    // uploads run here, not on the caller's (main) thread, which froze the app and its bar for seconds.
+    private val workDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : GrimmoryCatalogSyncer {
     private val progressSyncStore: ProgressSyncStore? = readerSessionStore?.let(::ReaderSessionProgressStoreAdapter)
     private val syncUploads = GrimmoryCatalogSyncUploads(grimmoryApiFactory, readerSessionStore, journalRepository)
@@ -82,12 +92,29 @@ class GrimmoryCatalogSyncService(
     override suspend fun sync(
         request: GrimmoryCatalogSyncRequest,
         onProgress: (GrimmorySyncProgress) -> Unit,
-    ): GrimmoryCatalogSyncResult = syncCatalog(request, onProgress, refresh = false)
+    ): GrimmoryCatalogSyncResult = offCallerThread(onProgress) { progress -> syncCatalog(request, progress, refresh = false) }
 
     override suspend fun refresh(
         request: GrimmoryCatalogSyncRequest,
         onProgress: (GrimmorySyncProgress) -> Unit,
-    ): GrimmoryCatalogSyncResult = syncCatalog(request, onProgress, refresh = true)
+    ): GrimmoryCatalogSyncResult = offCallerThread(onProgress) { progress -> syncCatalog(request, progress, refresh = true) }
+
+    /**
+     * Runs [work] on [workDispatcher] and relays its progress to [onProgress] in the caller's context, in
+     * order and all of it before returning, so the caller's state is only ever touched on its own thread.
+     */
+    private suspend fun <T> offCallerThread(
+        onProgress: (GrimmorySyncProgress) -> Unit,
+        work: suspend (onProgress: (GrimmorySyncProgress) -> Unit) -> T,
+    ): T = coroutineScope {
+        val steps = Channel<GrimmorySyncProgress>(Channel.UNLIMITED)
+        launch { for (step in steps) onProgress(step) }
+        try {
+            withContext(workDispatcher) { work { step -> steps.trySend(step) } }
+        } finally {
+            steps.close()
+        }
+    }
 
     private suspend fun syncCatalog(
         request: GrimmoryCatalogSyncRequest,
