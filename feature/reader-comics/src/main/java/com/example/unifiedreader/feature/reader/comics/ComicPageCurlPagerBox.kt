@@ -13,6 +13,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
@@ -24,7 +25,9 @@ import com.example.unifiedreader.feature.reader.core.curl.PageCurlTapTurner
 import com.example.unifiedreader.feature.reader.core.curl.PageCurlTarget
 import com.example.unifiedreader.feature.reader.core.curl.pageCurlDragGesture
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeoutOrNull
 
 @Composable
 internal fun ComicPageCurlPagerBox(
@@ -51,7 +54,7 @@ internal fun ComicPageCurlPagerBox(
 
     val coroutineScope = rememberCoroutineScope()
     var containerSize by remember(item.id) { mutableStateOf(IntSize.Zero) }
-    val curlState = remember { PageCurlState() }
+    val curlState = remember(item.id) { PageCurlState() }
     val canvasColor = UnifiedReaderThemeTokens.colors.readerCanvas
     val curlCompositeCache = remember(item.id, pageSource, canvasColor) { ComicPageCurlCompositeCache(canvasColor) }
     var curlInteraction by remember(item.id) { mutableStateOf<ComicPageCurlInteraction?>(null) }
@@ -71,29 +74,6 @@ internal fun ComicPageCurlPagerBox(
         return
     }
 
-    val currentSpreadIndex = pagerState.currentPage.coerceIn(0, spreads.lastIndex)
-    val currentSpread = spreads[currentSpreadIndex]
-    val previousSpread = spreads.getOrNull(currentSpreadIndex - 1)
-    val nextSpread = spreads.getOrNull(currentSpreadIndex + 1)
-    val currentCurlComposite = curlCompositeCache.compositeFor(
-        spread = currentSpread,
-        canvasSize = containerSize,
-        pageFitMode = readerState.pageFitMode,
-    )
-    val previousCurlComposite = curlCompositeCache.compositeFor(
-        spread = previousSpread,
-        canvasSize = containerSize,
-        pageFitMode = readerState.pageFitMode,
-    )
-    val nextCurlComposite = curlCompositeCache.compositeFor(
-        spread = nextSpread,
-        canvasSize = containerSize,
-        pageFitMode = readerState.pageFitMode,
-    )
-    val latestCurrentCurlComposite = rememberUpdatedState(currentCurlComposite)
-    val latestPreviousCurlComposite = rememberUpdatedState(previousCurlComposite)
-    val latestNextCurlComposite = rememberUpdatedState(nextCurlComposite)
-    val latestCurlInteractionActive = rememberUpdatedState(curlInteraction != null)
     val curlBaseEnabled = resolveComicPageCurlAvailability(
         pageTurnStyle = readerState.pageTurnStyle,
         readerMode = readerState.readerMode,
@@ -102,28 +82,47 @@ internal fun ComicPageCurlPagerBox(
         hasAdjacentComposite = true,
         containerSize = containerSize,
     ).isAvailable
-    val latestCurlBaseEnabled = rememberUpdatedState(curlBaseEnabled)
-    val latestCurrentSpreadIndex = rememberUpdatedState(currentSpreadIndex)
-    val latestSpreadCount = rememberUpdatedState(spreads.size)
-    val latestReadingDirection = rememberUpdatedState(readerState.readingDirection)
+    val latestCurlBaseEnabled by rememberUpdatedState(curlBaseEnabled)
+
+    val start: suspend (PageCurlTarget, Offset?) -> ComicPageCurlInteraction? = start@{ target, down ->
+        if (!curlBaseEnabled) return@start null
+        // Read the pager at execution time: another queued turn may just have completed.
+        val currentIndex = pagerState.currentPage
+        val targetIndex = resolveComicPageCurlTargetSpreadIndex(currentIndex, spreads.size, target) ?: return@start null
+        val composites = withTimeoutOrNull(ComicPageCurlPreparationTimeoutMillis) {
+            coroutineScope {
+                val current = async {
+                    curlCompositeCache.getOrLoad(
+                        item, spreads[currentIndex], pageSource, containerSize,
+                        readerState.pageFitMode, stitchedSpreadOverlapPx, ComicPageLoadPriority.Visible,
+                    )
+                }
+                val adjacent = async {
+                    curlCompositeCache.getOrLoad(
+                        item, spreads[targetIndex], pageSource, containerSize,
+                        readerState.pageFitMode, stitchedSpreadOverlapPx, ComicPageLoadPriority.Visible,
+                    )
+                }
+                current.await() to adjacent.await()
+            }
+        } ?: return@start null
+        startComicPageCurlInteraction(
+            target = target,
+            currentSpreadIndex = currentIndex,
+            spreadCount = spreads.size,
+            readingDirection = readerState.readingDirection,
+            currentComposite = composites.first,
+            adjacentComposite = composites.second,
+            downPosition = down,
+        )?.also { curlInteraction = it }
+    }
+    val latestStart by rememberUpdatedState(start)
 
     DisposableEffect(tapTurner, curlState, pagerState) {
         tapTurner.turnHandler = handler@{ target ->
-            if (curlInteraction != null) return@handler true
-            if (!latestCurlBaseEnabled.value) return@handler false
-            val interaction = startComicPageCurlInteraction(
-                target = target,
-                currentSpreadIndex = latestCurrentSpreadIndex.value,
-                spreadCount = latestSpreadCount.value,
-                readingDirection = latestReadingDirection.value,
-                currentComposite = latestCurrentCurlComposite.value,
-                adjacentComposite = when (target) {
-                    PageCurlTarget.Previous -> latestPreviousCurlComposite.value
-                    PageCurlTarget.Next -> latestNextCurlComposite.value
-                },
-                downPosition = null,
-            ) ?: return@handler false
-            curlInteraction = interaction
+            if (!latestCurlBaseEnabled) return@handler false
+            // A loading failure leaves the page in place; it must not silently select slide mode.
+            val interaction = latestStart(target, null) ?: return@handler true
             try {
                 val turn = interaction.turn
                 curlState.snapTo(turn.restingEdge(interaction.grab))
@@ -147,10 +146,11 @@ internal fun ComicPageCurlPagerBox(
         ?.pageIndexes
         ?.all { pageIndex -> pageIndex in loadedVisiblePageIndexes } == true
 
+    val prewarmSpreadIndex = curlInteraction?.targetSpreadIndex ?: pagerState.settledPage
     LaunchedEffect(
         curlBaseEnabled,
         settledSpreadLoaded,
-        pagerState.settledPage,
+        prewarmSpreadIndex,
         spreads,
         item.id,
         readerState.pageFitMode,
@@ -163,12 +163,11 @@ internal fun ComicPageCurlPagerBox(
             curlState.reset()
             return@LaunchedEffect
         }
-        if (!settledSpreadLoaded) return@LaunchedEffect
-        delay(ComicPageCurlIdlePrewarmDelayMillis)
+        if (!settledSpreadLoaded && curlInteraction == null) return@LaunchedEffect
         curlCompositeCache.prewarm(
             item = item,
             spreads = spreads,
-            settledSpreadIndex = pagerState.settledPage,
+            settledSpreadIndex = prewarmSpreadIndex,
             pageSource = pageSource,
             canvasSize = containerSize,
             pageFitMode = readerState.pageFitMode,
@@ -184,22 +183,11 @@ internal fun ComicPageCurlPagerBox(
                 rightToLeft = readerState.readingDirection == ComicReadingDirection.RTL,
                 state = curlState,
                 gestureScope = coroutineScope,
-                isTurnActive = { latestCurlInteractionActive.value },
-                startTurn = { target, down ->
-                    startComicPageCurlInteraction(
-                        target = target,
-                        currentSpreadIndex = currentSpreadIndex,
-                        spreadCount = spreads.size,
-                        readingDirection = readerState.readingDirection,
-                        currentComposite = latestCurrentCurlComposite.value,
-                        adjacentComposite = when (target) {
-                            PageCurlTarget.Previous -> latestPreviousCurlComposite.value
-                            PageCurlTarget.Next -> latestNextCurlComposite.value
-                        },
-                        downPosition = down,
-                    )?.takeIf { containerSize.width > 0 && containerSize.height > 0 }
-                        ?.also { interaction -> curlInteraction = interaction }
+                turner = tapTurner,
+                canStartTurn = { target ->
+                    resolveComicPageCurlTargetSpreadIndex(pagerState.currentPage, spreads.size, target) != null
                 },
+                startTurn = { target, down -> latestStart(target, down) },
                 onTurnSettled = { drag, committed ->
                     if (committed) {
                         pagerState.scrollToPage((drag as ComicPageCurlInteraction).targetSpreadIndex)
@@ -208,10 +196,10 @@ internal fun ComicPageCurlPagerBox(
                 onTurnEnded = {
                     curlInteraction = null
                 },
-                keys = *arrayOf(currentSpreadIndex, spreads.size, containerSize, pagerState),
+                keys = arrayOf(item.id, spreads.map { it.id }, containerSize, pagerState, readerState.pageFitMode),
             ),
     ) {
-        content(curlInteraction == null)
+        content(!curlBaseEnabled)
         curlInteraction?.let { interaction ->
             PageCurlSurface(
                 turn = interaction.turn,
@@ -224,6 +212,5 @@ internal fun ComicPageCurlPagerBox(
     }
 }
 
-// Short enough that a reader turning again soon after a turn still gets a curl, long enough to let
-// the settled page draw first: rasterizing is off the main thread, but it competes for CPU.
-private const val ComicPageCurlIdlePrewarmDelayMillis = 300L
+// Slow/failed page loads leave the current page available for another attempt.
+private const val ComicPageCurlPreparationTimeoutMillis = 5_000L

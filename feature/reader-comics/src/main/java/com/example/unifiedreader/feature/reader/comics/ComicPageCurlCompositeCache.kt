@@ -13,6 +13,8 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /** Spreads rasterized for the curl, on [canvasColor] (the reader's `readerCanvas`). */
 @Stable
@@ -20,6 +22,10 @@ internal class ComicPageCurlCompositeCache(
     private val canvasColor: Color,
 ) {
     private val composites = mutableStateMapOf<ComicPageCurlCompositeKey, ComicPageCurlComposite>()
+    private val loads = mutableMapOf<ComicPageCurlCompositeKey, Mutex>()
+    private var generation = 0
+    private var retainedKeys = emptySet<ComicPageCurlCompositeKey>()
+    private var cacheCapacity = MaximumCachedCurlComposites
 
     internal val cachedCompositeCount: Int
         get() = composites.size
@@ -27,6 +33,9 @@ internal class ComicPageCurlCompositeCache(
     fun clear() {
         traceComicReaderSection("ComicPageCurl.clearCompositeCache") {
             composites.clear()
+            generation++
+            retainedKeys = emptySet()
+            loads.entries.removeAll { !it.value.isLocked }
         }
     }
 
@@ -51,58 +60,69 @@ internal class ComicPageCurlCompositeCache(
             clear()
             return
         }
-        val (targetIndexes, keysToKeep) = traceComicReaderSection("ComicPageCurl.preparePrewarmTargets") {
+        val targetIndexes = traceComicReaderSection("ComicPageCurl.preparePrewarmTargets") {
+            val bytesPerComposite = canvasSize.width.toLong() * canvasSize.height * 4L
+            val capacity = (MaximumCacheBytes / bytesPerComposite).toInt().coerceIn(3, MaximumCachedCurlComposites)
+            cacheCapacity = capacity
             val targets = listOf(
                 settledSpreadIndex,
-                settledSpreadIndex - 1,
                 settledSpreadIndex + 1,
-            ).filter { it in spreads.indices }
+                settledSpreadIndex - 1,
+                settledSpreadIndex + 2,
+                settledSpreadIndex - 2,
+            ).filter { it in spreads.indices }.take(capacity)
             val keys = targets
                 .map { spreads[it].compositeKey(canvasSize, pageFitMode) }
                 .toSet()
             retainOnly(keys)
-            targets to keys
+            retainedKeys = keys
+            targets
         }
 
         coroutineScope {
             targetIndexes.map { spreadIndex ->
                 async {
-                    ensureComposite(
+                    getOrLoad(
                         item = item,
                         spread = spreads[spreadIndex],
                         pageSource = pageSource,
                         canvasSize = canvasSize,
                         pageFitMode = pageFitMode,
                         stitchedSpreadOverlapPx = stitchedSpreadOverlapPx,
-                        keysToKeep = keysToKeep,
                     )
                 }
             }.awaitAll()
         }
     }
 
-    private suspend fun ensureComposite(
+    /** An intentional turn waits for its images instead of switching to the sliding pager. */
+    suspend fun getOrLoad(
         item: ReadableItem,
         spread: ComicPageSpread,
         pageSource: ComicPageSource,
         canvasSize: IntSize,
         pageFitMode: ComicPageFitMode,
         stitchedSpreadOverlapPx: Int,
-        keysToKeep: Set<ComicPageCurlCompositeKey>,
-    ) {
+        priority: ComicPageLoadPriority = ComicPageLoadPriority.Prefetch,
+    ): ComicPageCurlComposite? {
         val key = spread.compositeKey(canvasSize, pageFitMode)
-        if (key in composites) return
-        val composite = loadComposite(
-            item = item,
-            spread = spread,
-            pageSource = pageSource,
-            canvasSize = canvasSize,
-            pageFitMode = pageFitMode,
-            stitchedSpreadOverlapPx = stitchedSpreadOverlapPx,
-        ) ?: return
-        composites[key] = composite
-        if (composites.size > MaximumCachedCurlComposites) {
-            retainOnly(keysToKeep)
+        if (canvasSize.width <= 0 || canvasSize.height <= 0) return null
+        composites[key]?.let { return it }
+        val requestedGeneration = generation
+        return loads.getOrPut(key) { Mutex() }.withLock {
+            composites[key]?.let { return@withLock it }
+            val composite = loadComposite(
+                item, spread, pageSource, canvasSize, pageFitMode, stitchedSpreadOverlapPx, priority,
+            ) ?: return@withLock null
+            if (generation != requestedGeneration) return@withLock null
+            composites[key] = composite
+            if (composites.size > cacheCapacity) {
+                retainOnly(retainedKeys + key)
+                while (composites.size > cacheCapacity) {
+                    composites.remove(composites.keys.first { it != key })
+                }
+            }
+            composite
         }
     }
 
@@ -113,6 +133,7 @@ internal class ComicPageCurlCompositeCache(
         canvasSize: IntSize,
         pageFitMode: ComicPageFitMode,
         stitchedSpreadOverlapPx: Int,
+        priority: ComicPageLoadPriority,
     ): ComicPageCurlComposite? = try {
         coroutineScope {
             val loadedImagesByPageId = spread.pages
@@ -125,7 +146,7 @@ internal class ComicPageCurlCompositeCache(
                                 val result = pageSource.loadPageImage(
                                     item = item,
                                     page = page,
-                                    priority = ComicPageLoadPriority.Prefetch,
+                                    priority = priority,
                                 )
                             ) {
                                 is ComicPageLoadResult.Success -> result.image
@@ -202,10 +223,12 @@ internal class ComicPageCurlCompositeCache(
         composites.keys
             .filter { it !in keysToKeep }
             .forEach { key -> composites.remove(key) }
+        loads.entries.removeAll { it.key !in keysToKeep && !it.value.isLocked }
     }
 
     private companion object {
-        const val MaximumCachedCurlComposites = 3
+        const val MaximumCachedCurlComposites = 5
+        const val MaximumCacheBytes = 96L * 1024 * 1024
     }
 }
 

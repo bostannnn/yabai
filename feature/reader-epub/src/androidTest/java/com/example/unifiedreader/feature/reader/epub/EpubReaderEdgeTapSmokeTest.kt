@@ -8,11 +8,18 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
 import androidx.fragment.app.FragmentActivity
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -24,6 +31,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
 import com.example.unifiedreader.feature.reader.preferences.InMemoryReaderPageColorPreferencesStore
 import com.example.unifiedreader.feature.reader.preferences.ReaderDisplayPreferences
 import com.example.unifiedreader.ui.theme.ReaderPageColor
@@ -32,12 +40,56 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Assert.assertEquals
+import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class EpubReaderEdgeTapSmokeTest {
     @get:Rule
     val composeRule = createAndroidComposeRule<FragmentActivity>()
+
+    @Test
+    fun heldCurlAppearsAndCancelledTurnRestoresLiveReadiumLocation() {
+        val item = sampleEpubItem(id = "epub-curl-cancel")
+        val sessionStore = FakeReaderSessionStore(mapOf(
+            item.id to ReaderSessionSnapshot(itemId = item.id, preferences = mapOf(
+                EpubPageTurnStyleKey to PageTurnStyle.Curl.name,
+                EpubLayoutModeKey to EpubReaderLayoutMode.SinglePage.name,
+                EpubLayoutOverrideKey to "true",
+            )),
+        ))
+        val documentUri = sampleEpubUri(item)
+        composeRule.setContent {
+            EpubReaderScreen(item = item, sessionStore = sessionStore, documentUri = documentUri, onBack = {})
+        }
+        waitForReaderReady()
+        hideOverlay()
+        val navigator = composeRule.activity.supportFragmentManager.fragments.filterIsInstance<EpubNavigatorFragment>().single()
+        val original = navigator.currentLocator.value
+        val viewport = composeRule.onNodeWithTag(EpubReaderViewportTag)
+        viewport.performTouchInput {
+            down(Offset(width * 0.9f, height * 0.5f))
+            moveTo(Offset(width * 0.35f, height * 0.5f), delayMillis = 100)
+        }
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithTag(EpubPageCurlSurfaceTag).fetchSemanticsNodes().isNotEmpty()
+        }
+        viewport.performTouchInput {
+            moveTo(Offset(width * 0.9f, height * 0.5f), delayMillis = 100)
+            up()
+        }
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            composeRule.onAllNodesWithTag(EpubPageCurlSurfaceTag).fetchSemanticsNodes().isEmpty()
+        }
+        assertEquals(original.href, navigator.currentLocator.value.href)
+        assertEquals(original.locations.progression, navigator.currentLocator.value.locations.progression)
+        viewport.performTouchInput { swipeLeft(durationMillis = 80) }
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            navigator.currentLocator.value != original &&
+                composeRule.onAllNodesWithTag(EpubPageCurlSurfaceTag).fetchSemanticsNodes().isEmpty()
+        }
+    }
 
     @Test
     fun topCenterTapOnLiveEpubSurfaceShowsOverlay() {
@@ -54,7 +106,7 @@ class EpubReaderEdgeTapSmokeTest {
             )
         }
 
-        waitForReaderReady(sessionStore, item.id)
+        waitForReaderReady()
         hideOverlay()
 
         tapViewportAtTopEdge()
@@ -81,7 +133,7 @@ class EpubReaderEdgeTapSmokeTest {
             }
         }
 
-        waitForReaderReady(sessionStore, item.id)
+        waitForReaderReady()
         hideOverlay()
 
         tapViewportAtBottomEdge()
@@ -110,7 +162,7 @@ class EpubReaderEdgeTapSmokeTest {
             }
         }
 
-        waitForReaderReady(sessionStore, item.id)
+        waitForReaderReady()
         composeRule.onNodeWithContentDescription("Reader preferences").performClick()
         composeRule.onNodeWithText(ReaderPageColor.Sepia.label).performClick()
 
@@ -149,9 +201,9 @@ class EpubReaderEdgeTapSmokeTest {
             }
         }
 
-        waitForReaderReady(sessionStore, item.id)
+        waitForReaderReady()
         openLayoutMenu()
-        composeRule.onNodeWithText("Auto (portrait: Page, landscape: Spread)").performClick()
+        composeRule.onAllNodesWithText("Auto").onLast().performClick()
 
         val expectedDefaultLayoutMode = expectedDefaultLayoutMode()
         composeRule.waitUntil(timeoutMillis = 10_000) {
@@ -178,18 +230,18 @@ class EpubReaderEdgeTapSmokeTest {
             }
         }
 
-        waitForReaderReady(sessionStore, item.id)
+        waitForReaderReady()
         composeRule.onNodeWithContentDescription("Table of contents").performClick()
         composeRule.onNodeWithTag(EpubTocSheetTag).assertExists()
         composeRule.onNodeWithText("Contents").assertExists()
     }
 
-    private fun waitForReaderReady(
-        sessionStore: FakeReaderSessionStore,
-        itemId: String,
-    ) {
+    private fun waitForReaderReady() {
         composeRule.waitUntil(timeoutMillis = 20_000) {
-            sessionStore.progressByItemIdFlow.value[itemId]?.cfi != null
+            // Opening no longer persists progress. Readiness must observe the live navigator.
+            composeRule.activity.supportFragmentManager.fragments
+                .filterIsInstance<EpubNavigatorFragment>()
+                .any { it.isAdded && it.currentLocator.value.locations.position != null }
         }
         composeRule.waitUntil(timeoutMillis = 10_000) {
             composeRule.onAllNodesWithTag(EpubReaderSurfaceTag).fetchSemanticsNodes().isNotEmpty()
@@ -249,8 +301,10 @@ class EpubReaderEdgeTapSmokeTest {
     }
 
     private fun openLayoutMenu() {
-        composeRule.onNodeWithContentDescription("Page layout").performClick()
-        composeRule.onNodeWithText("Auto (portrait: Page, landscape: Spread)").assertExists()
+        composeRule.onNodeWithContentDescription("Reader preferences").performClick()
+        val layoutTab = composeRule.onAllNodes(hasText("Layout") and hasClickAction())
+        if (layoutTab.fetchSemanticsNodes().isNotEmpty()) layoutTab.onFirst().performClick()
+        composeRule.onAllNodesWithText("Auto").onLast().performScrollTo().assertExists()
     }
 
     private fun expectedDefaultLayoutMode(): EpubReaderLayoutMode {

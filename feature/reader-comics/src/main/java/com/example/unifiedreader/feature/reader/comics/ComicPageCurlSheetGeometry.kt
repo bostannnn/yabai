@@ -20,6 +20,7 @@ internal data class ComicPageCurlSheetBounds(
 
 internal enum class ComicPageCurlTransitionPolicy {
     UseCurl,
+    UseViewportCurl,
     YieldToPager,
 }
 
@@ -85,8 +86,21 @@ internal fun resolvePageCurlTurn(
         readingDirection = readingDirection,
         target = target,
     )
-    if (policy != ComicPageCurlTransitionPolicy.UseCurl) return null
+    if (policy == ComicPageCurlTransitionPolicy.YieldToPager) return null
     val canvasBounds = currentLayout.canvasBounds() ?: return null
+
+    if (policy == ComicPageCurlTransitionPolicy.UseViewportCurl) {
+        // A cover, wide page or changed spread cannot share a physical leaf with its neighbor.
+        // Turn the complete viewport so the selected animation and both endpoints stay intact.
+        return buildPageCurlTurn(
+            target = target,
+            paperBounds = canvasBounds.toIntRect(),
+            bookBounds = canvasBounds.toIntRect(),
+            outward = if (readingDirection == ComicReadingDirection.RTL) -1f else 1f,
+            follow = if (target == PageCurlTarget.Next) PageCurlFollow.Edge else PageCurlFollow.Fold,
+            backIsFacingPage = false,
+        )
+    }
 
     if (currentLayout.pages.size >= 2) {
         val sheetBounds = resolveComicPageCurlSheetBounds(
@@ -146,8 +160,9 @@ internal fun resolveComicPageCurlTransitionPolicy(
         ?: return ComicPageCurlTransitionPolicy.YieldToPager
     val targetKind = targetLayout?.comicPageCurlLayoutKind()
         ?: return ComicPageCurlTransitionPolicy.YieldToPager
+    if (currentLayout.canvasSize != targetLayout.canvasSize) return ComicPageCurlTransitionPolicy.YieldToPager
     if (currentKind != targetKind) {
-        return ComicPageCurlTransitionPolicy.YieldToPager
+        return ComicPageCurlTransitionPolicy.UseViewportCurl
     }
 
     val currentSheet = resolveComicPageCurlSheetBounds(
@@ -164,7 +179,7 @@ internal fun resolveComicPageCurlTransitionPolicy(
     return if (currentSheet.bounds.isCompatibleCurlPaperBounds(targetSheet.bounds)) {
         ComicPageCurlTransitionPolicy.UseCurl
     } else {
-        ComicPageCurlTransitionPolicy.YieldToPager
+        ComicPageCurlTransitionPolicy.UseViewportCurl
     }
 }
 

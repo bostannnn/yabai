@@ -1,21 +1,19 @@
 package com.example.unifiedreader.feature.reader.comics
 
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntRect
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ComicPageCurlPagerGestureTest {
     @Test
-    fun `valid adjacent target outside sheet yields to pager`() {
+    fun `valid adjacent target starts curl throughout reader surface`() {
         assertEquals(
-            ComicPageCurlGestureStartPolicy.YieldToPager,
+            ComicPageCurlGestureStartPolicy.StartCurl,
             resolveComicPageCurlGestureStartPolicy(
                 targetSpreadIndex = 2,
                 hasCurrentComposite = true,
                 hasUnderneathComposite = true,
                 sheetBounds = IntRect(left = 100, top = 0, right = 300, bottom = 300),
-                downPosition = Offset(50f, 150f),
             ),
         )
     }
@@ -29,7 +27,6 @@ class ComicPageCurlPagerGestureTest {
                 hasCurrentComposite = true,
                 hasUnderneathComposite = true,
                 sheetBounds = IntRect(left = 100, top = 0, right = 300, bottom = 300),
-                downPosition = Offset(150f, 150f),
                 transitionPolicy = ComicPageCurlTransitionPolicy.UseCurl,
             ),
         )
@@ -44,7 +41,6 @@ class ComicPageCurlPagerGestureTest {
                 hasCurrentComposite = true,
                 hasUnderneathComposite = true,
                 sheetBounds = IntRect(left = 100, top = 0, right = 300, bottom = 300),
-                downPosition = Offset(150f, 150f),
                 transitionPolicy = ComicPageCurlTransitionPolicy.YieldToPager,
             ),
         )
@@ -59,7 +55,6 @@ class ComicPageCurlPagerGestureTest {
                 hasCurrentComposite = true,
                 hasUnderneathComposite = true,
                 sheetBounds = IntRect(left = 100, top = 0, right = 300, bottom = 300),
-                downPosition = Offset(50f, 150f),
             ),
         )
     }
@@ -73,7 +68,6 @@ class ComicPageCurlPagerGestureTest {
                 hasCurrentComposite = true,
                 hasUnderneathComposite = false,
                 sheetBounds = IntRect(left = 100, top = 0, right = 300, bottom = 300),
-                downPosition = Offset(150f, 150f),
             ),
         )
     }
@@ -87,7 +81,6 @@ class ComicPageCurlPagerGestureTest {
                 hasCurrentComposite = true,
                 hasUnderneathComposite = true,
                 sheetBounds = IntRect(left = 100, top = 0, right = 100, bottom = 300),
-                downPosition = Offset(100f, 150f),
             ),
         )
     }

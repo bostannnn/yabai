@@ -208,7 +208,7 @@ class ComicPageCurlSheetGeometryTest {
     }
 
     @Test
-    fun `incompatible layouts resolve no curl turn`() {
+    fun `different layouts use a viewport curl`() {
         val single = sampleCurlGeometryLayout(
             ComicSpreadPage(spec = sampleCurlGeometryPage(0)),
             canvasSize = IntSize(300, 300),
@@ -219,13 +219,14 @@ class ComicPageCurlSheetGeometryTest {
             canvasSize = IntSize(300, 300),
         )
 
-        assertNull(
+        assertEquals(
+            ComicRasterRect(0, 0, 300, 300).toIntRect(),
             resolvePageCurlTurn(
                 currentLayout = single,
                 targetLayout = spread,
                 readingDirection = ComicReadingDirection.LTR,
                 target = PageCurlTarget.Next,
-            ),
+            )?.paperBounds,
         )
     }
 
@@ -269,7 +270,7 @@ class ComicPageCurlSheetGeometryTest {
     }
 
     @Test
-    fun `transition policy yields when single and spread layouts differ`() {
+    fun `transition policy curls viewport when single and spread layouts differ`() {
         val single = sampleCurlGeometryLayout(
             ComicSpreadPage(spec = sampleCurlGeometryPage(0)),
             canvasSize = IntSize(300, 300),
@@ -277,10 +278,11 @@ class ComicPageCurlSheetGeometryTest {
         val spread = sampleCurlGeometryLayout(
             ComicSpreadPage(spec = sampleCurlGeometryPage(1)),
             ComicSpreadPage(spec = sampleCurlGeometryPage(2)),
+            canvasSize = IntSize(300, 300),
         )
 
         assertEquals(
-            ComicPageCurlTransitionPolicy.YieldToPager,
+            ComicPageCurlTransitionPolicy.UseViewportCurl,
             resolveComicPageCurlTransitionPolicy(
                 currentLayout = single,
                 targetLayout = spread,
@@ -289,7 +291,7 @@ class ComicPageCurlSheetGeometryTest {
             ),
         )
         assertEquals(
-            ComicPageCurlTransitionPolicy.YieldToPager,
+            ComicPageCurlTransitionPolicy.UseViewportCurl,
             resolveComicPageCurlTransitionPolicy(
                 currentLayout = spread,
                 targetLayout = single,
@@ -300,7 +302,7 @@ class ComicPageCurlSheetGeometryTest {
     }
 
     @Test
-    fun `transition policy yields when same layout bounds differ too much`() {
+    fun `transition policy curls viewport when page bounds differ`() {
         val portraitPage = sampleCurlGeometryPage(0)
         val widePage = sampleCurlGeometryPage(1)
         val portraitLayout = sampleCurlGeometryLayout(
@@ -318,7 +320,7 @@ class ComicPageCurlSheetGeometryTest {
         )
 
         assertEquals(
-            ComicPageCurlTransitionPolicy.YieldToPager,
+            ComicPageCurlTransitionPolicy.UseViewportCurl,
             resolveComicPageCurlTransitionPolicy(
                 currentLayout = portraitLayout,
                 targetLayout = wideLayout,

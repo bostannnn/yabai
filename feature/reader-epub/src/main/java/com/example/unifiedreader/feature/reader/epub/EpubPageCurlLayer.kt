@@ -2,8 +2,13 @@ package com.example.unifiedreader.feature.reader.epub
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Rect
+import android.view.ActionMode
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.WebView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,6 +26,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.IntRect
 import androidx.core.graphics.withTranslation
 import androidx.core.view.children
@@ -36,13 +42,18 @@ import com.example.unifiedreader.feature.reader.core.curl.PageCurlTarget
 import com.example.unifiedreader.feature.reader.core.curl.PageCurlTurn
 import com.example.unifiedreader.feature.reader.core.curl.pageCurlDragGesture
 import com.example.unifiedreader.feature.reader.core.curl.pageCurlFrames
+import kotlin.coroutines.resume
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
+import org.readium.r2.shared.publication.Locator
 
 /**
  * What the page curl needs from the Readium navigator: the view to picture, a page move without
@@ -51,6 +62,20 @@ import org.readium.r2.navigator.epub.EpubNavigatorFragment
 internal class EpubPageCurlHost {
     var pageView: View? = null
     var navigator: EpubNavigatorFragment? = null
+    var isSelectingText = false
+        private set
+    val selectionActionModeCallback = object : ActionMode.Callback {
+        override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
+            isSelectingText = true
+            return true
+        }
+
+        override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean = false
+        override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean = false
+        override fun onDestroyActionMode(mode: ActionMode) {
+            isSelectingText = false
+        }
+    }
     /** Whether Readium shows two columns: a spread is asked for, but narrow screens still get one. */
     var showsTwoColumns: Boolean? = null
         private set
@@ -84,7 +109,7 @@ internal class EpubPageCurlHost {
      * Moves one page toward [target] and waits until Readium reports the new page, so a picture taken
      * next shows it (going back into the previous chapter, Readium lays that chapter out at its end).
      */
-    suspend fun moveAndAwait(target: PageCurlTarget): Boolean {
+    suspend fun moveAndAwait(target: PageCurlTarget, onMoved: () -> Unit): Boolean {
         val navigator = navigator ?: return false
         val before = pageChanges.value
         val moved = when (target) {
@@ -92,13 +117,34 @@ internal class EpubPageCurlHost {
             PageCurlTarget.Previous -> navigator.goBackward(animated = false)
         }
         if (!moved) return false
+        // Record acceptance immediately: cancellation/timeout must still undo this navigation.
+        onMoved()
+        return awaitPageChange(before)
+    }
+
+    suspend fun restore(locator: Locator) {
+        val navigator = navigator ?: return
+        val before = pageChanges.value
+        if (navigator.go(locator, animated = false)) awaitPageChange(before)
+    }
+
+    private suspend fun awaitPageChange(before: Int): Boolean =
         withTimeoutOrNull(EpubPageChangeTimeoutMillis) {
             pageChanges.first { it != before }
-        }
-        // One more frame for the web view to paint the new position.
-        withFrameNanos { }
-        return true
-    }
+            // A pagination callback describes layout, not necessarily pixels already painted by
+            // Chromium. Capture only after WebView has made that state available to draw().
+            pageView?.findPageWebView()?.let { webView ->
+                suspendCancellableCoroutine { continuation ->
+                    webView.postVisualStateCallback(pageChanges.value.toLong(), object : WebView.VisualStateCallback() {
+                        override fun onComplete(requestId: Long) {
+                            if (continuation.isActive) continuation.resume(Unit)
+                        }
+                    })
+                }
+            }
+            withFrameNanos { }
+            true
+        } ?: false
 
     fun capture(): ImageBitmap? = pageView?.captureForPageCurl()
 }
@@ -108,10 +154,16 @@ internal class EpubPageCurlSession(
     override val turn: PageCurlTurn,
     override val grab: Offset,
     val current: ImageBitmap,
+    val origin: Locator,
 ) : PageCurlDrag {
     var frames by mutableStateOf<PageCurlFrames?>(null)
     var moved = false
     var preparation: Job? = null
+
+    override suspend fun awaitReady(): Boolean {
+        preparation?.join()
+        return frames != null
+    }
 }
 
 /**
@@ -132,8 +184,8 @@ internal fun EpubPageCurlLayer(
     content: @Composable () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val state = remember { PageCurlState() }
-    var session by remember { mutableStateOf<EpubPageCurlSession?>(null) }
+    val state = remember(host) { PageCurlState() }
+    var session by remember(host) { mutableStateOf<EpubPageCurlSession?>(null) }
     val latestEnabled by rememberUpdatedState(enabled)
     val latestTwoPageSpread by rememberUpdatedState(twoPageSpread)
     val latestRightToLeft by rememberUpdatedState(rightToLeft)
@@ -151,16 +203,19 @@ internal fun EpubPageCurlLayer(
             target = target,
         ) ?: return null
         val current = host.capture() ?: return null
+        val origin = host.navigator?.currentLocator?.value ?: return null
         val grab = if (touchY != null) {
             turn.grabPoint(touchY)
         } else {
             turn.sheet.grabPoint(turn.sheet.top + (turn.sheet.bottom - turn.sheet.top) * PageCurlTapGrabFraction)
         }
-        val started = EpubPageCurlSession(turn = turn, grab = grab, current = current)
+        val started = EpubPageCurlSession(turn = turn, grab = grab, current = current, origin = origin)
         session = started
         started.preparation = scope.launch {
-            started.moved = host.moveAndAwait(target)
-            val adjacent = if (started.moved) host.capture() else null
+            // Give the covering snapshot a frame before moving the live navigator underneath it.
+            withFrameNanos { }
+            val ready = host.moveAndAwait(target) { started.moved = true }
+            val adjacent = if (ready) host.capture() else null
             if (adjacent != null) {
                 started.frames = pageCurlFrames(turn = turn, currentPage = current, adjacentPage = adjacent)
             }
@@ -174,25 +229,33 @@ internal fun EpubPageCurlLayer(
     ) {
         turn.preparation?.join()
         if (turn.moved && !committed) {
-            host.moveAndAwait(turn.turn.target.opposite())
+            host.restore(turn.origin)
         }
     }
 
     DisposableEffect(tapTurner) {
         tapTurner.turnHandler = handler@{ target ->
+            if (!latestEnabled) return@handler false
             if (session != null) return@handler true
-            val started = start(target = target, touchY = null) ?: return@handler false
+            val started = start(target = target, touchY = null) ?: return@handler true
+            var committed = false
             try {
-                started.preparation?.join()
-                if (started.frames != null) {
+                if (started.awaitReady()) {
                     state.snapTo(started.turn.restingEdge(started.grab))
                     state.animateAlong(durationMillis = PageCurlTapTurnDurationMillis) { fraction ->
                         started.turn.automaticTurnEdge(grab = started.grab, fraction = fraction)
                     }
+                    committed = true
                 }
             } finally {
-                session = null
-                state.reset()
+                withContext(NonCancellable) {
+                    try {
+                        finish(started, committed)
+                    } finally {
+                        session = null
+                        state.reset()
+                    }
+                }
             }
             true
         }
@@ -207,11 +270,14 @@ internal fun EpubPageCurlLayer(
             rightToLeft = rightToLeft,
             state = state,
             gestureScope = scope,
-            isTurnActive = { session != null },
+            turner = tapTurner,
+            canStartTurn = host::canTurn,
             startTurn = { target, down -> start(target = target, touchY = down.y) },
             onTurnSettled = { drag, committed -> finish(drag as EpubPageCurlSession, committed) },
             onTurnEnded = { session = null },
             yieldToLongPress = true,
+            isSelectingText = { host.isSelectingText },
+            keys = arrayOf(host, twoPageSpread),
         ),
     ) {
         content()
@@ -228,16 +294,17 @@ internal fun EpubPageCurlLayer(
                     frames = frames,
                     state = state,
                     backTint = backTint,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().testTag(EpubPageCurlSurfaceTag),
                 )
             }
         }
     }
 }
 
-private fun PageCurlTarget.opposite(): PageCurlTarget = when (this) {
-    PageCurlTarget.Next -> PageCurlTarget.Previous
-    PageCurlTarget.Previous -> PageCurlTarget.Next
+private fun View.findPageWebView(): WebView? = when (this) {
+    is WebView -> this.takeIf { it.isShown && it.getGlobalVisibleRect(Rect()) }
+    is ViewGroup -> children.filter { it.isVisible }.firstNotNullOfOrNull { it.findPageWebView() }
+    else -> null
 }
 
 /**
@@ -276,8 +343,10 @@ private fun View.invalidateTree() {
     }
 }
 
-// Readium reports a page change within a few frames; past this the picture is taken anyway.
-private const val EpubPageChangeTimeoutMillis = 400L
+// Chapter boundaries can require layout and a Chromium paint. A timeout cancels the turn; it must
+// never be treated as a successfully captured adjacent page.
+private const val EpubPageChangeTimeoutMillis = 2_000L
+internal const val EpubPageCurlSurfaceTag = "epub-page-curl"
 
 private val EpubColumnCountScript = """
     (function() {

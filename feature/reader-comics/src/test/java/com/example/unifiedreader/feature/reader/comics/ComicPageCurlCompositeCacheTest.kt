@@ -15,6 +15,9 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
+import kotlinx.coroutines.async
+import java.util.concurrent.atomic.AtomicInteger
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -22,7 +25,7 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class ComicPageCurlCompositeCacheTest {
     @Test
-    fun `prewarm keeps only settled spread and adjacent composites`() = runBlocking {
+    fun `prewarm keeps two spreads ahead and prunes old composites`() = runBlocking {
         val pages = sampleCurlCachePages(count = 5)
         val spreads = buildComicPageSpreads(
             pages = pages,
@@ -44,8 +47,8 @@ class ComicPageCurlCompositeCacheTest {
             stitchedSpreadOverlapPx = 0,
         )
 
-        assertEquals(3, cache.cachedCompositeCount)
-        assertNull(cache.compositeFor(spreads[0], canvasSize, ComicPageFitMode.FitPage))
+        assertEquals(5, cache.cachedCompositeCount)
+        assertNotNull(cache.compositeFor(spreads[0], canvasSize, ComicPageFitMode.FitPage))
         assertNotNull(cache.compositeFor(spreads[1], canvasSize, ComicPageFitMode.FitPage))
         assertNotNull(cache.compositeFor(spreads[2], canvasSize, ComicPageFitMode.FitPage))
         assertNotNull(cache.compositeFor(spreads[3], canvasSize, ComicPageFitMode.FitPage))
@@ -60,7 +63,7 @@ class ComicPageCurlCompositeCacheTest {
             stitchedSpreadOverlapPx = 0,
         )
 
-        assertEquals(2, cache.cachedCompositeCount)
+        assertEquals(3, cache.cachedCompositeCount)
         assertNull(cache.compositeFor(spreads[1], canvasSize, ComicPageFitMode.FitPage))
         assertNotNull(cache.compositeFor(spreads[3], canvasSize, ComicPageFitMode.FitPage))
         assertNotNull(cache.compositeFor(spreads[4], canvasSize, ComicPageFitMode.FitPage))
@@ -91,6 +94,38 @@ class ComicPageCurlCompositeCacheTest {
 
         assertNotNull(cache.compositeFor(spreads[0], canvasSize, ComicPageFitMode.FitPage))
         assertNull(cache.compositeFor(spreads[1], canvasSize, ComicPageFitMode.FitPage))
+    }
+
+    @Test
+    fun `on demand turn shares in flight prewarm instead of rasterizing twice`() = runBlocking {
+        val pages = sampleCurlCachePages(1)
+        val spread = buildComicPageSpreads(pages, ComicReadingDirection.LTR, false, emptyMap()).single()
+        val cache = ComicPageCurlCompositeCache(Color.Black)
+        val source = GatedCurlCachePageSource()
+        val size = IntSize(120, 180)
+        val first = async { cache.getOrLoad(curlCacheItem(), spread, source, size, ComicPageFitMode.FitPage, 0) }
+        source.started.await()
+        val second = async {
+            cache.getOrLoad(curlCacheItem(), spread, source, size, ComicPageFitMode.FitPage, 0, ComicPageLoadPriority.Visible)
+        }
+        source.release.complete(Unit)
+        assertSame(first.await(), second.await())
+        assertNotNull(first.await())
+        assertEquals(1, source.calls.get())
+    }
+
+    @Test
+    fun `clearing during a load prevents stale images returning to cache`() = runBlocking {
+        val pages = sampleCurlCachePages(1)
+        val spread = buildComicPageSpreads(pages, ComicReadingDirection.LTR, false, emptyMap()).single()
+        val cache = ComicPageCurlCompositeCache(Color.Black)
+        val source = GatedCurlCachePageSource()
+        val load = async { cache.getOrLoad(curlCacheItem(), spread, source, IntSize(120, 180), ComicPageFitMode.FitPage, 0) }
+        source.started.await()
+        cache.clear()
+        source.release.complete(Unit)
+        assertNull(load.await())
+        assertEquals(0, cache.cachedCompositeCount)
     }
 
     @Test
@@ -180,3 +215,16 @@ private fun curlCacheItem(): ReadableItem = ReadableItem(
     title = "Curl Cache",
     format = FormatType.CBZ,
 )
+
+private class GatedCurlCachePageSource : ComicPageSource {
+    val started = CompletableDeferred<Unit>()
+    val release = CompletableDeferred<Unit>()
+    val calls = AtomicInteger()
+    override fun getPages(item: ReadableItem): List<ComicPageSpec> = emptyList()
+    override suspend fun loadPageImage(item: ReadableItem, page: ComicPageSpec, priority: ComicPageLoadPriority): ComicPageLoadResult {
+        calls.incrementAndGet()
+        started.complete(Unit)
+        release.await()
+        return ComicPageLoadResult.Success(Bitmap.createBitmap(24, 36, Bitmap.Config.ARGB_8888).asImageBitmap())
+    }
+}

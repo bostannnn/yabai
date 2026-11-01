@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.reader.epub
 
+import android.view.ActionMode
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.navigator.epub.css.FontStyle
 import org.readium.r2.navigator.epub.css.FontWeight
@@ -8,9 +9,12 @@ import org.readium.r2.shared.DelicateReadiumApi
 import org.readium.r2.shared.ExperimentalReadiumApi
 
 @OptIn(ExperimentalReadiumApi::class, DelicateReadiumApi::class)
-internal fun epubNavigatorFragmentConfiguration(): EpubNavigatorFragment.Configuration =
+internal fun epubNavigatorFragmentConfiguration(
+    selectionActionModeCallback: ActionMode.Callback? = null,
+): EpubNavigatorFragment.Configuration =
     EpubNavigatorFragment.Configuration(
         shouldApplyInsetsPadding = false,
+        selectionActionModeCallback = selectionActionModeCallback,
     ).apply {
         useReadiumCssFontSize = false
         servedAssets += "fonts/.*"

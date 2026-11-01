@@ -289,7 +289,7 @@ internal fun ReadiumEpubNavigatorHost(
                     }
                 }
             },
-            configuration = epubNavigatorFragmentConfiguration(),
+            configuration = epubNavigatorFragmentConfiguration(curlHost.selectionActionModeCallback),
         )
         val fragment = fragmentFactory.instantiate(
             activity.classLoader,

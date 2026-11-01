@@ -4,8 +4,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntRect
 import kotlin.math.PI
 import kotlin.math.abs
-import kotlin.math.pow
-import kotlin.math.sign
 import kotlin.math.sin
 
 enum class PageCurlFollow {
@@ -33,14 +31,8 @@ data class PageCurlTurn(
     private val maxRadius: Float
         get() = sheet.width * DefaultPageCurlMaxRadiusFraction
 
-    /**
-     * The point of the leaf a finger touching at [touchY] picks up. Edge turns take it nearer the
-     * closest corner, so an off-centre grab leads with that corner like a real page.
-     */
-    fun grabPoint(touchY: Float): Offset = when (follow) {
-        PageCurlFollow.Edge -> sheet.grabPoint(cornerBiasedY(touchY))
-        PageCurlFollow.Fold -> sheet.grabPoint(touchY)
-    }
+    /** Manual grabs keep the finger's height; corner lift belongs to automatic turns only. */
+    fun grabPoint(touchY: Float): Offset = sheet.grabPoint(touchY)
 
     fun restingEdge(grab: Offset): Offset = when (follow) {
         PageCurlFollow.Edge -> grab
@@ -156,16 +148,6 @@ data class PageCurlTurn(
         return fold.coerceAtMost(sheet.width)
     }
 
-    private fun cornerBiasedY(
-        touchY: Float,
-    ): Float {
-        val halfHeight = (sheet.bottom - sheet.top) / 2f
-        if (halfHeight <= 0f) return touchY
-        val center = sheet.top + halfHeight
-        val fromCenter = ((touchY - center) / halfHeight).coerceIn(-1f, 1f)
-        return center + halfHeight * sign(fromCenter) * abs(fromCenter).pow(CornerBiasExponent)
-    }
-
     /** Off-centre automatic turns lead with their corner, like a real page picked up low or high. */
     private fun cornerLiftSlope(
         grab: Offset,
@@ -233,14 +215,14 @@ private fun catchUpRemaining(
     distance: Float,
 ): Float {
     if (distance <= 0f) return 0f
-    val left = 1f - (travel / distance).coerceIn(0f, 1f)
-    return left * left
+    // Linear catch-up bounds the initial horizontal gain at 2x; the former quadratic lead
+    // accelerated the edge to 3x the finger speed at pickup.
+    return 1f - (travel / distance).coerceIn(0f, 1f)
 }
 
 private const val CornerLiftSlope = 0.22f
 private const val PageCurlCommitProgressThreshold = 0.25f
 private const val PageCurlCommitVelocityThreshold = 1.0f
-private const val CornerBiasExponent = 0.7f
 private const val HalfPi = (PI / 2).toFloat()
 private const val MinimumSettleDurationMillis = 140
 private const val SettleDurationRangeMillis = 220

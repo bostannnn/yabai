@@ -19,22 +19,21 @@ class PageCurlTurnTest {
 
         assertEquals(grab.x, atStart.x, 0.01f)
         assertEquals(grab.y, atStart.y, 0.01f)
-        // Halfway through the catch-up a quarter of the 100 px lead is left: the edge moved 75 px
-        // while the finger moved 50.
-        assertEquals(375f, halfway.x, 0.01f)
+        // Catch-up has a bounded 2x gain, then tracks the finger one-to-one.
+        assertEquals(400f, halfway.x, 0.01f)
         assertEquals(250f, caughtUp.x, 0.01f)
         assertEquals(280f, caughtUp.y, 0.01f)
     }
 
     @Test
-    fun `off centre grabs pick the page up nearer the corner so the corner leads`() {
+    fun `off centre manual grabs preserve the finger height`() {
         val turn = sampleTurn(follow = PageCurlFollow.Edge)
         val grab = turn.grabPoint(450f)
         val start = Offset(480f, 450f)
 
         val edge = turn.edgeForFinger(grab = grab, start = start, finger = Offset(200f, 450f))
 
-        assertTrue("grab should sit below the touch, was ${grab.y}", grab.y > 450f)
+        assertEquals(450f, grab.y, 0.01f)
         assertEquals(300f, turn.grabPoint(300f).y, 0.01f)
         assertEquals(200f, edge.x, 0.01f)
         assertEquals(450f, edge.y, 0.01f)

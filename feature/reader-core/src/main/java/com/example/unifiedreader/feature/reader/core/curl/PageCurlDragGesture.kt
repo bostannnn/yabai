@@ -3,197 +3,157 @@ package com.example.unifiedreader.feature.reader.core.curl
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
 import androidx.compose.ui.unit.Velocity
 import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /** A turn the finger is driving: the leaf and the point of it the finger picked up. */
 interface PageCurlDrag {
     val turn: PageCurlTurn
     val grab: Offset
+
+    /** False if preparing the page failed. No turn may commit before its images are ready. */
+    suspend fun awaitReady(): Boolean = true
 }
 
 /**
- * Turns pages with a horizontal drag. Pointer events are watched before the content sees them; once a
- * drag passes the touch slop toward a page, [startTurn] decides whether it curls (null leaves the
- * gesture to the content), and from then on the leaf follows the finger and the content gets nothing.
- * On release the leaf settles on the target or back at rest, [onTurnSettled] runs with which, and
- * [onTurnEnded] always runs last. Vertical drags and multi-touch stay with the content. With
- * [yieldToLongPress], a press held still past the long-press timeout starts text selection: it and
- * every gesture after it stay with the content (dragging the selection handles) until a plain tap,
- * which is also what dismisses the selection.
+ * Owns horizontal swipes in curl mode. Preparing/settling turns are serialized with taps, while
+ * pointer samples keep arriving, so a quick second swipe is retained rather than discarded.
+ * Vertical gestures, selection handles and long presses stay with the content. A long press only
+ * yields its own gesture; [isSelectingText] supplies the content's actual selection state.
  */
 fun Modifier.pageCurlDragGesture(
     enabled: Boolean,
     rightToLeft: Boolean,
     state: PageCurlState,
     gestureScope: CoroutineScope,
-    isTurnActive: () -> Boolean,
-    startTurn: (target: PageCurlTarget, down: Offset) -> PageCurlDrag?,
+    turner: PageCurlTapTurner,
+    canStartTurn: (PageCurlTarget) -> Boolean = { true },
+    startTurn: suspend (target: PageCurlTarget, down: Offset) -> PageCurlDrag?,
     onTurnSettled: suspend (drag: PageCurlDrag, committed: Boolean) -> Unit,
     onTurnEnded: (drag: PageCurlDrag) -> Unit,
     yieldToLongPress: Boolean = false,
+    isSelectingText: () -> Boolean = { false },
     vararg keys: Any?,
-): Modifier = pointerInput(enabled, rightToLeft, state, gestureScope, yieldToLongPress, *keys) {
-    var openDrag: PageCurlDrag? = null
-    var finishJob: Job? = null
-    var selectingText = false
+): Modifier = composed {
+    // Page navigation changes these callbacks, not the lifetime of an in-flight/queued gesture.
+    val latestStart by rememberUpdatedState(startTurn)
+    val latestCanStart by rememberUpdatedState(canStartTurn)
+    val latestSettled by rememberUpdatedState(onTurnSettled)
+    val latestEnded by rememberUpdatedState(onTurnEnded)
+    val latestSelectingText by rememberUpdatedState(isSelectingText)
 
-    try {
-        awaitEachGesture {
-            val firstDown = awaitFirstDown(
-                requireUnconsumed = false,
-                pass = PointerEventPass.Initial,
-            )
-            val blocked = openDrag != null || finishJob?.isActive == true || isTurnActive()
-            if (blocked) {
-                firstDown.consume()
-            }
-            val velocityTracker = VelocityTracker().apply {
-                addPointerInputChange(firstDown)
-            }
-            var accumulatedDrag = Offset.Zero
-            var activeDrag: PageCurlDrag? = null
-            // Where the finger was when the turn started; the page follows the drag from there.
-            var turnStart = firstDown.position
-            val startedSelectingText = selectingText
-            var yielded = blocked || !enabled || startedSelectingText
-            var movedPastSlop = false
-            var longPressed = false
+    pointerInput(enabled, rightToLeft, state, gestureScope, turner, yieldToLongPress, *keys) {
+        val jobs = mutableSetOf<Job>()
+        try {
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                val startedBusy = enabled && turner.isBusy
+                if (startedBusy) down.consume()
+                val velocityTracker = VelocityTracker().apply { addPointerInputChange(down) }
+                var yielded = !enabled || latestSelectingText()
+                var movedPastSlop = false
+                var request: PageCurlDragRequest? = null
+                var requestJob: Job? = null
 
-            while (true) {
-                val event = awaitPointerEvent(pass = PointerEventPass.Initial)
-                if (blocked || activeDrag != null) {
-                    event.changes.forEach { change -> change.consume() }
-                }
-                val change = event.changes.firstOrNull { it.id == firstDown.id }
-                    ?: event.changes.firstOrNull()
-                if (event.changes.count { it.pressed } > 1 && activeDrag == null) {
-                    yielded = true
-                }
-                val drag = activeDrag
-                if (change != null && drag == null) {
-                    // A finger held still sends no events, so the hold is judged on the first one after
-                    // it, before that event's own movement counts.
-                    if (yieldToLongPress && !movedPastSlop &&
-                        change.uptimeMillis - firstDown.uptimeMillis > viewConfiguration.longPressTimeoutMillis
-                    ) {
-                        longPressed = true
-                        selectingText = true
-                        yielded = true
-                    }
-                    accumulatedDrag += change.position - change.previousPosition
-                    movedPastSlop = movedPastSlop || accumulatedDrag.getDistance() > viewConfiguration.touchSlop
-                }
-                if (change != null && drag == null && !yielded) {
-                    val target = resolvePageCurlTarget(
-                        horizontalDrag = accumulatedDrag.x,
-                        rightToLeft = rightToLeft,
-                        touchSlop = viewConfiguration.touchSlop,
-                    )
-                    val isMostlyVertical = abs(accumulatedDrag.y) > viewConfiguration.touchSlop &&
-                        abs(accumulatedDrag.y) > abs(accumulatedDrag.x)
-                    when {
-                        isMostlyVertical -> yielded = true
-                        target != null -> {
-                            val started = startTurn(target, firstDown.position)
-                            if (started == null) {
-                                yielded = true
-                            } else {
-                                turnStart = change.position
-                                state.snapTo(started.turn.restingEdge(started.grab))
-                                activeDrag = started
-                                openDrag = started
-                                if (change.positionChanged()) {
-                                    change.consume()
+                try {
+                    while (true) {
+                        val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                        val change = event.changes.firstOrNull { it.id == down.id }
+                        val multiplePointers = event.changes.count { it.pressed } > 1
+                        // Compose represents ACTION_CANCEL as consumed synthetic up events.
+                        // Check before consuming our own event, or cancellation looks like a flick.
+                        val cancelled = change?.isConsumed == true && request != null
+                        if (multiplePointers || change == null || cancelled) {
+                            yielded = true
+                            requestJob?.cancel()
+                        }
+                        if (change != null && !cancelled) {
+                            velocityTracker.addPointerInputChange(change)
+                            val movement = change.position - down.position
+                            if (request == null && !yielded) {
+                                if (yieldToLongPress && !movedPastSlop &&
+                                    change.uptimeMillis - down.uptimeMillis > viewConfiguration.longPressTimeoutMillis
+                                ) {
+                                    yielded = true
+                                }
+                                movedPastSlop = movedPastSlop || movement.getDistance() > viewConfiguration.touchSlop
+                                // Re-check because Android may start selection after the initial down.
+                                if (latestSelectingText()) yielded = true
+                                val vertical = abs(movement.y) > viewConfiguration.touchSlop &&
+                                    abs(movement.y) > abs(movement.x) * 1.5f
+                                if (vertical) yielded = true
+                                val target = resolvePageCurlTarget(movement.x, rightToLeft, viewConfiguration.touchSlop)
+                                if (target != null && !startedBusy && !latestCanStart(target)) yielded = true
+                                if (!yielded && target != null) {
+                                    val input = PageCurlDragRequest(
+                                        target = target,
+                                        down = down.position,
+                                        start = pageCurlDragStart(down.position, change.position, viewConfiguration.touchSlop),
+                                        finger = change.position,
+                                    )
+                                    request = input
+                                    val job = gestureScope.launch(start = CoroutineStart.LAZY) {
+                                        turner.withTurn {
+                                            val settle = latestSettled
+                                            val end = latestEnded
+                                            val drag = latestStart(input.target, input.down) ?: return@withTurn
+                                            drivePageCurlDrag(input, drag, state, settle, end)
+                                        }
+                                    }
+                                    jobs += job
+                                    job.invokeOnCompletion { jobs -= job }
+                                    requestJob = job
+                                    job.start()
                                 }
                             }
+                            val maximum = viewConfiguration.maximumFlingVelocity
+                            request?.sample?.value = PageCurlDragSample(
+                                finger = change.position,
+                                released = !change.pressed,
+                                horizontalVelocity = if (change.pressed) 0f else velocityTracker.calculateVelocity(
+                                    maximumVelocity = Velocity(maximum, maximum),
+                                ).x,
+                            )
                         }
+                        if (startedBusy || request != null) event.changes.forEach { it.consume() }
+                        if (event.changes.none { it.pressed }) break
                     }
-                } else if (change != null && drag != null) {
-                    state.snapTo(
-                        drag.turn.edgeForFinger(
-                            grab = drag.grab,
-                            start = turnStart,
-                            finger = change.position,
-                        ),
-                    )
-                    if (change.positionChanged()) {
-                        change.consume()
-                    }
-                }
-
-                if (event.changes.count { it.pressed } == 1) {
-                    event.changes.firstOrNull { it.pressed }?.let(velocityTracker::addPointerInputChange)
-                }
-                if (event.changes.all { change -> !change.pressed || change.changedToUpIgnoreConsumed() }) {
-                    break
-                }
-            }
-
-            val drag = activeDrag
-            if (drag == null) {
-                if (startedSelectingText && !movedPastSlop && !longPressed) {
-                    selectingText = false
-                }
-                return@awaitEachGesture
-            }
-            val maximumVelocity = viewConfiguration.maximumFlingVelocity
-            val horizontalVelocity = velocityTracker.calculateVelocity(
-                maximumVelocity = Velocity(maximumVelocity, maximumVelocity),
-            ).x
-            finishJob = gestureScope.launch {
-                try {
-                    val turn = drag.turn
-                    val releasedEdge = state.edge
-                    val commit = shouldCommitPageCurl(
-                        progress = turn.commitProgress(grab = drag.grab, edge = releasedEdge),
-                        velocity = turn.commitVelocity(horizontalVelocity),
-                    )
-                    val settledEdge = if (commit) turn.committedEdge(drag.grab) else turn.restingEdge(drag.grab)
-                    state.animateTo(
-                        target = settledEdge,
-                        durationMillis = turn.settleDurationMillis(from = releasedEdge, to = settledEdge),
-                    )
-                    onTurnSettled(drag, commit)
                 } finally {
-                    openDrag = null
-                    finishJob = null
-                    onTurnEnded(drag)
-                    state.reset()
+                    if (request?.sample?.value?.released != true) requestJob?.cancel()
                 }
             }
-        }
-    } finally {
-        // The gesture was torn down mid-turn (keys changed, or the node left the composition).
-        val drag = openDrag
-        if (drag != null && finishJob?.isActive != true) {
-            openDrag = null
-            gestureScope.launch {
-                onTurnEnded(drag)
-                state.reset()
-            }
+        } finally {
+            // A layout/mode change or disposal must also cancel preparation and restore the page.
+            jobs.toList().forEach { it.cancel() }
         }
     }
 }
 
-/** Lets tap navigation play a curl instead of the content's own page change. */
+/** Serializes tap and drag turns against the same navigator. */
 @Stable
 class PageCurlTapTurner {
+    private val turns = Mutex()
     var turnHandler: (suspend (PageCurlTarget) -> Boolean)? = null
+    val isBusy: Boolean get() = turns.isLocked
 
-    /** True when the tap was handled: played as a curl, or ignored because a turn is in progress. */
-    suspend fun turn(
-        target: PageCurlTarget,
-    ): Boolean = turnHandler?.invoke(target) ?: false
+    internal suspend fun <T> withTurn(block: suspend () -> T): T = turns.withLock { block() }
+
+    suspend fun turn(target: PageCurlTarget): Boolean = withTurn {
+        turnHandler?.invoke(target) ?: false
+    }
 }

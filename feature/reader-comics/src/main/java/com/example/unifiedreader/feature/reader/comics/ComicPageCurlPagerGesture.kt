@@ -2,7 +2,6 @@ package com.example.unifiedreader.feature.reader.comics
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.toRect
 import com.example.unifiedreader.feature.reader.core.curl.PageCurlTapGrabFraction
 import com.example.unifiedreader.feature.reader.core.curl.PageCurlTarget
 
@@ -16,24 +15,21 @@ internal fun resolveComicPageCurlGestureStartPolicy(
     hasCurrentComposite: Boolean,
     hasUnderneathComposite: Boolean,
     sheetBounds: IntRect?,
-    downPosition: Offset,
     transitionPolicy: ComicPageCurlTransitionPolicy = ComicPageCurlTransitionPolicy.UseCurl,
 ): ComicPageCurlGestureStartPolicy {
     if (targetSpreadIndex == null) return ComicPageCurlGestureStartPolicy.YieldToPager
-    if (transitionPolicy != ComicPageCurlTransitionPolicy.UseCurl) {
+    if (transitionPolicy == ComicPageCurlTransitionPolicy.YieldToPager) {
         return ComicPageCurlGestureStartPolicy.YieldToPager
     }
     if (!hasCurrentComposite || !hasUnderneathComposite || sheetBounds == null || sheetBounds.isEmpty) {
         return ComicPageCurlGestureStartPolicy.YieldToPager
     }
-    return if (sheetBounds.toRect().contains(downPosition)) {
-        ComicPageCurlGestureStartPolicy.StartCurl
-    } else {
-        ComicPageCurlGestureStartPolicy.YieldToPager
-    }
+    // The whole reader surface is a navigation target, including letterbox margins and the
+    // facing page. The down point chooses the grab height, not the animation style.
+    return ComicPageCurlGestureStartPolicy.StartCurl
 }
 
-/** Resolves a curl turn for [target], or null when the pager should handle it instead. */
+/** Resolves a curl turn for [target], or null if its pages/geometry are unavailable. */
 internal fun startComicPageCurlInteraction(
     target: PageCurlTarget,
     currentSpreadIndex: Int,
@@ -63,7 +59,6 @@ internal fun startComicPageCurlInteraction(
         hasCurrentComposite = currentComposite != null,
         hasUnderneathComposite = adjacentComposite != null,
         sheetBounds = turn?.paperBounds,
-        downPosition = downPosition ?: turn?.paperBounds?.center() ?: Offset.Zero,
         transitionPolicy = if (turn != null) {
             ComicPageCurlTransitionPolicy.UseCurl
         } else {
@@ -84,8 +79,3 @@ internal fun startComicPageCurlInteraction(
         adjacentPage = checkNotNull(adjacentComposite).image,
     )
 }
-
-private fun IntRect.center(): Offset = Offset(
-    x = left + width / 2f,
-    y = top + height / 2f,
-)

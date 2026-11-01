@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -15,6 +16,8 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
+import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.junit.Rule
@@ -25,6 +28,35 @@ import org.junit.runner.RunWith
 class ComicsReaderPageCountRetentionTest {
     @get:Rule
     val composeRule = createAndroidComposeRule<ComponentActivity>()
+
+    @Test
+    fun curlWaitsForAdjacentImageAndAcceptsSwipesFromTheMargin() {
+        val item = testReaderItem(pageCount = 3)
+        val adjacentReady = CompletableDeferred<Unit>()
+        val pageSource = MutableFlowComicPageSource(3, adjacentReady)
+        composeRule.setContent {
+            MaterialTheme {
+                ComicsReaderScreen(
+                    item = item,
+                    pageSource = pageSource,
+                    progressStore = TestProgressStore(),
+                    preferencesStore = SinglePagePreferencesStore(PageTurnStyle.Curl),
+                    onBack = {},
+                )
+            }
+        }
+        composeRule.waitForText("1 / 3")
+        composeRule.onNodeWithTag(comicGestureSurfaceTag("spread-0-full")).performTouchInput {
+            down(Offset(width - 2f, height * 0.5f))
+            moveTo(Offset(2f, height * 0.5f), delayMillis = 100)
+            up()
+        }
+        composeRule.waitForText("1 / 3")
+        composeRule.runOnIdle { adjacentReady.complete(Unit) }
+        composeRule.waitForText("2 / 3", timeoutMillis = 10_000)
+        composeRule.onNodeWithTag(comicGestureSurfaceTag("spread-1-full")).performTouchInput { swipeLeft() }
+        composeRule.waitForText("3 / 3", timeoutMillis = 10_000)
+    }
 
     @Test
     fun reader_preserves_current_page_when_observed_page_count_changes() {
@@ -74,7 +106,10 @@ private class TestProgressStore : ComicReaderProgressStore {
     ) = Unit
 }
 
-private class SinglePagePreferencesStore : ComicReaderPreferencesStore {
+private class SinglePagePreferencesStore(
+    private val turnStyle: PageTurnStyle = PageTurnStyle.Slide,
+) : ComicReaderPreferencesStore {
+    override fun loadPageTurnStyle(item: ReadableItem): PageTurnStyle = turnStyle
     override val isHydratedFlow: StateFlow<Boolean> = MutableStateFlow(true)
     override val savedPreferencesFlow: StateFlow<Map<String, ComicReaderPreferencesSnapshot>> =
         MutableStateFlow(emptyMap())
@@ -86,6 +121,7 @@ private class SinglePagePreferencesStore : ComicReaderPreferencesStore {
 
 private class MutableFlowComicPageSource(
     initialPageCount: Int,
+    private val adjacentReady: CompletableDeferred<Unit>? = null,
 ) : ComicPageSource {
     private val pagesState = MutableStateFlow(readerPageSpecs(pageCount = initialPageCount))
     private val imagesById = mutableMapOf<String, androidx.compose.ui.graphics.ImageBitmap>()
@@ -98,13 +134,16 @@ private class MutableFlowComicPageSource(
         item: ReadableItem,
         page: ComicPageSpec,
         priority: ComicPageLoadPriority,
-    ): ComicPageLoadResult = ComicPageLoadResult.Success(
+    ): ComicPageLoadResult {
+        if (page.pageIndex > 0) adjacentReady?.await()
+        return ComicPageLoadResult.Success(
         imagesById.getOrPut(page.id) {
             Bitmap.createBitmap(32, 48, Bitmap.Config.ARGB_8888).apply {
                 eraseColor(android.graphics.Color.rgb((page.pageIndex * 40) % 255, 40, 120))
             }.asImageBitmap()
         },
-    )
+        )
+    }
 
     fun setPageCount(pageCount: Int) {
         pagesState.value = readerPageSpecs(pageCount = pageCount)
