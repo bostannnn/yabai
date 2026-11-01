@@ -110,6 +110,8 @@ data class AppUiState(
     val displayRatingByItemId: Map<String, LibraryRatingBadgeState> = emptyMap(),
     val displayPageCountByItemId: Map<String, Int> = emptyMap(),
     val remoteDownloadActionAvailability: RemoteDownloadActionAvailability = RemoteDownloadActionAvailability(),
+    // The badge maps above are a full compute's (download availability included); see LibraryDerivedState.hasAllBadges.
+    val libraryHasAllBadges: Boolean = false,
     val visibleItems: List<ReadableItem> = emptyList(),
     val libraryBrowseContextKey: String = "",
     // Ordered item ids restored from the last-rendered cold-start view, per source. Applied only

@@ -186,6 +186,9 @@ fun LibraryScreen(
     // Must stay false for the large non-paged views (other sources, filtered-runtime) — resolving the
     // whole in-memory list would be wasteful.
     resolveWindowBadgesForVisibleItems: Boolean = false,
+    // False once the recompute's badge maps are complete (download availability included): the window
+    // lookup then has nothing to add.
+    windowBadgesNeeded: Boolean = true,
 ) {
     val pagedItems = pagedGridItems?.collectAsLazyPagingItems()
     val isPaged = pagedItems != null
@@ -231,6 +234,7 @@ fun LibraryScreen(
                 deletableDownloadedItemIds,
                 downloadingItemIds,
             ),
+            isNeeded = windowBadgesNeeded,
         )
     } else {
         LibraryWindowBadges()
