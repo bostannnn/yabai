@@ -101,33 +101,38 @@ class AppListsViewModel @Inject constructor(
      */
     var catalog: Map<String, ReadableItem> = emptyMap()
 
+    /** The lists' catalog-wide part as last worked out, shown at once when a screen of lists opens again. */
+    internal var catalogData: ListsCatalogData? = null
+
     /** Books Keep the next 3 downloaded has queued in this run of the app, so each is asked for once. */
     val keepDownloadedAsked: MutableSet<String> = HashSet()
 
+    // These start with the app and stay on (small tables and preferences), so the Lists and Journal tabs
+    // never open on their empty first values and fill in a moment later.
     val lists: StateFlow<List<UserList>> = store.lists.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+        started = SharingStarted.Eagerly,
         initialValue = emptyList(),
     )
 
     /** The servers' lists as last read (Kavita's reading lists, Grimmory's shelves); null until the database has answered. */
     val shelves: StateFlow<List<ServerShelf>?> = serverLists.lists.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+        started = SharingStarted.Eagerly,
         initialValue = null,
     )
 
     /** What this device keeps about each list (pinned, hidden, last opened), by list id. */
     val preferences: StateFlow<Map<String, ListPreference>> = listPreferences.preferences.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+        started = SharingStarted.Eagerly,
         initialValue = emptyMap(),
     )
 
     /** The Lists screen's choices: each place's kind, sort and Show as, and what it shows. */
     val choices: StateFlow<ListsChoices> = listPreferences.choices.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+        started = SharingStarted.Eagerly,
         initialValue = ListsChoices(),
     )
 
@@ -155,7 +160,7 @@ class AppListsViewModel @Inject constructor(
     /** The lists read to the end, as the journal keeps them; null until the database has answered. */
     val finishedLists: StateFlow<List<FinishedList>?> = store.finishedLists.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+        started = SharingStarted.Eagerly,
         initialValue = null,
     )
 

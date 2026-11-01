@@ -313,6 +313,7 @@ fun UnifiedReaderScaffold(
     LaunchedEffect(knownConnectedServers) {
         knownConnectedServers?.let(viewModel::recordConnectedSources)
     }
+    val warmJournalSnapshot = rememberWarmJournalSnapshot(viewModel, uiState)
     SourceNavigationFrame(
         drawerState = drawerState,
         sourceOrder = navigationSources(uiState.sourceOrder, connectedServers),
@@ -481,12 +482,11 @@ fun UnifiedReaderScaffold(
 
                             TopLevelDestination.Journal -> {
                                 // The heavy full journal snapshot (stats/timelines/catalog join) is
-                                // built while the Journal tab is on screen and kept a little after;
-                                // until the first one, the lightweight write-state stands in (the
-                                // journal shows its books as loading).
-                                val journalSnapshot by viewModel.journalFullSnapshotFlow.collectAsStateWithLifecycle()
+                                // built in the background once the library has loaded (see
+                                // rememberWarmJournalSnapshot); until the first one, the lightweight
+                                // write-state stands in (the journal shows its books as loading).
                                 JournalScreen(
-                                    snapshot = journalSnapshot ?: uiState.journalSnapshot,
+                                    snapshot = warmJournalSnapshot?.value ?: uiState.journalSnapshot,
                                     coverImageUrlProvider = viewModel::coverImageUrlFor,
                                     onCoverVisible = viewModel::ensureCoverCached,
                                     onDeleteItemJournal = viewModel::deleteItemJournal,
