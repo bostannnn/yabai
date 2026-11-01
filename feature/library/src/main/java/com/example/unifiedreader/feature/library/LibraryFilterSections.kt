@@ -186,8 +186,8 @@ internal fun LibraryFilterTopChipsSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = AppLayout.inset),
-            horizontalArrangement = Arrangement.spacedBy(ChipGap),
-            verticalArrangement = Arrangement.spacedBy(ChipGap),
+            horizontalArrangement = Arrangement.spacedBy(AppLayout.headingGap),
+            verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap),
         ) {
             chips.forEach { option ->
                 AppChip(
@@ -341,7 +341,6 @@ private val SpineGap = 1.dp
 private val SpineCorner = 1.dp
 private val SpineHeights = listOf(14.dp, 16.dp, 18.dp)
 private val CheckIconSize = 18.dp
-private val ChipGap = 8.dp
 private val FindRowStart = 8.dp
 private val FindRowGap = 4.dp
 private val ShowAllStart = 8.dp

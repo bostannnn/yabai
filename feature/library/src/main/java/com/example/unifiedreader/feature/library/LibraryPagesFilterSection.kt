@@ -21,7 +21,6 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryPageHistogram
 import com.example.unifiedreader.core.model.LibraryPageRange
@@ -30,6 +29,7 @@ import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.AppRangeSlider
 import com.example.unifiedreader.ui.components.AppSettingsRow
 import com.example.unifiedreader.ui.components.AppSheetLabel
+import com.example.unifiedreader.ui.components.AppSheetSectionEnd
 import com.example.unifiedreader.ui.components.AppSliderScale
 import com.example.unifiedreader.ui.components.AppSwitch
 import com.example.unifiedreader.ui.components.AppTextField
@@ -58,7 +58,7 @@ internal fun LibraryPagesFilterSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = AppLayout.inset),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap),
         ) {
             AppHistogram(
                 counts = histogram.bars,
@@ -76,8 +76,8 @@ internal fun LibraryPagesFilterSection(
                 },
             )
             AppSliderScale(marks = LibraryPageScaleMarks)
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Spacer(modifier = Modifier.height(AppLayout.headingGap))
+            Row(horizontalArrangement = Arrangement.spacedBy(AppLayout.gridGap)) {
                 LibraryPageBoundField(
                     label = "From",
                     placeholder = "0",
@@ -108,7 +108,7 @@ internal fun LibraryPagesFilterSection(
                 },
             )
         } else {
-            Spacer(modifier = Modifier.height(14.dp))
+            AppSheetSectionEnd()
         }
     }
 }

@@ -53,6 +53,7 @@ import com.example.unifiedreader.ui.components.AppScreenHost
 import com.example.unifiedreader.ui.components.AppScreenTransition
 import com.example.unifiedreader.ui.components.AppSearchField
 import com.example.unifiedreader.ui.components.AppSheetDivider
+import com.example.unifiedreader.ui.components.AppSheetSectionEnd
 import com.example.unifiedreader.ui.components.AppSheetLabel
 import com.example.unifiedreader.ui.components.AppSideSheet
 import com.example.unifiedreader.ui.components.AppTextButton
@@ -336,9 +337,9 @@ private fun LibraryFilterOverview(
                                 FlowRow(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(start = AppLayout.inset, end = AppLayout.inset, bottom = SectionBottomPadding),
-                                    horizontalArrangement = Arrangement.spacedBy(ChipGap),
-                                    verticalArrangement = Arrangement.spacedBy(ChipGap),
+                                        .padding(horizontal = AppLayout.inset),
+                                    horizontalArrangement = Arrangement.spacedBy(AppLayout.headingGap),
+                                    verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap),
                                 ) {
                                     libraryFilterChipOptions(panel, filterState, filterFacets).forEach { option ->
                                         AppChip(
@@ -387,6 +388,10 @@ private fun LibraryFilterOverview(
                                 enabled = true,
                                 onClick = { onOpenPage(panel) },
                             )
+                        }
+                        // Pages ends itself: with its switch row, or with this space.
+                        if (panel.sectionStyle != LibraryFilterSectionStyle.Row && panel.sectionStyle != LibraryFilterSectionStyle.Slider) {
+                            AppSheetSectionEnd()
                         }
                     }
                 }
@@ -517,8 +522,6 @@ private val LibraryFilterSheetButtonHeight = 46.dp
 private val DockedPanelBorder = 1.dp
 private val FooterVerticalPadding = 12.dp
 private val OverviewBottomPadding = 8.dp
-private val SectionBottomPadding = 14.dp
-private val ChipGap = 8.dp
 private val FacetRowVerticalPadding = 6.dp
 private val FacetSummaryMaxWidth = 168.dp
 private const val DisabledFacetRowAlpha = 0.38f

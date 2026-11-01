@@ -1,6 +1,8 @@
 package com.example.unifiedreader.ui.components
 
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -72,4 +74,14 @@ fun AppSheetDivider(modifier: Modifier = Modifier) {
         modifier = modifier.padding(horizontal = AppLayout.inset),
         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AppDividerDefaults.alpha),
     )
+}
+
+/**
+ * The space that ends a sheet section's body (its chips, value rows or slider) before the next
+ * [AppSheetDivider], the same under every kind of section. A section that ends in a row, which
+ * carries its own padding, leaves it out.
+ */
+@Composable
+fun AppSheetSectionEnd(modifier: Modifier = Modifier) {
+    Spacer(modifier = modifier.height(AppLayout.gridGap))
 }
