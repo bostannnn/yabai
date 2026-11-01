@@ -44,7 +44,7 @@ import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Kavita's "Refresh library" in the top bar's menu. */
+/** "Refresh library" in the top bar's menu, on a server. */
 data class LibraryRefreshAction(
     val enabled: Boolean,
     val refreshing: Boolean,
@@ -52,7 +52,7 @@ data class LibraryRefreshAction(
 )
 
 /**
- * The library top bar's "•••": Import a file and, on Kavita, Refresh library. With [showSelectionTip]
+ * The library top bar's "•••": Import a file and, on a server, Refresh library. With [showSelectionTip]
  * it also explains, under the items, that a long-press selects books. The button turns a ring
  * while the library refreshes.
  */

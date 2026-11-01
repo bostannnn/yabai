@@ -146,15 +146,16 @@ class AppRemoteSourcesCoordinator @Inject constructor(
         grimmoryController.connect(stateProvider, updateState, scope)
     }
 
+    /** The library's Refresh library, by hand or by itself: each server's light refresh, in place. */
     fun refreshSelectedRemoteLibrary(
         stateProvider: AppUiStateProvider,
         updateState: AppUiStateUpdater,
         scope: CoroutineScope,
     ) {
         when (stateProvider().selectedSource) {
-            SourceType.KAVITA -> kavitaController.refresh(stateProvider, updateState, scope)
-            SourceType.STUMP -> stumpController.refresh(stateProvider, updateState, scope)
-            SourceType.GRIMMORY -> grimmoryController.refresh(stateProvider, updateState, scope)
+            SourceType.KAVITA -> kavitaController.fastRefresh(stateProvider, updateState, scope, preserveLibraryContext = true)
+            SourceType.STUMP -> stumpController.refresh(stateProvider, updateState, scope, inPlace = true)
+            SourceType.GRIMMORY -> grimmoryController.refresh(stateProvider, updateState, scope, inPlace = true)
             SourceType.LOCAL -> Unit
         }
     }

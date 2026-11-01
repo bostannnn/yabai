@@ -464,6 +464,7 @@ internal fun createViewModel(
             libraryStateAssembler = libraryStateAssembler,
             readerSessionStore = readerSessionStore,
         ),
+        libraryAutoRefreshCoordinator = AppLibraryAutoRefreshCoordinator(sourceSyncTimes),
     )
 }
 
@@ -814,6 +815,18 @@ class FakeGrimmoryCatalogSyncer(
     ): GrimmoryCatalogSyncResult {
         lastRequest = request
         lastSyncRequest = request
+        failure?.let { throw it }
+        return result
+    }
+
+    var refreshCount = 0
+
+    override suspend fun refresh(
+        request: GrimmoryCatalogSyncRequest,
+        onProgress: (GrimmorySyncProgress) -> Unit,
+    ): GrimmoryCatalogSyncResult {
+        lastRequest = request
+        refreshCount += 1
         failure?.let { throw it }
         return result
     }

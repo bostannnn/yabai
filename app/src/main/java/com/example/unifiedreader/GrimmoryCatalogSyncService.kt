@@ -30,6 +30,15 @@ interface GrimmoryCatalogSyncer {
         request: GrimmoryCatalogSyncRequest,
         onProgress: (GrimmorySyncProgress) -> Unit = {},
     ): GrimmoryCatalogSyncResult
+
+    /**
+     * The library's refresh: the same catalog as [sync], but it saves only the books that changed
+     * (nothing when none did) and leaves loading the journal's reading history to [sync].
+     */
+    suspend fun refresh(
+        request: GrimmoryCatalogSyncRequest,
+        onProgress: (GrimmorySyncProgress) -> Unit = {},
+    ): GrimmoryCatalogSyncResult = sync(request, onProgress)
 }
 
 class GrimmoryCatalogSyncService(
@@ -77,6 +86,17 @@ class GrimmoryCatalogSyncService(
     override suspend fun sync(
         request: GrimmoryCatalogSyncRequest,
         onProgress: (GrimmorySyncProgress) -> Unit,
+    ): GrimmoryCatalogSyncResult = syncCatalog(request, onProgress, refresh = false)
+
+    override suspend fun refresh(
+        request: GrimmoryCatalogSyncRequest,
+        onProgress: (GrimmorySyncProgress) -> Unit,
+    ): GrimmoryCatalogSyncResult = syncCatalog(request, onProgress, refresh = true)
+
+    private suspend fun syncCatalog(
+        request: GrimmoryCatalogSyncRequest,
+        onProgress: (GrimmorySyncProgress) -> Unit,
+        refresh: Boolean,
     ): GrimmoryCatalogSyncResult {
         val result = runWithServerAddressFailover(
             baseUrl = request.baseUrl,
@@ -132,6 +152,7 @@ class GrimmoryCatalogSyncService(
                 progressOf = GrimmoryBookCatalogEntry::progress,
                 missingRemoteClearsLocal = GrimmoryBookCatalogEntry::isExplicitUnreadReset,
                 remoteClearOverridesLocal = { false },
+                writeOnlyChanges = refresh,
             ) { items ->
                 onProgress(GrimmorySyncProgress(message = "Uploading Grimmory progress...", fraction = 0.98f))
                 val progressSync = pushDirtyProgress(
@@ -148,19 +169,22 @@ class GrimmoryCatalogSyncService(
                 )
             }
             latestSession = syncOutcome.session ?: latestSession
-            runCatching {
-                onProgress(GrimmorySyncProgress(message = "Loading Grimmory journal...", fraction = 0.99f))
-                val journalPull = pullJournalCache(
-                    api = api,
-                    initialAccessToken = activeAccessToken,
-                    initialRefreshToken = activeRefreshToken,
-                    entries = fetchResult.value.entries,
-                )
-                activeAccessToken = journalPull.accessToken
-                activeRefreshToken = journalPull.refreshToken
-                latestSession = journalPull.refreshedSession ?: latestSession
-            }.onFailure { error ->
-                if (error is CancellationException) throw error
+            // The reading sessions are one request per book read; a refresh leaves them to the sync.
+            if (!refresh) {
+                runCatching {
+                    onProgress(GrimmorySyncProgress(message = "Loading Grimmory journal...", fraction = 0.99f))
+                    val journalPull = pullJournalCache(
+                        api = api,
+                        initialAccessToken = activeAccessToken,
+                        initialRefreshToken = activeRefreshToken,
+                        entries = fetchResult.value.entries,
+                    )
+                    activeAccessToken = journalPull.accessToken
+                    activeRefreshToken = journalPull.refreshToken
+                    latestSession = journalPull.refreshedSession ?: latestSession
+                }.onFailure { error ->
+                    if (error is CancellationException) throw error
+                }
             }
             onProgress(GrimmorySyncProgress(message = "Syncing Grimmory journal...", fraction = 0.995f))
             val journalSync = pushDirtyJournalEntries(
@@ -178,6 +202,7 @@ class GrimmoryCatalogSyncService(
                 supportedFormatCounts = syncOutcome.supportedFormatCounts,
                 session = latestSession,
                 progressPushFailures = syncOutcome.progressPushFailures + journalSync.value,
+                hasCatalogChanges = syncOutcome.hasCatalogChanges,
             )
         }
         return result.value.copy(activeBaseUrl = result.activeBaseUrl)
@@ -268,4 +293,6 @@ data class GrimmoryCatalogSyncResult(
     val session: GrimmorySession? = null,
     val activeBaseUrl: String? = null,
     val progressPushFailures: List<Throwable> = emptyList(),
+    // False when a refresh found nothing to save: the library and its covers stay as they are.
+    val hasCatalogChanges: Boolean = true,
 )

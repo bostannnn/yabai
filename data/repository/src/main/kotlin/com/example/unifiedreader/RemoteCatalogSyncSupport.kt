@@ -27,6 +27,8 @@ data class RemoteCatalogSyncOutcome<Session>(
     val supportedFormatCounts: Map<FormatType, Int>,
     val session: Session?,
     val progressPushFailures: List<Throwable>,
+    // False only when a write of the changes found none, so nothing was written.
+    val hasCatalogChanges: Boolean = true,
 )
 
 data class RemoteCatalogProgressPushResult<Session>(
@@ -49,26 +51,46 @@ suspend fun <Entry, Session> finalizeRemoteCatalogSync(
     remoteClearOverridesLocal: (Entry) -> Boolean = { false },
     localRefinesRemote: (local: ProgressSyncSnapshot, remote: ReadingProgress?) -> Boolean = { _, _ -> false },
     syncGroups: List<RemoteCatalogSyncGroupEntity> = emptyList(),
+    // A library refresh: write only the books that changed (planRemoteCatalogRefresh), not the
+    // whole catalog. Needs a writer that gives its stored rows; the others replace the catalog.
+    writeOnlyChanges: Boolean = false,
     pushDirtyProgress: suspend (items: List<ReadableItem>) -> RemoteCatalogProgressPushResult<Session>,
 ): RemoteCatalogSyncOutcome<Session> {
     val libraries = fetch.libraries
     val entries = fetch.entries
     val items = entries.map(itemOf)
-    clearStaleRemoteProgress(
-        sourceType = sourceType,
-        incomingItemIds = items.mapTo(mutableSetOf(), ReadableItem::id),
-        remoteCatalogWriter = remoteCatalogWriter,
-        progressSyncStore = progressSyncStore,
-    )
-    onProgress(savingMessage, 0.92f)
-    remoteCatalogWriter.replaceSourceCatalog(
-        sourceType = sourceType,
-        libraries = libraries.map { library -> library.toEntity() },
-        items = items.map { item ->
-            item.toEntity(updatedAtEpochMillis = nowEpochMillis)
-        },
-        syncGroups = syncGroups,
-    )
+    val stored = if (writeOnlyChanges) remoteCatalogWriter.getStoredSourceCatalog(sourceType) else null
+    val hasCatalogChanges = if (stored != null) {
+        onProgress(savingMessage, 0.92f)
+        val delta = planRemoteCatalogRefresh(
+            sourceType = sourceType,
+            libraries = libraries.map { library -> library.toEntity() },
+            items = items.map { item -> item.toEntity(updatedAtEpochMillis = nowEpochMillis) },
+            stored = stored,
+        )
+        if (delta != null) {
+            remoteCatalogWriter.applySourceCatalogDelta(delta)
+            clearRemoteCatalogProgressItems(itemIds = delta.removeItemIds, progressSyncStore = progressSyncStore)
+        }
+        delta != null
+    } else {
+        clearStaleRemoteProgress(
+            sourceType = sourceType,
+            incomingItemIds = items.mapTo(mutableSetOf(), ReadableItem::id),
+            remoteCatalogWriter = remoteCatalogWriter,
+            progressSyncStore = progressSyncStore,
+        )
+        onProgress(savingMessage, 0.92f)
+        remoteCatalogWriter.replaceSourceCatalog(
+            sourceType = sourceType,
+            libraries = libraries.map { library -> library.toEntity() },
+            items = items.map { item ->
+                item.toEntity(updatedAtEpochMillis = nowEpochMillis)
+            },
+            syncGroups = syncGroups,
+        )
+        true
+    }
     onProgress(applyingProgressMessage, 0.97f)
     applyRemoteCatalogProgress(
         entries = entries,
@@ -87,6 +109,7 @@ suspend fun <Entry, Session> finalizeRemoteCatalogSync(
         supportedFormatCounts = items.groupingBy(ReadableItem::format).eachCount(),
         session = progressPushResult.session,
         progressPushFailures = progressPushResult.failures,
+        hasCatalogChanges = hasCatalogChanges,
     )
 }
 

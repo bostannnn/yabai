@@ -3,6 +3,7 @@ package com.example.unifiedreader
 import com.example.unifiedreader.core.database.entity.LibraryEntity
 import com.example.unifiedreader.core.database.entity.ReadableItemEntity
 import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEntity
+import com.example.unifiedreader.core.database.entity.toEntity
 import com.example.unifiedreader.core.model.BookMetadata
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
@@ -37,6 +38,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -161,6 +163,86 @@ class GrimmoryCatalogSyncServiceTest {
 
         assertEquals(listOf("access-token:book-1"), api.detailBookRequests)
         assertEquals("Classics\u001FFiction", writer.items.single().bookGenresJson)
+    }
+
+    @Test
+    fun `refresh after a sync with nothing new writes nothing and leaves the journal history to the sync`() = runBlocking {
+        val writer = RecordingRemoteCatalogWriter()
+        val listItem = grimmoryItem(remoteId = "book-1", libraryRemoteId = "g-books")
+        val api = FakeGrimmoryApi(
+            libraries = listOf(grimmoryLibrary("g-books")),
+            allBookEntries = listOf(
+                GrimmoryBookCatalogEntry(item = listItem, progress = null, personalRating = 8),
+                GrimmoryBookCatalogEntry(item = grimmoryItem(remoteId = "book-2", libraryRemoteId = "g-books"), progress = null),
+            ),
+            detailedBookEntries = mapOf(
+                "book-1" to GrimmoryBookCatalogEntry(
+                    item = listItem.copy(bookMetadata = BookMetadata(genres = listOf("Classics"))),
+                    progress = null,
+                ),
+            ),
+        )
+        val journalRepository = GrimmoryRecordingJournalRepository()
+        val service = GrimmoryCatalogSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            remoteCatalogWriter = writer,
+            journalRepository = journalRepository,
+            nowEpochMillis = { 1_000L },
+        )
+        val request = GrimmoryCatalogSyncRequest(
+            displayName = "Grimmory",
+            baseUrl = "https://grimmory.example/",
+            username = "user",
+            password = "password",
+        )
+        service.sync(request)
+        writer.stored = StoredRemoteCatalog(libraries = writer.libraries, items = writer.items)
+        val notebookCallsAfterSync = api.notebookAccessTokens.size
+
+        val result = service.refresh(request)
+
+        assertFalse(result.hasCatalogChanges)
+        assertEquals(1, writer.replaceCalls)
+        assertTrue(writer.deltas.isEmpty())
+        assertEquals(2, result.itemCount)
+        assertEquals(notebookCallsAfterSync, api.notebookAccessTokens.size)
+        assertEquals(1, journalRepository.replaceCount)
+    }
+
+    @Test
+    fun `refresh writes only the book added on the server`() = runBlocking {
+        val first = grimmoryItem(remoteId = "book-1", libraryRemoteId = "g-books")
+        val added = grimmoryItem(remoteId = "book-2", libraryRemoteId = "g-books", title = "New book")
+        val writer = RecordingRemoteCatalogWriter(
+            stored = StoredRemoteCatalog(
+                libraries = listOf(grimmoryLibrary("g-books").toEntity()),
+                items = listOf(first.toEntity(updatedAtEpochMillis = 5L)),
+            ),
+        )
+        val api = FakeGrimmoryApi(
+            libraries = listOf(grimmoryLibrary("g-books")),
+            allBookEntries = listOf(
+                GrimmoryBookCatalogEntry(item = first, progress = null),
+                GrimmoryBookCatalogEntry(item = added, progress = null),
+            ),
+        )
+        val service = GrimmoryCatalogSyncService(
+            grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
+            remoteCatalogWriter = writer,
+        )
+
+        val result = service.refresh(
+            GrimmoryCatalogSyncRequest(
+                displayName = "Grimmory",
+                baseUrl = "https://grimmory.example/",
+                username = "user",
+                password = "password",
+            ),
+        )
+
+        assertTrue(result.hasCatalogChanges)
+        assertEquals(0, writer.replaceCalls)
+        assertEquals(listOf(added.id), writer.deltas.single().upsertItems.map(ReadableItemEntity::id))
     }
 
     @Test
@@ -699,15 +781,24 @@ private fun grimmoryItem(
     pageCount = pageCount,
 )
 
-private class RecordingRemoteCatalogWriter : RemoteCatalogWriter {
+private class RecordingRemoteCatalogWriter(
+    // What a refresh compares with; null keeps the writer without stored rows.
+    var stored: StoredRemoteCatalog? = null,
+) : RemoteCatalogWriter {
     var replacedSourceType: SourceType? = null
     var libraries: List<LibraryEntity> = emptyList()
     var items: List<ReadableItemEntity> = emptyList()
     var sourceItems: Map<SourceType, List<ReadableItem>> = emptyMap()
+    var replaceCalls = 0
+    val deltas = mutableListOf<RemoteCatalogDelta>()
 
     override suspend fun getItemsForSourceType(
         sourceType: SourceType,
     ): List<ReadableItem> = sourceItems[sourceType].orEmpty()
+
+    override suspend fun getStoredSourceCatalog(
+        sourceType: SourceType,
+    ): StoredRemoteCatalog? = stored
 
     override suspend fun replaceSourceCatalog(
         sourceType: SourceType,
@@ -715,6 +806,7 @@ private class RecordingRemoteCatalogWriter : RemoteCatalogWriter {
         items: List<ReadableItemEntity>,
         syncGroups: List<RemoteCatalogSyncGroupEntity>,
     ) {
+        replaceCalls += 1
         replacedSourceType = sourceType
         this.libraries = libraries
         this.items = items
@@ -723,6 +815,7 @@ private class RecordingRemoteCatalogWriter : RemoteCatalogWriter {
     override suspend fun applySourceCatalogDelta(
         delta: RemoteCatalogDelta,
     ) {
+        deltas += delta
         replacedSourceType = delta.sourceType
         libraries = delta.libraries
         items = delta.upsertItems

@@ -79,6 +79,7 @@ class AppViewModel @Inject constructor(
     private val coldStartLibraryViewCoordinator: AppColdStartLibraryViewCoordinator,
     private val libraryGridPager: LibraryGridPager,
     private val pagedWindowBadgeResolver: AppPagedWindowBadgeResolver,
+    private val libraryAutoRefreshCoordinator: AppLibraryAutoRefreshCoordinator,
 ) : ViewModel() {
     var uiState by mutableStateOf(initialUiStateFactory.create())
         private set
@@ -864,6 +865,11 @@ class AppViewModel @Inject constructor(
         )
     }
 
+    /** The library is on screen: it refreshes by itself when its server last synced a while ago. */
+    fun onLibraryShown() {
+        libraryAutoRefreshCoordinator.refreshIfDue(uiState, ::refreshSelectedRemoteLibrary)
+    }
+
     fun refreshKavitaLibrary() {
         remoteSourcesCoordinator.refreshKavitaLibrary(
             stateProvider = { uiState },
@@ -877,15 +883,6 @@ class AppViewModel @Inject constructor(
             stateProvider = { uiState },
             updateState = ::updateUiState,
             scope = viewModelScope,
-        )
-    }
-
-    fun fastSyncKavitaLibraryInPlace() {
-        remoteSourcesCoordinator.fastSyncKavitaLibrary(
-            stateProvider = { uiState },
-            updateState = ::updateUiState,
-            scope = viewModelScope,
-            preserveLibraryContext = true,
         )
     }
 

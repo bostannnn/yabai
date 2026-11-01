@@ -458,6 +458,34 @@ class RemoteCatalogRepositoriesTest {
         assertEquals(listOf(900, 300), dao.deletedItemBatchSizes)
         assertEquals(listOf(900, 300), dao.deletedSyncGroupBatchSizes)
     }
+
+    @Test
+    fun `stored source catalog gives the source's rows in full for a refresh to compare with`() = runBlocking {
+        // The library reads trim descriptions to 512 characters; a refresh comparing with those
+        // would see every long description as changed and rewrite those books each time.
+        val longDescription = "A".repeat(2_000)
+        val grimmoryBook = remoteCatalogItem(SourceType.GRIMMORY, "book-1", "Book 1")
+            .copy(description = longDescription)
+        val kavitaIssue = remoteCatalogItem(SourceType.KAVITA, "issue-1", "Issue 1")
+        val dao = FakeRemoteCatalogDao(
+            libraries = listOf(
+                remoteCatalogLibrary(SourceType.GRIMMORY, "books", "Books"),
+                remoteCatalogLibrary(SourceType.KAVITA, "comics", "Comics"),
+            ),
+            items = listOf(grimmoryBook, kavitaIssue),
+        )
+        val repository = RoomRemoteCatalogRepository(
+            remoteCatalogDao = dao,
+            ioDispatcher = Dispatchers.Unconfined,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+        )
+
+        val stored = repository.getStoredSourceCatalog(SourceType.GRIMMORY)
+
+        assertEquals(listOf(SourceType.GRIMMORY.remoteLibraryId("books")), stored.libraries.map(LibraryEntity::id))
+        assertEquals(listOf(grimmoryBook), stored.items)
+        assertEquals(longDescription, stored.items.single().description)
+    }
 }
 
 private fun remoteCatalogLibrary(
