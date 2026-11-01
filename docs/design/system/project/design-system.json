@@ -13,9 +13,9 @@
   "groups": [],
   "lastChange": {
     "by": "bostannnn",
-    "at": "2026-11-01T09:30:00Z",
+    "at": "2026-11-01T09:38:00Z",
     "via": "Claude Code",
-    "note": "Filters keeps the books in view: docked open, the library leaves out the reading card and shelves, and a change of picks scrolls to All books' row; Pages moves after what the books are (LibraryFilters, LibraryHome)"
+    "note": "Refresh library is in ••• on every server, and the library refreshes by itself when it shows once its server last synced 15 minutes ago or more, keeping you where you are (LibraryHome)"
   },
   "layout": "files",
   "libraries": [],
