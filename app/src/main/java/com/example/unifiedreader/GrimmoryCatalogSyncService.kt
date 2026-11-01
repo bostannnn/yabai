@@ -116,9 +116,9 @@ class GrimmoryCatalogSyncService(
                 initialRefreshToken = session?.refreshToken ?: request.refreshToken,
                 initialAccessToken = accessToken,
             ) { token ->
-                onProgress(GrimmorySyncProgress(message = "Loading Grimmory libraries...", fraction = 0.1f))
+                onProgress(GrimmorySyncSteps.connecting)
                 val libraries = api.getLibraries(accessToken = token)
-                onProgress(GrimmorySyncProgress(message = "Loading Grimmory books...", fraction = 0.55f))
+                onProgress(GrimmorySyncSteps.bookList)
                 val bookEntries = enrichGrimmoryJournalCatalogMetadata(
                     api = api,
                     accessToken = token,
@@ -146,11 +146,9 @@ class GrimmoryCatalogSyncService(
             remoteCatalogWriter = remoteCatalogWriter,
             progressSyncStore = progressSyncStore,
             nowEpochMillis = nowEpochMillis(),
-            onProgress = { message, fraction ->
-                onProgress(GrimmorySyncProgress(message = message, fraction = fraction))
-            },
-            savingMessage = "Saving Grimmory catalog...",
-            applyingProgressMessage = "Applying Grimmory progress...",
+            onProgress = { _, fraction -> onProgress(GrimmorySyncSteps.saving(fraction)) },
+            savingMessage = GrimmorySyncSteps.saving(0f).message,
+            applyingProgressMessage = GrimmorySyncSteps.saving(1f).message,
             itemOf = GrimmoryBookCatalogEntry::item,
             progressOf = GrimmoryBookCatalogEntry::progress,
             missingRemoteClearsLocal = GrimmoryBookCatalogEntry::isExplicitUnreadReset,
@@ -206,7 +204,8 @@ data class GrimmoryCatalogConnectionResult(
 
 data class GrimmorySyncProgress(
     val message: String,
-    val fraction: Float,
+    // Null while the step's length can't be known: the bar moves instead of filling (GrimmorySyncSteps).
+    val fraction: Float?,
 )
 
 data class GrimmoryCatalogSyncResult(

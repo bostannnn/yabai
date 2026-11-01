@@ -3,6 +3,7 @@ package com.example.unifiedreader
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
 import com.example.unifiedreader.feature.settings.ServerConnectionAction
+import com.example.unifiedreader.feature.settings.syncProgressFillAfter
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -161,8 +162,8 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
                         grimmoryConnection = preparation.activeConnection.copy(
                             isConnecting = true,
                             activeAction = action,
-                            syncProgressFraction = 0f,
-                            syncProgressLabel = "Preparing Grimmory sync...",
+                            syncProgressFraction = GrimmorySyncSteps.connecting.fraction,
+                            syncProgressLabel = GrimmorySyncSteps.connecting.message,
                             message = "Syncing Grimmory library.",
                             isError = false,
                         ),
@@ -192,7 +193,10 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
                                 grimmoryConnection = state.grimmoryConnection.copy(
                                     isConnecting = true,
                                     activeAction = action,
-                                    syncProgressFraction = progress.fraction.coerceIn(0f, 1f),
+                                    syncProgressFraction = syncProgressFillAfter(
+                                        current = state.grimmoryConnection.syncProgressFraction,
+                                        reported = progress.fraction,
+                                    ),
                                     syncProgressLabel = progress.message,
                                     message = "Syncing Grimmory library.",
                                     isError = false,

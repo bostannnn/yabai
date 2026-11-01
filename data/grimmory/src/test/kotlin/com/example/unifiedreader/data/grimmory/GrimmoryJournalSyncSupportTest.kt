@@ -487,6 +487,28 @@ class GrimmoryJournalSyncSupportTest {
     }
 
     @Test
+    fun `grimmory pull counts each book's history as it arrives`() = runTest {
+        val books = (1..3).map { number -> readableItem(sourceType = SourceType.GRIMMORY, remoteId = "$number", format = FormatType.EPUB) }
+        val reports = mutableListOf<Pair<Int, Int>>()
+
+        pullGrimmoryJournalCache(
+            api = FakeGrimmoryApi(),
+            accessToken = "token",
+            entries = books.map { item ->
+                GrimmoryBookCatalogEntry(item = item, progress = null, lastReadTime = "2026-04-21T10:30:00Z")
+            } + GrimmoryBookCatalogEntry(
+                item = readableItem(sourceType = SourceType.GRIMMORY, remoteId = "4", format = FormatType.EPUB),
+                progress = null,
+            ),
+            journalRepository = RecordingJournalRepository(),
+            onBookHistoryLoaded = { loaded, total -> reports += loaded to total },
+        )
+
+        // The unread fourth book has no history to load, so it isn't counted.
+        assertEquals(listOf(0 to 3, 1 to 3, 2 to 3, 3 to 3), reports)
+    }
+
+    @Test
     fun `grimmory pull leaves a book whose history didn't load due for the next refresh`() = runTest {
         val item = readableItem(sourceType = SourceType.GRIMMORY, remoteId = "88", format = FormatType.EPUB)
         val repository = RecordingJournalRepository()

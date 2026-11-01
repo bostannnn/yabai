@@ -13,6 +13,7 @@ import com.example.unifiedreader.journal.journalMediaType
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -31,6 +32,8 @@ suspend fun pullGrimmoryJournalCache(
     // A library refresh: the reading history of only the books read on the server since the last
     // pull (grimmoryJournalPullScope), and no pull at all when nothing the journal shows changed.
     changedBooksOnly: Boolean = false,
+    // Called as each book's history arrives: (0, total) first, then about 40 times at most.
+    onBookHistoryLoaded: (loaded: Int, total: Int) -> Unit = { _, _ -> },
 ) {
     val repository = journalRepository ?: return
     val changedBookIds = if (changedBooksOnly) {
@@ -75,6 +78,7 @@ suspend fun pullGrimmoryJournalCache(
         entries = entries
             .filter(GrimmoryBookCatalogEntry::shouldFetchReadingSessions)
             .filter { entry -> changedBookIds == null || entry.item.id in changedBookIds },
+        onBookLoaded = onBookHistoryLoaded,
     )
     val failedSessionItemIds = sessionPull.failedItemIds
     // A book whose history didn't load keeps no read time, so the next refresh loads it again.
@@ -135,8 +139,13 @@ private suspend fun pullGrimmoryReadingSessionEvents(
     api: GrimmoryApi,
     accessToken: String,
     entries: List<GrimmoryBookCatalogEntry>,
+    onBookLoaded: (loaded: Int, total: Int) -> Unit,
 ): GrimmoryReadingSessionPull = coroutineScope {
     val limiter = Semaphore(GRIMMORY_READING_SESSION_FETCH_CONCURRENCY)
+    val total = entries.size
+    val reportEvery = (total / GRIMMORY_READING_HISTORY_PROGRESS_REPORTS).coerceAtLeast(1)
+    val loaded = AtomicInteger(0)
+    if (total > 0) onBookLoaded(0, total)
     val pulls = entries.map { entry ->
         async {
             limiter.withPermit {
@@ -166,6 +175,9 @@ private suspend fun pullGrimmoryReadingSessionEvents(
                         failedItemId = entry.item.id,
                     )
                 }
+            }.also {
+                val done = loaded.incrementAndGet()
+                if (done == total || done % reportEvery == 0) onBookLoaded(done, total)
             }
         }
     }.awaitAll()
@@ -600,3 +612,4 @@ private fun String?.toEpochMillisOrNull(): Long? {
 }
 
 private const val GRIMMORY_READING_SESSION_FETCH_CONCURRENCY = 4
+private const val GRIMMORY_READING_HISTORY_PROGRESS_REPORTS = 40

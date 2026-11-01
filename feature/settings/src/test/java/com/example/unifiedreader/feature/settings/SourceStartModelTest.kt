@@ -44,6 +44,21 @@ class SourceStartModelTest {
     }
 
     @Test
+    fun `a sync that saved the library but couldn't upload everything reads as here, with the warning`() {
+        val syncedAt = Calendar.getInstance(Locale.US).apply { set(2026, Calendar.OCTOBER, 23, 14, 58) }.timeInMillis
+        val connection = GrimmoryConnectionUiState(
+            hasStoredSession = true,
+            isError = true,
+            message = "Grimmory library synced. Some changes didn't upload to Grimmory and will go with the next sync (timeout).",
+        )
+
+        assertEquals(
+            FirstSyncState(title = "Your library is here", detail = connection.message, running = false, warning = true),
+            firstSyncState(connection, lastSyncedAtEpochMillis = syncedAt, nowEpochMillis = now),
+        )
+    }
+
+    @Test
     fun `a finished sync says when`() {
         val syncedAt = Calendar.getInstance(Locale.US).apply { set(2026, Calendar.OCTOBER, 23, 10, 42) }.timeInMillis
 

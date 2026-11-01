@@ -2,18 +2,17 @@ package com.example.unifiedreader.feature.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.ui.components.AppButton
-import com.example.unifiedreader.ui.components.AppLinearProgress
+import com.example.unifiedreader.ui.components.AppProgressBar
 import com.example.unifiedreader.ui.components.AppSettingsDefaults
 import com.example.unifiedreader.ui.components.AppSettingsGroup
 import com.example.unifiedreader.ui.components.AppSettingsRow
@@ -36,12 +35,18 @@ internal fun SourceLibraryGroup(
         AppSettingsRow(
             title = "Sync",
             supporting = when {
-                syncRunning -> "Syncing"
+                // The step the sync is on, the bar under it (design system, AppProgressBar: a sync's bar).
+                syncRunning -> formState.syncProgressLabel ?: "Syncing"
                 !formState.hasStoredSession -> "Connect to the server first"
                 lastSyncedAtEpochMillis != null -> "Synced ${formatSettingsMoment(lastSyncedAtEpochMillis)}"
                 // Sync times are kept from 0.17.0 on, so an older install's library has synced before:
                 // until the next sync, say what Sync does, not that it never ran.
                 else -> "Gets new and changed books from the server"
+            },
+            supportingContent = if (syncRunning) {
+                { RowProgressBar(fraction = formState.syncProgressFraction) }
+            } else {
+                null
             },
             trailing = {
                 val fastSync = actions.onFastSync
@@ -73,20 +78,21 @@ internal fun SourceLibraryGroup(
                 }
             },
         )
-        if (syncRunning && formState.syncProgressLabel != null) {
-            ProgressFooter(
-                fraction = formState.syncProgressFraction,
-                label = formState.syncProgressLabel,
-            )
-        }
         AppSettingsRowDivider(inset = AppSettingsDefaults.dividerInsetNoIcon)
         AppSettingsRow(
             title = "Cached covers",
-            supporting = coverPreload.message ?: "Cover images kept on this device for browsing offline",
-            supportingColor = if (coverPreload.isError && coverPreload.message != null) {
+            supporting = coverPreload.progressLabel.takeIf { coverPreload.isRunning }
+                ?: coverPreload.message
+                ?: "Cover images kept on this device for browsing offline",
+            supportingColor = if (!coverPreload.isRunning && coverPreload.isError && coverPreload.message != null) {
                 MaterialTheme.colorScheme.error
             } else {
                 MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            supportingContent = if (coverPreload.isRunning) {
+                { RowProgressBar(fraction = coverPreload.progressFraction) }
+            } else {
+                null
             },
             trailing = {
                 if (coverPreload.isRunning) {
@@ -123,12 +129,6 @@ internal fun SourceLibraryGroup(
                 }
             },
         )
-        if (coverPreload.isRunning && coverPreload.progressLabel != null) {
-            ProgressFooter(
-                fraction = coverPreload.progressFraction,
-                label = coverPreload.progressLabel,
-            )
-        }
         if (coverPreload.failedItems.isNotEmpty()) {
             Column(
                 modifier = Modifier.padding(
@@ -150,30 +150,17 @@ internal fun SourceLibraryGroup(
     }
 }
 
+/** A long job's bar under its row's text, as the update download's in About; null is the moving bar. */
 @Composable
-private fun ProgressFooter(
+private fun RowProgressBar(
     fraction: Float?,
-    label: String,
 ) {
-    Row(
+    AppProgressBar(
+        fraction = fraction,
+        height = 4.dp,
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(
-                start = AppSettingsDefaults.horizontalPadding,
-                end = AppSettingsDefaults.horizontalPadding,
-                bottom = 14.dp,
-            ),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        AppLinearProgress(
-            progress = { fraction ?: 0f },
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+            .padding(top = 6.dp)
+            .widthIn(max = 320.dp)
+            .fillMaxWidth(),
+    )
 }

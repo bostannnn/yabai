@@ -60,13 +60,14 @@ internal class GrimmoryCatalogSyncUploads(
                 activeBaseUrl = activeBaseUrl,
             ) { selectedBaseUrl ->
                 val selectedApi = if (selectedBaseUrl == activeBaseUrl) api else grimmoryApiFactory.create(selectedBaseUrl)
-                onProgress(GrimmorySyncProgress(message = "Uploading Grimmory progress...", fraction = 0.98f))
+                onProgress(GrimmorySyncSteps.uploadingProgress)
                 val progressPush = pushDirtyProgress(selectedApi, latestTokens, items)
                 latestTokens = latestTokens.after(progressPush)
-                onProgress(GrimmorySyncProgress(message = "Loading Grimmory journal...", fraction = 0.99f))
-                pullJournal(selectedApi, latestTokens, entries, changedBooksOnly = refresh)
-                    ?.let { journalPull -> latestTokens = latestTokens.after(journalPull) }
-                onProgress(GrimmorySyncProgress(message = "Syncing Grimmory journal...", fraction = 0.995f))
+                onProgress(GrimmorySyncSteps.readingHistory(loaded = 0, total = 0))
+                pullJournal(selectedApi, latestTokens, entries, changedBooksOnly = refresh) { loaded, total ->
+                    onProgress(GrimmorySyncSteps.readingHistory(loaded = loaded, total = total))
+                }?.let { journalPull -> latestTokens = latestTokens.after(journalPull) }
+                onProgress(GrimmorySyncSteps.uploadingJournal)
                 val journalPush = selectedApi.runWithTokenRefresh(
                     initialAccessToken = latestTokens.accessToken,
                     initialRefreshToken = latestTokens.refreshToken,
@@ -119,6 +120,7 @@ internal class GrimmoryCatalogSyncUploads(
         tokens: GrimmorySyncTokens,
         entries: List<GrimmoryBookCatalogEntry>,
         changedBooksOnly: Boolean,
+        onBookHistoryLoaded: (loaded: Int, total: Int) -> Unit,
     ): GrimmoryTokenRefreshResult<Unit>? = try {
         api.runWithTokenRefresh(
             initialAccessToken = tokens.accessToken,
@@ -130,6 +132,7 @@ internal class GrimmoryCatalogSyncUploads(
                 entries = entries,
                 journalRepository = journalRepository,
                 changedBooksOnly = changedBooksOnly,
+                onBookHistoryLoaded = onBookHistoryLoaded,
             )
         }
     } catch (error: Throwable) {

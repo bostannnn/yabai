@@ -77,5 +77,7 @@ internal fun progressPushWarningMessage(
     failures: List<Throwable>,
 ): String? {
     if (failures.isEmpty()) return null
-    return "Progress push failed for $sourceLabel: ${failures.first().userFacingMessage()}"
+    // The sync itself worked; what didn't upload stays queued for the next one.
+    return "Some changes didn't upload to $sourceLabel and will go with the next sync " +
+        "(${failures.first().userFacingMessage()})."
 }

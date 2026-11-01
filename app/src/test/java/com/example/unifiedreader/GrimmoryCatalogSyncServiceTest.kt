@@ -429,14 +429,18 @@ class GrimmoryCatalogSyncServiceTest {
     }
 
     @Test
-    fun `sync emits determinate grimmory progress updates`() = runBlocking {
+    fun `sync's bar moves until the book list is in, then fills by the counted work`() = runBlocking {
+        val readBooks = (1..3).map { number -> grimmoryItem(remoteId = "book-$number", libraryRemoteId = "g-books") }
         val api = FakeGrimmoryApi(
             libraries = listOf(grimmoryLibrary("g-books")),
-            allBookEntries = emptyList(),
+            allBookEntries = readBooks.map { item ->
+                GrimmoryBookCatalogEntry(item = item, progress = null, lastReadTime = "2026-10-30T20:00:00Z")
+            },
         )
         val service = GrimmoryCatalogSyncService(
             grimmoryApiFactory = GrimmoryApiFactory { _ -> api },
             remoteCatalogWriter = RecordingRemoteCatalogWriter(),
+            journalRepository = GrimmoryRecordingJournalRepository(),
         )
         val progressUpdates = mutableListOf<GrimmorySyncProgress>()
 
@@ -450,10 +454,34 @@ class GrimmoryCatalogSyncServiceTest {
             onProgress = progressUpdates::add,
         )
 
-        assertTrue(progressUpdates.any { update -> update.message == "Loading Grimmory libraries..." })
-        assertTrue(progressUpdates.any { update -> update.message == "Loading Grimmory books..." })
-        assertTrue(progressUpdates.any { update -> update.message == "Saving Grimmory catalog..." })
-        assertTrue(progressUpdates.any { update -> update.message == "Applying Grimmory progress..." })
+        assertEquals(
+            listOf(
+                "Connecting",
+                "Getting the book list",
+                "Saving the library",
+                "Uploading reading progress",
+                "Reading history",
+                "Reading history · 0 of 3 books",
+                "Reading history · 1 of 3 books",
+                "Reading history · 2 of 3 books",
+                "Reading history · 3 of 3 books",
+                "Uploading journal changes",
+            ),
+            progressUpdates.map(GrimmorySyncProgress::message).distinct(),
+        )
+        // Moving (no fraction) only before the first counted step, and never going back after it.
+        val fractions = progressUpdates.map(GrimmorySyncProgress::fraction)
+        val firstCounted = fractions.indexOfFirst { fraction -> fraction != null }
+        assertEquals(listOf(null, null), fractions.take(firstCounted))
+        val counted = fractions.drop(firstCounted).map { fraction -> checkNotNull(fraction) }
+        assertEquals(counted.sorted(), counted)
+        assertTrue(counted.last() < 1f)
+    }
+
+    @Test
+    fun `reading history counts one book without a plural and large counts with separators`() {
+        assertEquals("Reading history · 1 of 1 book", GrimmorySyncSteps.readingHistory(loaded = 1, total = 1).message)
+        assertEquals("Reading history · 1,200 of 2,161 books", GrimmorySyncSteps.readingHistory(loaded = 1200, total = 2161).message)
     }
 
     @Test

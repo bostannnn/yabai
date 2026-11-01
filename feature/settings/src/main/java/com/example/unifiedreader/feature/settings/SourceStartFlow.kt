@@ -295,7 +295,7 @@ private fun SourceConnectPage(
                     Text(
                         text = detail,
                         style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
-                        color = if (sync.failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (sync.failed || sync.warning) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 8.dp),
                     )
                 }

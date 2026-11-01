@@ -13,9 +13,9 @@
   "groups": [],
   "lastChange": {
     "by": "bostannnn",
-    "at": "2026-11-01T19:30:00Z",
+    "at": "2026-11-01T19:50:00Z",
     "via": "Claude Code",
-    "note": "A sync's bar: moving while its length can't be known, then filled by the counted work and never going back, the step as the row's text above it; a new fraction slides there instead of jumping (AppProgressBar)"
+    "note": "A sync's bar: moving while its length can't be known, then filled by the counted work and never going back, the step as the row's text above it; a new fraction slides there on a spring that doesn't overshoot (AppProgressBar)"
   },
   "layout": "files",
   "libraries": [],
