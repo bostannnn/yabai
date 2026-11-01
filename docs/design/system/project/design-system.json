@@ -13,9 +13,9 @@
   "groups": [],
   "lastChange": {
     "by": "bostannnn",
-    "at": "2026-11-01T20:40:00Z",
+    "at": "2026-11-01T21:05:00Z",
     "via": "Claude Code",
-    "note": "The reading card is small: the cover at 80 and the text spanning it, the label in the cover's accent, title, author and place, a 4 bar with time left, ••• for the book page and a tap to continue, no buttons; beside the shelves in landscape it takes 2 of 6 columns and the strip there is Small (LibraryHome)"
+    "note": "The reading card beside the shelves, a narrow column: its label may wrap, the title steps from 20 to 18 on up to 4 lines, and the percentage sits over a bar across the column (LibraryHome)"
   },
   "layout": "files",
   "libraries": [],

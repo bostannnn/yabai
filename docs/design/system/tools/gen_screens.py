@@ -184,12 +184,16 @@ LW, LH = 800, 1010
 cols = 4
 
 
-def reading_card(width, height, cover_w, lines, title_font="700 18px/23px"):
+def reading_card(width, height, cover_w, lines, title_font="700 18px/23px", tall=False):
     """The reading card: the cover's tint, the cover, the label, title and lines, the bar; ••• at the top end."""
-    bar = ('<div style="display:flex;align-items:center;gap:10px"><div style="flex:1;display:flex;gap:2px;height:4px">'
-           + "".join(f'<i style="flex:{w};border-radius:2px;background:linear-gradient(to right,#a9c4ff {f}%,rgba(255,255,255,.18) {f}%)"></i>'
-                     for w, f in [(12, 100), (18, 40), (16, 0), (20, 0), (14, 0), (20, 0)])
-           + '</div><span style="font:600 12.5px/18px var(--font-sans);opacity:.82">24% · 2 h 10 min left</span></div>')
+    pieces = ('<div style="flex:1;display:flex;gap:2px;height:4px">'
+              + "".join(f'<i style="flex:{w};border-radius:2px;background:linear-gradient(to right,#a9c4ff {f}%,rgba(255,255,255,.18) {f}%)"></i>'
+                        for w, f in [(12, 100), (18, 40), (16, 0), (20, 0), (14, 0), (20, 0)])
+              + '</div>')
+    label = '<span style="font:600 12.5px/18px var(--font-sans);opacity:.82">24% · 2 h 10 min left</span>'
+    # Beside the shelves the column is narrow: the percentage over the bar; on its own, beside it.
+    bar = (f'<div style="display:flex;flex-direction:column;gap:6px">{label}<div style="display:flex">{pieces}</div></div>' if tall
+           else f'<div style="display:flex;align-items:center;gap:10px">{pieces}{label}</div>')
     text_lines = "".join(
         f'<span style="font:500 13px/18px var(--font-sans);opacity:.74;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{line}</span>'
         for line in lines)
@@ -250,7 +254,7 @@ library_wide = f"""
       <div class="yb-bar"><div class="yb-search">{ic("search")}<span>Search Kavita</span></div><span class="yb-spacer"></span><button class="yb-icon-btn">{ic("download")}</button><button class="yb-icon-btn">{ic("more_horiz")}</button></div>
       <div class="yb-scroll">
         <div style="display:flex;gap:16px;align-items:stretch">
-          {reading_card(370, 236, 131, ("Oona Fitch", "Chapter 1 of 6 · The Ferry"), title_font="700 20px/25px")}
+          {reading_card(370, 236, 131, ("Oona Fitch", "Chapter 1 of 6 · The Ferry"), title_font="700 20px/25px", tall=True)}
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:14px;overflow:hidden">
             <div style="display:flex;align-items:center"><div class="yb-tabs" style="flex:1"><span class="yb-tab is-selected">In progress <span class="yb-count">8</span></span><span class="yb-tab">Up next <span class="yb-count">1</span></span><span class="yb-tab">Finished <span class="yb-count">12</span></span></div><button class="yb-btn is-text">See all</button></div>
             <div style="display:flex;gap:16px">{small_strip}</div>
@@ -280,7 +284,7 @@ A source's library: the bar with its search field, the reading card, the shelf t
   - The bar line: a 4 tall bar split at the chapters (2 apart; one piece without chapters or past 30), the accent on the text colour at 18% (14% on a light tint), then "24% · 2 h 10 min left" (12.5 SemiBold, 82%), only the percentage when the journal doesn't know the pace.
   - ••• at the top end (the icon 20, the text colour at 74%) opens the book page; the label and title keep 28 clear of it. The rest of the card is the Continue button: a tap opens the book where it was left (its click label says Continue, Read or Start). There are no buttons in it.
   - **Above the shelves** (phones, portrait tablets, and wherever the grid has fewer than 6 columns): the cover is 80 wide, so the card is 160 tall, gutter to gutter; the shelves follow 24 below, unchanged.
-  - **Beside the shelves** (6 columns or more: tablet landscape beside the rail): the card takes 2 of the 6 columns and the shelves the other 4. The strip beside it is Small (96) whatever the cover size, its tiles keep the title and the progress and drop the author line, and the card is as tall as the tabs and the strip together, bottoms lined up (about 236). Its cover fills that height (about 131 wide); the title is 20/25 on up to 3 lines, stepping down to 18/23 on 4; the author and the place get a line each, the place with the chapter's name ("Chapter 1 of 6 · The Ferry").
+  - **Beside the shelves** (6 columns or more: tablet landscape beside the rail): the card takes 2 of the 6 columns and the shelves the other 4. The strip beside it is Small (96) whatever the cover size, its tiles keep the title and the progress and drop the author line, and the card is as tall as the tabs and the strip together, bottoms lined up (about 236). Its cover fills that height (about 131 wide), which leaves a narrow column: the label may wrap to a second line, the title is 20/25 stepping down to 18/23 on up to 4 lines, the author and the place get a line each (the place with the chapter's name, "Chapter 1 of 6 · The Ferry"), and the percentage sits over a bar across the column instead of beside it.
   - A series opens on the same card for the issue being read or the next one (label "Up next in this series"), 160 tall, across half the row (3 of 6 columns) on wide windows, since nothing sits beside it there.
 - No source name anywhere on the screen: the search field says it.
 - **The jump rail** runs down the right edge for a sort that groups: the letters for Title, Author and Series, and for Pages the page ranges the filter's slider stops at (0, 10, 20, 30, 40, 50, 75, 100, 150, 200, 250, 300, 400, 500, 750, 1k), each where its range starts (150 holds 150 to 199), then `?` for books with no page count. Only sections with books show.

@@ -2245,6 +2245,42 @@ from main 4c5c13cf):
       reader, so the strip and Read next were seen through a throwaway build that faked one (reverted).
 - [ ] Tablet.
 
+## The reading card, second look `[~]` (2026-11-01)
+
+Asked 2026-11-01: long titles don't fit the reading card, short ones leave it empty, it may be too big on the
+tablet, and could it take the Finished screen's colours. Found: it already used the same `AppCoverColors` and
+`coverTint` (the Finished screen adds only the band and the accent label); in landscape beside the rail the card
+was 570 × 386 with a text column about 331 wide, which is where both titles went wrong; the emulator's lavender
+card was only the offline fallback. Mocked on the canvas https://claude.ai/artifact/R1H9BtJr4B9StPHzaNffYF over
+five pages: A-D (fit the words, the Finished band, slim, big title), the text spanning the cover (picked as the
+rule: "looks correct"), E/G/H smaller cards, Apple Books-style rows I/J/K (Books' Home leads with a Continue row
+of the books being read), then J's card for the book read last only. Picked J2: the card beside the shelves in
+landscape, at 2 of the 6 columns (asked for about 30/70), the strip there Small.
+
+Built in worktree `currently-reading-card-design-2fb6d4` (branch `claude/currently-reading-card-design-2fb6d4`,
+from main fabd496d, origin/main merged in):
+
+- [x] Design system first: `LibraryHome` README (the card's spec; the strip beside it is the one exception to
+      "the shelves keep Large", which another session added the same day) and preview (an Expanded landscape
+      mock), published to the artifact (v51, v52).
+- [x] `LibraryReadingCard`: 160 dp on its own (an 80 dp cover inside `inset`), the text spanning the cover: the
+      label in the cover's accent, the title fitted (`TextAutoSize`, 18 to 16 on two lines), "author · place", a
+      4 dp bar split at the chapters with "37% · 3 h 10 min left". A tap continues (click label Continue, Read or
+      Start); ••• opens the book page. No Continue, Details or Open list buttons: a reading order's "Then ..."
+      takes the place's spot and its list opens from the book page or Lists. The series page uses the same card
+      across half the row on wide windows.
+- [x] Beside the shelves (`readingCardBesideWidth`, 2 of 6 columns; `CardBesideBand` measures the band and gives
+      the card its height): the strip's covers are Small (96) without the author line
+      (`ShelfCoverLayout.showSupportingText`); the cover fills the card's height, the label may wrap, the title is
+      20 to 18 on up to four lines, the author and the place ("Chapter 4 of 12 · Salt and Static") get a line
+      each, and the percentage sits over a bar across the column. The loading placeholder takes the same shapes.
+- [x] Time left reads "3 h 10 min left" (no "About"). `LibraryReadingCard.kt` 6 to 0 literal paddings,
+      `LibraryReadingCardText.kt` 10 to 2 (baselines lowered).
+- [x] Seen in throwaway Robolectric renders (removed) at 1144 dp (landscape content), 778 dp (portrait) and
+      380 dp (phone), with short and 60-character Russian titles; not on the emulator (another session's build
+      was on it).
+- [ ] Tablet.
+
 ## Not yet designed
 
 Section 9: each step above gets its mock when it starts. Before it, nothing was left: downloads, the
