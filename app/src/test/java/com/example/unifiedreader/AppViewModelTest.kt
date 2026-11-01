@@ -2540,7 +2540,7 @@ class AppViewModelTest {
         assertEquals("api-key", credentialStore.sessionFlow.value?.apiKey)
         assertEquals(TopLevelDestination.Library, viewModel.uiState.topLevel)
         assertEquals(
-            "Connected to Kavita. Tap Sync Kavita to import the library. $HTTP_WARNING_MESSAGE",
+            "Connected to Kavita. Tap Sync now to get your library. $HTTP_WARNING_MESSAGE",
             viewModel.uiState.kavitaConnection.message,
         )
         assertEquals(true, viewModel.uiState.kavitaConnection.hasStoredSession)
@@ -2583,7 +2583,7 @@ class AppViewModelTest {
         assertEquals("saved-refresh-token", syncer.lastConnectRequest?.refreshToken)
         assertEquals("saved-api-key", syncer.lastConnectRequest?.apiKey)
         assertEquals(
-            "Connected to Kavita. Tap Sync Kavita to import the library.",
+            "Connected to Kavita. Tap Sync now to get your library.",
             viewModel.uiState.kavitaConnection.message,
         )
     }
@@ -2853,7 +2853,7 @@ class AppViewModelTest {
         assertEquals("access-token", credentialStore.sessionFlow.value?.accessToken)
         assertEquals("refresh-token", credentialStore.sessionFlow.value?.refreshToken)
         assertEquals(
-            "Connected to Stump. Tap Sync Stump to import the library. $HTTP_WARNING_MESSAGE",
+            "Connected to Stump. Tap Sync now to get your library. $HTTP_WARNING_MESSAGE",
             viewModel.uiState.stumpConnection.message,
         )
         assertTrue(viewModel.uiState.stumpConnection.hasStoredSession)
@@ -2890,7 +2890,7 @@ class AppViewModelTest {
         assertEquals("saved-access-token", syncer.lastConnectRequest?.accessToken)
         assertEquals("saved-refresh-token", syncer.lastConnectRequest?.refreshToken)
         assertEquals(
-            "Connected to Stump. Tap Sync Stump to import the library.",
+            "Connected to Stump. Tap Sync now to get your library.",
             viewModel.uiState.stumpConnection.message,
         )
     }
@@ -3248,7 +3248,7 @@ class AppViewModelTest {
         assertEquals(true, viewModel.uiState.grimmoryConnection.hasStoredSession)
         assertEquals(false, viewModel.uiState.grimmoryConnection.isError)
         assertEquals(
-            "Connected to Grimmory. Tap Sync Grimmory to import the library. $HTTP_WARNING_MESSAGE",
+            "Connected to Grimmory. Tap Sync now to get your library. $HTTP_WARNING_MESSAGE",
             viewModel.uiState.grimmoryConnection.message,
         )
     }
@@ -3285,7 +3285,7 @@ class AppViewModelTest {
         assertEquals("saved-refresh-token", syncer.lastConnectRequest?.refreshToken)
         assertEquals("Home Grimmory", credentialStore.sessionFlow.value?.displayName)
         assertEquals(
-            "Connected to Grimmory. Tap Sync Grimmory to import the library.",
+            "Connected to Grimmory. Tap Sync now to get your library.",
             viewModel.uiState.grimmoryConnection.message,
         )
         assertEquals(true, viewModel.uiState.grimmoryConnection.hasStoredSession)
@@ -3413,6 +3413,34 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `a grimmory sync asked for while one runs is not started a second time`() {
+        val gate = CompletableDeferred<Unit>()
+        val syncer = FakeGrimmoryCatalogSyncer(syncGate = gate)
+        val viewModel = createViewModel(
+            grimmoryCatalogSyncer = syncer,
+            grimmoryCredentialStore = FakeGrimmoryCredentialStore(savedGrimmorySession()),
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+        viewModel.openLibrarySource(SourceType.GRIMMORY)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        viewModel.refreshGrimmoryLibrary()
+        shadowOf(Looper.getMainLooper()).idle()
+        // A second tap on Sync now, and the library's Refresh, while the first sync waits on the server.
+        viewModel.refreshGrimmoryLibrary()
+        viewModel.refreshSelectedRemoteLibrary()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(1, syncer.syncCount)
+        assertEquals(0, syncer.refreshCount)
+        assertEquals(true, viewModel.uiState.grimmoryConnection.isConnecting)
+        gate.complete(Unit)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(false, viewModel.uiState.grimmoryConnection.isConnecting)
+        clearViewModel(viewModel)
+    }
+
+    @Test
     fun `cached grimmory cover is published after visible prefetch`() {
         val credentialStore = FakeGrimmoryCredentialStore(
             GrimmoryStoredSession(
@@ -3526,7 +3554,7 @@ class AppViewModelTest {
         assertEquals("http://grimmory.example", syncer.lastRequest?.baseUrl)
         assertEquals(false, viewModel.uiState.grimmoryConnection.isError)
         assertEquals(
-            "Connected to Grimmory. Tap Sync Grimmory to import the library. $HTTP_WARNING_MESSAGE",
+            "Connected to Grimmory. Tap Sync now to get your library. $HTTP_WARNING_MESSAGE",
             viewModel.uiState.grimmoryConnection.message,
         )
     }

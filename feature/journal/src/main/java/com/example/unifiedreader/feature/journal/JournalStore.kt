@@ -199,6 +199,13 @@ class RoomJournalRepository(
             .map { entity -> entity.toDomain() }
     }
 
+    override suspend fun getCleanJournalEntriesForSource(
+        sourceType: SourceType,
+    ): List<ItemJournalEntry> = withContext(Dispatchers.IO) {
+        journalDao.getCleanJournalEntriesForSource(sourceType.name)
+            .map { entity -> entity.toDomain() }
+    }
+
     override suspend fun getDirtyReadingSessionsForSource(
         sourceType: SourceType,
     ): List<JournalReadingSession> = withContext(Dispatchers.IO) {

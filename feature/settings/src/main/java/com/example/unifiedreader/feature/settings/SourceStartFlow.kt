@@ -300,7 +300,7 @@ private fun SourceConnectPage(
                     )
                 }
                 Text(
-                    text = "Books appear as they arrive, so you can start reading now. $name opens first when you start the app.",
+                    text = "Your books appear when it's done, and you can leave this page meanwhile. $name opens first when you start the app.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 16.dp),

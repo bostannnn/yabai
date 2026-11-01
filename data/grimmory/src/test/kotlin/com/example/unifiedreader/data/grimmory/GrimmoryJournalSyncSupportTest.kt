@@ -348,20 +348,164 @@ class GrimmoryJournalSyncSupportTest {
     }
 
     @Test
-    fun `grimmory dirty push marks unresolved catalog entry failed`() = runTest {
+    fun `grimmory dirty push leaves an entry outside its batch for a later push`() = runTest {
+        val item = readableItem(sourceType = SourceType.GRIMMORY, remoteId = "88", format = FormatType.EPUB)
+        val closedBook = readableItem(sourceType = SourceType.GRIMMORY, remoteId = "89", format = FormatType.EPUB)
+        val repository = RecordingJournalRepository(
+            dirtyEntries = listOf(journalEntry(item = item, rating = 8, reviewText = "Updated review")),
+        )
+        val api = FakeGrimmoryApi()
+
+        // A flush after closing another book passes only that book.
+        val failures = pushDirtyGrimmoryJournalEntries(
+            api = api,
+            accessToken = "token",
+            entries = listOf(closedBook),
+            journalRepository = repository,
+        )
+
+        assertTrue(failures.isEmpty())
+        assertTrue(repository.markedSyncStates.isEmpty())
+        assertEquals(null, api.updatedRating)
+    }
+
+    @Test
+    fun `grimmory catalog sync stops retrying an entry for a book deleted on the server`() = runTest {
         val item = readableItem(sourceType = SourceType.GRIMMORY, remoteId = "88", format = FormatType.EPUB)
         val repository = RecordingJournalRepository(
             dirtyEntries = listOf(journalEntry(item = item, rating = 8, reviewText = "Updated review")),
         )
+        val api = FakeGrimmoryApi()
 
-        pushDirtyGrimmoryJournalEntries(
-            api = FakeGrimmoryApi(),
+        val failures = pushDirtyGrimmoryJournalEntries(
+            api = api,
             accessToken = "token",
             entries = emptyList(),
             journalRepository = repository,
+            itemsAreWholeCatalog = true,
         )
 
-        assertEquals(SyncState.FAILED, repository.markedSyncStates[item.id])
+        assertTrue(failures.isEmpty())
+        assertEquals(SyncState.CLEAN, repository.markedSyncStates[item.id])
+        assertEquals(null, api.updatedRating)
+    }
+
+    @Test
+    fun `grimmory dirty push hands an unreachable server to the address failover`() = runTest {
+        val item = readableItem(sourceType = SourceType.GRIMMORY, remoteId = "88", format = FormatType.EPUB)
+        val repository = RecordingJournalRepository(
+            dirtyEntries = listOf(journalEntry(item = item, rating = 8, reviewText = "")),
+        )
+
+        val thrown = runCatching {
+            pushDirtyGrimmoryJournalEntries(
+                api = FakeGrimmoryApi(ratingFailure = java.net.ConnectException("No route to host")),
+                accessToken = "token",
+                entries = listOf(item),
+                journalRepository = repository,
+            )
+        }.exceptionOrNull()
+
+        assertTrue(thrown is java.net.ConnectException)
+        // Still waiting, for the next address or sync, not failed.
+        assertTrue(item.id !in repository.markedSyncStates)
+    }
+
+    @Test
+    fun `grimmory refresh pull loads history only for books read since the last pull`() = runTest {
+        val unchanged = readableItem(sourceType = SourceType.GRIMMORY, remoteId = "88", format = FormatType.EPUB)
+        val readAgain = readableItem(sourceType = SourceType.GRIMMORY, remoteId = "89", format = FormatType.EPUB)
+        val repository = RecordingJournalRepository(
+            cleanEntries = listOf(
+                pulledEntry(item = unchanged, readAt = "2026-04-21T10:30:00Z"),
+                pulledEntry(item = readAgain, readAt = "2026-04-20T09:00:00Z"),
+            ),
+        )
+        val api = FakeGrimmoryApi()
+
+        pullGrimmoryJournalCache(
+            api = api,
+            accessToken = "token",
+            entries = listOf(
+                GrimmoryBookCatalogEntry(item = unchanged, progress = null, lastReadTime = "2026-04-21T10:30:00Z"),
+                GrimmoryBookCatalogEntry(item = readAgain, progress = null, lastReadTime = "2026-04-22T08:00:00Z"),
+            ),
+            journalRepository = repository,
+            changedBooksOnly = true,
+        )
+
+        assertEquals(listOf("89"), api.requestedSessionsForBooks)
+        assertEquals(setOf(readAgain.id), repository.replacedReadingEventReplacementItemIds)
+        assertEquals(setOf(readAgain.id), repository.replacedReadingSessionReplacementItemIds)
+        assertEquals(listOf(unchanged.id, readAgain.id), repository.replacedEntries.map(ItemJournalEntry::itemId))
+    }
+
+    @Test
+    fun `grimmory refresh pull skips the pull when nothing the journal shows changed`() = runTest {
+        val item = readableItem(sourceType = SourceType.GRIMMORY, remoteId = "88", format = FormatType.EPUB)
+        val repository = RecordingJournalRepository(
+            cleanEntries = listOf(pulledEntry(item = item, readAt = "2026-04-21T10:30:00Z", rating = 7)),
+        )
+        val api = FakeGrimmoryApi()
+
+        pullGrimmoryJournalCache(
+            api = api,
+            accessToken = "token",
+            entries = listOf(
+                GrimmoryBookCatalogEntry(item = item, progress = null, personalRating = 7, lastReadTime = "2026-04-21T10:30:00Z"),
+            ),
+            journalRepository = repository,
+            changedBooksOnly = true,
+        )
+
+        assertTrue(api.requestedSessionsForBooks.isEmpty())
+        assertEquals(null, api.requestedNotebookSearch)
+        assertEquals(null, repository.replacedSourceType)
+    }
+
+    @Test
+    fun `grimmory refresh pull takes a new rating without loading any history`() = runTest {
+        val item = readableItem(sourceType = SourceType.GRIMMORY, remoteId = "88", format = FormatType.EPUB)
+        val repository = RecordingJournalRepository(
+            cleanEntries = listOf(pulledEntry(item = item, readAt = "2026-04-21T10:30:00Z", rating = 7)),
+        )
+        val api = FakeGrimmoryApi()
+
+        pullGrimmoryJournalCache(
+            api = api,
+            accessToken = "token",
+            entries = listOf(
+                GrimmoryBookCatalogEntry(item = item, progress = null, personalRating = 9, lastReadTime = "2026-04-21T10:30:00Z"),
+            ),
+            journalRepository = repository,
+            changedBooksOnly = true,
+        )
+
+        assertTrue(api.requestedSessionsForBooks.isEmpty())
+        assertEquals(listOf(9), repository.replacedEntries.map(ItemJournalEntry::rating))
+        assertEquals(emptySet<String>(), repository.replacedReadingEventReplacementItemIds)
+    }
+
+    @Test
+    fun `grimmory pull leaves a book whose history didn't load due for the next refresh`() = runTest {
+        val item = readableItem(sourceType = SourceType.GRIMMORY, remoteId = "88", format = FormatType.EPUB)
+        val repository = RecordingJournalRepository()
+
+        pullGrimmoryJournalCache(
+            api = FakeGrimmoryApi(sessionFailuresByBook = mapOf("88" to IllegalStateException("session fetch failed"))),
+            accessToken = "token",
+            entries = listOf(
+                GrimmoryBookCatalogEntry(item = item, progress = null, lastReadTime = "2026-04-21T10:30:00Z"),
+            ),
+            journalRepository = repository,
+        )
+
+        assertEquals(null, repository.replacedEntries.single().remoteUpdatedAtEpochMillis)
+        val nextRefresh = grimmoryJournalPullScope(
+            entries = listOf(GrimmoryBookCatalogEntry(item = item, progress = null, lastReadTime = "2026-04-21T10:30:00Z")),
+            storedEntries = repository.replacedEntries,
+        )
+        assertEquals(setOf(item.id), nextRefresh)
     }
 
     @Test
@@ -491,6 +635,7 @@ class GrimmoryJournalSyncSupportTest {
 private class RecordingJournalRepository(
     private val dirtyEntries: List<ItemJournalEntry> = emptyList(),
     private val dirtySessions: List<JournalReadingSession> = emptyList(),
+    private val cleanEntries: List<ItemJournalEntry> = emptyList(),
 ) : JournalRepository {
     private val snapshot = MutableStateFlow(JournalSnapshot())
     var replacedSourceType: SourceType? = null
@@ -545,6 +690,9 @@ private class RecordingJournalRepository(
     override suspend fun getDirtyJournalEntriesForSource(sourceType: SourceType): List<ItemJournalEntry> =
         dirtyEntries.filter { entry -> entry.sourceType == sourceType }
 
+    override suspend fun getCleanJournalEntriesForSource(sourceType: SourceType): List<ItemJournalEntry> =
+        cleanEntries.filter { entry -> entry.sourceType == sourceType }
+
     override suspend fun getDirtyReadingSessionsForSource(sourceType: SourceType): List<JournalReadingSession> =
         dirtySessions.filter { session -> session.sourceType == sourceType }
 
@@ -569,6 +717,7 @@ private class FakeGrimmoryApi(
     private val notebookEntries: List<GrimmoryNotebookEntryDto> = emptyList(),
     private val notebookFailure: Throwable? = null,
     private val createdNoteId: Long? = 2,
+    private val ratingFailure: Throwable? = null,
 ) : GrimmoryApi {
     var updatedRating: Int? = null
     var updatedNoteId: String? = null
@@ -586,10 +735,12 @@ private class FakeGrimmoryApi(
     override suspend fun getBooks(accessToken: String, libraryId: String): List<ReadableItem> = emptyList()
     override fun bookContentUrl(bookId: String, bookType: String?): String = "content/$bookId"
     override fun bookCoverUrl(bookId: String): String = "cover/$bookId"
-    override suspend fun updatePersonalRating(accessToken: String, bookId: String, rating: Int) =
-        GrimmoryPersonalRatingResponseDto(bookId = bookId.toLong(), personalRating = rating).also {
+    override suspend fun updatePersonalRating(accessToken: String, bookId: String, rating: Int): GrimmoryPersonalRatingResponseDto {
+        ratingFailure?.let { throw it }
+        return GrimmoryPersonalRatingResponseDto(bookId = bookId.toLong(), personalRating = rating).also {
             updatedRating = rating
         }
+    }
     override suspend fun resetPersonalRating(accessToken: String, bookId: String): GrimmoryPersonalRatingResponseDto? =
         GrimmoryPersonalRatingResponseDto(bookId = bookId.toLong(), personalRating = null)
     override suspend fun getReadingSessionsForBook(accessToken: String, bookId: String, pageSize: Int): List<GrimmoryReadingSessionDto> {
@@ -676,6 +827,16 @@ private fun journalEntry(
     reviewedAtEpochMillis = 100L,
     updatedAtEpochMillis = 200L,
     syncState = SyncState.DIRTY,
+)
+
+// An entry as the last pull saved it: its remote time is the book's last read time then.
+private fun pulledEntry(
+    item: ReadableItem,
+    readAt: String,
+    rating: Int? = null,
+): ItemJournalEntry = journalEntry(item = item, rating = rating, reviewText = "").copy(
+    remoteUpdatedAtEpochMillis = Instant.parse(readAt).toEpochMilli(),
+    syncState = SyncState.CLEAN,
 )
 
 private fun journalSession(

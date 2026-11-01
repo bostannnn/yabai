@@ -3,6 +3,7 @@ package com.example.unifiedreader.data.grimmory
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
+import com.example.unifiedreader.core.network.isRetryableNetworkFailure
 import com.example.unifiedreader.journal.ItemJournalEntry
 import com.example.unifiedreader.journal.JournalReadingEvent
 import com.example.unifiedreader.journal.JournalReadingEventType
@@ -27,8 +28,19 @@ suspend fun pullGrimmoryJournalCache(
     accessToken: String,
     entries: List<GrimmoryBookCatalogEntry>,
     journalRepository: JournalRepository?,
+    // A library refresh: the reading history of only the books read on the server since the last
+    // pull (grimmoryJournalPullScope), and no pull at all when nothing the journal shows changed.
+    changedBooksOnly: Boolean = false,
 ) {
     val repository = journalRepository ?: return
+    val changedBookIds = if (changedBooksOnly) {
+        grimmoryJournalPullScope(
+            entries = entries,
+            storedEntries = repository.getCleanJournalEntriesForSource(SourceType.GRIMMORY),
+        ) ?: return
+    } else {
+        null
+    }
     val itemByRemoteBookId = entries
         .map(GrimmoryBookCatalogEntry::item)
         .mapNotNull { item -> item.remoteId?.toLongOrNull()?.let { it to item } }
@@ -57,28 +69,34 @@ suspend fun pullGrimmoryJournalCache(
             )
         },
     )
-    val journalEntries = entries
-        .mapNotNull(GrimmoryBookCatalogEntry::toJournalEntry)
-        .mergeReviewEntries(reviewLookup.entries)
     val sessionPull = pullGrimmoryReadingSessionEvents(
         api = api,
         accessToken = accessToken,
-        entries = entries.filter(GrimmoryBookCatalogEntry::shouldFetchReadingSessions),
+        entries = entries
+            .filter(GrimmoryBookCatalogEntry::shouldFetchReadingSessions)
+            .filter { entry -> changedBookIds == null || entry.item.id in changedBookIds },
     )
     val failedSessionItemIds = sessionPull.failedItemIds
+    // A book whose history didn't load keeps no read time, so the next refresh loads it again.
+    val journalEntries = entries
+        .mapNotNull(GrimmoryBookCatalogEntry::toJournalEntry)
+        .mergeReviewEntries(reviewLookup.entries)
+        .map { entry ->
+            if (entry.itemId in failedSessionItemIds) entry.copy(remoteUpdatedAtEpochMillis = null) else entry
+        }
     val sessionEvents = sessionPull.events
     val readingSessions = sessionPull.sessions
     val sessionFetchFailed = failedSessionItemIds.isNotEmpty()
     val sessionFinishedItemIds = sessionEvents
         .filter { event -> event.eventType == JournalReadingEventType.FINISHED }
         .mapTo(mutableSetOf(), JournalReadingEvent::itemId)
-    val readingEventReplacementItemIds = if (sessionFetchFailed) {
-        entries
+    val readingEventReplacementItemIds = when {
+        changedBookIds != null -> changedBookIds - failedSessionItemIds
+        sessionFetchFailed -> entries
             .map(GrimmoryBookCatalogEntry::item)
             .filterNot { item -> item.id in failedSessionItemIds }
             .mapTo(mutableSetOf(), ReadableItem::id)
-    } else {
-        null
+        else -> null
     }
     val progressEvents = entries
         .filter { entry ->
@@ -192,15 +210,25 @@ suspend fun pushDirtyGrimmoryJournalEntries(
     journalRepository: JournalRepository?,
     pushJournalEntries: Boolean = true,
     pushReadingSessions: Boolean = true,
+    // True only when `entries` is the whole Grimmory catalog (a catalog sync), so a dirty entry
+    // missing from it belongs to a book deleted on the server. A pending flush passes a subset.
+    itemsAreWholeCatalog: Boolean = false,
 ): List<Throwable> {
     val repository = journalRepository ?: return emptyList()
     if (!pushJournalEntries && !pushReadingSessions) return emptyList()
     val failures = mutableListOf<Throwable>()
     val itemById = entries.associateBy(ReadableItem::id)
     if (pushJournalEntries) repository.getDirtyJournalEntriesForSource(SourceType.GRIMMORY).forEach { entry ->
+        val item = itemById[entry.itemId]
+        if (item == null) {
+            // Outside this batch: leave it for a later push.
+            if (!itemsAreWholeCatalog) return@forEach
+            // A Grimmory book missing from the catalog was deleted on the server; stop retrying it.
+            repository.markJournalEntrySyncState(entry.itemId, SyncState.CLEAN)
+            return@forEach
+        }
         var syncedRemoteReviewNoteId = entry.remoteReviewNoteId
         runCatching {
-            val item = itemById[entry.itemId] ?: error("No Grimmory catalog item for journal entry ${entry.itemId}")
             val bookId = item.remoteId ?: error("Grimmory journal entry ${entry.itemId} has no remote book id")
             val rating = entry.rating
             if (rating == null) {
@@ -253,6 +281,8 @@ suspend fun pushDirtyGrimmoryJournalEntries(
                 is CancellationException,
                 is GrimmoryUnauthorizedException -> throw error
             }
+            // Unreachable server: let the address failover around this push try the other address.
+            if (error.isRetryableNetworkFailure()) throw error
             failures += error
             repository.markJournalEntrySyncState(entry.itemId, SyncState.FAILED)
         }
@@ -273,6 +303,7 @@ suspend fun pushDirtyGrimmoryJournalEntries(
                     is CancellationException,
                     is GrimmoryUnauthorizedException -> throw error
                 }
+                if (error.isRetryableNetworkFailure()) throw error
                 failures += error
                 repository.markReadingSessionSyncState(session.id, SyncState.FAILED)
             }
@@ -332,10 +363,7 @@ private fun GrimmoryBookCatalogEntry.toJournalEntry(): ItemJournalEntry? {
         lastReadTime != null ||
         isFinishedByReadStatus
     if (!hasJournalData) return null
-    val updatedAt = listOfNotNull(
-        dateFinished?.toEpochMillisOrNull(),
-        lastReadTime?.toEpochMillisOrNull(),
-    ).maxOrNull() ?: System.currentTimeMillis()
+    val updatedAt = lastReadOrFinishedAtEpochMillis() ?: System.currentTimeMillis()
     return ItemJournalEntry(
         itemId = item.id,
         sourceType = item.sourceType,
@@ -429,11 +457,17 @@ private fun GrimmoryBookCatalogEntry.toFinishedProgressJournalEvent(): JournalRe
     )
 }
 
-private fun GrimmoryBookCatalogEntry.shouldFetchReadingSessions(): Boolean =
+internal fun GrimmoryBookCatalogEntry.shouldFetchReadingSessions(): Boolean =
     progress != null ||
         !lastReadTime.isNullOrBlank() ||
         !dateFinished.isNullOrBlank() ||
         readStatus.isFinishedReadStatus()
+
+/** When the book was last read or finished on the server: its journal entry keeps this as its remote time. */
+internal fun GrimmoryBookCatalogEntry.lastReadOrFinishedAtEpochMillis(): Long? = listOfNotNull(
+    dateFinished?.toEpochMillisOrNull(),
+    lastReadTime?.toEpochMillisOrNull(),
+).maxOrNull()
 
 private fun List<GrimmoryReadingSessionDto>.toJournalEvents(
     item: ReadableItem,

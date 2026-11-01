@@ -78,6 +78,8 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
         updateState: AppUiStateUpdater,
         scope: CoroutineScope,
     ) {
+        // One sign-in or sync at a time: a second would interleave its progress and save over the first.
+        if (stateProvider().grimmoryConnection.isConnecting) return
         when (val preparation = grimmoryCoordinator.prepareConnect(stateProvider().grimmoryConnection)) {
             is GrimmorySyncPreparation.Invalid -> {
                 updateState { state ->
@@ -122,9 +124,9 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
     }
 
     /**
-     * Syncs the library. [inPlace] is the library's own refresh: it saves only the books that
-     * changed and leaves you where you are; otherwise (Settings' Sync now) the whole catalog is
-     * saved and the app opens the library.
+     * Syncs the library; both kinds save only the books that changed. [inPlace] is the library's own
+     * refresh: it loads reading history for the books read since the last sync and leaves you where
+     * you are; otherwise (Settings' Sync now) every book's history is loaded and the app opens the library.
      */
     fun refresh(
         stateProvider: AppUiStateProvider,
@@ -132,6 +134,7 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
         scope: CoroutineScope,
         inPlace: Boolean = false,
     ) {
+        if (stateProvider().grimmoryConnection.isConnecting) return
         val action = if (inPlace) ServerConnectionAction.FastSync else ServerConnectionAction.Sync
         when (val preparation = grimmoryCoordinator.prepareRefresh(stateProvider().grimmoryConnection)) {
             GrimmorySyncPreparation.MissingSession -> {

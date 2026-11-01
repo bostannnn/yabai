@@ -341,6 +341,11 @@ interface JournalRepository : JournalEventRecorder {
         sourceType: SourceType,
     ): List<ItemJournalEntry> = emptyList()
 
+    /** The source's entries as its last pull left them (not the ones waiting to upload). */
+    suspend fun getCleanJournalEntriesForSource(
+        sourceType: SourceType,
+    ): List<ItemJournalEntry> = emptyList()
+
     suspend fun getDirtyReadingSessionsForSource(
         sourceType: SourceType,
     ): List<JournalReadingSession> = emptyList()

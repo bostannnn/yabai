@@ -795,10 +795,13 @@ class FakeGrimmoryCatalogSyncer(
         supportedFormatCounts = emptyMap(),
     ),
     private val failure: Throwable? = null,
+    // Holds each sync until completed, as a slow server would.
+    private val syncGate: CompletableDeferred<Unit>? = null,
 ) : GrimmoryCatalogSyncer {
     var lastRequest: GrimmoryCatalogSyncRequest? = null
     var lastConnectRequest: GrimmoryCatalogSyncRequest? = null
     var lastSyncRequest: GrimmoryCatalogSyncRequest? = null
+    var syncCount = 0
 
     override suspend fun connect(
         request: GrimmoryCatalogSyncRequest,
@@ -815,6 +818,8 @@ class FakeGrimmoryCatalogSyncer(
     ): GrimmoryCatalogSyncResult {
         lastRequest = request
         lastSyncRequest = request
+        syncCount += 1
+        syncGate?.await()
         failure?.let { throw it }
         return result
     }
