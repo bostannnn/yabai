@@ -13,9 +13,9 @@
   "groups": [],
   "lastChange": {
     "by": "bostannnn",
-    "at": "2026-11-01T18:00:00Z",
+    "at": "2026-11-01T18:55:00Z",
     "via": "Claude Code",
-    "note": "Reading progress sync: uploads for books no longer in your library leave the waiting count for their own group, with Keep on this device (SettingsScreen)"
+    "note": "Cover size is a five-stop slider in the sort menu: Tiny, Small, Medium, Large (the default, 176) and Huge, the name at the label's end; Tiny without titles; the reading card and shelves stay at Medium or larger; docked Filters keep the covers' width (LibraryHome, AppMenu, AppSegmentedRow, layout)"
   },
   "layout": "files",
   "libraries": [],

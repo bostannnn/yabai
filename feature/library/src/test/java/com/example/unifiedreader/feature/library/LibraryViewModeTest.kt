@@ -11,7 +11,7 @@ class LibraryViewModeTest {
 
     @Test
     fun `grid cell size stays within the supported range`() {
-        assertEquals(minLibraryGridCellSizeDp, sanitizeLibraryGridCellSizeDp(90))
+        assertEquals(minLibraryGridCellSizeDp, sanitizeLibraryGridCellSizeDp(10))
         assertEquals(maxLibraryGridCellSizeDp, sanitizeLibraryGridCellSizeDp(999))
     }
 }

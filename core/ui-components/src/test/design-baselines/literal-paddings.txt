@@ -14,7 +14,7 @@
 1 feature/library-shelves/src/main/java/com/example/unifiedreader/feature/library/shelves/LibraryShelvesSections.kt
 4 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryBookDescription.kt
 11 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryBookPage.kt
-4 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryBrowseControls.kt
+3 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryBrowseControls.kt
 4 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryCover.kt
 1 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryEmptyState.kt
 5 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryFilterFacetPage.kt

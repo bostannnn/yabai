@@ -24,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -48,6 +50,8 @@ fun LibraryCoverActionCard(
     coverModifier: Modifier = Modifier.fillMaxWidth(),
     titleStyle: TextStyle = MaterialTheme.typography.labelMedium,
     titleColor: Color = MaterialTheme.colorScheme.onSurface,
+    // Tiny covers: no title line, the cover names the book to TalkBack instead.
+    showTitle: Boolean = true,
     supportingText: String? = null,
     supportingStyle: TextStyle = MaterialTheme.typography.bodySmall,
     supportingColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -73,7 +77,8 @@ fun LibraryCoverActionCard(
                     interactionSource = coverInteractionSource,
                     onClick = onClick,
                     onLongClick = onLongClick,
-                ),
+                )
+                .then(if (showTitle) Modifier else Modifier.semantics { contentDescription = title }),
         ) {
             ResolvedLibraryCover(
                 item = item,
@@ -90,7 +95,7 @@ fun LibraryCoverActionCard(
         }
         // The text hangs from the top, so titles share one line across a row whatever follows them,
         // and the menu button is centred on the title's first line.
-        val titleLineHeight = with(LocalDensity.current) { titleStyle.lineHeight.toDp() }
+        val titleLineHeight = with(LocalDensity.current) { (if (showTitle) titleStyle else trailingStyle).lineHeight.toDp() }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -101,18 +106,20 @@ fun LibraryCoverActionCard(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(metadataVerticalSpacing),
             ) {
-                Text(
-                    text = title,
-                    modifier = Modifier.libraryCoverClickable(
-                        interactionSource = null,
-                        onClick = onClick,
-                        onLongClick = onLongClick,
-                    ).then(title.marqueeModifier()),
-                    style = titleStyle,
-                    color = titleColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                if (showTitle) {
+                    Text(
+                        text = title,
+                        modifier = Modifier.libraryCoverClickable(
+                            interactionSource = null,
+                            onClick = onClick,
+                            onLongClick = onLongClick,
+                        ).then(title.marqueeModifier()),
+                        style = titleStyle,
+                        color = titleColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 supportingText?.let {
                     Text(
                         text = it,

@@ -414,7 +414,7 @@ A dropdown anchored to its button: the sort menu, •••, a tile's actions. `
 
 - Kit: `AppMenu`, `AppMenuItem`, `AppMenuHeading`, `AppMenuChoiceItem`, `AppMenuSwitchItem`.
 - An item that needs saying what it does (Lists' New: List, Smart list, Import a reading order) takes a `supporting` line under its label and grows to 56; keep that to menus whose choices make something.
-- **One inset, `inset-menu` 16** (`AppMenuDefaults.horizontalPadding`), for items, headings and controls: the cover-size segmented row lines up with the labels.
+- **One inset, `inset-menu` 16** (`AppMenuDefaults.horizontalPadding`), for items, headings and controls: the cover-size slider lines up with the labels.
 - Corners `radius-control` 12, as the 2026-10-22 decision says for menus.
 - A menu with a single item (••• on a Local library) is fine; do not pad it with disabled entries.
 """, f"""
@@ -428,8 +428,8 @@ A dropdown anchored to its button: the sort menu, •••, a tile's actions. `
     <div class="yb-divider is-full" style="margin:6px 0"></div>
     <div class="yb-menu-heading">View</div>
     <div class="yb-menu-item" style="justify-content:space-between">Fade read books<span class="yb-switch"></span></div>
-    <div class="yb-menu-heading">Cover size</div>
-    <div class="yb-seg"><span>Small</span><span class="is-selected">Medium</span><span>Large</span></div>
+    <div class="yb-menu-item" style="justify-content:space-between">Cover size<span class="yb-range-value">Large</span></div>
+    <div style="padding:0 16px 10px"><div class="yb-range"><span class="yb-range-track"><b style="left:0;right:25%"></b></span><i style="left:75%"></i></div></div>
   </div>
 </div>""", width=388)
 
@@ -496,8 +496,8 @@ comp("AppSegmentedRow", "Actions", 200, """
 Two or three choices in one pill: a `surface-container-low` track, 3 padding, 34 tall segments; the selected one is `primary-container`.
 
 - Kit: `AppSegmentedRow` + `AppSegment`.
-- Any setting with two or three values is one row of these (label + segmented row); lists are only for fonts and chapters.
-- Month / Year in the journal, cover size in the sort menu, reader settings.
+- Any setting with two or three values is one row of these (label + segmented row); lists are only for fonts and chapters. More values than three, ordered by size, take a stepped `AppSlider` with the value's name at the label's end (the sort menu's cover size).
+- Month / Year in the journal, reader settings.
 """, f"""
 <div class="yb yb-ground" style="padding:24px;display:flex;flex-direction:column;gap:16px;width:420px">
   <div class="yb-seg" style="width:240px"><span class="is-selected">Month</span><span>Year</span></div>

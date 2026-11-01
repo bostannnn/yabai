@@ -13,11 +13,12 @@ import java.util.Locale
 @Composable
 internal fun rememberJournalNowEpochMillis(): Long {
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    // Moves on at each local midnight. The first value is already current, so it isn't written again on
+    // the next frame: that would lay the whole journal out a second time as it opens.
     LaunchedEffect(Unit) {
         while (true) {
-            val current = System.currentTimeMillis()
-            now = current
-            delay(millisUntilNextLocalDay(current).coerceAtLeast(MinClockRefreshDelayMillis))
+            delay(millisUntilNextLocalDay(System.currentTimeMillis()).coerceAtLeast(MinClockRefreshDelayMillis))
+            now = System.currentTimeMillis()
         }
     }
     return now

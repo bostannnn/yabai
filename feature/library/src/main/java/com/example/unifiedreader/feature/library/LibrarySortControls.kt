@@ -3,7 +3,7 @@ package com.example.unifiedreader.feature.library
 import androidx.compose.runtime.Composable
 import com.example.unifiedreader.core.model.LibrarySortMode
 
-internal const val LibraryGridSizeOptionTagPrefix = "library-grid-size-option-"
+internal const val LibraryGridSizeSliderTag = "library-grid-size-slider"
 private const val LibraryBrowseSortSectionId = "sort"
 
 @Composable
