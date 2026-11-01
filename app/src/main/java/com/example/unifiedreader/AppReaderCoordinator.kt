@@ -343,6 +343,7 @@ class AppReaderCoordinator @Inject constructor(
                 selectedItem = state.selectedItem,
                 scope = scope,
                 onSyncFailures = onSyncFailures,
+                isLeavingReader = true,
             )
         }
         refreshProgress()

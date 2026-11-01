@@ -302,6 +302,52 @@ class GrimmoryDtosTest {
     }
 
     @Test
+    fun keepsThePlaceOfABookReadingAgainAfterItsFinishDate() {
+        // Grimmory switched the book back to Reading when the place went back, and kept the date.
+        val item = GrimmoryBookDto(
+            id = 12,
+            libraryId = 4,
+            primaryFile = GrimmoryBookFileDto(
+                bookType = "EPUB",
+                extension = "epub",
+            ),
+            lastReadTime = "2026-04-03T12:00:00Z",
+            dateFinished = "2026-04-02T12:00:00Z",
+            readStatus = "READING",
+            epubProgress = GrimmoryEpubProgressDto(
+                percentage = 30f,
+            ),
+        ).toCatalogEntry(
+            baseUrl = "https://grimmory.example",
+        )
+
+        requireNotNull(item)
+        assertEquals(0.3, item.progress?.percent ?: 0.0, 0.0001)
+        assertEquals(false, item.progress?.isFinished)
+        assertEquals("2026-04-02T12:00:00Z", item.dateFinished)
+    }
+
+    @Test
+    fun keepsTheFinishOfABookReadingAgainWithoutAPlace() {
+        val item = GrimmoryBookDto(
+            id = 12,
+            libraryId = 4,
+            primaryFile = GrimmoryBookFileDto(
+                bookType = "EPUB",
+                extension = "epub",
+            ),
+            dateFinished = "2026-04-02T12:00:00Z",
+            readStatus = "READING",
+        ).toCatalogEntry(
+            baseUrl = "https://grimmory.example",
+        )
+
+        requireNotNull(item)
+        assertTrue(item.progress?.isFinished ?: false)
+        assertEquals(false, item.isExplicitUnreadReset)
+    }
+
+    @Test
     fun treatsZeroCfiAndZeroPercentAsUnread() {
         val item = GrimmoryBookDto(
             id = 12,

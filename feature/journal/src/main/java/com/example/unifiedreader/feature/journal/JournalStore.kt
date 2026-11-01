@@ -73,9 +73,14 @@ class RoomJournalRepository(
             recordMutex.withLock {
                 val existingEvents = journalDao.getReadingEventsForItem(input.item.id)
                     .map { entity -> entity.toDomain() }
-                val next = buildJournalEvent(
+                val latestEvent = existingEvents.maxByOrNull(JournalReadingEvent::occurredAtEpochMillis)
+                val next = takeBackVisitFinish(
                     input = input,
-                    latestEvent = existingEvents.maxByOrNull(JournalReadingEvent::occurredAtEpochMillis),
+                    latestEvent = latestEvent,
+                    hasEarlierEvents = existingEvents.size > 1,
+                ) ?: buildJournalEvent(
+                    input = input,
+                    latestEvent = latestEvent,
                 ) ?: return@withLock
                 journalDao.insertReadingEvent(next.toEntity())
             }
@@ -299,13 +304,20 @@ internal fun buildJournalEvent(
             occurredAtEpochMillis = input.occurredAtEpochMillis,
         )
     }
+    val readsAgain = latestEvent?.eventType == JournalReadingEventType.FINISHED &&
+        latestPosition?.isMeaningfullyAfter(position) == true
     val eventType = when {
         input.isFinished && latestEvent?.eventType != JournalReadingEventType.FINISHED -> JournalReadingEventType.FINISHED
         latestEvent == null -> JournalReadingEventType.STARTED
+        // A finished book read again: started over from its first tenth, or a part of it read again.
+        readsAgain && position.isStartingOver() -> JournalReadingEventType.STARTED
+        readsAgain -> JournalReadingEventType.CONTINUED
         latestEvent.eventType == JournalReadingEventType.FINISHED -> null
         position.isMeaningfullyAfter(latestPosition) -> JournalReadingEventType.CONTINUED
         else -> null
     } ?: return null
+    // A read started over begins where it starts, not at the end where the last one finished.
+    val from = if (readsAgain && eventType == JournalReadingEventType.STARTED) position else latestPosition
     return JournalReadingEvent(
         id = "${input.item.id}:${eventType.name}:${input.occurredAtEpochMillis}",
         itemId = input.item.id,
@@ -316,11 +328,38 @@ internal fun buildJournalEvent(
         itemKind = input.item.kind,
         format = input.item.format,
         eventType = eventType,
-        fromPercent = latestPosition?.percent,
+        fromPercent = from?.percent,
         toPercent = position.percent,
-        fromPage = latestPosition?.page,
+        fromPage = from?.page,
         toPage = position.page,
         pageCount = input.pageCount ?: input.item.pageCount,
+        occurredAtEpochMillis = input.occurredAtEpochMillis,
+    )
+}
+
+/**
+ * Reaching the end and turning back is not finishing the book: the finish recorded on this visit
+ * (see [JournalProgressInput.visitStartedAtEpochMillis]) goes back to reading progress once the place
+ * moves back from it. A finish from an earlier visit stays: going back then is reading it again.
+ */
+internal fun takeBackVisitFinish(
+    input: JournalProgressInput,
+    latestEvent: JournalReadingEvent?,
+    hasEarlierEvents: Boolean,
+): JournalReadingEvent? {
+    val visitStartedAt = input.visitStartedAtEpochMillis ?: return null
+    if (input.isFinished) return null
+    val finish = latestEvent?.takeIf { event ->
+        event.eventType == JournalReadingEventType.FINISHED &&
+            event.remoteEventId == null &&
+            event.occurredAtEpochMillis >= visitStartedAt
+    } ?: return null
+    val position = JournalPosition.from(input)
+    if (!JournalPosition.from(finish).isMeaningfullyAfter(position)) return null
+    return finish.copy(
+        eventType = if (hasEarlierEvents) JournalReadingEventType.CONTINUED else JournalReadingEventType.STARTED,
+        toPercent = position.percent,
+        toPage = position.page,
         occurredAtEpochMillis = input.occurredAtEpochMillis,
     )
 }
@@ -329,6 +368,8 @@ private data class JournalPosition(
     val page: Int?,
     val percent: Double?,
 ) {
+    fun isStartingOver(): Boolean = percent != null && percent < JournalStartedOverPercent
+
     fun isMeaningfullyAfter(
         previous: JournalPosition?,
     ): Boolean {

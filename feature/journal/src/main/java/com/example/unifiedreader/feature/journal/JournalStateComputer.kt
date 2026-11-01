@@ -22,10 +22,11 @@ class JournalStateComputer(
         entries: List<ItemJournalEntry>,
         catalogItemsById: Map<String, ReadableItem> = emptyMap(),
     ): JournalSnapshot {
+        val finishedOncePerRead = events.withFinishesOncePerRead()
         val (monthStart, monthEnd) = periodBounds(JournalPeriod.MONTH, nowEpochMillis())
         val (yearStart, yearEnd) = periodBounds(JournalPeriod.YEAR, nowEpochMillis())
-        val monthEvents = events.inPeriod(monthStart, monthEnd)
-        val yearEvents = events.inPeriod(yearStart, yearEnd)
+        val monthEvents = finishedOncePerRead.inPeriod(monthStart, monthEnd)
+        val yearEvents = finishedOncePerRead.inPeriod(yearStart, yearEnd)
         val monthSessions = sessions.overlappingPeriod(monthStart, monthEnd)
         val yearSessions = sessions.overlappingPeriod(yearStart, yearEnd)
         val monthStats = computeStats(
@@ -45,10 +46,10 @@ class JournalStateComputer(
             periodEnd = yearEnd,
         )
         return JournalSnapshot(
-            events = events.sortedByDescending(JournalReadingEvent::occurredAtEpochMillis),
+            events = finishedOncePerRead.sortedByDescending(JournalReadingEvent::occurredAtEpochMillis),
             sessions = sessions.sortedByDescending(JournalReadingSession::endedAtEpochMillis),
             entries = entries.sortedByDescending(ItemJournalEntry::updatedAtEpochMillis),
-            itemSummaries = computeItemSummaries(events, sessions, entries, catalogItemsById),
+            itemSummaries = computeItemSummaries(finishedOncePerRead, sessions, entries, catalogItemsById),
             monthStats = monthStats,
             yearStats = yearStats,
         )
@@ -186,8 +187,9 @@ fun computePeriodOverview(
             periodSessions.map(JournalReadingSession::itemId)
         ).toSet()
     val finishedItems = snapshot.itemSummaries
-        .filter { summary -> summary.finishedAtEpochMillis in periodStart until periodEnd }
-        .sortedByDescending(JournalItemSummary::finishedAtEpochMillis)
+        .mapNotNull { summary -> summary.finishedAtWithin(periodStart, periodEnd)?.let { finishedAt -> summary to finishedAt } }
+        .sortedByDescending { (_, finishedAt) -> finishedAt }
+        .map { (summary, _) -> summary }
     val activeItems = snapshot.itemSummaries
         .filter { summary -> summary.item.itemId in readItemIds }
         .sortedByDescending(JournalItemSummary::lastActivityAtEpochMillis)
