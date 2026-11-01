@@ -13,9 +13,9 @@
   "groups": [],
   "lastChange": {
     "by": "bostannnn",
-    "at": "2026-11-01T06:10:00Z",
+    "at": "2026-11-01T08:00:00Z",
     "via": "Claude Code",
-    "note": "Browse: rows move by a drag handle in Rows (kept per source; a new row keeps its spot), the landing page comes back where you left it, Mood from Grimmory's moods; AppSettingsRow's leading drag handle (AppReorderHandleIcon)"
+    "note": "No Browse page: Filters carries Set in, When, About and Mood with Find, and docks beside the library on Expanded (LibraryFilters); the home's All books row has Filters and sort; Tags and the search's tag strip say Filters"
   },
   "layout": "files",
   "libraries": [],

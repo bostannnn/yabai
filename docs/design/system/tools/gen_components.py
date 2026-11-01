@@ -173,7 +173,7 @@ A labelled group of rows on a panel: the settings hub and every settings page, t
 - Dividers start under the text (60) and use `outline-variant` at 60%.
 - The selected row (two panes) fills with `primary-container`; its supporting text and chevron drop to 72%.
 - Use it instead of hand-made rows: the sync queue row, the reading-defaults row, the filter-chips row and first launch's choices are rows of this family.
-- Drag handles lead the row (the filter chips page, Browse's Rows): `leading = { AppReorderHandleIcon(state, index, label) }`, the 24 arrow on the inset line with its grab area reaching 8 past it on each side. A row with a drag handle has no chevron; its trailing switch stays.
+- Drag handles lead the row (the filter chips page): `leading = { AppReorderHandleIcon(state, index, label) }`, the 24 arrow on the inset line with its grab area reaching 8 past it on each side. A row with a drag handle has no chevron; its trailing switch stays.
 """, f"""
 <div class="yb yb-ground" style="padding:24px;width:520px">
   <div class="yb-stack">
@@ -374,7 +374,7 @@ A selectable pill for filters and sort: 36 tall, a hairline `outline-variant` ed
 
 - Kit: `AppChip(selected, onClick, label, count, leadingIcon, onLongClick)`.
 - The library's Filters and sort pills, the filter sheet's values, the Lists filter row and a smart list's rules.
-- `onLongClick` is optional: Browse's Set in, When and About chips and the book page's tags open the tag's sort sheet with it (see Tags).
+- `onLongClick` is optional: Filters' Set in, When and About values and the book page's tags open the tag's sort sheet with it (see Tags).
 - Counts are digits with a separator ("1,474"; `appCount`), not in brackets.
 """, f"""
 <div class="yb yb-ground" style="padding:24px;display:flex;gap:8px;flex-wrap:wrap">
@@ -391,7 +391,7 @@ comp("AppTabPill", "Actions", 160, """
 A tab as a pill: 34 tall, 14 inside, text only until selected, then on `surface-container-high` with `on-surface` text. An optional count follows at 80%. Quieter than an `AppChip`, so a row of tabs reads as "which list" and chips under it as "which value".
 
 - Kit: `AppTabPill(label, selected, onClick, count)`; 4 apart in a row that scrolls when it doesn't fit.
-- The library home's shelf tabs (In progress, Up next, Finished) and See all's; Browse's rows on Medium and Compact windows.
+- The library home's shelf tabs (In progress, Up next, Finished) and See all's.
 """, f"""
 <div class="yb yb-ground" style="padding:24px;display:flex;flex-direction:column;gap:16px;width:520px">
   <div class="yb-tabs"><span class="yb-tab is-selected">In progress <span class="yb-count">7</span></span><span class="yb-tab">Up next <span class="yb-count">3</span></span><span class="yb-tab">Finished <span class="yb-count">4</span></span></div>
@@ -439,8 +439,8 @@ The search pill: 40 tall, `surface-container-high`, a search icon, a placeholder
 - Kit: `AppSearchField(query, onQueryChange, placeholder, containerColor, trailingContent)`.
 - In the library bar it fills the middle up to 640. The placeholder says the place: "Search Kavita", "Search Neon Ronin", "Search shelves".
 - On a dialog, pass `AppSearchFieldDefaults.dialogContainerColor`.
-- **The tags a search names** (the library's search): above the results, a row that starts with "Browse" in `on-surface-variant` and holds an `AppChip` for each tag, genre, mood or shelf the words name, its Browse row quieter and its count after it ("Set in Japan 96"), whole names first. Picking one opens Browse with it. The row sits above the results, not in a panel over them, so it never hides what you searched for.
-- **Results** while searching are `AppBookRow`s that say why they matched when it isn't the title or a name: the sentence of the description that holds the words, marked with `primary-container`, two lines at most (a long one cut around the first word), with "In the description" under it; or, for a tag or genre, one line named as Browse names it ("Set in **Japan**", "Genre **Historical Fiction**").
+- **The tags a search names** (the library's search): above the results, a row that starts with "Filter by" in `on-surface-variant` and holds an `AppChip` for each tag, genre or mood the words name, its section quieter and its count after it ("Set in Japan 96"), whole names first. Picking one applies it to All books as a filter and leaves the search. The row sits above the results, not in a panel over them, so it never hides what you searched for.
+- **Results** while searching are `AppBookRow`s that say why they matched when it isn't the title or a name: the sentence of the description that holds the words, marked with `primary-container`, two lines at most (a long one cut around the first word), with "In the description" under it; or, for a tag or genre, one line named as Filters names it ("Set in **Japan**", "Genre **Historical Fiction**").
 """, f"""
 <div class="yb yb-ground" style="padding:24px;display:flex;flex-direction:column;gap:12px;width:480px">
   <div class="yb-search">{ic("search")}<span>Search Kavita</span></div>

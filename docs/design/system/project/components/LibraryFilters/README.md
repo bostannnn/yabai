@@ -1,0 +1,19 @@
+# Filters
+
+One way to narrow a source's library: by anything its books carry, the places, times, themes and moods included. There is no Browse page; Filters holds what it showed, in compact forms, and narrows All books itself.
+
+- **Opening it.** The Filters chip in All books' row (with the number of applied values); an applied value's chip (opens Filters at its section); a tag on the book page or in the search suggestions, which applies that value to All books and shows its chip, as a tag did before Browse.
+- **Sheet or docked.** Under Expanded it is an `AppSideSheet` (a bottom sheet on phones) over the library, with Save as list and "Show 72 books" in its footer. On Expanded it docks: a 400 wide panel on the right gutter, from content top to content bottom, on `surface` with `radius-container` 20; the library takes the width left of it. Every tap changes the books at once, so the docked panel has no Show button, only Save as list. The Filters chip shows and hides it; the app remembers which.
+- **Header:** `AppPanelHeader` "Filters" with "Showing 72 of 1,474" (or "Showing all 1,474"), Clear all once something is picked, and close (docked: hide). Docked, the Filters chip shows as selected while the panel is open.
+- **Find:** an `AppSearchField` ("Find a place, tag, mood or author") at the top. While it holds text, the sections give way to the matches from every text section (a word starting with what you typed: "war" finds Cold War and Ruth Ware, not Edward), grouped under their section's `AppSheetLabel`, picked ones first, each a value row with a checkbox, the matched part bold and the count; a tap picks it. Named periods (World War II, Cold War), which have no pile under When, are reached here.
+- **Sections**, in the order Settings › Filter chips gives (by default Reading status, Pages, Set in, When, About, Mood, Genre, Author, Series, Publisher, Language, Format, Library, Location); a section no book has stays out (a source without moods has no Mood):
+  - **Reading status, Format, Library, Location:** chips with counts.
+  - **Set in:** the tags you sorted as places (Settings › Tags) and Kavita's Locations, most books first: rows with the name and the count, six of them, then "All 53 places", which opens the section's full list with its search and letters. Cities fold into their country: picking a country picks its cities' books, and a picked country (selected, `primary-container`, a check) shows its cities under it, indented, each pickable.
+  - **When:** one 26 row per pile (a century or decade, in time order) with its books standing as 4 wide spines, as many as the square root of its count allows (14 at most), in the title-cover fills; the count at the end. A pick takes every tag in the pile. "All N times" opens the full list, named periods among them.
+  - **About:** every other tag as chips, most books first, 14 of them, then "All 283 tags".
+  - **Mood:** chips (Grimmory's moods, paces such as Fast-paced among them).
+  - **Genre:** chips, 10, then "All 49 genres".
+  - **Author, Series, Publisher, Language:** a value row (52) with its top three values and counts on the line under its name ("Ryu Murakami 5 · Yukio Mishima 4 · Edogawa Rampo 4"), what is picked ("Any") at its end, opening the section's full list.
+  - **Pages:** the range slider.
+- **Counts narrow.** Each section counts the books every other section leaves. Two picks in one section mean either one (Japan or France); picks in different sections narrow (Japan and Dark).
+- Save as list keeps the picks as a smart list's rules.

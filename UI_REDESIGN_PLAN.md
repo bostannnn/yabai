@@ -2153,9 +2153,36 @@ The user used Browse on the tablet and raised five things. Fixed now (branch `cl
 - [ ] **Tags are one long list** (313 in About on that snapshot). Discussed: not the user's metadata standard, something
       that works for any library; tested on the snapshot, grouping each theme under the genre its books carry far more
       often than the library does puts 240 of 284 themes in sensible groups, 44 broad ones fit none. Not decided.
-- [ ] **Browse and Filters do one job twice, and Filters is quicker.** Discussed: keep both as two ways into one set of
-      picks shown on the All books grid, and make Browse pick in place with a Show N books button, row tabs, Find,
-      and a faster count. Not decided; explained again with a picture on 2026-11-01.
+- [x] **Browse and Filters do one job twice, and Filters is quicker.** Rejected on the way: two doors into one set of
+      picks; Browse as one page with a filter sidebar (two versions mocked). Decided: no Browse page; Filters carries
+      what it showed, docked beside the library on Expanded windows. Mocked on
+      https://claude.ai/artifact/3eADGUHzJihcPBj9YHLLm3 (third row, "Filters, upgraded"); see the next section.
+
+### Filters instead of Browse `[~]` (2026-11-01)
+
+The user chose the upgraded Filters, docked on the tablet. Built on branch `claude/browse-menu-ux-issues-15f807`:
+
+- [x] Design system first: `LibraryFilters` (new) replaces `LibraryBrowse`; `LibraryHome` loses the Browse chip and
+      gains the docked panel; Tags, AppChip, AppSearchField, AppTabPill and ListsScreen say Filters.
+- [x] core:model: `LibraryFilterState` gains `places` (a country takes its cities), `times` (a pile takes every era
+      tag in it; a named period itself) and `moods`; panels `SetIn`, `When`, `Mood` (the `Tag` panel is labelled
+      About and keeps its name, so saved lists stay valid); default order Reading status, Pages, Set in, When, About,
+      Mood, Genre, Author, Series, Publisher, Language, Format, Library, Location. `buildLibraryTagFilterFacets` counts
+      the four tag sections with your tag sorting; `filteringBy` turns a book-page or search tag into a filter;
+      `toListRules` keeps places and times as tag rules of their own, expanded (`libraryPlaceTags`, `libraryTimeTags`).
+      Places, times and moods keep Kavita off the paged grid. The Browse-only model code is gone.
+- [x] feature:library: the sheet's sections by style (`LibraryFilterSectionsModel.kt`, `LibraryFilterSections.kt`):
+      chips, the slider, Set in rows (six, a picked country's cities under it), When piles with standing spines,
+      top chips for About (14), Mood and Genre (10), rows with their top three values; Find across every section
+      (a word starting with what you type). The sheet and the docked panel share one content
+      (`LibraryFilterContent`); on Expanded `LibraryScreen` lays the panel beside the grid (`LibraryFilterDock.kt`
+      remembers whether it is open), the Filters chip shows and hides it. The four tag sections are counted on
+      screen from the source's books (`rememberLibraryFilterFacetsWithTags`), since the view model has no tag sorting.
+      Saved custom panel lists get the new panels (a `library_filter_panels_known_*` key records what a list knew).
+- [x] Browse removed: the `browse/` package, its route, bar and Back; book-page tags and the search's tag strip
+      ("Filter by") filter the library; the tag sort sheet's link reads "Filter by it · N". The Rows sheet and its
+      drag order from earlier the same day went with it (Settings › Filter chips orders the sections).
+- [ ] Seen on the tablet.
 
 ## Not yet designed
 
