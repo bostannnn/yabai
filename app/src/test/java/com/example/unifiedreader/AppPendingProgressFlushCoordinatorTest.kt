@@ -968,6 +968,7 @@ private fun testPendingProgressFlushCoordinator(
     remoteJournalPusher: RemoteJournalPusher = NoOpRemoteJournalPusher,
     journalRepository: JournalRepository = EmptyJournalRepository,
     autoFlushPolicy: AppRemoteArtifactAutoFlushPolicy = AppRemoteArtifactAutoFlushPolicy(),
+    remoteCatalogReadiness: RemoteCatalogReadiness = FakeRemoteCatalogReadiness(),
 ): AppPendingProgressFlushCoordinator = AppPendingProgressFlushCoordinator(
     readerSessionStore = readerSessionStore,
     readableItemRepository = readableItemRepository,
@@ -979,6 +980,7 @@ private fun testPendingProgressFlushCoordinator(
     ),
     remoteItemLocalAvailability = remoteItemLocalAvailability,
     remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+    remoteCatalogReadiness = remoteCatalogReadiness,
     autoFlushPolicy = autoFlushPolicy,
 )
 

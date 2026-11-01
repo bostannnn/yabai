@@ -65,6 +65,7 @@ class AppViewModel @Inject constructor(
     private val appNetworkChangeCoordinator: AppNetworkChangeCoordinator,
     private val progressSyncNoticeController: AppProgressSyncNoticeController,
     private val journalEntrySaveUseCase: JournalEntrySaveUseCase,
+    private val keepUploadsOnDeviceUseCase: KeepUploadsOnDeviceUseCase,
     private val journalRepository: JournalRepository,
     private val progressSyncStartupRetryCoordinator: AppProgressSyncStartupRetryCoordinator,
     private val coverPreloadController: AppCoverPreloadController,
@@ -519,6 +520,13 @@ class AppViewModel @Inject constructor(
 
     fun retryPendingRemoteSync() {
         retryPendingRemoteSync(uiState.pendingRemoteSyncSummary)
+    }
+
+    /** Settings › Reading progress sync: Keep on this device, for the books no longer in the library. */
+    fun keepGoneUploadsOnDevice() {
+        val itemIds = uiState.pendingRemoteSyncSummary.goneItemIds
+        if (itemIds.isEmpty()) return
+        viewModelScope.launch { keepUploadsOnDeviceUseCase(itemIds) }
     }
 
     private fun retryPendingRemoteSync(

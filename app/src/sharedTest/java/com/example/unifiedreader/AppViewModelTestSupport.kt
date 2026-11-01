@@ -342,6 +342,7 @@ internal fun createViewModel(
                 ),
                 remoteItemLocalAvailability = remoteItemLocalAvailability,
                 remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
+                remoteCatalogReadiness = remoteCatalogReadiness,
                 autoFlushPolicy = remoteArtifactAutoFlushPolicy,
             ),
             nextItemResolver = AppReaderNextItemResolver(
@@ -409,6 +410,10 @@ internal fun createViewModel(
         progressSyncNoticeController = progressSyncNoticeController,
         journalRepository = journalRepository,
         journalEntrySaveUseCase = JournalEntrySaveUseCase(
+            journalRepository = journalRepository,
+        ),
+        keepUploadsOnDeviceUseCase = KeepUploadsOnDeviceUseCase(
+            progressSyncStore = ReaderSessionProgressStoreAdapter(readerSessionStore),
             journalRepository = journalRepository,
         ),
         progressSyncStartupRetryCoordinator = progressSyncStartupRetryCoordinator ?: AppProgressSyncStartupRetryCoordinator(

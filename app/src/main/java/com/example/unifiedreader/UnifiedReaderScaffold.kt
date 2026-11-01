@@ -62,6 +62,7 @@ import com.example.unifiedreader.feature.settings.SettingsTagsPage
 import com.example.unifiedreader.feature.library.tags.LocalLibraryTagSorting
 import com.example.unifiedreader.feature.settings.SettingsScreen
 import com.example.unifiedreader.feature.settings.SourceStartMode
+import com.example.unifiedreader.feature.settings.SyncSettingsGoneItem
 import com.example.unifiedreader.feature.settings.SyncSettingsItemRow
 import com.example.unifiedreader.feature.settings.SyncSettingsSourceGroup
 import com.example.unifiedreader.feature.settings.SyncSettingsUiState
@@ -728,6 +729,7 @@ private fun SettingsRoute(
             onLibraryFilterPanelsChanged = viewModel::onLibraryFilterPanelsChanged,
             syncSettings = uiState.pendingRemoteSyncSummary.toSyncSettingsUiState(),
             onRetrySync = viewModel::retryPendingRemoteSync,
+            onKeepUploadsOnDevice = viewModel::keepGoneUploadsOnDevice,
             onLibraryDirectionSelected = viewModel::onLibraryDirectionSelected,
             onLibraryReaderModeSelected = viewModel::onLibraryReaderModeSelected,
             versionName = versionName,
@@ -767,6 +769,16 @@ private fun AppPendingRemoteSyncSummary.toSyncSettingsUiState(): SyncSettingsUiS
             },
         )
     },
+    goneItems = goneItems
+        .sortedWith(compareBy({ item -> item.itemTitle.lowercase() }, { item -> item.artifact.ordinal }))
+        .map { item ->
+            SyncSettingsGoneItem(
+                bookKey = item.itemId,
+                title = item.itemTitle,
+                sourceLabel = item.sourceType.displayName(),
+                artifactLabel = item.artifact.settingsLabel(),
+            )
+        },
 )
 
 private fun AppPendingRemoteSyncSourceGroup.syncStatusLabel(): String = when {
