@@ -1,7 +1,7 @@
 # Screen mocks for the yabai design system (dp = px). Run after gen_components.py.
 import sys
 sys.path.insert(0, __import__("os").path.dirname(__import__("os").path.abspath(__file__)))
-from gen_components import comp, ic, row, group, cover, theme_preview, chev, DIV, list_cover  # noqa: E402
+from gen_components import comp, ic, row, group, cover, theme_preview, chev, DIV, list_cover, list_row, letter_strip  # noqa: E402
 
 TOGGLE_SCRIPT = """<script>
 (function(){
@@ -549,9 +549,6 @@ def list_tile(name, caption, indices, smart=False):
             f'<div class="yb-book-title" style="margin-top:6px;font-size:14px">{name}</div><div class="yb-caption">{caption}</div></div>')
 
 
-LISTS_H = 1240  # the whole page, down to the Grimmory section
-
-
 def check_box(on):
     if on:
         return (f'<span style="width:22px;height:22px;border-radius:6px;background:var(--primary);color:var(--on-primary);'
@@ -575,16 +572,52 @@ def grid(tiles, cols=6):
     return f'<div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:16px">{"".join(tiles)}</div>'
 
 
-lists = f"""
-<div class="yb-device" style="width:{W}px;height:{LISTS_H}px">
-  {statusbar()}
-  <div class="yb-device-body">
-    {rail("Lists")}
-    <div class="yb-pane" style="--yb-gutter:24px">
-      <div class="yb-bar"><div class="yb-search">{ic("search")}<span>Search lists</span></div><span class="yb-spacer"></span><button class="yb-icon-btn">{ic("add")}</button><button class="yb-icon-btn">{ic("more_vert")}</button></div>
-      <div class="yb-scroll">
-        <div class="yb-chip-row">{filter_chip("All", selected=True)}{filter_chip("Your lists", 5)}{filter_chip("Smart", 3)}{filter_chip("Kavita", 4)}{filter_chip("Grimmory", 35)}</div>
-        <div class="yb-panel" style="padding:20px;display:flex;gap:20px;align-items:center">
+LISTS_H = 2040  # All, the whole page
+
+
+def place_row(selected, counts=(("All", None), ("Your lists", 5), ("Kavita", 64), ("Grimmory", 61)), style=""):
+    return f'<div class="yb-chip-row" style="flex-wrap:nowrap;{style}">{"".join(filter_chip(n, c, n == selected) for n, c in counts)}</div>'
+
+
+def see_all(n):
+    return f'<button class="yb-btn is-text" style="height:32px;margin-right:-12px;font-weight:600">See all {n}{ic("navigate_next", 18)}</button>'
+
+
+def lists_heading(title, count, more=None):
+    end = see_all(more) if more else ""
+    return (f'<div style="display:flex;align-items:center;justify-content:space-between;gap:16px">'
+            f'<h2 class="yb-section-heading">{title} <span class="yb-count">{count}</span></h2>{end}</div>')
+
+
+def strip(tiles):
+    # One sideways row: tiles at the grid's cover width; the last one peeks past the gutter.
+    return (f'<div style="display:grid;grid-auto-flow:column;grid-auto-columns:176px;gap:16px;margin-right:-24px;overflow:hidden">'
+            f'{"".join(tiles)}</div>')
+
+
+def kind_tabs(tabs, selected):
+    return ('<div class="yb-tabs">' + "".join(
+        f'<span class="yb-tab{" is-selected" if t == selected else ""}">{t}{f" <span class=yb-count>{c}</span>" if c is not None else ""}</span>'
+        for t, c in tabs) + '</div>')
+
+
+def show_as(rows=True):
+    return (f'<div class="yb-seg" style="flex:none"><span class="{"is-selected" if rows else ""}" style="flex:none;padding:0 10px">{ic("view_list", 20)}</span>'
+            f'<span class="{"" if rows else "is-selected"}" style="flex:none;padding:0 10px">{ic("grid_view", 20)}</span></div>')
+
+
+def sort_chip(label):
+    return f'<span class="yb-chip">{ic("swap_vert", 18)}{label}</span>'
+
+
+def letter_group(letter, rows, cols=2):
+    grid_style = f"display:grid;grid-template-columns:repeat({cols},1fr);" if cols > 1 else ""
+    return (f'<div class="yb-group"><h3 class="yb-group-label" style="color:var(--on-surface-variant)">{letter}</h3>'
+            f'<div class="yb-panel" style="{grid_style}padding:4px 0">{"".join(rows)}</div></div>')
+
+
+def under_way_card():
+    return f"""<div class="yb-panel" style="padding:20px;display:flex;gap:20px;align-items:center">
           {cover(5, width=88)}
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
             <span class="yb-caption" style="font-weight:600">Reading order · book 3 of 5 · read yesterday</span>
@@ -593,39 +626,267 @@ lists = f"""
             <div class="yb-progress" style="margin-top:8px"><i style="width:40%"></i></div>
           </div>
           <button class="yb-btn is-filled">Continue</button>
+        </div>"""
+
+
+def bar(menu=False):
+    lead = f'<button class="yb-icon-btn">{ic("menu")}</button>' if menu else ""
+    # On a phone the search field takes the bar's room; on wider windows it stops at its maximum and a spacer follows.
+    spacer = "" if menu else '<span class="yb-spacer"></span>'
+    return (f'<div class="yb-bar">{lead}<div class="yb-search">{ic("search")}<span>Search lists</span></div>{spacer}'
+            f'<button class="yb-icon-btn">{ic("add")}</button><button class="yb-icon-btn">{ic("more_vert")}</button></div>')
+
+
+lists = f"""
+<div class="yb-device" style="width:{W}px;height:{LISTS_H}px">
+  {statusbar()}
+  <div class="yb-device-body">
+    {rail("Lists")}
+    <div class="yb-pane" style="--yb-gutter:24px">
+      {bar()}
+      <div class="yb-scroll">
+        {place_row("All", style="margin-bottom:-8px")}
+        {under_way_card()}
+        <div class="yb-group">
+          {lists_heading("Pinned", 5)}
+          {grid([
+              list_tile("Eclipse War", "Kavita · 9 of 22 read", [0, 4, 5, 3]),
+              list_tile("Harbor Lights, in order", "Kavita · 12 of 32 read", [5, 5, 5, 5]),
+              list_tile("Short Russian classics", "Grimmory · magic shelf · 44", [1, 1, 1, 1], smart=True),
+              list_tile("Russian Classics", "Grimmory · 55 books", [1, 7, 1, 2]),
+              list_tile("Want to read", "This device · 9 books", [1, 2, 4, 7]),
+          ])}
         </div>
         <div class="yb-group">
-          <h2 class="yb-section-heading">Your lists <span class="yb-count">5</span></h2>
+          {lists_heading("Your lists", 5)}
           {grid([
-              list_tile("Want to read", "9 books", [1, 2, 4, 7]),
-              list_tile("Stalled", "Updates itself · 4", [3, 0, 6, 2], smart=True),
               list_tile("Night Run", "2 of 5 read", [0, 3, 5, 6]),
+              list_tile("Stalled", "Updates itself · 4", [3, 0, 6, 2], smart=True),
               list_tile("Book club picks", "1 book", [6]),
               list_tile("Short reads", "Updates itself · 23", [7, 1, 2, 3], smart=True),
+              list_tile("Crossover", "4 books", [5, 0, 5, 4]),
           ])}
         </div>
         <div class="yb-group">
-          <h2 class="yb-section-heading">Kavita <span class="yb-count">4</span></h2>
-          {grid([
-              list_tile("Harbor Lights, in order", "Reading list · 32 issues", [5, 5, 5, 5]),
-              list_tile("Eclipse War", "Reading list · 22 issues", [0, 4, 5, 3]),
+          {lists_heading("Kavita", 64, more=64)}
+          {strip([
+              list_tile("Neon Ronin: Year One", "3 of 14 read", [5, 3, 5, 0]),
               list_tile("Eisner winners", "Collection · 9 series", [4, 1, 3, 0]),
-              list_tile("Weekend comics", "Collection · 3 series", [2, 7]),
+              list_tile("Blood Moon Rising", "2 of 18 read", [4, 7, 2, 0]),
+              list_tile("Clockwork Saints", "Reading list · 31 issues", [3, 3, 0, 6]),
+              list_tile("Black Tide", "Reading list · 24 issues", [3, 0, 6, 2]),
+              list_tile("Dead Signal", "Reading list · 8 issues", [0, 5, 6, 4]),
+              list_tile("Deep Water", "Reading list · 15 issues", [5, 0, 4, 3]),
           ])}
         </div>
         <div class="yb-group">
-          <h2 class="yb-section-heading">Grimmory <span class="yb-count">35</span></h2>
-          {grid([
-              list_tile("Short Russian classics", "Magic shelf · 44 books", [1, 1, 1, 1], smart=True),
-              list_tile("33 1/3", "Shelf · 64 books", [3, 0, 6, 2]),
-              list_tile("American Fiction", "Shelf · 42 books", [6, 2, 4, 1]),
-              list_tile("Biographies", "Shelf · 49 books", [0, 7, 3, 2]),
-              list_tile("Cinema", "Shelf · 46 books", [7, 3, 0, 5]),
-              list_tile("Epic &amp; High Fantasy", "Shelf · 84 books", [4, 6, 2, 1]),
+          {lists_heading("Grimmory", 61, more=61)}
+          {strip([
+              list_tile("Cinema", "46 books · 5 read", [7, 3, 0, 5]),
+              list_tile("Poetry", "70 books · 12 read", [2, 6, 1, 4]),
+              list_tile("European Fiction", "50 books", [0, 2, 7, 6]),
+              list_tile("Biographies", "49 books", [0, 7, 3, 2]),
+              list_tile("American Fiction", "42 books", [6, 2, 4, 1]),
+              list_tile("33 1/3", "64 books", [3, 0, 6, 2]),
+              list_tile("Art", "18 books", [2, 4, 7, 1]),
           ])}
+        </div>
+        <span class="yb-caption" style="margin-top:-8px;font-size:13px">11 lists hidden · <span style="color:var(--primary);font-weight:600">What Lists shows</span></span>
+      </div>
+      <div class="yb-spec">{g(24)}<span class="t" style="left:28px;top:30px">24 gutter</span>{h(84)}<span class="t" style="left:520px;top:62px">84 content top</span></div>
+    </div>
+  </div>
+</div>"""
+
+kavita_place = f"""
+<div class="yb-device" style="width:{W}px;height:1120px">
+  {statusbar()}
+  <div class="yb-device-body">
+    {rail("Lists")}
+    <div class="yb-pane" style="--yb-gutter:24px">
+      {bar()}
+      {letter_strip("B", style="right:3px;top:330px")}
+      <div class="yb-scroll">
+        {place_row("Kavita", style="margin-bottom:-8px")}
+        <div style="display:flex;align-items:center;gap:8px;margin-top:-8px">{kind_tabs([("All", 64), ("Reading lists", 48), ("Collections", 16)], "All")}<span class="yb-spacer" style="flex:1"></span>{sort_chip("Name")}{show_as(True)}</div>
+        <div class="yb-group">
+          {lists_heading("Recent", 4)}
+          <div class="yb-panel" style="display:grid;grid-template-columns:1fr 1fr;padding:4px 0">
+            {list_row("Eclipse War", "Reading list · 9 of 22 read · 2019–2020", [0, 4, 5, 3], progress=41, pinned=True)}
+            {list_row("Harbor Lights, in order", "Reading list · 12 of 32 read · 2016–2018", [5, 5, 5, 5], progress=38, pinned=True)}
+            {list_row("Neon Ronin: Year One", "Reading list · 3 of 14 read · 2021", [5, 3, 5, 0], progress=21)}
+            {list_row("Eisner winners", "Collection · 9 series", [4, 1, 3, 0])}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          {lists_heading("A to Z", 59)}
+          {letter_group("A", [list_row("Absolute Zero", "Reading list · 18 issues · 2014", [5, 3, 0, 4]), list_row("After the Flood", "Reading list · 7 issues · 2022", [2, 6, 1, 0]), list_row("Ashfall", "Reading list · 11 issues · 2017–2018", [6, 2, 4, 1])])}
+          {letter_group("B", [list_row("Best of the decade", "Collection · 14 series", [1, 4, 0, 7]), list_row("Black Tide", "Reading list · 24 issues · 2012–2013", [3, 0, 6, 2]), list_row("Blood Moon Rising", "Reading list · 2 of 18 read · 2020", [4, 7, 2, 0], progress=11), list_row("Broken Crown", "Reading list · 6 issues · 2023", [6, 1, 3, 5])])}
+          {letter_group("C", [list_row("Cinder Road", "Reading list · 9 issues · 2019", [1, 5, 2, 7]), list_row("Clockwork Saints", "Reading list · 31 issues · 2008–2010", [3, 3, 0, 6]), list_row("Crime and noir", "Collection · 7 series", [3, 1, 6, 0]), list_row("Crossfire", "Reading list · 12 issues · 2016", [7, 4, 0, 2])])}
         </div>
       </div>
       <div class="yb-spec">{g(24)}<span class="t" style="left:28px;top:30px">24 gutter</span>{h(84)}<span class="t" style="left:520px;top:62px">84 content top</span></div>
+    </div>
+  </div>
+</div>"""
+
+grimmory_phone = f"""
+<div class="yb-device yb-compact" style="width:{PW}px;height:{PH}px">
+  {statusbar()}
+  <div class="yb-device-body" style="flex-direction:column">
+    <div class="yb-pane">
+      {bar(menu=True)}
+      {letter_strip("A", line=15, style="right:0;top:470px")}
+      <div class="yb-scroll">
+        <div style="margin:0 -16px -8px;overflow:hidden">{place_row("Grimmory", style="padding:0 16px;transform:translateX(-56px)")}</div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:-8px"><div style="flex:1;min-width:0;overflow:hidden">{kind_tabs([("All", None), ("Magic shelves", 12), ("Shelves", 49)], "All")}</div><button class="yb-icon-btn">{ic("swap_vert")}</button><button class="yb-icon-btn">{ic("grid_view")}</button></div>
+        <div class="yb-group">
+          {lists_heading("Recent", 3)}
+          <div class="yb-panel" style="padding:4px 0">
+            {list_row("Short Russian classics", "Magic shelf · 44 books", [1, 1, 1, 1], smart=True, pinned=True)}
+            {list_row("Russian Classics", "Shelf · 55 books · 21 read", [1, 7, 1, 2], pinned=True)}
+            {list_row("Cinema", "Shelf · 46 books", [7, 3, 0, 5])}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          {lists_heading("A to Z", 57)}
+          {letter_group("#", [list_row("33 1/3", "Shelf · 64 books", [3, 0, 6, 2])], cols=1)}
+          {letter_group("A", [list_row("American Fiction", "Shelf · 42 books", [6, 2, 4, 1]), list_row("Art", "Shelf · 18 books", [2, 4, 7, 1])], cols=1)}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>"""
+
+grimmory_phone_end = f"""
+<div class="yb-device yb-compact" style="width:{PW}px;height:{PH}px">
+  {statusbar()}
+  <div class="yb-device-body" style="flex-direction:column">
+    <div class="yb-pane">
+      <div class="yb-bar is-glass" style="z-index:1"><button class="yb-icon-btn">{ic("menu")}</button><div class="yb-search">{ic("search")}<span>Search lists</span></div><button class="yb-icon-btn">{ic("add")}</button><button class="yb-icon-btn">{ic("more_vert")}</button></div>
+      {letter_strip("W", line=15, style="right:0;top:250px")}
+      <div class="yb-scroll" style="top:40px;gap:16px">
+        {letter_group("T", [list_row("Translated fiction", "Shelf · 38 books", [0, 6, 2, 5]), list_row("Travel", "Shelf · 21 books", [6, 0, 7, 2])], cols=1)}
+        {letter_group("U", [list_row("Unread gifts", "Shelf · 9 books", [2, 5, 1, 4])], cols=1)}
+        {letter_group("W", [list_row("War", "Shelf · 17 books", [3, 6, 0, 1]), list_row("Westerns", "Shelf · 6 books", [7, 0, 2, 3]), list_row("World history", "Magic shelf · 52 books", [0, 3, 3, 1], smart=True)], cols=1)}
+        {letter_group("Y", [list_row("Young adult", "Shelf · 13 books", [4, 2, 6, 7])], cols=1)}
+        <div class="yb-panel" style="margin-top:8px">
+          {row("Finished <span class='yb-count' style='color:var(--on-surface-variant)'>4</span>", "Every book read: Poetry 2024, Plays, Noir, Stoics", icon="check")}{DIV}
+          {row("Hidden <span class='yb-count' style='color:var(--on-surface-variant)'>5</span>", "Kobo, and 4 public shelves of other people", icon="visibility_off")}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>"""
+
+
+def lmenu_row(icon, title, line=None, muted=False):
+    sub = f'<span class="yb-caption">{line}</span>' if line else ""
+    op = "opacity:.45;" if muted else ""
+    return (f'<div class="yb-menu-item" style="height:{56 if line else 44}px;gap:14px;{op}"><span style="display:flex;color:var(--on-surface-variant)">{ic(icon)}</span>'
+            f'<span style="display:flex;flex-direction:column"><span style="font:500 15px/20px var(--font-sans)">{title}</span>{sub}</span></div>')
+
+
+list_menu = f"""
+<div style="position:relative;width:420px;height:440px">
+  <div class="yb-panel" style="padding:4px 0">
+    {list_row("Ashfall", "Reading list · 11 issues · 2017–2018", [6, 2, 4, 1])}
+    {list_row("Black Tide", "Reading list · 24 issues · 2012–2013", [3, 0, 6, 2], pressed=True)}
+    {list_row("Blood Moon Rising", "Reading list · 2 of 18 read · 2020", [4, 7, 2, 0], progress=11)}
+    {list_row("Broken Crown", "Reading list · 6 issues · 2023", [6, 1, 3, 5])}
+  </div>
+  <div class="yb-menu" style="position:absolute;left:96px;top:158px;width:300px;padding:8px 0">
+    {lmenu_row("keep", "Pin to the top", "First on All and on Kavita")}
+    {lmenu_row("visibility_off", "Hide from Lists", "Stays on Kavita. Hidden brings it back.")}
+    {lmenu_row("select_all", "Select several")}
+    <div class="yb-divider" style="margin:4px 16px"></div>
+    {lmenu_row("edit", "Edit", "Promoted by someone else: read-only", muted=True)}
+  </div>
+</div>"""
+
+select_bar = f"""
+<div style="position:relative;width:860px;display:flex;flex-direction:column;gap:16px">
+  <div class="yb-bar is-glass" style="position:relative;top:0;left:0;right:0;background:var(--surface-container-high)"><button class="yb-icon-btn">{ic("close")}</button><span class="yb-bar-title">5 selected</span><button class="yb-icon-btn">{ic("select_all")}</button><button class="yb-btn is-tonal" style="padding:0 16px">{ic("keep", 18)}Pin</button><button class="yb-btn is-filled" style="padding:0 16px">{ic("visibility_off", 18)}Hide</button></div>
+  <div class="yb-panel" style="display:grid;grid-template-columns:1fr 1fr;padding:4px 0">
+    {list_row("Absolute Zero", "Reading list · 18 issues · 2014", [5, 3, 0, 4], check=True)}
+    {list_row("Best of the decade", "Collection · 14 series", [1, 4, 0, 7], check=False)}
+    {list_row("After the Flood", "Reading list · 7 issues · 2022", [2, 6, 1, 0], check=True)}
+    {list_row("Broken Crown", "Reading list · 6 issues · 2023", [6, 1, 3, 5], check=True)}
+    {list_row("Ashfall", "Reading list · 11 issues · 2017–2018", [6, 2, 4, 1], check=False)}
+    {list_row("Cinder Road", "Reading list · 9 issues · 2019", [1, 5, 2, 7], check=True)}
+  </div>
+  <div style="align-self:center;display:flex;align-items:center;gap:16px;padding:0 8px 0 20px;height:52px;border-radius:var(--radius-control);background:var(--on-surface);color:var(--surface);font:500 14px/20px var(--font-sans)"><span>5 lists hidden</span><button class="yb-btn is-text" style="color:var(--primary-container);font-weight:700">Undo</button></div>
+</div>"""
+
+
+def shows_switch(title, line, on):
+    return row(title, line, trailing="switch-on" if on else "switch", dense=True)
+
+
+def hidden_row(name, line):
+    return (f'<div class="yb-row is-dense"><span class="yb-row-text"><span class="yb-row-title">{name}</span><span class="yb-supporting">{line}</span></span>'
+            f'<button class="yb-btn is-text">Show</button></div>')
+
+
+what_lists_shows = f"""
+<div class="yb-sheet" style="height:auto;padding-bottom:12px">
+  <div class="yb-panel-header"><div class="yb-panel-header-text"><h2 class="yb-panel-title">What Lists shows</h2><span class="yb-panel-sub">On this device only. Nothing changes on the servers.</span></div><button class="yb-icon-btn">{ic("close")}</button></div>
+  <div class="yb-sheet-section"><h3 class="yb-sheet-label" style="padding:0 20px">Kavita</h3></div>
+  {shows_switch("Lists other people share", "14 promoted by someone else", True)}
+  {shows_switch("Collections", "16 groups of series", True)}
+  <div class="yb-divider is-full"></div>
+  <div class="yb-sheet-section"><h3 class="yb-sheet-label" style="padding:0 20px">Grimmory</h3></div>
+  {shows_switch("Public shelves of other people", "4 shelves", False)}
+  {shows_switch("Empty shelves", "3 hold no books", False)}
+  <div class="yb-divider is-full"></div>
+  <div class="yb-sheet-section"><h3 class="yb-sheet-label" style="padding:0 20px">Everywhere</h3></div>
+  <div style="padding:4px 20px 8px;display:flex;flex-direction:column;gap:8px"><span class="yb-row-title">Finished lists</span><div class="yb-seg"><span class="is-selected">At the end</span><span>Hide</span><span>With the rest</span></div></div>
+  <div class="yb-divider is-full"></div>
+  <div class="yb-sheet-section"><h3 class="yb-sheet-label" style="padding:0 20px">Hidden · 11</h3></div>
+  {hidden_row("Kobo", "Grimmory · shelf · 12 books")}
+  {hidden_row("Absolute Zero", "Kavita · reading list · 18 issues")}
+  {hidden_row("After the Flood", "Kavita · reading list · 7 issues")}
+  <button class="yb-btn is-text" style="margin:4px 8px">See all 11 hidden</button>
+</div>"""
+
+
+def hl(text, q="Moon"):
+    return text.replace(q, f'<span style="color:var(--primary)">{q}</span>')
+
+
+def found_book(i, title, by, where):
+    return (f'<div class="yb-book-row" style="padding:8px 12px 8px 20px">{cover(i)}<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">'
+            f'<div class="yb-book-title">{hl(title)}</div><div class="yb-book-line">{by}</div>'
+            f'<div class="yb-book-line" style="color:var(--on-surface);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{where}</div></div>{chev()}</div>')
+
+
+lists_search = f"""
+<div class="yb-device" style="width:{W}px;height:700px">
+  {statusbar()}
+  <div class="yb-device-body">
+    {rail("Lists")}
+    <div class="yb-pane" style="--yb-gutter:24px">
+      <div class="yb-bar"><div class="yb-search" style="color:var(--on-surface);box-shadow:inset 0 0 0 2px var(--primary)">{ic("search")}<span style="flex:1">Moon</span>{ic("close", 20)}</div><span class="yb-spacer"></span><button class="yb-icon-btn">{ic("add")}</button><button class="yb-icon-btn">{ic("more_vert")}</button></div>
+      <div class="yb-scroll">
+        {place_row("All", style="margin-bottom:-8px")}
+        <div class="yb-group">
+          {lists_heading("Lists", 3)}
+          <div class="yb-panel" style="display:grid;grid-template-columns:1fr 1fr;padding:4px 0">
+            {list_row("Blood Moon Rising", "Kavita · reading list · 2 of 18 read", [4, 7, 2, 0], progress=11, name_html=hl("Blood Moon Rising"))}
+            {list_row("Half Moon Bay", "Kavita · reading list · 6 issues · 2023", [0, 2, 5, 6], name_html=hl("Half Moon Bay"))}
+            {list_row("Moon and stars", "Grimmory · shelf · 12 books", [7, 1, 4, 2], name_html=hl("Moon and stars"))}
+          </div>
+        </div>
+        <div class="yb-group">
+          {lists_heading("Books in your lists", 4)}
+          <div class="yb-panel" style="display:grid;grid-template-columns:1fr 1fr;padding:4px 0">
+            {found_book(0, "The Moonstone", "Wilkie Collins", "In Want to read · Victorian mysteries")}
+            {found_book(5, "Moonfall #2", "Moonfall · Kavita", "In Blood Moon Rising, 2 of 18 · Night Run")}
+            {found_book(6, "The Moon and Sixpence", "W. Somerset Maugham", "In British classics · Book club picks")}
+            {found_book(3, "Paper Moon", "Joe David Brown", "In Cinema")}
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>"""
@@ -847,20 +1108,33 @@ list_finished = f"""
 </div>"""
 
 
-comp("ListsScreen", "Screens", 4300, """
+comp("ListsScreen", "Screens", 11500, """
 # Lists
 
-Every list in one place, beside the sources in the rail and the drawer: the reading order you are in the middle of, then your lists, then each server's lists.
+Every list in one place, beside the sources in the rail and the drawer. All is a short overview that stays the same length however many lists the servers hold; a place's chip shows all its lists, as rows you can sort, narrow and jump through.
 
-- **No screen title.** The rail says Lists; the bar holds "Search lists", New (`add`) and a menu.
+- **No screen title.** The rail says Lists; the bar holds "Search lists", New (`add`) and a menu (`more_vert`: What Lists shows, Select several).
 - **New** opens an `AppMenu` of three: List ("You pick the books"), Smart list ("Picked by rules, kept up to date") and Import a reading order ("From a .cbl file"), each with its icon and line (`AppMenuItem` with `supporting`).
-- **The filter row** sits at the content top: `AppChip`s All, Your lists, Smart, then one per connected server that has lists (Kavita, Grimmory), each with its count; one is picked at a time. Smart shows every list that updates itself, from every place: Stalled, your smart lists, Grimmory's magic shelves. Search narrows whatever the row shows.
-- **The card** is the reading order opened most recently that still has an unread book: "Reading order · book 3 of 5", its name, what is next, an `AppProgressBar`, and Continue. It is an `AppPanel` with `inset` 20, shown under All and Your lists only, and not when no order is under way.
-- **One section per place**, each an `AppSectionHeading` with its count, `section-gap` 24 apart:
-  - **Your lists** (kept on this device, any source): Want to read first, then Stalled while it holds a book (books started and not opened for 21 days), then your lists and smart lists, most recently opened first.
-  - **Kavita**: reading lists, then collections, each by name. Captions name the kind: "Reading list · 32 issues", "Collection · 9 series".
-  - **Grimmory**: magic shelves first, then shelves, each by name: "Magic shelf · 44 books", "Shelf · 55 books". Your shelves and the public ones.
-  - The servers' lists show while that server is connected; the app reads them again when Lists opens (at most every five minutes) and keeps the last copy for offline.
+- **The place row** sits at the content top: `AppChip`s All, Your lists, then one per connected server that has lists (Kavita, Grimmory), each with the count of lists it shows (hidden ones aside); one is picked at a time and the pick is kept in the route's saved state. There is no Smart chip: smart lists and magic shelves are a kind inside their place. Back from a place returns to All; Back on All leaves Lists.
+- **All**, the overview, `section-gap` 24 between its parts:
+  - **The card**: the reading order opened most recently that still has an unread book: "Reading order · book 3 of 5", its name, what is next, an `AppProgressBar`, and Continue. An `AppPanel` with `inset` 20; not shown when no order is under way, nor under a place.
+  - **Pinned**, while something is pinned: every pinned list from every place, in the order they were pinned, as tiles in the grid; the caption names the place ("Kavita · 9 of 22 read", "Grimmory · magic shelf · 44", "This device · 9 books"). A pinned list shows here and not again in its place's row.
+  - **Your lists**: Want to read first, then Stalled while it holds a book (books started and not opened for 21 days), then your lists and smart lists, most recently opened first. One row of tiles at most; with more, the heading ends with See all N.
+  - **One row per server** (Kavita, then Grimmory): an `AppSectionHeading` with the count and See all N at its end (a text button with `navigate_next` that picks the place's chip), over one row of tiles that scrolls sideways: the place's lists opened most recently first, then the rest by name, twelve at most. Tiles are the grid's cover width and the last one in view runs past the gutter, so the row reads as one that scrolls.
+  - While lists are hidden, a caption closes the page: "11 lists hidden · What Lists shows" (the link opens the sheet).
+- **A place** (its chip, or See all):
+  - **The tool row** under the chips: the kinds as `AppTabPill`s with counts (Your lists: All, Smart while one exists; Kavita: All, Reading lists, Collections; Grimmory: All, Magic shelves, Shelves), then at the end the Sort chip (`swap_vert` and the sort: Name, Recently opened, Most books, and Year for Kavita, from the reading lists' first year) and Show as, an `AppSegmentedRow` of two icons (`view_list` rows, `grid_view` covers). On Compact, Sort and Show as are icon buttons and the kinds scroll.
+  - Kavita and Grimmory show rows to start with, Your lists covers. Each place keeps its kind, sort and Show as on this device.
+  - **Recent** first while the sort is not Recently opened: up to six of the place's lists you opened lately, newest first.
+  - Then every list that is not finished, in the sort's order, under a heading that names it ("A to Z 59", "Most books", "By year"). By name, the lists sit under a group label per first letter (# for a digit or sign) and the `AppLetterStrip` runs down the end edge while the section holds more than 20 lists.
+  - Rows are `AppListRow`s in an `AppPanel`, two columns on Expanded and one below it; covers are tiles in the grid.
+  - **Finished and Hidden** fold at the end, in one `AppPanel` of two `AppSettingsRow`s (`check`, `visibility_off`): "Finished 4" with the first names, "Hidden 5" with what they are; a tap opens their rows in place.
+- **A list's menu** (`AppMenu`, from a long-press on a tile or a row, or ⋯ on its page): Pin to the top ("First on All and on Kavita"; Unpin with `keep_off` once pinned), Hide from Lists ("Stays on Kavita. Hidden brings it back."; Show again once hidden), Select several, then Edit, greyed with its reason when the list is someone else's ("Promoted by someone else: read-only"). The row or tile takes `surface-container-highest` while its menu is open.
+- **Select several** turns the bar into the selection bar (`surface-container-high`): Close, "5 selected", Select all, then Pin (tonal) and Hide (filled). Rows and tiles get an `AppRoundCheck` at their start and a picked one takes `primary-container`. Hide or Pin ends the selection; Hide's toast says "5 lists hidden" with Undo.
+- **Pinned, hidden, Recent and each place's choices live on this device only.** Nothing changes on Kavita or Grimmory, and a list hidden here still shows in their web apps.
+- **What Lists shows** (`AppSideSheet` from the bar's menu, `AppPanelHeader` with the line "On this device only. Nothing changes on the servers."): Kavita: Lists other people share (promoted by someone else), Collections. Grimmory: Public shelves of other people, Empty shelves. Everywhere: Finished lists (`AppSegmentedRow` At the end, Hide, With the rest). Hidden · N: a row per hidden list (its place, kind and size) with Show, the first five, then See all N hidden. A switch that is off takes that whole group out of All, the place and its chip's count.
+- **Search** narrows the picked place in two sections: Lists (names that match, as `AppListRow`s with the match in `primary`), then Books in your lists (`AppBookRow`s: the book, its author or series, and the lists holding it: "In Blood Moon Rising, 2 of 18 · Night Run"). A book's row opens its book page, where In your lists opens a list. Hidden lists are left out. "No list or book in a list matches “Moon”." when both are empty.
+- The servers' lists show while that server is connected; the app reads them again when Lists opens (at most every five minutes) and keeps the last copy for offline. Captions name the kind on All and under a place's All: "Reading list · 32 issues", "Collection · 9 series", "Magic shelf · 44 books", "Shelf · 55 books".
 - **Tiles** are `AppListCover` in the library grid's columns and gap, the name at 14 SemiBold and one caption line: "9 books"; "2 of 5 read" for a reading order with something read; "Updates itself · 23" with the `tune` badge for a list that works itself out.
 - **A list's page**: `AppListCover` 132, a caption saying what it is and where it lives ("Your list · on this device", "Grimmory shelf · on the server"), the name in `display-title`, its description and "14 books · 6 read", Continue (or Read) with the next book's title, Edit, the Order chip and Hide finished; the books are `AppBookRow`s in an `AppPanel`, numbered in Your order.
 - **A shelf's page** is the same page. A Grimmory shelf has no order of its own, so the Order chip offers Date added (to Grimmory) and Title, and a shelf is never a reading order. Edit renames it, removes books and deletes the shelf, each saved on Grimmory with Done; there is no description and no dragging. Someone else's public shelf has no Edit.
@@ -881,7 +1155,14 @@ Every list in one place, beside the sources in the rail and the drawer: the read
 """, f"""
 <div class="yb" style="padding:16px">
   {TOGGLE}
-  <div id="screens"><div class="yb-caption" style="margin-bottom:8px">Expanded, 1280 wide, the whole page</div>{lists}</div>
+  <div id="screens"><div class="yb-caption" style="margin-bottom:8px">Expanded, 1280 wide: All, the whole page</div>{lists}
+  <div class="yb-caption" style="margin:24px 0 8px">Expanded: Kavita picked (or See all 64), rows, Recent, then A to Z with the letter strip</div>{kavita_place}
+  <div class="yb-caption" style="margin:24px 0 8px">Compact, 412: Grimmory picked, and the end of it with Finished and Hidden folded</div>
+  <div style="display:flex;gap:40px;align-items:flex-start">{grimmory_phone}{grimmory_phone_end}</div></div>
+  <div class="yb-caption" style="margin:24px 0 8px">A list's menu, Select several, and What Lists shows</div>
+  <div class="yb-ground" style="display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap;padding:24px">{list_menu}{what_lists_shows}{select_bar}</div>
+  <div class="yb-caption" style="margin:24px 0 8px">Search: lists by name, then the books in your lists</div>
+  {lists_search}
   <div class="yb-caption" style="margin:24px 0 8px">New, New list, and Add to list for a Grimmory book</div>
   <div class="yb-ground" style="display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap;padding:24px">{plus_menu}{new_list}{add_to_list}</div>
   <div class="yb-caption" style="margin:24px 0 8px">The smart list editor, kept on Grimmory as a magic shelf</div>

@@ -240,7 +240,7 @@ A list's cover: its first four books' covers in a 2×2 mosaic, at a cover's 2:3 
 
 - Kit: `AppListCover(count, cell = { index, modifier -> ... })`; the caller draws each cover (the library's cover composable) filling the modifier it gets.
 - Four books or more make the mosaic. One to three books show the first book's cover, whole: a mosaic with empty cells reads as broken. An empty list is the bare `surface-container-high` card.
-- Used for list tiles on the Lists screen (the grid's cover width) and the list page's header (132).
+- Used for list tiles on the Lists screen (the grid's cover width), `AppListRow` (40) and the list page's header (132).
 - A list that updates itself (Stalled) adds a 32 round badge with the `tune` icon at its top end, on `surface-container-high`.
 """, f"""
 <div class="yb yb-ground" style="padding:24px;width:520px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
@@ -248,6 +248,98 @@ A list's cover: its first four books' covers in a 2×2 mosaic, at a cover's 2:3 
   <div>{list_cover([1, 2])}<div class="yb-book-title" style="margin-top:6px">Want to read</div><div class="yb-caption">2 books</div></div>
   <div style="position:relative">{list_cover([4, 7, 2, 0])}<span style="position:absolute;right:8px;top:8px;width:32px;height:32px;border-radius:50%;background:var(--surface-container-high);display:flex;align-items:center;justify-content:center">{ic("tune", 18)}</span><div class="yb-book-title" style="margin-top:6px">Stalled</div><div class="yb-caption">Updates itself · 4</div></div>
 </div>""", width=568)
+
+def list_row(name, line, indices, progress=None, pinned=False, smart=False, check=None, pressed=False, name_html=None):
+    """An AppListRow: the list's cover 40 wide, its name and line, a progress bar for an order under way, its marks."""
+    lead = ""
+    style = ""
+    if check is not None:
+        lead = (f'<span style="width:22px;height:22px;border-radius:50%;background:var(--primary);color:var(--on-primary);display:flex;'
+                f'align-items:center;justify-content:center;flex:none">{ic("check", 16)}</span>') if check else (
+                '<span style="width:22px;height:22px;border-radius:50%;box-shadow:inset 0 0 0 2px var(--outline);flex:none"></span>')
+        if check:
+            style = "background:var(--primary-container);color:var(--on-primary-container);"
+    elif pressed:
+        style = "background:var(--surface-container-highest);"
+    bar = (f'<div class="yb-progress" style="margin-top:6px;max-width:220px"><i style="width:{progress}%"></i></div>'
+           if progress is not None else "")
+    marks = (f'<span class="yb-chev">{ic("keep", 18)}</span>' if pinned else "") + (f'<span class="yb-chev">{ic("tune", 18)}</span>' if smart else "")
+    tail = "" if check is not None else chev()
+    return (f'<div class="yb-book-row" style="padding:8px 12px 8px 20px;{style}">{lead}{list_cover(indices, width=40)}'
+            f'<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><div class="yb-book-title">{name_html or name}</div>'
+            f'<div class="yb-book-line" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{line}</div>{bar}</div>{marks}{tail}</div>')
+
+
+def letter_strip(current, line=17, letters="#ABCDEFGHIJKLMNOPQRSTUVWXYZ", missing="QXZ", style="", bubble=False):
+    """An AppLetterStrip: # and A to Z down the end edge, the current group's letter on primary-container."""
+    out = []
+    for ch in letters:
+        if ch == current:
+            out.append(f'<span style="width:18px;height:{line}px;display:flex;align-items:center;justify-content:center;border-radius:999px;'
+                       f'background:var(--primary-container);color:var(--on-primary-container)">{ch}</span>')
+        else:
+            op = "opacity:.38;" if ch in missing else ""
+            out.append(f'<span style="width:18px;height:{line}px;display:flex;align-items:center;justify-content:center;{op}">{ch}</span>')
+    bub = ""
+    if bubble:
+        top = letters.index(current) * line - 22
+        bub = (f'<span style="position:absolute;right:30px;top:{top}px;width:60px;height:60px;border-radius:30px 30px 6px 30px;'
+               f'background:var(--primary);color:var(--on-primary);display:flex;align-items:center;justify-content:center;font:700 28px/1 var(--font-sans)">{current}</span>')
+    return (f'<div style="position:absolute;display:flex;flex-direction:column;font:700 10.5px/1 var(--font-sans);'
+            f'color:var(--on-surface-variant);{style}">{bub}{"".join(out)}</div>')
+
+
+comp("AppListRow", "Lists", 420, """
+# AppListRow
+
+A list as a row, for a page that holds many lists: a place on Lists (Kavita, Grimmory), Lists' search, and a list's place in What Lists shows. Names come first in a row; covers of story-arc lists and genre shelves look alike.
+
+- Kit: `AppListRow(name, line, cover, progress, pinned, updatesItself, selection, onClick, onLongClick)`; `cover` draws the list's `AppListCover` 40 wide.
+- `AppBookRow`'s shape: `inset` 20 at the start, 12 at the end, 76 tall at least, the cover 40 wide and 14 from the text; the name in 15 SemiBold and one line under it in 13 `on-surface-variant`, each on one line with an ellipsis.
+- The line says what the list is, how big, how far you are and, for a Kavita reading list, its years: "Reading list · 9 of 22 read · 2019–2020", "Collection · 9 series", "Magic shelf · 44 books", "Shelf · 55 books · 21 read". Under a kind's tab the kind is left out.
+- A reading order with something read and something left adds an `AppProgressBar` under the line, at most 220 wide.
+- At the end, `on-surface-variant`: `keep` (18) when pinned, `tune` (18) when it updates itself, then the `navigate_next` chevron.
+- Long-press opens the list's menu (Pin, Hide, Select several, Edit); the row takes `surface-container-highest` while the menu is open.
+- Selecting several: an `AppRoundCheck` before the cover and no chevron; a picked row takes `primary-container`.
+- Rows sit in an `AppPanel` with 4 above and below, no dividers; two columns of rows on Expanded, one below it.
+""", f"""
+<div class="yb yb-ground" style="padding:24px;width:520px;display:flex;flex-direction:column;gap:16px">
+  <div class="yb-panel" style="padding:4px 0">
+    {list_row("Eclipse War", "Reading list · 9 of 22 read · 2019–2020", [0, 4, 5, 3], progress=41, pinned=True)}
+    {list_row("Short Russian classics", "Magic shelf · 44 books", [1, 1, 1, 1], smart=True)}
+    {list_row("Eisner winners", "Collection · 9 series", [4, 1, 3, 0])}
+    {list_row("Black Tide", "Reading list · 24 issues · 2012–2013", [3, 0, 6, 2], pressed=True)}
+  </div>
+  <div class="yb-panel" style="padding:4px 0">
+    {list_row("Absolute Zero", "Reading list · 18 issues · 2014", [5, 3, 0, 4], check=True)}
+    {list_row("Ashfall", "Reading list · 11 issues · 2017–2018", [6, 2, 4, 1], check=False)}
+  </div>
+</div>""", width=568)
+
+comp("AppLetterStrip", "Lists", 520, """
+# AppLetterStrip
+
+The index down the end edge of a long list sorted by name, to jump to a letter: # (names that start with a digit or a sign) and A to Z.
+
+- Kit: `AppLetterStrip(letters, current, onLetter)`. 18 wide, one letter per 17 (15 on Compact), 10.5 Bold `on-surface-variant`, over the gutter at the end edge, from the first letter group's top down.
+- A letter with no group is drawn at 38% and moves to the next letter that has one.
+- Tap or drag: the list jumps to that letter's group label, and a 60 bubble in `primary` shows the letter beside the finger while it is down. The letter of the group at the top of the window sits on `primary-container`.
+- Only while the section is sorted by name and holds more than 20 lists. Under the strip the group labels (`AppGroupLabel`, `on-surface-variant`) mark the letters.
+- TalkBack: "Jump to a letter", each letter an action; the group labels are headings, so heading navigation does the same.
+""", f"""
+<div class="yb yb-ground" style="padding:24px;width:460px;height:470px;position:relative">
+  <div style="display:flex;flex-direction:column;gap:8px;width:380px">
+    <h3 class="yb-group-label" style="color:var(--on-surface-variant)">B</h3>
+    <div class="yb-panel" style="padding:4px 0">
+      {list_row("Black Tide", "Reading list · 24 issues · 2012–2013", [3, 0, 6, 2])}
+      {list_row("Blood Moon Rising", "Reading list · 2 of 18 read · 2020", [4, 7, 2, 0], progress=11)}
+      {list_row("Broken Crown", "Reading list · 6 issues · 2023", [6, 1, 3, 5])}
+    </div>
+    <h3 class="yb-group-label" style="color:var(--on-surface-variant)">C</h3>
+    <div class="yb-panel" style="padding:4px 0">{list_row("Cinder Road", "Reading list · 9 issues · 2019", [1, 5, 2, 7])}</div>
+  </div>
+  {letter_strip("B", style="right:6px;top:24px", bubble=True)}
+</div>""", width=508)
 
 # ---------------------------------------------------------------- Surfaces
 comp("AppPanelHeader", "Surfaces", 300, """
@@ -373,7 +465,7 @@ comp("AppChip", "Actions", 180, """
 A selectable pill for filters and sort: 36 tall, a hairline `outline-variant` edge, `on-surface-variant` text in SemiBold; selected fills with `primary-container` and drops the edge. An optional count follows the label at 70%.
 
 - Kit: `AppChip(selected, onClick, label, count, leadingIcon, onLongClick)`.
-- The library's Filters and sort pills, the filter sheet's values, the Lists filter row and a smart list's rules.
+- The library's Filters and sort pills, the filter sheet's values, the Lists place row and Sort chip, and a smart list's rules.
 - `onLongClick` is optional: Filters' Set in, When and About values and the book page's tags open the tag's sort sheet with it (see Tags).
 - Counts are digits with a separator ("1,474"; `appCount`), not in brackets.
 """, f"""

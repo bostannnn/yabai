@@ -80,6 +80,9 @@ data class UserList(
     val keepNextDownloaded: Boolean = false,
     /** A smart list's or magic shelf's rules; null for every other list, and for a magic shelf whose rules the app can't read. */
     val smart: SmartListSpec? = null,
+    /** A Kavita reading list's first and last year, from its server; null for every other list. */
+    val startYear: Int? = null,
+    val endYear: Int? = null,
 ) {
     val isReadingOrder: Boolean
         get() = order == UserListOrder.Custom

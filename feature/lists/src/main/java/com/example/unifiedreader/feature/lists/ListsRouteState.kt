@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.lists
 
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -10,8 +11,9 @@ import androidx.compose.runtime.setValue
 
 /**
  * Where the Lists screen is, shared by its content and its bar: the open list (null: all lists),
- * the search and the filter row's pick, the editor's draft while a list is being edited (or the
- * smart list editor's), and whether anything has scrolled under the bar.
+ * the search and the place row's pick, the editor's draft while a list is being edited (or the
+ * smart list editor's), the lists picked while selecting several, and whether anything has
+ * scrolled under the bar.
  */
 @Stable
 class ListsRouteState(
@@ -32,6 +34,18 @@ class ListsRouteState(
     /** New › Import a reading order was picked; the route opens the file picker and clears it. */
     var isImportRequested: Boolean by mutableStateOf(false)
 
+    /** The lists picked while selecting several; null while not selecting. */
+    var selection: Set<String>? by mutableStateOf(null)
+
+    /** The lists Select all picks: every list the current place shows. The screen keeps it current. */
+    var selectableIds: List<String> by mutableStateOf(emptyList())
+
+    /** What Lists shows is open. */
+    var isWhatListsShowsOpen: Boolean by mutableStateOf(false)
+
+    /** Where the lists are scrolled to, kept while a list's page is open so Back lands where you were. */
+    val gridState: LazyGridState = LazyGridState()
+
     val isEditing: Boolean
         get() = editDraft != null || smartDraft != null
 
@@ -39,11 +53,23 @@ class ListsRouteState(
         openListId = listId
         editDraft = null
         smartDraft = null
+        selection = null
         scrolled = false
     }
 
-    /** Back: out of the editor, then out of the list. Returns false when there was nowhere to go back to. */
+    /** Whether Back has somewhere to go inside Lists. */
+    val canGoBack: Boolean
+        get() = selection != null || isEditing || openListId != null || filter != ListsFilter.All
+
+    /**
+     * Back: out of selecting, out of the editor, out of the list, then from a place to All.
+     * Returns false when there was nowhere to go back to.
+     */
     fun back(): Boolean = when {
+        selection != null -> {
+            selection = null
+            true
+        }
         smartDraft != null -> {
             smartDraft = null
             true
@@ -55,6 +81,10 @@ class ListsRouteState(
         openListId != null -> {
             openListId = null
             scrolled = false
+            true
+        }
+        filter != ListsFilter.All -> {
+            filter = ListsFilter.All
             true
         }
         else -> false

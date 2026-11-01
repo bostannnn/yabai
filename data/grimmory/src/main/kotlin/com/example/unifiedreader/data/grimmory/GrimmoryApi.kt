@@ -382,7 +382,7 @@ class KtorGrimmoryApi(
 
     override fun bookCoverUrl(
         bookId: String,
-    ): String = "$normalizedBaseUrl/api/v1/media/book/$bookId/thumbnail"
+    ): String = grimmoryBookCoverUrl(baseUrl = normalizedBaseUrl, bookId = bookId)
 
     override suspend fun updateEpubProgress(
         accessToken: String,

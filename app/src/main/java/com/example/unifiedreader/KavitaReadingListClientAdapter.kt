@@ -100,4 +100,6 @@ private fun KavitaReadingList.toRemote(username: String?): RemoteShelf = RemoteS
     isPublic = promoted,
     isOwned = ownerUserName?.equals(username, ignoreCase = true) ?: !promoted,
     itemCount = itemCount,
+    startYear = startingYear,
+    endYear = endingYear,
 )

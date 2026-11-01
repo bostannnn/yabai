@@ -11,6 +11,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -36,8 +39,12 @@ import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.feature.library.LibraryBrowseTopBarSearchField
 import com.example.unifiedreader.feature.library.VisibleResolvedLibraryCover
 import com.example.unifiedreader.feature.lists.ListCover
+import com.example.unifiedreader.feature.lists.ListsCatalog
+import com.example.unifiedreader.feature.lists.ListsFilter
 import com.example.unifiedreader.feature.lists.ListsRouteState
 import com.example.unifiedreader.feature.lists.ListsScreen
+import com.example.unifiedreader.feature.lists.ListsScreenActions
+import com.example.unifiedreader.feature.lists.WhatListsShowsSheet
 import com.example.unifiedreader.feature.lists.NewListDialog
 import com.example.unifiedreader.feature.lists.NewListServer
 import com.example.unifiedreader.feature.lists.UserList
@@ -57,8 +64,13 @@ import com.example.unifiedreader.feature.lists.toDraft
 import com.example.unifiedreader.feature.lists.toUserList
 import com.example.unifiedreader.feature.lists.withSmartBooks
 import com.example.unifiedreader.ui.components.AppButton
+import com.example.unifiedreader.ui.components.AppLayout
+import com.example.unifiedreader.ui.components.AppListRowDefaults
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppToastMessage
+import com.example.unifiedreader.ui.components.AppTonalButton
+import com.example.unifiedreader.ui.components.LocalAppToastState
 import kotlinx.coroutines.delay
 
 /**
@@ -79,9 +91,13 @@ internal fun ListsRoute(
     onOpenSeries: (ReadableItem) -> Unit = {},
     // Where you sorted each tag, for the smart list editor's Tag rule.
     tagKindOf: (String) -> LibraryTagKind = { LibraryTagKind.THEME },
+    // A book that a search on Lists found opens its page in its library.
+    onOpenBookPage: (ReadableItem) -> Unit = {},
 ) {
     val stored by listsViewModel.lists.collectAsStateWithLifecycle()
     val storedShelves by listsViewModel.shelves.collectAsStateWithLifecycle()
+    val preferences by listsViewModel.preferences.collectAsStateWithLifecycle()
+    val choices by listsViewModel.choices.collectAsStateWithLifecycle()
     // With the series Kavita's collections hold, which the catalog lists only as issues.
     val itemsById = remember(uiState.items, storedShelves) { listItemsById(uiState.items, storedShelves.orEmpty()) }
     SideEffect { listsViewModel.catalog = itemsById }
@@ -111,9 +127,17 @@ internal fun ListsRoute(
             state.back()
         }
     }
-    BackHandler(enabled = state.openListId != null) { state.back() }
-    // A server's list reads its books again as its page opens.
-    LaunchedEffect(openList?.id) { openList?.takeIf { it.server != null }?.let(listsViewModel::refreshList) }
+    BackHandler(enabled = state.canGoBack) { state.back() }
+    // A server's list reads its books again as its page opens, and every list's page opening puts it first in Recent.
+    LaunchedEffect(openList?.id) {
+        openList?.takeIf { it.server != null }?.let(listsViewModel::refreshList)
+        openList?.let { listsViewModel.markPageOpened(it.id) }
+    }
+    val catalog = remember(lists, shelves, preferences, choices.showing, progress) {
+        ListsCatalog(own = lists, server = shelves, preferences = preferences, showing = choices.showing, progressByItemId = progress)
+    }
+    // Select all picks what the current place shows.
+    SideEffect { state.selectableIds = catalog.visibleOf(state.filter).map(UserList::id) }
 
     fun openBook(list: UserList, book: UserListBook) {
         val item = book.item ?: return
@@ -199,24 +223,48 @@ internal fun ListsRoute(
         }
         else -> {
             val underWay = remember(stored, itemsById, progress) { readingOrderUnderWay(stored, itemsById, progress) }
+            val actions = remember(state, listsViewModel, onOpenBookPage) {
+                ListsScreenActions(
+                    onFilterChange = { filter -> state.filter = filter },
+                    onPlaceChoiceChange = listsViewModel::setPlaceChoice,
+                    onOpenList = { list -> state.openList(list.id) },
+                    onContinue = { under -> openBook(under.list, under.next) },
+                    onOpenBook = onOpenBookPage,
+                    onPin = { chosen, pin -> listsViewModel.setPinned(chosen.map(UserList::id), pin) },
+                    onHide = { chosen, hide -> listsViewModel.setHidden(chosen.map(UserList::id), hide) },
+                    onEdit = { list ->
+                        state.openList(list.id)
+                        if (list.smart != null) state.smartDraft = list.toSmartDraft() else state.editDraft = list.toDraft()
+                    },
+                    onSelectionChange = { selection -> state.selection = selection },
+                    onShowWhatListsShows = { state.isWhatListsShowsOpen = true },
+                )
+            }
             ListsScreen(
-                lists = lists,
-                underWay = underWay,
-                serverLists = shelves,
+                catalog = catalog,
+                underWay = underWay.takeIf { state.searchQuery.isBlank() && state.filter == ListsFilter.All },
                 itemsById = itemsById,
-                progressByItemId = progress,
                 searchQuery = state.searchQuery,
                 filter = state.filter,
-                onFilterChange = { filter -> state.filter = filter },
+                choices = choices,
+                selection = state.selection,
                 cellSizeDp = uiState.libraryGridCellSizeDp,
                 cover = cover,
-                onOpenList = { list -> state.openList(list.id) },
-                onContinue = { under -> openBook(under.list, under.next) },
+                actions = actions,
                 contentTopInset = contentTopInset,
                 onScrolledChanged = { scrolled -> state.scrolled = scrolled },
                 modifier = modifier,
+                gridState = state.gridState,
             )
         }
+    }
+    if (state.isWhatListsShowsOpen) {
+        WhatListsShowsSheet(
+            catalog = catalog,
+            onShowingChange = listsViewModel::setShowing,
+            onShowAgain = { list -> listsViewModel.setHidden(listOf(list.id), hidden = false) },
+            onDismiss = { state.isWhatListsShowsOpen = false },
+        )
     }
     val importCbl = rememberCblImport(listsViewModel, uiState) { listId -> state.openList(listId) }
     LaunchedEffect(state.isImportRequested) {
@@ -242,9 +290,11 @@ internal fun ListsRoute(
 }
 
 /**
- * The Lists bar: the menu, "Search lists" and New (List, Smart list, Import a reading order) on
- * the lists; Back on a list; Cancel, "Edit list" and Done while one is edited, and Close, "New
- * smart list" and Create in the smart list editor. No glass until something scrolls under it.
+ * The Lists bar: the menu, "Search lists", New (List, Smart list, Import a reading order) and ⋯
+ * (What Lists shows, Select several) on the lists; Close, how many are picked, Select all, Pin
+ * and Hide while several are selected; Back on a list; Cancel, "Edit list" and Done while one is
+ * edited, and Close, "New smart list" and Create in the smart list editor. No glass until
+ * something scrolls under it.
  */
 @Composable
 internal fun ListsTopBar(
@@ -261,7 +311,9 @@ internal fun ListsTopBar(
         ) {
             val draft = state.editDraft
             val smartDraft = state.smartDraft
+            val selection = state.selection
             when {
+                selection != null && state.openListId == null -> ListsSelectionBar(state, selection, listsViewModel)
                 smartDraft != null -> {
                     AppIconButton(onClick = { state.smartDraft = null }) {
                         Icon(imageVector = AppIcons.Close, contentDescription = if (smartDraft.isNew) "Cancel the new smart list" else "Cancel editing")
@@ -317,6 +369,8 @@ internal fun ListsTopBar(
                     AppIconButton(onClick = { state.back() }) {
                         Icon(imageVector = AppIcons.ArrowBack, contentDescription = "Back to lists")
                     }
+                    Spacer(modifier = Modifier.weight(1f))
+                    state.openListId?.let { listId -> ListPageMoreButton(listId, listsViewModel) }
                 }
                 else -> {
                     if (onDrawerClick != null) DrawerMenuButton(onClick = onDrawerClick)
@@ -331,6 +385,10 @@ internal fun ListsTopBar(
                         onList = { state.isNewListOpen = true },
                         onSmartList = { state.smartDraft = SmartListDraft() },
                         onImport = { state.isImportRequested = true },
+                    )
+                    ListsMoreMenuButton(
+                        onWhatListsShows = { state.isWhatListsShowsOpen = true },
+                        onSelect = { state.selection = emptySet() },
                     )
                 }
             }
@@ -416,6 +474,122 @@ private fun NewListMenuButton(onList: () -> Unit, onSmartList: () -> Unit, onImp
                 onClick = { open = false; onImport() },
             )
         }
+    }
+}
+
+/** ⋯ on a list's page: Pin to the top (or Unpin) and Hide from Lists (or Show again), as its long-press menu offers. */
+@Composable
+private fun ListPageMoreButton(listId: String, listsViewModel: AppListsViewModel) {
+    val preferences by listsViewModel.preferences.collectAsStateWithLifecycle()
+    val preference = preferences[listId]
+    var open by remember { mutableStateOf(false) }
+    Box {
+        AppIconButton(onClick = { open = true }) {
+            Icon(imageVector = AppIcons.MoreVert, contentDescription = "More for this list")
+        }
+        AppMenu(expanded = open, onDismissRequest = { open = false }) {
+            val pinned = preference?.isPinned == true
+            AppMenuItem(
+                text = { Text(if (pinned) "Unpin" else "Pin to the top") },
+                leadingIcon = { Icon(imageVector = if (pinned) AppIcons.KeepOff else AppIcons.Keep, contentDescription = null) },
+                onClick = { open = false; listsViewModel.setPinned(listOf(listId), pinned = !pinned) },
+            )
+            val hidden = preference?.hidden == true
+            AppMenuItem(
+                text = { Text(if (hidden) "Show again" else "Hide from Lists") },
+                leadingIcon = { Icon(imageVector = AppIcons.VisibilityOff, contentDescription = null) },
+                onClick = { open = false; listsViewModel.setHidden(listOf(listId), hidden = !hidden) },
+            )
+        }
+    }
+}
+
+/** ⋯ on the lists: What Lists shows, and Select several. */
+@Composable
+private fun ListsMoreMenuButton(onWhatListsShows: () -> Unit, onSelect: () -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        AppIconButton(onClick = { open = true }) {
+            Icon(imageVector = AppIcons.MoreVert, contentDescription = "More")
+        }
+        AppMenu(expanded = open, onDismissRequest = { open = false }) {
+            AppMenuItem(
+                text = { Text("What Lists shows") },
+                leadingIcon = { Icon(imageVector = AppIcons.VisibilityOff, contentDescription = null) },
+                onClick = { open = false; onWhatListsShows() },
+            )
+            AppMenuItem(
+                text = { Text("Select several") },
+                leadingIcon = { Icon(imageVector = AppIcons.SelectAll, contentDescription = null) },
+                onClick = { open = false; onSelect() },
+            )
+        }
+    }
+}
+
+/**
+ * The bar while several lists are picked: Close, how many, Select all, then Pin and Hide, which
+ * end the selection and say what they did in a toast with Undo.
+ */
+@Composable
+private fun androidx.compose.foundation.layout.RowScope.ListsSelectionBar(
+    state: ListsRouteState,
+    selection: Set<String>,
+    listsViewModel: AppListsViewModel,
+) {
+    val toasts = LocalAppToastState.current
+    AppIconButton(onClick = { state.selection = null }) {
+        Icon(imageVector = AppIcons.Close, contentDescription = "Stop selecting")
+    }
+    Text(
+        text = if (selection.isEmpty()) "Select lists" else "${selection.size} selected",
+        style = MaterialTheme.typography.titleMedium,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.weight(1f),
+    )
+    AppIconButton(onClick = { state.selection = state.selectableIds.toSet() }) {
+        Icon(imageVector = AppIcons.SelectAll, contentDescription = "Select all")
+    }
+    val ids = selection.toList()
+    AppTonalButton(
+        onClick = {
+            // Only the ones not pinned yet, so Undo leaves the others pinned.
+            val preferences = listsViewModel.preferences.value
+            val pinning = ids.filter { id -> preferences[id]?.isPinned != true }
+            state.selection = null
+            listsViewModel.setPinned(pinning, pinned = true)
+            toasts?.show(
+                AppToastMessage(
+                    text = if (pinning.size == 1) "1 list pinned" else "${pinning.size} lists pinned",
+                    actionLabel = "Undo",
+                    onAction = { listsViewModel.setPinned(pinning, pinned = false) },
+                ),
+            )
+        },
+        enabled = ids.isNotEmpty(),
+    ) {
+        Icon(imageVector = AppIcons.Keep, contentDescription = null, modifier = Modifier.size(AppListRowDefaults.markSize))
+        Spacer(modifier = Modifier.width(AppLayout.headingGap))
+        Text(text = "Pin", fontWeight = FontWeight.SemiBold)
+    }
+    AppButton(
+        onClick = {
+            state.selection = null
+            listsViewModel.setHidden(ids, hidden = true)
+            toasts?.show(
+                AppToastMessage(
+                    text = if (ids.size == 1) "1 list hidden" else "${ids.size} lists hidden",
+                    actionLabel = "Undo",
+                    onAction = { listsViewModel.setHidden(ids, hidden = false) },
+                ),
+            )
+        },
+        enabled = ids.isNotEmpty(),
+    ) {
+        Icon(imageVector = AppIcons.VisibilityOff, contentDescription = null, modifier = Modifier.size(AppListRowDefaults.markSize))
+        Spacer(modifier = Modifier.width(AppLayout.headingGap))
+        Text(text = "Hide", fontWeight = FontWeight.SemiBold)
     }
 }
 

@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 /**
  * A list kept on a server (a Grimmory shelf or magic shelf, a Kavita reading list or collection), as the app last read it, so it still shows offline.
  * The server's fields ([name], [icon], [iconType], [isPublic], [isOwned], [remoteSortField],
- * [remoteItemCount]) are rewritten at every refresh; [orderMode] and [hideFinished] are chosen on
+ * [remoteItemCount], [startYear], [endYear]) are rewritten at every refresh; [orderMode] and [hideFinished] are chosen on
  * this device and kept across refreshes. [kind] and [orderMode] hold enum names from
  * `feature:lists`. Its books are [ServerListItemEntity] rows.
  */
@@ -30,6 +30,9 @@ data class ServerListEntity(
     val syncedAtEpochMillis: Long,
     /** A magic shelf's rules as its server wrote them (Grimmory's JSON); null for every other list. */
     val rules: String? = null,
+    /** A Kavita reading list's first and last year, as Kavita works them out from its issues; null when it says none. */
+    val startYear: Int? = null,
+    val endYear: Int? = null,
 )
 
 /** A book in a [ServerListEntity], by the app's item id; [position] is the order the server gave. */

@@ -30,6 +30,9 @@ data class RemoteShelf(
     val itemCount: Int = 0,
     /** A magic shelf's rules in the app's own text ([ListRules.encode]); null when it has none the app can read. */
     val rules: String? = null,
+    /** A Kavita reading list's first and last year; null when the server gives none. */
+    val startYear: Int? = null,
+    val endYear: Int? = null,
 )
 
 /** A list a refresh read, with its books as the app's item ids; null when they weren't read with it. */
@@ -324,6 +327,8 @@ fun ServerShelf.toUserList(itemsById: Map<String, ReadableItem>): UserList = Use
     },
     server = ServerListRef(sourceType = sourceType, remoteId = remote.remoteId, isOwned = remote.isOwned),
     smart = remote.rules?.let(::decodeListRules)?.let { rules -> SmartListSpec(rules) },
+    startYear = remote.startYear,
+    endYear = remote.endYear,
 )
 
 /**
@@ -362,6 +367,8 @@ private fun RemoteShelf.toEntity(
         hideFinished = kept?.hideFinished ?: false,
         syncedAtEpochMillis = atEpochMillis,
         rules = rules,
+        startYear = startYear,
+        endYear = endYear,
     )
 }
 
@@ -375,6 +382,8 @@ private fun ServerListEntity.toRemote(): RemoteShelf = RemoteShelf(
     sortField = remoteSortField,
     itemCount = remoteItemCount,
     rules = rules,
+    startYear = startYear,
+    endYear = endYear,
 )
 
 private fun ServerListEntity.toModel(items: List<ServerListItemEntity>): ServerShelf {

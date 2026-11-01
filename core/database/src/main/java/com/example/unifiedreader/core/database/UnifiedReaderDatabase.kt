@@ -14,6 +14,7 @@ import com.example.unifiedreader.core.database.dao.LibraryTagChoiceDao
 import com.example.unifiedreader.core.database.dao.ReadingProgressDao
 import com.example.unifiedreader.core.database.dao.ReaderSessionStateDao
 import com.example.unifiedreader.core.database.dao.RemoteCatalogDao
+import com.example.unifiedreader.core.database.dao.ListPreferenceDao
 import com.example.unifiedreader.core.database.dao.ServerListDao
 import com.example.unifiedreader.core.database.dao.UserListDao
 import com.example.unifiedreader.core.database.entity.DownloadQueueEntryEntity
@@ -32,6 +33,8 @@ import com.example.unifiedreader.core.database.entity.RemoteCatalogSyncGroupEnti
 import com.example.unifiedreader.core.database.entity.RemoteLibraryCacheEntity
 import com.example.unifiedreader.core.database.entity.ReaderSessionStateEntity
 import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
+import com.example.unifiedreader.core.database.entity.ListPreferenceEntity
+import com.example.unifiedreader.core.database.entity.ListSettingEntity
 import com.example.unifiedreader.core.database.entity.ServerListEntity
 import com.example.unifiedreader.core.database.entity.ServerListItemEntity
 import com.example.unifiedreader.core.database.entity.LibraryTagChoiceEntity
@@ -61,8 +64,10 @@ import com.example.unifiedreader.core.database.entity.UserListEntryEntity
         ServerListItemEntity::class,
         FinishedListEntity::class,
         LibraryTagChoiceEntity::class,
+        ListPreferenceEntity::class,
+        ListSettingEntity::class,
     ],
-    version = 36,
+    version = 37,
     exportSchema = false,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
@@ -76,6 +81,7 @@ abstract class UnifiedReaderDatabase : RoomDatabase() {
     abstract fun userListDao(): UserListDao
     abstract fun serverListDao(): ServerListDao
     abstract fun libraryTagChoiceDao(): LibraryTagChoiceDao
+    abstract fun listPreferenceDao(): ListPreferenceDao
 }
 
 object UnifiedReaderDatabaseMigrations {
@@ -1006,6 +1012,7 @@ object UnifiedReaderDatabaseFactory {
             MIGRATION_33_34,
             MIGRATION_34_35,
             MIGRATION_35_36,
+            MIGRATION_36_37,
         )
         .build()
 }

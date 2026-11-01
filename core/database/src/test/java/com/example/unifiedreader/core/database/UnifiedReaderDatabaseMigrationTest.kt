@@ -438,6 +438,46 @@ class UnifiedReaderDatabaseMigrationTest {
     }
 
     @Test
+    fun `migration 36 to 37 keeps server lists, gives them years and adds list preferences`() {
+        createTestDatabase(
+            name = "migration-36-37-${System.nanoTime()}",
+            version = 37,
+        ) { database ->
+            createVersion27Schema(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_27_28.migrate(database)
+            UnifiedReaderDatabaseMigrations.MIGRATION_28_29.migrate(database)
+            MIGRATION_29_30.migrate(database)
+            MIGRATION_30_31.migrate(database)
+            MIGRATION_31_32.migrate(database)
+            MIGRATION_32_33.migrate(database)
+            MIGRATION_33_34.migrate(database)
+            MIGRATION_34_35.migrate(database)
+            MIGRATION_35_36.migrate(database)
+            database.execSQL(
+                "INSERT INTO server_lists (id, sourceType, kind, remoteId, name, icon, iconType, isPublic, isOwned, " +
+                    "remoteSortField, remoteItemCount, orderMode, hideFinished, syncedAtEpochMillis) VALUES " +
+                    "('kavita:shelf:4', 'KAVITA', 'ServerReadingList', '4', 'Eclipse War', NULL, NULL, 0, 1, NULL, 22, 'Custom', 0, 1)",
+            )
+        }.use { database ->
+            MIGRATION_36_37.migrate(database)
+
+            database.query("SELECT name, startYear, endYear FROM server_lists WHERE id = 'kavita:shelf:4'").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals("Eclipse War", cursor.getString(0))
+                assertTrue(cursor.isNull(1))
+                assertTrue(cursor.isNull(2))
+            }
+            database.execSQL("INSERT INTO list_preferences (listId, pinnedAtEpochMillis, hidden, openedAtEpochMillis) VALUES ('kavita:shelf:4', NULL, 1, 5)")
+            database.execSQL("INSERT INTO list_settings (`key`, value) VALUES ('place:KAVITA:sort', 'Name')")
+            database.query("SELECT hidden, openedAtEpochMillis FROM list_preferences").use { cursor ->
+                cursor.moveToFirst()
+                assertEquals(1, cursor.getInt(0))
+                assertEquals(5L, cursor.getLong(1))
+            }
+        }
+    }
+
+    @Test
     fun `room migrates 4 to 5 and validates reader session state schema`() {
         val databaseName = "migration-4-5-${System.nanoTime()}"
         createTestDatabase(
@@ -1569,6 +1609,7 @@ private fun openRoomDatabase(
         MIGRATION_33_34,
         MIGRATION_34_35,
         MIGRATION_35_36,
+        MIGRATION_36_37,
     )
     .build()
 

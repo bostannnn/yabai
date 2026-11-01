@@ -90,4 +90,31 @@ class LibraryCoverThumbnailGeneratorTest {
         assertEquals(LibraryCoverVariant.GridExtraLarge.width, decoded.width)
         assertEquals(LibraryCoverVariant.GridExtraLarge.height, decoded.height)
     }
+
+    @Test
+    fun `ensureThumbnail crops a smaller cover without enlarging it`() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val source = File(context.cacheDir, "thumbnail-small-source.png")
+        val destination = File(context.cacheDir, "thumbnail-small-dest.jpg")
+        // The shape and size of a Grimmory thumbnail.
+        val bitmap = Bitmap.createBitmap(250, 350, Bitmap.Config.ARGB_8888)
+        try {
+            source.outputStream().use { output ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+            }
+        } finally {
+            bitmap.recycle()
+        }
+
+        val output = LibraryCoverThumbnailGenerator().ensureThumbnail(
+            sourceFile = source,
+            destinationFile = destination,
+            variant = LibraryCoverVariant.GridLarge,
+        )
+
+        assertTrue(output?.isFile == true)
+        val decoded = BitmapFactory.decodeFile(destination.absolutePath)
+        assertEquals(233, decoded.width)
+        assertEquals(350, decoded.height)
+    }
 }

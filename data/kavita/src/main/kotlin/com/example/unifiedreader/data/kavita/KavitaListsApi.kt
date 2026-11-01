@@ -11,13 +11,18 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.Serializable
 
-/** A Kavita reading list as the Lists screen keeps it: whose it is and how many issues it holds. */
+/**
+ * A Kavita reading list as the Lists screen keeps it: whose it is, how many issues it holds, and
+ * the first and last year of its issues (null when Kavita has none, which it sends as 0).
+ */
 data class KavitaReadingList(
     val id: String,
     val title: String,
     val itemCount: Int,
     val promoted: Boolean,
     val ownerUserName: String?,
+    val startingYear: Int? = null,
+    val endingYear: Int? = null,
 )
 
 /** An issue in a Kavita reading list: the list's own id for it, its place, and the chapter. */
@@ -290,6 +295,8 @@ internal fun KavitaReadingListInfoDto.toReadingList(): KavitaReadingList? {
         itemCount = itemCount?.coerceAtLeast(0) ?: 0,
         promoted = promoted == true,
         ownerUserName = ownerUserName?.takeIf(String::isNotBlank),
+        startingYear = startingYear?.takeIf { it > 0 },
+        endingYear = endingYear?.takeIf { it > 0 },
     )
 }
 

@@ -7,7 +7,14 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.feature.lists.FinishedList
+import com.example.unifiedreader.feature.lists.ListPreference
+import com.example.unifiedreader.feature.lists.ListPreferencesStore
+import com.example.unifiedreader.feature.lists.ListsChoices
+import com.example.unifiedreader.feature.lists.ListsFilter
+import com.example.unifiedreader.feature.lists.ListsPlaceChoice
+import com.example.unifiedreader.feature.lists.ListsShowing
 import com.example.unifiedreader.feature.lists.ListsRouteState
+import com.example.unifiedreader.feature.lists.RoomListPreferencesStore
 import com.example.unifiedreader.feature.lists.RoomServerShelfStore
 import com.example.unifiedreader.feature.lists.RoomUserListStore
 import com.example.unifiedreader.feature.lists.ServerListStores
@@ -65,6 +72,12 @@ object AppListsModule {
 
     @Provides
     fun provideServerWantToRead(adapter: KavitaWantToReadAdapter): ServerWantToRead = adapter
+
+    @Provides
+    @Singleton
+    fun provideListPreferencesStore(
+        database: UnifiedReaderDatabase,
+    ): ListPreferencesStore = RoomListPreferencesStore(dao = database.listPreferenceDao())
 }
 
 /**
@@ -77,6 +90,7 @@ class AppListsViewModel @Inject constructor(
     private val store: UserListStore,
     private val serverLists: ServerListStores,
     private val serverWantToRead: ServerWantToRead,
+    private val listPreferences: ListPreferencesStore,
 ) : ViewModel() {
     /** Where the Lists screen is; kept here so it is still there after a book from a list closes. */
     val routeState = ListsRouteState()
@@ -102,6 +116,41 @@ class AppListsViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
         initialValue = null,
     )
+
+    /** What this device keeps about each list (pinned, hidden, last opened), by list id. */
+    val preferences: StateFlow<Map<String, ListPreference>> = listPreferences.preferences.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+        initialValue = emptyMap(),
+    )
+
+    /** The Lists screen's choices: each place's kind, sort and Show as, and what it shows. */
+    val choices: StateFlow<ListsChoices> = listPreferences.choices.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+        initialValue = ListsChoices(),
+    )
+
+    fun setPinned(listIds: List<String>, pinned: Boolean) {
+        viewModelScope.launch { listPreferences.setPinned(listIds, pinned) }
+    }
+
+    fun setHidden(listIds: List<String>, hidden: Boolean) {
+        viewModelScope.launch { listPreferences.setHidden(listIds, hidden) }
+    }
+
+    /** A list's page opened: it leads its place's Recent. */
+    fun markPageOpened(listId: String) {
+        viewModelScope.launch { listPreferences.markOpened(listId) }
+    }
+
+    fun setPlaceChoice(filter: ListsFilter, choice: ListsPlaceChoice) {
+        viewModelScope.launch { listPreferences.setPlaceChoice(filter, choice) }
+    }
+
+    fun setShowing(showing: ListsShowing) {
+        viewModelScope.launch { listPreferences.setShowing(showing) }
+    }
 
     /** The lists read to the end, as the journal keeps them; null until the database has answered. */
     val finishedLists: StateFlow<List<FinishedList>?> = store.finishedLists.stateIn(
