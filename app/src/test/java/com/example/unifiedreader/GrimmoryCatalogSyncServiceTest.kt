@@ -482,7 +482,12 @@ class GrimmoryCatalogSyncServiceTest {
     @Test
     fun `sync works off the caller's thread and hands it every step there, in order, before returning`() = runBlocking {
         val callerThread = Thread.currentThread()
-        val worker = java.util.concurrent.Executors.newSingleThreadExecutor { runnable -> Thread(runnable, "grimmory-sync-work") }
+        // The thread itself, not its name: with coroutine debugging on (which depends on the order the
+        // tests run in) a running coroutine adds " @coroutine#n" to its thread's name.
+        var workerThread: Thread? = null
+        val worker = java.util.concurrent.Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "grimmory-sync-work").also { workerThread = it }
+        }
         val api = FakeGrimmoryApi(
             libraries = listOf(grimmoryLibrary("g-books")),
             allBookEntries = listOf(
@@ -519,7 +524,7 @@ class GrimmoryCatalogSyncServiceTest {
             worker.shutdown()
         }
 
-        assertEquals("grimmory-sync-work", api.bookListThread?.name)
+        assertTrue(api.bookListThread != null && api.bookListThread === workerThread)
         assertTrue(stepThreads.isNotEmpty() && stepThreads.all { thread -> thread === callerThread })
         assertEquals("Uploading journal changes", steps.last())
     }
