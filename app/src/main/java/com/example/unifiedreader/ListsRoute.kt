@@ -32,6 +32,7 @@ import com.example.unifiedreader.core.model.LibraryTagSorting
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
+import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.feature.library.LibraryBrowseTopBarSearchField
 import com.example.unifiedreader.feature.library.VisibleResolvedLibraryCover
 import com.example.unifiedreader.feature.lists.ListCover
@@ -46,6 +47,7 @@ import com.example.unifiedreader.feature.lists.UserListKind
 import com.example.unifiedreader.feature.lists.UserListPage
 import com.example.unifiedreader.feature.lists.books
 import com.example.unifiedreader.feature.lists.keepDownloadedLine
+import com.example.unifiedreader.feature.lists.listItemsById
 import com.example.unifiedreader.feature.lists.nextToKeepDownloaded
 import com.example.unifiedreader.feature.lists.orderedForScreen
 import com.example.unifiedreader.feature.lists.readingOrderUnderWay
@@ -79,7 +81,9 @@ internal fun ListsRoute(
     tagKindOf: (String) -> LibraryTagKind = { LibraryTagKind.THEME },
 ) {
     val stored by listsViewModel.lists.collectAsStateWithLifecycle()
-    val itemsById = remember(uiState.items) { uiState.items.associateBy(ReadableItem::id) }
+    val storedShelves by listsViewModel.shelves.collectAsStateWithLifecycle()
+    // With the series Kavita's collections hold, which the catalog lists only as issues.
+    val itemsById = remember(uiState.items, storedShelves) { listItemsById(uiState.items, storedShelves.orEmpty()) }
     SideEffect { listsViewModel.catalog = itemsById }
     val progress = uiState.progressByItemId
     val stalled = remember(uiState.items, progress) {
@@ -88,7 +92,6 @@ internal fun ListsRoute(
     val onDevice = uiState.locallyAvailableRemoteItemIds
     val resolved = remember(stored, uiState.items, progress, onDevice) { stored.withSmartBooks(uiState.items, progress, onDevice) }
     val lists = remember(resolved, stalled) { orderedForScreen(resolved, stalled) }
-    val storedShelves by listsViewModel.shelves.collectAsStateWithLifecycle()
     val connected = connectedListServers(uiState)
     val shelves = remember(storedShelves, itemsById, connected) {
         storedShelves.orEmpty().filter { shelf -> shelf.sourceType in connected }.map { shelf -> shelf.toUserList(itemsById) }
@@ -114,7 +117,8 @@ internal fun ListsRoute(
 
     fun openBook(list: UserList, book: UserListBook) {
         val item = book.item ?: return
-        if (list.kind == UserListKind.ServerCollection) onOpenSeries(item) else openBookFromList(viewModel, listsViewModel, list, item)
+        // A collection's comic series opens in the library; a book (a book series' first) opens as any list's does.
+        if (item.isKavitaSeriesContainer()) onOpenSeries(item) else openBookFromList(viewModel, listsViewModel, list, item)
     }
 
     val draft = state.editDraft

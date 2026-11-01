@@ -304,7 +304,11 @@ fun serverListId(sourceType: SourceType, kind: UserListKind, remoteId: String): 
     else -> serverShelfId(sourceType, remoteId)
 }
 
-/** The shelf as a list: its books are the library's items on it, so a book that left the library leaves it too. */
+/**
+ * The shelf as a list: its books are the library's items on it, so a book that left the library
+ * leaves it too. Each entry keeps the id the server's list holds, so a collection's book series
+ * (looked up as its first book, see [listItemsById]) still names its series when it is taken off.
+ */
 fun ServerShelf.toUserList(itemsById: Map<String, ReadableItem>): UserList = UserList(
     id = id,
     name = remote.name,
@@ -315,8 +319,8 @@ fun ServerShelf.toUserList(itemsById: Map<String, ReadableItem>): UserList = Use
     createdAtEpochMillis = 0L,
     updatedAtEpochMillis = 0L,
     lastOpenedAtEpochMillis = 0L,
-    entries = itemIds.mapNotNull(itemsById::get).mapIndexed { index, item ->
-        item.toUserListEntry(position = index, addedAtEpochMillis = item.addedAtEpochMillis ?: 0L)
+    entries = itemIds.mapNotNull { itemId -> itemsById[itemId]?.let { item -> itemId to item } }.mapIndexed { index, (itemId, item) ->
+        item.toUserListEntry(position = index, addedAtEpochMillis = item.addedAtEpochMillis ?: 0L).copy(itemId = itemId)
     },
     server = ServerListRef(sourceType = sourceType, remoteId = remote.remoteId, isOwned = remote.isOwned),
     smart = remote.rules?.let(::decodeListRules)?.let { rules -> SmartListSpec(rules) },

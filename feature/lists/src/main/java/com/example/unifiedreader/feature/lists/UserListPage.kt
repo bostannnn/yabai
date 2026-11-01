@@ -40,6 +40,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ListRules
 import com.example.unifiedreader.core.model.pill
 import com.example.unifiedreader.core.model.displayName
+import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.library.libraryBookTitle
@@ -176,7 +177,7 @@ fun UserListPage(
                                 showSource = mixesSources,
                                 cover = cover,
                                 onClick = { onOpenBook(book) },
-                                isSeries = list.kind == UserListKind.ServerCollection,
+                                isSeries = book.item?.isKavitaSeriesContainer() == true,
                             )
                         }
                     }
