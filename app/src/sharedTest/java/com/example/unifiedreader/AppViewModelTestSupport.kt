@@ -13,6 +13,7 @@ import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.core.model.remoteLibraryId
+import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.data.repository.JournalEntrySaveUseCase
 import com.example.unifiedreader.data.repository.FlushPendingRemoteArtifactsUseCase
 import com.example.unifiedreader.data.repository.LibraryRepository
@@ -193,6 +194,7 @@ internal fun createViewModel(
         remoteCoverController = remoteCoverController,
     )
     val catalogStateCoordinator = AppCatalogStateCoordinator(
+        appDispatchers = appDispatchers,
         libraryRepository = libraryRepository,
         readableItemRepository = readableItemRepository,
         localDocumentRepository = importedRepository,
@@ -726,6 +728,8 @@ class FakeKavitaCatalogSyncer(
         supportedFormatCounts = emptyMap(),
     ),
     private val failure: Throwable? = null,
+    // A pair each run renews before it returns or fails.
+    private val renewedSession: KavitaSession? = null,
 ) : KavitaCatalogSyncer {
     var lastConnectRequest: KavitaCatalogSyncRequest? = null
     var lastSyncRequest: KavitaCatalogSyncRequest? = null
@@ -733,8 +737,10 @@ class FakeKavitaCatalogSyncer(
 
     override suspend fun connect(
         request: KavitaCatalogSyncRequest,
+        onSessionRenewed: suspend (KavitaSession) -> Unit,
     ): KavitaCatalogConnectionResult {
         lastConnectRequest = request
+        renewedSession?.let { session -> onSessionRenewed(session) }
         failure?.let { throw it }
         return connectionResult
     }
@@ -742,8 +748,10 @@ class FakeKavitaCatalogSyncer(
     override suspend fun sync(
         request: KavitaCatalogSyncRequest,
         onProgress: (KavitaSyncProgress) -> Unit,
+        onSessionRenewed: suspend (KavitaSession) -> Unit,
     ): KavitaCatalogSyncResult {
         lastSyncRequest = request
+        renewedSession?.let { session -> onSessionRenewed(session) }
         failure?.let { throw it }
         return result
     }
@@ -751,8 +759,10 @@ class FakeKavitaCatalogSyncer(
     override suspend fun fastSync(
         request: KavitaCatalogSyncRequest,
         onProgress: (KavitaSyncProgress) -> Unit,
+        onSessionRenewed: suspend (KavitaSession) -> Unit,
     ): KavitaCatalogSyncResult {
         lastFastSyncRequest = request
+        renewedSession?.let { session -> onSessionRenewed(session) }
         failure?.let { throw it }
         return result
     }

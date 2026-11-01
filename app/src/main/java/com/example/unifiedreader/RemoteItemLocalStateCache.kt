@@ -5,6 +5,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.security.MessageDigest
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import org.json.JSONArray
 import org.json.JSONException
@@ -69,17 +70,22 @@ class SharedPreferencesRemoteItemLocalStateCache @Inject constructor(
         Context.MODE_PRIVATE,
     )
 
+    // What each library's entry last held, so a refresh that found the same books doesn't write it again.
+    private val lastStoredStateByKey = ConcurrentHashMap<String, RemoteItemLocalState>()
+
     override fun load(
         items: List<ReadableItem>,
     ): RemoteItemLocalState? {
         return items.remoteItemLocalStateCacheScopes()
             .mapNotNull { scope ->
-                val encoded = preferences.getString(scope.preferenceKey(), null) ?: return@mapNotNull null
+                val key = scope.preferenceKey()
+                val encoded = preferences.getString(key, null) ?: return@mapNotNull null
                 try {
                     val entry = JSONObject(encoded).toRemoteItemLocalStateCacheEntry()
                     entry.takeIf { it.scope.matchesSourceLibraryScope(scope) }
                         ?.state
                         ?.scopedTo(scope)
+                        ?.also { state -> lastStoredStateByKey[key] = state }
                 } catch (_: JSONException) {
                     null
                 }
@@ -94,14 +100,21 @@ class SharedPreferencesRemoteItemLocalStateCache @Inject constructor(
         val scopes = items.remoteItemLocalStateCacheScopes()
         if (scopes.isEmpty()) return
         val editor = preferences.edit()
+        var changed = false
         scopes.forEach { scope ->
+            val key = scope.preferenceKey()
+            val scopedState = state.scopedTo(scope)
+            if (lastStoredStateByKey[key] == scopedState) return@forEach
             val entry = RemoteItemLocalStateCacheEntry(
                 scope = scope,
-                state = state.scopedTo(scope),
+                state = scopedState,
             )
-            editor.putString(scope.preferenceKey(), entry.toJson().toString())
+            editor.putString(key, entry.toJson().toString())
+            lastStoredStateByKey[key] = scopedState
+            changed = true
         }
-        editor.commit()
+        // A hint for the next start, so it needn't reach the disk before the caller goes on.
+        if (changed) editor.apply()
     }
 }
 
@@ -155,8 +168,10 @@ private fun RemoteItemLocalStateCacheScope.key(): String = sha256(
 private fun RemoteItemLocalStateCacheEntry.toJson(): JSONObject = JSONObject()
     .put("version", REMOTE_ITEM_LOCAL_STATE_CACHE_VERSION)
     .put("sourceLibraryScopeId", scope.sourceLibraryScopeId)
-    .put("itemIds", scope.itemIds.toJsonArray())
-    .put("availabilityScopeIds", scope.availabilityScopeIds.toJsonArray())
+    // Kept for the format, written empty: [load] matches an entry by its library alone and scopes it to
+    // the catalog it is loaded for, and writing every item id made the file megabytes.
+    .put("itemIds", JSONArray())
+    .put("availabilityScopeIds", JSONArray())
     .put("downloadedItemIds", state.downloadedItemIds.toJsonArray())
     .put("locallyAvailableItemIds", state.locallyAvailableItemIds.toJsonArray())
 

@@ -838,6 +838,45 @@ class AppLibraryStateRecomputeCoordinatorTest {
         assertEquals(otherKavitaBook.id, kavitaStates.single().libraryShelvesState.continueReading.single().item.id)
     }
 
+    @Test
+    fun `a quick recompute keeps the view's download badges until the full one lands`() = runTest {
+        val coordinator = createCoordinator(StandardTestDispatcher(testScheduler))
+        val epub = sampleItem(id = "book-1", title = "Book", format = FormatType.EPUB)
+        val pdf = sampleItem(id = "pdf-1", title = "Paper", format = FormatType.PDF)
+        val initialState = coordinator.initialize(sampleLibraryState().copy(items = listOf(epub, pdf)))
+        // The cold-start compute is the quick one: the grid fills its badges itself until the full one.
+        assertFalse(initialState.libraryHasAllBadges)
+        val publishedStates = mutableListOf<AppUiState>()
+        coordinator.updateState(
+            currentState = initialState,
+            transform = { state -> state.copy(downloadingRemoteItemIds = setOf(pdf.id)) },
+            scope = this,
+            publishState = publishedStates::add,
+        )
+        advanceUntilIdle()
+        val fullState = publishedStates.last()
+        assertTrue(fullState.libraryHasAllBadges)
+        assertEquals(setOf(pdf.id), fullState.remoteDownloadActionAvailability.activeDownloadingItemIds)
+
+        coordinator.updateState(
+            currentState = fullState,
+            transform = { state ->
+                state.copy(
+                    libraryFiltersBySource = mapOf(
+                        SourceType.KAVITA to LibraryFilterState(formats = setOf(FormatType.PDF)),
+                    ),
+                )
+            },
+            scope = this,
+            publishState = publishedStates::add,
+        )
+
+        val quickState = publishedStates.last()
+        assertEquals(listOf(pdf.id), quickState.visibleItems.map { item -> item.id })
+        assertTrue(quickState.libraryHasAllBadges)
+        assertSame(fullState.remoteDownloadActionAvailability, quickState.remoteDownloadActionAvailability)
+    }
+
     private val kavitaBook = sampleItem(id = "book-1", title = "Kavita Book", format = FormatType.EPUB)
 
     private val grimmoryBook = ReadableItem(
