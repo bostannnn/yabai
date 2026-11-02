@@ -168,7 +168,7 @@ comp("AppSettingsGroup", "Lists", 560, """
 A labelled group of rows on a panel: the settings hub and every settings page, the source page's groups, About.
 
 - Kit: `AppSettingsGroup(label)` holding `AppSettingsRow`s separated by `AppSettingsRowDivider()`.
-- The label is `AppGroupLabel` (`group-label`: 15 SemiBold, `on-surface`), **flush with the panel's edge**, `heading-gap` 8 above the panel. The theme page's Device / Light / Dark use the same label over their tiles.
+- The label is `AppGroupLabel` (`group-label`: 15 SemiBold, `on-surface`), **flush with the panel's edge**, `heading-gap` 8 above the panel. A count may follow it, `heading-gap` apart, in Medium `on-surface-variant` ("Rules 1,284 match"). The theme page's Device / Light / Dark use the same label over their tiles.
 - Rows: `AppSettingsRow(title, icon, supporting, selected, onClick, trailing, leading)`. Inset 20, min height 64, icon 24 then 16 to the text. One trailing thing: a chevron (`navigate_next`), a switch, a value, a button or a drag handle.
 - Dividers start under the text (60) and use `outline-variant` at 60%.
 - The selected row (two panes) fills with `primary-container`; its supporting text and chevron drop to 72%.
@@ -397,6 +397,7 @@ A question or a short form over the screen: `AppDialogCard` up to 380 wide, `rad
 
 - Kit: `AppDialog`, `AppDialogCard`, `AppListDialog` (a searchable list), `AppDialogConfirmButton` / `AppDialogDismissButton`.
 - A destructive confirm is `error` / `on-error`.
+- The content starts `grid-gap` 16 below the title (or its subtitle); the actions 24 below the content.
 - A search field inside a dialog uses `AppSearchFieldDefaults.dialogContainerColor`.
 - The Finished screen keeps its own card (640 with the cover beside, see FinishedScreen), with the dialog's corners, padding and window margin from `AppDialogCardDefaults`.
 """, f"""

@@ -120,7 +120,7 @@ pushes the grid in by 44 dp.
 While here: move the library's rail onto the kit `AppLetterStrip` so Lists and the library share one look, and give
 it a guideline (there is none for `AlphabetNavigationRail`).
 
-## 5. Lists: new list and the editors `[ ]`
+## 5. Lists: new list and the editors `[~]` (A built)
 
 **What is wrong.** Creating a list does not look finished.
 
@@ -140,6 +140,44 @@ and Expanded. Things to settle on it: one panel per part with `AppGroupLabel` ab
 Matches), rule groups as indented rows rather than a panel inside a panel, "Add rule" as a full-width row at the end of
 the rules panel, the preview grid using the library's cover sizes and `gridGap`. Then the system
 (`components/ListsScreen/`, a new editor page if needed), then the code with no literal dp left.
+
+**Board (2026-11-02):** https://claude.ai/artifact/3zhJZtXwTpvNMEYLj9cBUy ("Making a list"). Seen on the tablet first
+(0.34.0, landscape): New list dialog with the title on the field and edge-to-edge Keep it rows; the smart list editor
+with the form at ~60 % and a 320 dp preview of small covers, a jargon "all of these ↓" chip, small Add rule / Add a group
+links and a rule row that only offers ×. The user has no list of their own yet (only Want to read and Stalled).
+
+- **A, sections like Settings:** two panes on Expanded (form beside Matches, equal halves). Name; Keep it as radio
+  rows; Rules as one panel: "Books that match" with All / Any segments, one row per rule (field icon, plain words,
+  "· 8,234 books" for that rule alone), a group as indented rows under "And one of these", Add rule and Add a group as
+  full rows; Order (Sort by, How many). Matches: a cover grid that fills its pane (`auto-fill`, 104 minimum), "and N
+  more"; no rules → a line saying so; nothing matches → which rule empties it ("Without Published before 1800, 1,284
+  would match"). Phone: one column, Matches as a strip under Rules, the count in the Rules label.
+- **B, rules as a sentence:** the same page, the rules panel reads "Books whose [genre] is [Fantasy] or [Horror] /
+  [and] [pages] under [400 pages]", every word a chip to tap; "+ and…" and "+ any one of…" add.
+- **C, one New list page:** no dialog. Name, Description, "Its books: You pick them / Rules pick them", Keep it (its
+  lines follow the choice), then Order and an empty Books pane (pick) or Rules and Matches (rules). The + menu would
+  hold New list and Import a reading order.
+- A and B share the dialog (radio tiles, the picked one in `primary-container`) and the list editor (form beside a
+  numbered Books panel with dividers, Delete list as a row).
+- Data rows on the board: many rules + a group + 3 matches, first open with no server (no Keep it), rules matching
+  nothing, a list with no books. Every count, rule and book comes from the component's data, not the tablet's.
+
+**Built (2026-11-02): A.** The user picked A. Design system first (`ListsScreen` smart list editor, New list and a new
+"Editing a list" bullet; `AppDialog`; `AppSettingsGroup`), republished to the Design System artifact with the 0.34
+changes it lacked.
+
+- Kit: `AppDialogCard`/`AppDialog` content starts `gridGap` below the title (the New list title sat on its field;
+  `AppDialog`'s own 16 and the updater's paddings moved accordingly); `AppGroupLabel(count)`.
+- `NewListDialog`: Keep it as tiles (`AppRoundCheck` first, the picked one in `surfaceSelected`, 12 corners, 4 apart).
+- `SmartListEditor` + new `SmartListEditorParts.kt`: Keep it as radio rows in a panel; the rules panel (All of these /
+  Any of these segments once there are two, rule rows with the field's icon, `phrase()` and that rule's own count, a
+  group as "And this group" with All/Any and indented rules, Add rule / Add a group as rows); Order label; Matches as
+  an equal pane on Expanded (grid of at least 104 wide covers, three rows, "and N more") or under the rules as a strip
+  with the count in the Rules label. No rules / nothing matches say so; `smartListEmptiedBy` names the rule that empties
+  an all-of list. Per-rule counts and the culprit run on `Dispatchers.Default` (`smartListRuleCounts`).
+- `UserListEditor`: form (Name, Description, Order, Delete) beside Books on Expanded; an empty list says how to add books.
+- Checked on the emulator (landscape and portrait): empty editor, a rule, two rules with nothing matching (the hint
+  named the rule), the dialog and the list editor. Not committed, not on the tablet.
 
 ## 6. Filters: Library and the other chip groups `[ ]`
 
