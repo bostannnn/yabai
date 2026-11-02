@@ -205,7 +205,6 @@ private fun DialogBody(text: AnnotatedString) {
         text = text,
         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 20.sp),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 16.dp),
     )
 }
 
@@ -222,7 +221,7 @@ private fun ReleaseNotes(
             text = "What's new",
             style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp, fontWeight = FontWeight.Bold),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 20.dp, bottom = 8.dp),
+            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
         )
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             shown.forEach { note ->
@@ -252,7 +251,7 @@ private fun ReleaseNotes(
     if (linkLabel != null && release.pageUrl.isNotBlank()) {
         Row(
             modifier = Modifier
-                .padding(top = if (shown.isEmpty()) 16.dp else 10.dp)
+                .padding(top = if (shown.isEmpty()) 0.dp else 10.dp)
                 .clip(CircleShape)
                 .clickable(role = Role.Button) { onOpenReleasePage(release.pageUrl) }
                 .padding(vertical = 4.dp),
@@ -276,7 +275,7 @@ private fun ReleaseNotes(
 
 @Composable
 private fun DownloadProgress(status: AppUpdateStatus.Downloading) {
-    Column(modifier = Modifier.padding(top = 20.dp)) {
+    Column(modifier = Modifier.padding(top = 4.dp)) {
         AppProgressBar(fraction = status.fraction, modifier = Modifier.fillMaxWidth())
         Row(
             modifier = Modifier

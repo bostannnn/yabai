@@ -53,6 +53,6 @@
 24 feature/settings/src/main/java/com/example/unifiedreader/feature/settings/SourceStartFlow.kt
 1 feature/settings/src/main/java/com/example/unifiedreader/feature/settings/SyncStatusSettingsPage.kt
 3 feature/settings/src/main/java/com/example/unifiedreader/feature/settings/ThemeSettingsPage.kt
-9 feature/updates/src/main/java/com/example/unifiedreader/feature/updates/AppUpdateDialogs.kt
+8 feature/updates/src/main/java/com/example/unifiedreader/feature/updates/AppUpdateDialogs.kt
 1 feature/updates/src/main/java/com/example/unifiedreader/feature/updates/AppUpdateHost.kt
 3 feature/updates/src/main/java/com/example/unifiedreader/feature/updates/AppUpdateSettingsRows.kt

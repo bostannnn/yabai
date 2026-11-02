@@ -54,20 +54,33 @@ fun AppSettingsGroup(
 
 /**
  * The label above a group of rows or tiles on a page: 15 sp SemiBold in sentence case, flush with
- * the edge of what it heads (not an uppercase caption, not indented).
+ * the edge of what it heads (not an uppercase caption, not indented). A [count] follows it in
+ * `onSurfaceVariant` ("Rules 1,284 match").
  */
 @Composable
 fun AppGroupLabel(
     text: String,
     modifier: Modifier = Modifier,
+    count: String? = null,
 ) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp, lineHeight = 20.sp),
-        fontWeight = FontWeight.SemiBold,
-        color = MaterialTheme.colorScheme.onSurface,
-        modifier = modifier.semantics { heading() },
-    )
+    val style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp, lineHeight = 20.sp)
+    if (count == null) {
+        Text(
+            text = text,
+            style = style,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = modifier.semantics { heading() },
+        )
+        return
+    }
+    Row(
+        modifier = modifier.semantics(mergeDescendants = true) { heading() },
+        horizontalArrangement = Arrangement.spacedBy(AppLayout.headingGap),
+    ) {
+        Text(text = text, style = style, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+        Text(text = count, style = style, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }
 
 /**

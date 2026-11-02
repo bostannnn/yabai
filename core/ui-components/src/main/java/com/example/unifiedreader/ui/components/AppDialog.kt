@@ -71,9 +71,7 @@ fun AppDialog(
             {
                 CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant) {
                     ProvideTextStyle(AppDialogCardDefaults.bodyStyle) {
-                        Box(modifier = Modifier.padding(top = if (title != null || icon != null) 16.dp else 0.dp)) {
-                            text()
-                        }
+                        text()
                     }
                 }
             }
@@ -325,6 +323,8 @@ private fun AppDialogLayout(
                     Column(
                         modifier = Modifier
                             .weight(1f, fill = false)
+                            // The content starts a step below the title, never on it.
+                            .padding(top = if (leading != null || heading != null) AppLayout.gridGap else 0.dp)
                             .verticalScroll(rememberScrollState()),
                         content = content,
                     )
