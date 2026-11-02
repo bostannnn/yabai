@@ -46,6 +46,10 @@ import com.example.unifiedreader.ui.components.AppSegmentedRow
 import com.example.unifiedreader.ui.components.AppSettingsRowDivider
 import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.components.AppTextField
+import com.example.unifiedreader.ui.components.currentAppWindowWidth
+import com.example.unifiedreader.ui.components.AppWindowWidth
+import com.example.unifiedreader.ui.components.AppSettingsRow
+import com.example.unifiedreader.ui.components.AppGroupLabel
 import com.example.unifiedreader.ui.components.appGutter
 import com.example.unifiedreader.ui.components.appReorderHandle
 import com.example.unifiedreader.ui.components.appReorderableItem
@@ -99,12 +103,8 @@ fun UserListEditor(
     val reorderState = rememberAppReorderState(onMove = ::move)
     var confirmDelete by remember { mutableStateOf(false) }
     val gutter = appGutter()
-    Column(
-        modifier = modifier
-            .verticalScroll(rememberScrollState())
-            .padding(start = gutter, end = gutter, top = contentTopInset + AppLayout.contentTop, bottom = AppLayout.contentBottom),
-        verticalArrangement = Arrangement.spacedBy(AppLayout.sectionGap),
-    ) {
+    val expanded = currentAppWindowWidth() == AppWindowWidth.Expanded
+    val form: @Composable () -> Unit = {
         Column(verticalArrangement = Arrangement.spacedBy(AppLayout.gridGap)) {
             AppTextField(
                 value = draft.name,
@@ -121,6 +121,11 @@ fun UserListEditor(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
+        }
+    }
+    val order: @Composable () -> Unit = {
+        Column(verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap)) {
+            AppGroupLabel(text = "Order")
             if (orders.size > 1) {
                 AppSegmentedRow(modifier = Modifier.fillMaxWidth()) {
                     orders.forEach { option ->
@@ -143,50 +148,79 @@ fun UserListEditor(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-
-        if (showsBooks) Column(verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap)) {
+    }
+    val books: @Composable () -> Unit = {
+        Column(verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap)) {
             AppSectionHeading(text = "Books", count = draft.itemIds.size.toString())
-            if (draft.itemIds.isNotEmpty()) {
-                AppPanel(modifier = Modifier.fillMaxWidth()) {
-                    draft.itemIds.forEachIndexed { index, itemId ->
-                        key(itemId) {
-                            val entry = entriesById[itemId]
-                            val item = itemsById[itemId] ?: entry?.asReadableItem()
-                            Column(modifier = Modifier.appReorderableItem(reorderState, index)) {
-                                if (index > 0) AppSettingsRowDivider()
-                                EditorBookRow(
-                                    number = (index + 1).takeIf { canReorder },
-                                    title = itemsById[itemId]?.libraryBookTitle() ?: entry?.title ?: itemId,
-                                    line = entry?.let { it.secondaryText ?: it.primaryText?.takeIf { text -> text != it.title } }.orEmpty(),
-                                    item = item,
-                                    isFirst = index == 0,
-                                    isLast = index == draft.itemIds.lastIndex,
-                                    canMove = canReorder,
-                                    cover = cover,
-                                    handleModifier = Modifier.appReorderHandle(reorderState, index),
-                                    onMoveUp = { move(index, index - 1) },
-                                    onMoveDown = { move(index, index + 1) },
-                                    onMoveToTop = { move(index, 0) },
-                                    onRemove = {
-                                        update {
-                                            it.copy(
-                                                itemIds = it.itemIds - itemId,
-                                                removedItemIds = it.removedItemIds + itemId,
-                                            )
-                                        }
-                                    },
-                                )
-                            }
+            AppPanel(modifier = Modifier.fillMaxWidth()) {
+                if (draft.itemIds.isEmpty()) {
+                    AppSettingsRow(
+                        title = "No books yet",
+                        supporting = "Long-press covers in the library and choose Add to list, or use Add to list on a book's page.",
+                    )
+                }
+                draft.itemIds.forEachIndexed { index, itemId ->
+                    key(itemId) {
+                        val entry = entriesById[itemId]
+                        val item = itemsById[itemId] ?: entry?.asReadableItem()
+                        Column(modifier = Modifier.appReorderableItem(reorderState, index)) {
+                            if (index > 0) AppSettingsRowDivider()
+                            EditorBookRow(
+                                number = (index + 1).takeIf { canReorder },
+                                title = itemsById[itemId]?.libraryBookTitle() ?: entry?.title ?: itemId,
+                                line = entry?.let { it.secondaryText ?: it.primaryText?.takeIf { text -> text != it.title } }.orEmpty(),
+                                item = item,
+                                isFirst = index == 0,
+                                isLast = index == draft.itemIds.lastIndex,
+                                canMove = canReorder,
+                                cover = cover,
+                                handleModifier = Modifier.appReorderHandle(reorderState, index),
+                                onMoveUp = { move(index, index - 1) },
+                                onMoveDown = { move(index, index + 1) },
+                                onMoveToTop = { move(index, 0) },
+                                onRemove = {
+                                    update {
+                                        it.copy(
+                                            itemIds = it.itemIds - itemId,
+                                            removedItemIds = it.removedItemIds + itemId,
+                                        )
+                                    }
+                                },
+                            )
                         }
                     }
                 }
             }
         }
-
+    }
+    val delete: @Composable () -> Unit = {
         if (canDelete) {
             AppTextButton(onClick = { confirmDelete = true }) {
                 Text(text = "Delete $noun", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
             }
+        }
+    }
+    Column(
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .padding(start = gutter, end = gutter, top = contentTopInset + AppLayout.contentTop, bottom = AppLayout.contentBottom),
+        verticalArrangement = Arrangement.spacedBy(AppLayout.sectionGap),
+    ) {
+        if (expanded && showsBooks) {
+            // What the list is beside what is in it, as wide as each other.
+            Row(horizontalArrangement = Arrangement.spacedBy(AppLayout.sectionGap)) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AppLayout.sectionGap)) {
+                    form()
+                    order()
+                    delete()
+                }
+                Box(modifier = Modifier.weight(1f)) { books() }
+            }
+        } else {
+            form()
+            order()
+            if (showsBooks) books()
+            delete()
         }
     }
     if (confirmDelete) {

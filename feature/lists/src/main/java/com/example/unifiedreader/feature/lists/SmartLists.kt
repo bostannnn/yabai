@@ -5,6 +5,7 @@ import com.example.unifiedreader.core.model.LibraryFileLocation
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibraryPageRange
 import com.example.unifiedreader.core.model.LibraryReadingStatus
+import com.example.unifiedreader.core.model.ListRule
 import com.example.unifiedreader.core.model.ListRuleContext
 import com.example.unifiedreader.core.model.ListRules
 import com.example.unifiedreader.core.model.decodeListRules
@@ -77,6 +78,37 @@ fun smartListEntries(
         .map { item -> item.toUserListEntry(position = 0, addedAtEpochMillis = item.addedAtEpochMillis ?: 0L) }
     val sorted = sortEntries(entries, order)
     return (limit?.let(sorted::take) ?: sorted).mapIndexed { index, entry -> entry.copy(position = index) }
+}
+
+/** How many books of [pool] each whole rule of [rules] picks on its own, for the editor's rows. */
+fun smartListRuleCounts(
+    rules: ListRules,
+    pool: List<ReadableItem>,
+    context: ListRuleContext,
+): Map<ListRule, Int> = rules.allRules
+    .filter(ListRule::isComplete)
+    .distinct()
+    .associateWith { rule -> pool.count { item -> rule.matches(item, context) } }
+
+/**
+ * When rules joined by all match nothing: the one rule of them without which the most books
+ * would match, and how many. Null when they match something, are joined by any, or no single
+ * rule is to blame.
+ */
+fun smartListEmptiedBy(
+    rules: ListRules,
+    pool: List<ReadableItem>,
+    context: ListRuleContext,
+): Pair<ListRule, Int>? {
+    if (!rules.matchAll || rules.rules.size + rules.groups.size < 2) return null
+    if (pool.any { item -> rules.matches(item, context) }) return null
+    return rules.rules
+        .map { rule ->
+            val without = rules.copy(rules = rules.rules - rule)
+            rule to pool.count { item -> without.matches(item, context) }
+        }
+        .filter { (_, count) -> count > 0 }
+        .maxByOrNull { (_, count) -> count }
 }
 
 /**
