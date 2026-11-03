@@ -61,6 +61,8 @@ data class SmartListDraft(
     val rules: ListRules = ListRules(),
     val order: UserListOrder = UserListOrder.DateAdded,
     val limit: Int? = null,
+    // The library Filters picks it was saved from; changing its rules here leaves them behind.
+    val filter: SmartListFilter? = null,
 ) {
     val isNew: Boolean
         get() = listId == null
@@ -77,7 +79,7 @@ data class SmartListDraft(
             (onServer == null || rules.fitsMagicShelf)
 
     val spec: SmartListSpec
-        get() = SmartListSpec(rules = savedRules, limit = limit.takeIf { onServer == null })
+        get() = SmartListSpec(rules = savedRules, limit = limit.takeIf { onServer == null }, filter = filter)
 }
 
 /** The editor's starting point for a smart list or magic shelf; null for one whose rules the app can't read. */
@@ -90,6 +92,7 @@ fun UserList.toSmartDraft(): SmartListDraft? {
         rules = smart.rules,
         order = order,
         limit = smart.limit,
+        filter = smart.filter,
     )
 }
 
@@ -145,7 +148,8 @@ fun SmartListEditor(
     val expanded = currentAppWindowWidth() == AppWindowWidth.Expanded
     val hasRules = !draft.rules.isEmpty
 
-    fun setRules(change: (ListRules) -> ListRules) = onDraftChange(draft.copy(rules = change(draft.rules)))
+    // Rules changed here no longer match the Filters picks the list was saved from.
+    fun setRules(change: (ListRules) -> ListRules) = onDraftChange(draft.copy(rules = change(draft.rules), filter = null))
 
     val matchesSection: @Composable (asGrid: Boolean) -> Unit = { asGrid ->
         SmartListMatches(matches = matches, itemsById = itemsById, hasRules = hasRules, emptiedBy = emptiedBy, asGrid = asGrid, cover = cover)

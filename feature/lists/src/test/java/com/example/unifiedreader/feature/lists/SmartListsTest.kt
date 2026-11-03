@@ -116,6 +116,31 @@ class SmartListsTest {
         assertNull(decodeSmartListSpec("not a list"))
     }
 
+    @Test
+    fun `a smart list saved from Filters keeps its picks beside its rules`() {
+        val picks = SmartListFilter(
+            sourceType = SourceType.GRIMMORY,
+            filters = LibraryFilterState(
+                readingStatuses = setOf(LibraryReadingStatus.NOT_STARTED),
+                genres = setOf("Fantasy", "Horror"),
+                places = setOf("Russia"),
+                times = setOf("1800s"),
+                moods = setOf("Dark"),
+                pages = LibraryPageRange(min = 100, max = 400, includeUnknown = false),
+            ),
+        )
+        val spec = SmartListSpec(
+            rules = ListRules(rules = listOf(ListRule(ListRuleField.Genre, ListRuleOperator.AnyOf, listOf("Fantasy", "Horror")))),
+            filter = picks,
+        )
+
+        val decoded = decodeSmartListSpec(spec.encode())
+
+        assertEquals(spec, decoded)
+        // The rules alone still read for an app that knows nothing of the picks.
+        assertEquals(spec.rules, com.example.unifiedreader.core.model.decodeListRules(spec.encode()))
+    }
+
     private fun tagged(id: String, source: SourceType, year: Int, tags: List<String>) = ReadableItem(
         id = id,
         sourceType = source,

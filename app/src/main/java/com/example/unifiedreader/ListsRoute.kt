@@ -2,6 +2,9 @@ package com.example.unifiedreader
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import com.example.unifiedreader.ui.components.AppTextButton
+import com.example.unifiedreader.feature.lists.ListLibraryMode
+import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.feature.lists.toSmartDraft
 import com.example.unifiedreader.feature.lists.SmartListEditor
 import com.example.unifiedreader.feature.lists.SmartListDraft
@@ -11,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -139,6 +143,55 @@ internal fun ListsRoute(
         if (item.isKavitaSeriesContainer()) onOpenSeries(item) else openBookFromList(viewModel, listsViewModel, list, item)
     }
 
+    // Change a list: a smart list saved from Filters opens them in its library; an older smart list
+    // or a magic shelf its rules; a collection its editor.
+    fun editList(list: UserList) {
+        val picks = list.smart?.filter
+        when {
+            list.changesInFilters && picks != null -> startListLibraryMode(
+                mode = ListLibraryMode.ChangeFilters(
+                    listId = list.id,
+                    listName = list.name,
+                    sourceType = picks.sourceType,
+                    previousFilters = uiState.libraryFiltersBySource[picks.sourceType] ?: LibraryFilterState(),
+                ),
+                filters = picks.filters,
+                state = state,
+                viewModel = viewModel,
+            )
+            list.smart != null -> {
+                state.openList(list.id)
+                state.smartDraft = list.toSmartDraft()
+            }
+            else -> {
+                state.openList(list.id)
+                state.editDraft = list.toDraft()
+            }
+        }
+    }
+
+    fun addBooks(list: UserList) {
+        startListLibraryMode(
+            mode = ListLibraryMode.AddBooks(listId = list.id, listName = list.name, sourceType = addBooksSource(list, uiState)),
+            filters = null,
+            state = state,
+            viewModel = viewModel,
+        )
+    }
+
+    SideEffect { state.openListSnapshot = openList }
+    LaunchedEffect(state.isAddBooksRequested, state.isChangeFiltersRequested, openList?.id) {
+        val list = openList ?: return@LaunchedEffect
+        if (state.isAddBooksRequested) {
+            state.isAddBooksRequested = false
+            addBooks(list)
+        }
+        if (state.isChangeFiltersRequested) {
+            state.isChangeFiltersRequested = false
+            editList(list)
+        }
+    }
+
     val draft = state.editDraft
     val smartDraft = state.smartDraft
     when {
@@ -196,13 +249,15 @@ internal fun ListsRoute(
                 onOpenBook = { book -> openBook(openList, book) },
                 onSetOrder = { order -> listsViewModel.setOrder(openList, order) },
                 onSetHideFinished = { hide -> listsViewModel.setHideFinished(openList, hide) },
-                onEdit = {
-                    // A smart list or magic shelf edits its rules; any other list its books.
-                    if (openList.smart != null) state.smartDraft = openList.toSmartDraft() else state.editDraft = openList.toDraft()
-                },
+                onEdit = { editList(openList) },
                 contentTopInset = contentTopInset,
                 onScrolledChanged = { scrolled -> state.scrolled = scrolled },
                 modifier = modifier,
+                cellSizeDp = uiState.libraryGridCellSizeDp,
+                onAddBooks = if (openList.takesBooksByHand) ({ addBooks(openList) }) else null,
+                canSelect = openList.takesBooksByHand,
+                selection = state.bookSelection,
+                onSelectionChange = { picked -> state.bookSelection = picked },
                 keepDownloadedLine = if (openList.kind == UserListKind.User || openList.kind == UserListKind.WantToRead) {
                     keepDownloadedLine(
                         next = remember(openList, itemsById, progress) { openList.nextToKeepDownloaded(itemsById, progress) },
@@ -226,10 +281,7 @@ internal fun ListsRoute(
                     onOpenBook = onOpenBookPage,
                     onPin = { chosen, pin -> listsViewModel.setPinned(chosen.map(UserList::id), pin) },
                     onHide = { chosen, hide -> listsViewModel.setHidden(chosen.map(UserList::id), hide) },
-                    onEdit = { list ->
-                        state.openList(list.id)
-                        if (list.smart != null) state.smartDraft = list.toSmartDraft() else state.editDraft = list.toDraft()
-                    },
+                    onEdit = { list -> editList(list) },
                     onSelectionChange = { selection -> state.selection = selection },
                     onShowWhatListsShows = { state.isWhatListsShowsOpen = true },
                 )
@@ -266,6 +318,42 @@ internal fun ListsRoute(
             state.isImportRequested = false
             importCbl()
         }
+    }
+    if (state.isSmartSourcePickOpen) {
+        SmartListSourceDialog(
+            sources = smartListSources(uiState),
+            onPick = { source ->
+                state.isSmartSourcePickOpen = false
+                startListLibraryMode(
+                    mode = ListLibraryMode.NewSmart(source, previousFilters = uiState.libraryFiltersBySource[source] ?: LibraryFilterState()),
+                    filters = LibraryFilterState(),
+                    state = state,
+                    viewModel = viewModel,
+                )
+            },
+            onDismiss = { state.isSmartSourcePickOpen = false },
+        )
+    }
+    if (state.isRenameOpen && openList != null) {
+        RenameListDialog(
+            list = openList,
+            onSave = { name, description ->
+                state.isRenameOpen = false
+                renameList(openList, name, description, listsViewModel, onShelfFailure)
+            },
+            onDismiss = { state.isRenameOpen = false },
+        )
+    }
+    if (state.isDeleteOpen && openList != null) {
+        DeleteListDialog(
+            list = openList,
+            onDelete = {
+                state.isDeleteOpen = false
+                listsViewModel.deleteList(openList, onFailure = onShelfFailure)
+                state.back()
+            },
+            onDismiss = { state.isDeleteOpen = false },
+        )
     }
     if (state.isNewListOpen) {
         NewListDialog(
@@ -359,12 +447,13 @@ internal fun ListsTopBar(
                         Text(text = "Done", fontWeight = FontWeight.SemiBold)
                     }
                 }
+                state.openListId != null && state.bookSelection != null -> ListBooksSelectionBar(state, listsViewModel, onShelfFailure)
                 state.openListId != null -> {
                     AppIconButton(onClick = { state.back() }) {
                         Icon(imageVector = AppIcons.ArrowBack, contentDescription = "Back to lists")
                     }
                     Spacer(modifier = Modifier.weight(1f))
-                    state.openListId?.let { listId -> ListPageMoreButton(listId, listsViewModel) }
+                    state.openListId?.let { listId -> ListPageMoreButton(listId, state, listsViewModel) }
                 }
                 else -> {
                     if (onDrawerClick != null) DrawerMenuButton(onClick = onDrawerClick)
@@ -377,7 +466,7 @@ internal fun ListsTopBar(
                     )
                     NewListMenuButton(
                         onList = { state.isNewListOpen = true },
-                        onSmartList = { state.smartDraft = SmartListDraft() },
+                        onSmartList = { state.isSmartSourcePickOpen = true },
                         onImport = { state.isImportRequested = true },
                     )
                     ListsMoreMenuButton(
@@ -450,16 +539,16 @@ private fun NewListMenuButton(onList: () -> Unit, onSmartList: () -> Unit, onImp
         }
         AppMenu(expanded = open, onDismissRequest = { open = false }) {
             AppMenuItem(
-                text = { Text("List") },
-                supporting = "You pick the books",
-                leadingIcon = { Icon(imageVector = AppIcons.Checklist, contentDescription = null) },
-                onClick = { open = false; onList() },
-            )
-            AppMenuItem(
                 text = { Text("Smart list") },
-                supporting = "Picked by rules, kept up to date",
+                supporting = "Filters in a library; keeps itself up to date",
                 leadingIcon = { Icon(imageVector = AppIcons.Tune, contentDescription = null) },
                 onClick = { open = false; onSmartList() },
+            )
+            AppMenuItem(
+                text = { Text("List") },
+                supporting = "You pick the books, in your order",
+                leadingIcon = { Icon(imageVector = AppIcons.Checklist, contentDescription = null) },
+                onClick = { open = false; onList() },
             )
             AppMenuItem(
                 text = { Text("Import a reading order") },
@@ -471,17 +560,50 @@ private fun NewListMenuButton(onList: () -> Unit, onSmartList: () -> Unit, onImp
     }
 }
 
-/** ⋯ on a list's page: Pin to the top (or Unpin) and Hide from Lists (or Show again), as its long-press menu offers. */
+/**
+ * ⋯ on a list's page: Change filters (a smart list), Add books and Select books (a list you pick),
+ * Rename, Pin to the top (or Unpin), Hide from Lists (or Show again), then Delete list.
+ */
 @Composable
-private fun ListPageMoreButton(listId: String, listsViewModel: AppListsViewModel) {
+private fun ListPageMoreButton(listId: String, state: ListsRouteState, listsViewModel: AppListsViewModel) {
     val preferences by listsViewModel.preferences.collectAsStateWithLifecycle()
     val preference = preferences[listId]
+    val list = state.openListSnapshot?.takeIf { it.id == listId }
     var open by remember { mutableStateOf(false) }
     Box {
         AppIconButton(onClick = { open = true }) {
             Icon(imageVector = AppIcons.MoreVert, contentDescription = "More for this list")
         }
         AppMenu(expanded = open, onDismissRequest = { open = false }) {
+            if (list != null && list.isEditable && list.smart != null) {
+                AppMenuItem(
+                    text = { Text("Change filters") },
+                    supporting = if (list.changesInFilters) "Opens Filters with this list's picks" else "Its rules",
+                    leadingIcon = { Icon(imageVector = AppIcons.Tune, contentDescription = null) },
+                    onClick = { open = false; state.isChangeFiltersRequested = true },
+                )
+            }
+            if (list != null && list.takesBooksByHand) {
+                AppMenuItem(
+                    text = { Text("Add books") },
+                    supporting = "Pick them in the library",
+                    leadingIcon = { Icon(imageVector = AppIcons.Add, contentDescription = null) },
+                    onClick = { open = false; state.isAddBooksRequested = true },
+                )
+                AppMenuItem(
+                    text = { Text("Select books") },
+                    supporting = "To remove them or move them up",
+                    leadingIcon = { Icon(imageVector = AppIcons.Checklist, contentDescription = null) },
+                    onClick = { open = false; state.bookSelection = emptySet() },
+                )
+            }
+            if (list != null && list.isEditable && list.kind != UserListKind.WantToRead) {
+                AppMenuItem(
+                    text = { Text("Rename") },
+                    leadingIcon = { Icon(imageVector = AppIcons.Edit, contentDescription = null) },
+                    onClick = { open = false; state.isRenameOpen = true },
+                )
+            }
             val pinned = preference?.isPinned == true
             AppMenuItem(
                 text = { Text(if (pinned) "Unpin" else "Pin to the top") },
@@ -494,8 +616,64 @@ private fun ListPageMoreButton(listId: String, listsViewModel: AppListsViewModel
                 leadingIcon = { Icon(imageVector = AppIcons.VisibilityOff, contentDescription = null) },
                 onClick = { open = false; listsViewModel.setHidden(listOf(listId), hidden = !hidden) },
             )
+            if (list != null && list.isEditable && (list.kind == UserListKind.User || list.kind == UserListKind.Smart || list.server != null)) {
+                AppMenuItem(
+                    text = { Text("Delete list", color = MaterialTheme.colorScheme.error) },
+                    supporting = "Its books stay in your library",
+                    leadingIcon = { Icon(imageVector = AppIcons.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                    onClick = { open = false; state.isDeleteOpen = true },
+                )
+            }
         }
     }
+}
+
+/**
+ * The bar while books are picked on a list's page: Close, how many, Move to the top (a list with
+ * an order of its own) and Remove, each saved at once.
+ */
+@Composable
+private fun RowScope.ListBooksSelectionBar(state: ListsRouteState, listsViewModel: AppListsViewModel, onFailure: (String) -> Unit) {
+    val picked = state.bookSelection.orEmpty()
+    val list = state.openListSnapshot
+    AppIconButton(onClick = { state.bookSelection = null }) {
+        Icon(imageVector = AppIcons.Close, contentDescription = "Stop selecting")
+    }
+    Text(
+        text = "${picked.size} selected",
+        style = MaterialTheme.typography.titleMedium,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.weight(1f),
+    )
+    if (list != null && list.kind != UserListKind.ServerShelf && list.kind != UserListKind.ServerCollection) {
+        AppTextButton(
+            onClick = {
+                changeListBooks(list, picked, remove = false, listsViewModel = listsViewModel, onFailure = onFailure)
+                state.bookSelection = null
+            },
+            enabled = picked.isNotEmpty(),
+        ) {
+            Text(text = "Move to the top", fontWeight = FontWeight.SemiBold)
+        }
+    }
+    AppButton(
+        onClick = {
+            if (list != null) changeListBooks(list, picked, remove = true, listsViewModel = listsViewModel, onFailure = onFailure)
+            state.bookSelection = null
+        },
+        enabled = list != null && picked.isNotEmpty(),
+    ) {
+        Text(text = "Remove", fontWeight = FontWeight.SemiBold)
+    }
+}
+
+/** The libraries a smart list can come from: the connected servers and this device. */
+internal fun smartListSources(uiState: AppUiState): List<SourceType> = buildList {
+    if (uiState.grimmoryConnection.hasStoredSession) add(SourceType.GRIMMORY)
+    if (uiState.kavitaConnection.hasStoredSession) add(SourceType.KAVITA)
+    if (uiState.stumpConnection.hasStoredSession) add(SourceType.STUMP)
+    add(SourceType.LOCAL)
 }
 
 /** ⋯ on the lists: What Lists shows, and Select several. */

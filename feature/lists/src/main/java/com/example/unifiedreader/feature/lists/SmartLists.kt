@@ -20,10 +20,15 @@ import com.example.unifiedreader.feature.library.ItemProgressSummary
 import java.net.URLDecoder
 import java.net.URLEncoder
 
-/** A smart list as it is kept: its rules and how many of its matches it shows ([limit] null: every one). */
+/**
+ * A smart list as it is kept: its rules, how many of its matches it shows ([limit] null: every
+ * one), and, for one saved from a library's Filters, those picks ([filter]), so Change filters
+ * opens them again as they were. The rules are what match; the picks are what you change.
+ */
 data class SmartListSpec(
     val rules: ListRules,
     val limit: Int? = null,
+    val filter: SmartListFilter? = null,
 )
 
 /** How many matches a smart list can keep, for its editor's How many. */
@@ -35,14 +40,25 @@ data class SmartListFilter(
     val filters: LibraryFilterState,
 )
 
-/** Writes [this] as the text `user_lists.smartFilter` keeps: the rules, then `limit=` when it has one. */
-fun SmartListSpec.encode(): String = rules.encode() + (limit?.let { "\nlimit=$it" } ?: "")
+/**
+ * Writes [this] as the text `user_lists.smartFilter` keeps: the rules, then `limit=` when it has
+ * one, then the Filters picks it was saved from, each line after [FilterLinePrefix] (rules ignore
+ * lines they don't know, so an older app still reads the rules).
+ */
+fun SmartListSpec.encode(): String = rules.encode() +
+    (limit?.let { "\nlimit=$it" } ?: "") +
+    (filter?.let { picks -> "\n" + picks.encode().lines().joinToString("\n") { line -> FilterLinePrefix + line } } ?: "")
 
 /** Reads a smart list's text: its rules, or the filters of one saved before rules, as rules. Null for anything else. */
 fun decodeSmartListSpec(text: String?): SmartListSpec? {
     decodeListRules(text)?.let { rules ->
-        val limit = text.orEmpty().lines().firstOrNull { it.startsWith("limit=") }?.removePrefix("limit=")?.toIntOrNull()
-        return SmartListSpec(rules = rules, limit = limit)
+        val lines = text.orEmpty().lines()
+        val limit = lines.firstOrNull { it.startsWith("limit=") }?.removePrefix("limit=")?.toIntOrNull()
+        val filter = lines.filter { it.startsWith(FilterLinePrefix) }
+            .takeIf { it.isNotEmpty() }
+            ?.joinToString("\n") { it.removePrefix(FilterLinePrefix) }
+            ?.let(::decodeSmartListFilter)
+        return SmartListSpec(rules = rules, limit = limit, filter = filter)
     }
     return decodeSmartListFilter(text)?.let { old -> SmartListSpec(rules = old.filters.toListRules(old.sourceType)) }
 }
@@ -151,6 +167,9 @@ fun SmartListFilter.encode(): String = buildList {
     add("genres=" + filters.genres.joinToString(",", transform = ::encodeValue))
     add("tags=" + filters.tags.joinToString(",", transform = ::encodeValue))
     add("languages=" + filters.languages.joinToString(",", transform = ::encodeValue))
+    add("places=" + filters.places.joinToString(",", transform = ::encodeValue))
+    add("times=" + filters.times.joinToString(",", transform = ::encodeValue))
+    add("moods=" + filters.moods.joinToString(",", transform = ::encodeValue))
 }.joinToString("\n")
 
 /** Reads what [encode] wrote; null for text that isn't a smart list's filters. */
@@ -177,9 +196,15 @@ fun decodeSmartListFilter(text: String?): SmartListFilter? {
             genres = values("genres"),
             tags = values("tags"),
             languages = values("languages"),
+            places = values("places"),
+            times = values("times"),
+            moods = values("moods"),
         ),
     )
 }
+
+// Marks the lines of a smart list's text that hold the Filters picks it was saved from.
+private const val FilterLinePrefix = "filter."
 
 private fun encodeValue(value: String): String = URLEncoder.encode(value, Charsets.UTF_8.name())
 

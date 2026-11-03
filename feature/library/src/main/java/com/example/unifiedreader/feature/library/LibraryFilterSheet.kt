@@ -60,6 +60,20 @@ import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.components.AppTonalButton
 
 /**
+ * Filters opened on a list's behalf: [title] in the header ("New smart list", the list's name),
+ * and at the foot [cancelLabel] and [primaryLabel] ("Save as list", "Save changes") instead of
+ * Save as list and Show.
+ */
+data class LibraryFilterListMode(
+    val title: String,
+    val primaryLabel: String,
+    val onPrimary: () -> Unit,
+    val onCancel: () -> Unit,
+    val cancelLabel: String = "Cancel",
+    val primaryEnabled: Boolean = true,
+)
+
+/**
  * Every library filter in one side sheet (a bottom sheet on phones). Short choices stay open as
  * chips with counts; Set in, When, About, Mood and Genre show their values with most books; the long
  * facets are rows naming their top values, each opening its own page inside the sheet; Find searches
@@ -80,6 +94,8 @@ internal fun LibraryFilterSheet(
     onDismiss: () -> Unit,
     // Save as list, beside Show: keeps these filters as a smart list. Null where it isn't offered.
     onSaveAsList: (() -> Unit)? = null,
+    // The panel opened on a list's behalf: its title and its own two buttons instead of Save as list.
+    listMode: LibraryFilterListMode? = null,
 ) {
     AppSideSheet(onDismissRequest = onDismiss) {
         val close = { dismiss() }
@@ -97,6 +113,7 @@ internal fun LibraryFilterSheet(
             onClearFilters = onClearFilters,
             onClose = close,
             onSaveAsList = onSaveAsList,
+            listMode = listMode,
             modifier = Modifier.weight(1f),
         )
     }
@@ -122,6 +139,7 @@ internal fun LibraryFilterDockedPanel(
     onHide: () -> Unit,
     onSaveAsList: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    listMode: LibraryFilterListMode? = null,
 ) {
     AppPanel(
         modifier = modifier,
@@ -142,6 +160,7 @@ internal fun LibraryFilterDockedPanel(
             onClearFilters = onClearFilters,
             onClose = onHide,
             onSaveAsList = onSaveAsList,
+            listMode = listMode,
             modifier = Modifier.weight(1f),
         )
     }
@@ -162,6 +181,7 @@ private fun LibraryFilterContent(
     onClearFilters: () -> Unit,
     onClose: () -> Unit,
     onSaveAsList: (() -> Unit)?,
+    listMode: LibraryFilterListMode?,
     modifier: Modifier = Modifier,
 ) {
     // The facet page on screen; null is the overview.
@@ -198,6 +218,7 @@ private fun LibraryFilterContent(
                     onClearFilters = onClearFilters,
                     onOpenPage = { panel -> page = panel },
                     onClose = onClose,
+                    title = listMode?.title ?: "Filters",
                 )
             } else {
                 LibraryFilterFacetPage(
@@ -209,6 +230,26 @@ private fun LibraryFilterContent(
                     onBack = { page = null },
                 )
             }
+        }
+        if (listMode != null) {
+            // On a list's behalf the panel ends with its own two buttons, docked or not.
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(AppLayout.inset),
+                horizontalArrangement = Arrangement.spacedBy(AppLayout.headingGap),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AppTextButton(onClick = listMode.onCancel, modifier = Modifier.height(LibraryFilterSheetButtonHeight)) {
+                    Text(text = listMode.cancelLabel, fontWeight = FontWeight.SemiBold)
+                }
+                AppButton(
+                    onClick = listMode.onPrimary,
+                    enabled = listMode.primaryEnabled,
+                    modifier = Modifier.weight(1f).height(LibraryFilterSheetButtonHeight),
+                ) {
+                    Text(text = listMode.primaryLabel, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            return@Column
         }
         if (docked) {
             if (onSaveAsList != null) {
@@ -276,6 +317,7 @@ private fun LibraryFilterOverview(
     onClearFilters: () -> Unit,
     onOpenPage: (LibraryFilterPanel) -> Unit,
     onClose: () -> Unit,
+    title: String,
 ) {
     val anyApplied = filterPanels.any { panel -> panel.selectedCount(filterState) > 0 }
     // The sections in panel order, each while it has something to offer (Pages while it has lengths).
@@ -292,7 +334,7 @@ private fun LibraryFilterOverview(
     }
     Column(modifier = Modifier.fillMaxSize()) {
         AppPanelHeader(
-            title = "Filters",
+            title = title,
             subtitle = libraryFilterShowingLabel(shownCount, totalCount),
             onClose = onClose,
             closeContentDescription = if (docked) "Hide filters" else "Close filters",

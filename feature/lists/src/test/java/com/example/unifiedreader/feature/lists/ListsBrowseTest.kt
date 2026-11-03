@@ -182,7 +182,8 @@ class ListsBrowseTest {
         )
 
         assertEquals(ListsPlaceChoice(ListsKind.ReadingLists, ListsSort.Year, ListsView.Covers), choices.placeChoice(ListsFilter.Server(SourceType.KAVITA)))
-        assertEquals(ListsPlaceChoice(ListsKind.All, ListsSort.Name, ListsView.Rows), choices.placeChoice(ListsFilter.Server(SourceType.GRIMMORY)))
+        // Every place shows covers now, a server's too.
+        assertEquals(ListsPlaceChoice(ListsKind.All, ListsSort.Name, ListsView.Covers), choices.placeChoice(ListsFilter.Server(SourceType.GRIMMORY)))
         assertEquals(ListsView.Covers, choices.placeChoice(ListsFilter.Yours).view)
         assertEquals(setOf(SourceType.KAVITA), choices.showing.hideOthers)
         assertEquals(ListsFinished.Hide, choices.showing.finished)

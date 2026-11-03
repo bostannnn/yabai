@@ -36,6 +36,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
 import com.example.unifiedreader.data.repository.RemoteSyncArtifact
+import com.example.unifiedreader.feature.lists.ListLibraryMode
 import com.example.unifiedreader.feature.downloads.DownloadsSheet
 import com.example.unifiedreader.feature.journal.JournalScreen
 import com.example.unifiedreader.feature.library.LibraryViewMode
@@ -156,6 +157,21 @@ fun UnifiedReaderScaffold(
     var journalScrolled by remember { mutableStateOf(false) }
     val listsState = listsViewModel?.routeState ?: rememberListsRouteState()
     var filtersToSave by remember { mutableStateOf<LibraryFilterState?>(null) }
+    // The library opened on a list's behalf (a new smart list, a smart list's filters, books to add).
+    val listMode = listsState.libraryMode
+    var listFilterRequest by remember { mutableStateOf(0) }
+    val onListFailure = rememberShelfFailureToast()
+    // Leaving that library another way (the rail, another source) ends the mode, the library's own filters back.
+    var listModeSeenInLibrary by remember(listMode) { mutableStateOf(false) }
+    LaunchedEffect(listMode, uiState.topLevel, uiState.selectedSource) {
+        val mode = listMode ?: return@LaunchedEffect
+        val inside = uiState.topLevel == TopLevelDestination.Library && uiState.selectedSource == mode.sourceType
+        if (inside) {
+            listModeSeenInLibrary = true
+        } else if (listModeSeenInLibrary) {
+            endListLibraryMode(listsState, viewModel, openListId = null)
+        }
+    }
     val openListOnLists: (String) -> Unit = { listId ->
         listsState.openList(listId)
         viewModel.onTopLevelSelected(TopLevelDestination.Lists)
@@ -240,6 +256,9 @@ fun UnifiedReaderScaffold(
     val librarySelectionTip = rememberLibrarySelectionTip()
 
     fun updateLibraryDownloadSelectionMode(enabled: Boolean) {
+        // Closing the selection while picking books for a list goes back to the list, adding nothing.
+        val adding = listsState.libraryMode as? ListLibraryMode.AddBooks
+        if (!enabled && adding != null) endListLibraryMode(listsState, viewModel, openListId = adding.listId)
         isLibraryDownloadSelectionMode = enabled
         if (enabled) {
             librarySelectionTip.markSelected()
@@ -248,6 +267,30 @@ fun UnifiedReaderScaffold(
         }
     }
     BackHandler(enabled = isLibraryDownloadSelectionMode) {
+        updateLibraryDownloadSelectionMode(false)
+    }
+
+    // A list's mode starts: Filters open for a smart list's, the selection for books to add.
+    LaunchedEffect(listMode) {
+        when (listMode) {
+            is ListLibraryMode.AddBooks -> Unit
+            null -> listFilterRequest = 0
+            else -> listFilterRequest += 1
+        }
+    }
+    // Picking books stays on in the list's library, into a series and back (each view keeps its own selection).
+    LaunchedEffect(listMode, uiState.topLevel, uiState.selectedSource, uiState.libraryBrowseContextKey) {
+        val adding = listMode as? ListLibraryMode.AddBooks ?: return@LaunchedEffect
+        val inside = uiState.topLevel == TopLevelDestination.Library && uiState.selectedSource == adding.sourceType
+        if (inside && !isLibraryDownloadSelectionMode) {
+            isLibraryDownloadSelectionMode = true
+            librarySelectionTip.markSelected()
+        }
+    }
+
+    fun doneAddingBooks() {
+        val picked = effectiveSelectableDownloadItems.filter { item -> item.id in selectedDownloadItemIdSet }
+        if (listsViewModel != null) finishAddingBooks(picked, listsState, viewModel, listsViewModel, onListFailure)
         updateLibraryDownloadSelectionMode(false)
     }
 
@@ -428,7 +471,7 @@ fun UnifiedReaderScaffold(
                                 onDownloadRemoteItem = viewModel::onDownloadRemoteItem,
                                 onDeleteRemoteLocalFile = viewModel::onDeleteRemoteLocalFile,
                                 onSetReadStatus = viewModel::onSetReadStatus,
-                                onFilterStateChanged = viewModel::onLibraryFiltersChanged,
+                                onFilterStateChanged = { filters -> viewModel.onLibraryFiltersChanged(filters, persist = listMode == null) },
                                 onClearFilters = viewModel::clearLibraryFilters,
                                 onScrolledChanged = { contextKey, scrolled ->
                                     if (scrolled == null) libraryScrolled.remove(contextKey) else libraryScrolled[contextKey] = scrolled
@@ -458,6 +501,11 @@ fun UnifiedReaderScaffold(
                                     rememberHomeReadingOrderCard(it, viewModel, uiState, onOpenList = openListOnLists)
                                 },
                                 onSaveFiltersAsList = listsViewModel?.let { { filters -> filtersToSave = filters } },
+                                filterListMode = listsViewModel?.let {
+                                    listFilterMode(listMode, uiState, listsState, viewModel, it, onSaveAsList = { filters -> filtersToSave = filters }, onFailure = onListFailure)
+                                },
+                                filterPanelRequest = listFilterRequest,
+                                selectAnyItem = listMode is ListLibraryMode.AddBooks,
                                 onLibrarySearchQueryChanged = viewModel::onLibrarySearchQueryChanged,
                                 bookPageRequest = pendingBookPageItemId,
                                 onBookPageRequestHandled = { pendingBookPageItemId = null },
@@ -582,6 +630,8 @@ fun UnifiedReaderScaffold(
                                     onSelectAllDownloadItems = ::selectAllLibraryDownloadItems,
                                     onDownloadSelectedItems = ::downloadSelectedLibraryItems,
                                     onMarkSelectedRead = ::markSelectedLibraryItemsRead,
+                                    addingToList = (listMode as? ListLibraryMode.AddBooks)?.listName,
+                                    onDoneAdding = ::doneAddingBooks,
                                     onAddSelectedToList = listsViewModel?.let {
                                         {
                                             val selectedItems = effectiveSelectableDownloadItems
@@ -641,6 +691,11 @@ fun UnifiedReaderScaffold(
                         listsViewModel = listsViewModel,
                         onOpenList = openListOnLists,
                         onDismiss = { filtersToSave = null },
+                        onCreated = if (listMode is ListLibraryMode.NewSmart) {
+                            { listId -> endListLibraryMode(listsState, viewModel, openListId = listId) }
+                        } else {
+                            null
+                        },
                     )
                 }
                 val addToList = addToListItems

@@ -8,6 +8,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.example.unifiedreader.core.model.LibraryFilterState
+import com.example.unifiedreader.core.model.SourceType
 
 /**
  * Where the Lists screen is, shared by its content and its bar: the open list (null: all lists),
@@ -43,6 +45,26 @@ class ListsRouteState(
     /** What Lists shows is open. */
     var isWhatListsShowsOpen: Boolean by mutableStateOf(false)
 
+    /** New › Smart list asks which library its books are from. */
+    var isSmartSourcePickOpen: Boolean by mutableStateOf(false)
+
+    /** The open list's Rename, or its Delete list confirmation, is showing. */
+    var isRenameOpen: Boolean by mutableStateOf(false)
+    var isDeleteOpen: Boolean by mutableStateOf(false)
+
+    /** The bar's ••• asked for the open list's Add books or Change filters; the route starts it and clears it. */
+    var isAddBooksRequested: Boolean by mutableStateOf(false)
+    var isChangeFiltersRequested: Boolean by mutableStateOf(false)
+
+    /** The books picked on the open list's page while selecting; null while not selecting. */
+    var bookSelection: Set<String>? by mutableStateOf(null)
+
+    /** The open list as the page last drew it, for the bar's menu and selection actions. */
+    var openListSnapshot: UserList? by mutableStateOf(null)
+
+    /** The library opened for a list (a new smart list, a smart list's filters, books to add), or null. */
+    var libraryMode: ListLibraryMode? by mutableStateOf(null)
+
     /** Where the lists are scrolled to, kept while a list's page is open so Back lands where you were. */
     val gridState: LazyGridState = LazyGridState()
 
@@ -54,12 +76,13 @@ class ListsRouteState(
         editDraft = null
         smartDraft = null
         selection = null
+        bookSelection = null
         scrolled = false
     }
 
     /** Whether Back has somewhere to go inside Lists. */
     val canGoBack: Boolean
-        get() = selection != null || isEditing || openListId != null || filter != ListsFilter.All
+        get() = selection != null || bookSelection != null || isEditing || openListId != null || filter != ListsFilter.All
 
     /**
      * Back: out of selecting, out of the editor, out of the list, then from a place to All.
@@ -68,6 +91,10 @@ class ListsRouteState(
     fun back(): Boolean = when {
         selection != null -> {
             selection = null
+            true
+        }
+        bookSelection != null -> {
+            bookSelection = null
             true
         }
         smartDraft != null -> {
@@ -102,3 +129,30 @@ class ListsRouteState(
 
 @Composable
 fun rememberListsRouteState(): ListsRouteState = rememberSaveable(saver = ListsRouteState.Saver) { ListsRouteState() }
+
+/**
+ * The library opened on a list's behalf, in [sourceType]'s library: making a smart list from its
+ * Filters, changing a smart list's Filters picks, or picking books to add to a list. The library's
+ * own filters ([previousFilters]) come back when it ends.
+ */
+sealed interface ListLibraryMode {
+    val sourceType: SourceType
+
+    data class NewSmart(
+        override val sourceType: SourceType,
+        val previousFilters: LibraryFilterState,
+    ) : ListLibraryMode
+
+    data class ChangeFilters(
+        val listId: String,
+        val listName: String,
+        override val sourceType: SourceType,
+        val previousFilters: LibraryFilterState,
+    ) : ListLibraryMode
+
+    data class AddBooks(
+        val listId: String,
+        val listName: String,
+        override val sourceType: SourceType,
+    ) : ListLibraryMode
+}

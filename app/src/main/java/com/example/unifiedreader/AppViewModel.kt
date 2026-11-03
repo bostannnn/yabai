@@ -204,12 +204,18 @@ class AppViewModel @Inject constructor(
         )
     }
 
-    fun onLibraryFiltersChanged(filters: LibraryFilterState) {
+    fun onLibraryFiltersChanged(
+        filters: LibraryFilterState,
+        sourceType: SourceType = uiState.selectedSource,
+        persist: Boolean = true,
+    ) {
         libraryBrowseController.onLibraryFiltersChanged(
             currentState = uiState,
             updateState = ::updateUiState,
             scope = viewModelScope,
             filters = filters,
+            sourceType = sourceType,
+            persist = persist,
         )
     }
 

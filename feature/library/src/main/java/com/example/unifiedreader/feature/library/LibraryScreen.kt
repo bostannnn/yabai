@@ -55,6 +55,8 @@ import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySearchTagSuggestion
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.isStumpSeriesContainer
+import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.LibraryTagSorting
 import com.example.unifiedreader.core.model.librarySearchTagSuggestions
@@ -137,6 +139,12 @@ fun LibraryScreen(
     onClearFilters: () -> Unit = {},
     // Save as list in Filters: keeps the filters as a smart list. Null where lists aren't offered.
     onSaveFiltersAsList: ((LibraryFilterState) -> Unit)? = null,
+    // Filters opened on a list's behalf (a new smart list, a smart list's filters), with its own buttons.
+    filterListMode: LibraryFilterListMode? = null,
+    // Opens Filters (docked or as a sheet) each time it goes up.
+    filterPanelRequest: Int = 0,
+    // Picking books for a list: every book can be selected, not only those still to download.
+    selectAnyItem: Boolean = false,
     // The empty library's actions; null leaves an action out.
     sourceUnreachable: Boolean = false,
     // A server source with no stored session: the empty state offers Connect instead of a sync.
@@ -198,6 +206,10 @@ fun LibraryScreen(
     // On an Expanded window the filters dock beside the library instead of opening as a sheet.
     val dockFilters = currentAppWindowWidth() == AppWindowWidth.Expanded
     val filterDock = rememberLibraryFilterDockState()
+    LaunchedEffect(filterPanelRequest) {
+        if (filterPanelRequest == 0) return@LaunchedEffect
+        if (dockFilters) filterDock.show() else isFilterSheetOpen = true
+    }
     // Docked open, the books the filters find start at content top: the reading card and shelves step
     // aside, as for a search, and come back when the panel closes (a filter left on never hides them).
     val filtersDocked = dockFilters && filterDock.open
@@ -317,8 +329,15 @@ fun LibraryScreen(
     // When paged, the grid body's emptiness/loading come from the paging flow, not [items].
     val gridIsEmpty = if (isPaged) pagedItems!!.itemCount == 0 else visibleItems.isEmpty()
     val showGridLoading = isLoadingSource || (isPaged && pagedItems!!.loadState.refresh is LoadState.Loading)
-    val selectableDownloadItems = remember(renderedItems, downloadableItemIds, downloadingItemIds) {
-        renderedItems.filter { item -> item.id in downloadableItemIds && item.id !in downloadingItemIds }
+    val selectableDownloadItems = remember(renderedItems, downloadableItemIds, downloadingItemIds, selectAnyItem) {
+        renderedItems.filter { item ->
+            if (selectAnyItem) {
+                // A whole series isn't one book to put in a list: open it and pick its issues.
+                !item.isKavitaSeriesContainer() && !item.isStumpSeriesContainer()
+            } else {
+                item.id in downloadableItemIds && item.id !in downloadingItemIds
+            }
+        }
     }
     val selectableDownloadItemIds = remember(selectableDownloadItems) {
         selectableDownloadItems.mapTo(mutableSetOf(), ReadableItem::id)
@@ -873,6 +892,7 @@ fun LibraryScreen(
                 onClearFilters = onClearFilters,
                 onHide = filterDock::hide,
                 onSaveAsList = onSaveFiltersAsList?.takeIf { !filterState.isEmpty }?.let { save -> { save(filterState) } },
+                listMode = filterListMode,
                 modifier = Modifier
                     .padding(top = contentTopInset + AppLayout.contentTop, end = gutter, bottom = AppLayout.contentBottom)
                     .width(AppLayout.sheetWidth)
@@ -894,6 +914,7 @@ fun LibraryScreen(
             onClearFilters = onClearFilters,
             onDismiss = { isFilterSheetOpen = false },
             onSaveAsList = onSaveFiltersAsList?.takeIf { !filterState.isEmpty }?.let { save -> { save(filterState) } },
+            listMode = filterListMode,
         )
     }
 }

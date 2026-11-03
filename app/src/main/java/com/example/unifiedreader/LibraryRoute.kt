@@ -21,6 +21,7 @@ import com.example.unifiedreader.core.model.LibraryBrowseChip
 import com.example.unifiedreader.core.model.filterPanel
 import com.example.unifiedreader.core.model.filteringBy
 import com.example.unifiedreader.core.model.LibraryFilterState
+import com.example.unifiedreader.feature.library.LibraryFilterListMode
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceConnectivityState
@@ -114,6 +115,10 @@ internal fun LibraryRoute(
     readingOrderCard: LibraryReadingOrderCard? = null,
     // Save as list in Filters.
     onSaveFiltersAsList: ((LibraryFilterState) -> Unit)? = null,
+    // The library opened for a list: Filters' own title and buttons, a request to open them, any book pickable.
+    filterListMode: LibraryFilterListMode? = null,
+    filterPanelRequest: Int = 0,
+    selectAnyItem: Boolean = false,
     bookPageRequest: String? = null,
     onBookPageRequestHandled: () -> Unit = {},
     contentTopInset: Dp = 0.dp,
@@ -322,6 +327,9 @@ internal fun LibraryRoute(
                     onFilterStateChanged = onFilterStateChanged,
                     onClearFilters = onClearFilters,
                     onSaveFiltersAsList = onSaveFiltersAsList,
+                    filterListMode = filterListMode,
+                    filterPanelRequest = filterPanelRequest,
+                    selectAnyItem = selectAnyItem,
                     sourceUnreachable = frame.uiState.selectedSource != SourceType.LOCAL &&
                         frame.uiState.selectedSourceConnectivity == SourceConnectivityState.Offline,
                     sourceNotConnected = !frame.uiState.hasStoredSessionFor(frame.uiState.selectedSource),

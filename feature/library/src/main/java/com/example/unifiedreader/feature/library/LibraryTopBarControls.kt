@@ -36,6 +36,7 @@ import com.example.unifiedreader.ui.components.AppCircularProgress
 import com.example.unifiedreader.ui.components.AppDivider
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.AppMenu
 import com.example.unifiedreader.ui.components.AppMenuDefaults
 import com.example.unifiedreader.ui.components.AppMenuItem
@@ -142,9 +143,44 @@ fun LibrarySelectionTopBar(
     onAddToList: (() -> Unit)? = null,
     // Marks the picked books finished (true) or unread (false).
     onMarkRead: ((Boolean) -> Unit)? = null,
+    // Picking books for a list: the bar names it ("Adding to “Gothic before bed”") and ends with Done.
+    addingTo: String? = null,
+    onDoneAdding: () -> Unit = {},
 ) {
     val selected = UnifiedReaderThemeTokens.colors.surfaceSelected
     val onSelected = UnifiedReaderThemeTokens.colors.onSurfaceSelected
+    if (addingTo != null) {
+        Row(
+            modifier = modifier,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AppIconButton(onClick = onClose) {
+                Icon(imageVector = AppIcons.Close, contentDescription = "Stop adding", tint = onSelected)
+            }
+            Text(
+                text = "Adding to “$addingTo”",
+                style = MaterialTheme.typography.titleMedium,
+                color = onSelected,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = if (selectedCount == 1) "1 picked" else "$selectedCount picked",
+                style = MaterialTheme.typography.labelLarge,
+                color = onSelected,
+            )
+            AppButton(
+                onClick = onDoneAdding,
+                colors = AppButtonDefaults.filledColors(containerColor = onSelected, contentColor = selected),
+                modifier = Modifier.padding(start = AppLayout.headingGap),
+            ) {
+                Text(text = "Done", fontWeight = FontWeight.SemiBold)
+            }
+        }
+        return
+    }
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(4.dp),

@@ -81,11 +81,16 @@ data class ListsChoices(
     val places: Map<String, ListsPlaceChoice> = emptyMap(),
     val showing: ListsShowing = ListsShowing(),
 ) {
-    /** [filter]'s choice, or where it starts: Your lists as covers, most recently opened first; a server's as rows by name. */
-    fun placeChoice(filter: ListsFilter): ListsPlaceChoice = places[filter.key] ?: when (filter) {
-        ListsFilter.Yours -> ListsPlaceChoice(ListsKind.All, ListsSort.Recent, ListsView.Covers)
-        else -> ListsPlaceChoice(ListsKind.All, ListsSort.Name, ListsView.Rows)
-    }
+    /**
+     * [filter]'s choice, or where it starts: Your lists most recently opened first, a server's by
+     * name. Every place shows covers: a choice of rows saved before is read as covers.
+     */
+    fun placeChoice(filter: ListsFilter): ListsPlaceChoice = (
+        places[filter.key] ?: when (filter) {
+            ListsFilter.Yours -> ListsPlaceChoice(ListsKind.All, ListsSort.Recent, ListsView.Covers)
+            else -> ListsPlaceChoice(ListsKind.All, ListsSort.Name, ListsView.Covers)
+        }
+    ).copy(view = ListsView.Covers)
 }
 
 /**

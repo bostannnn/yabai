@@ -244,8 +244,8 @@ internal fun ListMenu(
 }
 
 /**
- * A place's tool row: its kinds as tab pills with counts (when it holds more than one), then Sort
- * and Show as. On Compact, Sort and Show as are icon buttons and the kinds scroll.
+ * A place's tool row: its kinds as tab pills with counts (when it holds more than one), then Sort.
+ * On Compact, Sort is an icon button and the kinds scroll.
  */
 @Composable
 internal fun ListsToolRow(
@@ -299,28 +299,6 @@ internal fun ListsToolRow(
                         },
                     )
                 }
-            }
-        }
-        if (compact) {
-            val toCovers = choice.view == ListsView.Rows
-            AppIconButton(onClick = { onChoiceChange(choice.copy(view = if (toCovers) ListsView.Covers else ListsView.Rows)) }) {
-                Icon(
-                    imageVector = if (toCovers) AppIcons.GridView else AppIcons.ViewList,
-                    contentDescription = if (toCovers) "Show as covers" else "Show as rows",
-                )
-            }
-        } else {
-            AppSegmentedRow(modifier = Modifier.width(ShowAsWidth)) {
-                AppSegment(
-                    selected = choice.view == ListsView.Rows,
-                    onClick = { onChoiceChange(choice.copy(view = ListsView.Rows)) },
-                    label = { Icon(imageVector = AppIcons.ViewList, contentDescription = "Show as rows", modifier = Modifier.size(ShowAsIconSize)) },
-                )
-                AppSegment(
-                    selected = choice.view == ListsView.Covers,
-                    onClick = { onChoiceChange(choice.copy(view = ListsView.Covers)) },
-                    label = { Icon(imageVector = AppIcons.GridView, contentDescription = "Show as covers", modifier = Modifier.size(ShowAsIconSize)) },
-                )
             }
         }
     }
@@ -486,7 +464,5 @@ private val ListTileGap: Dp = 6.dp
 private val ListBadgeInset: Dp = 8.dp
 private val ListBadgeSize: Dp = 32.dp
 private val ListTabGap: Dp = 4.dp
-private val ShowAsWidth: Dp = 104.dp
-private val ShowAsIconSize: Dp = 20.dp
 private val UnderWayCoverWidth: Dp = 88.dp
 private val UnderWayLineGap: Dp = 4.dp

@@ -2,6 +2,25 @@
 
 package com.example.unifiedreader.feature.lists
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import com.example.unifiedreader.ui.components.AppRoundCheck
+import com.example.unifiedreader.ui.components.AppWindowWidth
+import com.example.unifiedreader.ui.components.currentAppWindowWidth
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,8 +34,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -44,10 +61,6 @@ import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.feature.library.ItemProgressSummary
 import com.example.unifiedreader.feature.library.libraryBookTitle
-import com.example.unifiedreader.ui.components.AppBookRow
-import com.example.unifiedreader.ui.components.AppBookRowDefaults
-import com.example.unifiedreader.ui.components.AppBookRowLine
-import com.example.unifiedreader.ui.components.AppBookRowNumber
 import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppChip
 import com.example.unifiedreader.ui.components.AppIcons
@@ -59,15 +72,17 @@ import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppScreenTitle
 import com.example.unifiedreader.ui.components.AppSectionHeading
 import com.example.unifiedreader.ui.components.AppSettingsRow
-import com.example.unifiedreader.ui.components.AppSettingsRowDivider
 import com.example.unifiedreader.ui.components.AppSwitch
 import com.example.unifiedreader.ui.components.AppTonalButton
 import com.example.unifiedreader.ui.components.appGutter
 
 /**
- * One list: its mosaic, name, description and facts, Continue and Edit, the Order chip and Hide
- * finished, then its books as rows, numbered when the list is in Your order. A book that left the
- * library keeps its row, greyed.
+ * One list, as the library shows books: its mosaic, name, description and facts, Continue (or
+ * Read) and its second button (Change filters, Add books or Edit), the Order chip and Hide
+ * finished, then its books as covers in the library's grid ([cellSizeDp] wide at least), numbered
+ * when the list is in Your order. A book that left the library keeps its cover, greyed.
+ * [selection] holds the picked books while selecting ([canSelect]: a list you pick); a long-press
+ * starts it.
  */
 @Composable
 fun UserListPage(
@@ -81,13 +96,19 @@ fun UserListPage(
     contentTopInset: Dp,
     onScrolledChanged: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    cellSizeDp: Int = UserListPageDefaults.cellSizeDp,
     // Keep the next 3 downloaded: its line, or null where the list can't keep books downloaded.
     keepDownloadedLine: String? = null,
     onSetKeepDownloaded: (Boolean) -> Unit = {},
+    // Add books in the library; null where books aren't added by hand.
+    onAddBooks: (() -> Unit)? = null,
+    canSelect: Boolean = false,
+    selection: Set<String>? = null,
+    onSelectionChange: (Set<String>?) -> Unit = {},
 ) {
-    val listState = rememberLazyListState()
+    val gridState = rememberLazyGridState()
     val scrolled by remember {
-        derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0 }
+        derivedStateOf { gridState.firstVisibleItemIndex > 0 || gridState.firstVisibleItemScrollOffset > 0 }
     }
     LaunchedEffect(scrolled) { onScrolledChanged(scrolled) }
     val next = remember(books) { books.nextToRead() }
@@ -97,8 +118,9 @@ fun UserListPage(
     }
     val mixesSources = remember(books) { books.map { it.entry.sourceType }.distinct().size > 1 }
     val gutter = appGutter()
-    LazyColumn(
-        state = listState,
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = cellSizeDp.dp),
+        state = gridState,
         modifier = modifier,
         contentPadding = PaddingValues(
             start = gutter,
@@ -106,9 +128,10 @@ fun UserListPage(
             top = contentTopInset + AppLayout.contentTop,
             bottom = AppLayout.contentBottom,
         ),
-        verticalArrangement = Arrangement.spacedBy(AppLayout.sectionGap),
+        horizontalArrangement = Arrangement.spacedBy(AppLayout.gridGap),
+        verticalArrangement = Arrangement.spacedBy(AppLayout.gridGap),
     ) {
-        item(key = "header") {
+        item(key = "header", span = { GridItemSpan(maxLineSpan) }) {
             UserListHeader(
                 list = list,
                 books = books,
@@ -116,11 +139,13 @@ fun UserListPage(
                 cover = cover,
                 onOpenBook = onOpenBook,
                 onEdit = onEdit,
+                onAddBooks = onAddBooks,
+                modifier = Modifier.padding(bottom = AppLayout.sectionGap - AppLayout.gridGap),
             )
         }
         if (keepDownloadedLine != null) {
-            item(key = "keep-downloaded") {
-                AppPanel(modifier = Modifier.fillMaxWidth()) {
+            item(key = "keep-downloaded", span = { GridItemSpan(maxLineSpan) }) {
+                AppPanel(modifier = Modifier.fillMaxWidth().padding(bottom = AppLayout.sectionGap - AppLayout.gridGap)) {
                     AppSettingsRow(
                         title = "Keep the next $KeepDownloadedCount downloaded",
                         supporting = keepDownloadedLine,
@@ -134,9 +159,9 @@ fun UserListPage(
                 }
             }
         }
-        item(key = "books") {
+        item(key = "books-heading", span = { GridItemSpan(maxLineSpan) }) {
             Column(verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AppLayout.headingGap)) {
                     AppSectionHeading(
                         text = if (list.kind == UserListKind.ServerCollection) "Series" else "Books",
                         count = shown.size.toString(),
@@ -152,38 +177,49 @@ fun UserListPage(
                     )
                 }
                 if (shown.isEmpty()) {
-                    Text(
-                        text = when {
-                            books.isNotEmpty() -> "Every book here is finished."
-                            list.kind == UserListKind.Stalled -> "Nothing has stalled: every book you started was opened in the last three weeks."
-                            list.kind == UserListKind.Smart -> "Nothing in your library matches these rules now."
-                            list.kind == UserListKind.ServerMagicShelf -> "Nothing on ${list.server?.sourceType?.displayName()} matches these rules now."
-                            list.kind == UserListKind.ServerCollection -> "Nothing in this collection that your library holds."
-                            list.kind == UserListKind.ServerShelf -> "Nothing on this shelf yet. Add a ${list.server?.sourceType?.displayName()} book from its page with Add to list."
-                            list.kind == UserListKind.ServerReadingList -> "Nothing here yet, or nothing your library holds. Add a ${list.server?.sourceType?.displayName()} issue from its page with Add to list."
-                            else -> "Nothing here yet. Add a book from its page with Add to list, or select covers in the library."
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    AppPanel(modifier = Modifier.fillMaxWidth()) {
-                        shown.forEachIndexed { rowIndex, (position, book) ->
-                            if (rowIndex > 0) AppSettingsRowDivider()
-                            UserListBookRow(
-                                book = book,
-                                number = if (numbered) position + 1 else null,
-                                isNext = book == next && numbered,
-                                showSource = mixesSources,
-                                cover = cover,
-                                onClick = { onOpenBook(book) },
-                                isSeries = book.item?.isKavitaSeriesContainer() == true,
-                            )
-                        }
-                    }
+                    UserListEmpty(list = list, books = books, onAddBooks = onAddBooks)
                 }
             }
         }
+        items(items = shown, key = { (position, book) -> "book:$position:${book.entry.itemId}" }) { (position, book) ->
+            val itemId = book.entry.itemId
+            UserListBookTile(
+                book = book,
+                number = if (numbered) position + 1 else null,
+                isNext = book == next && numbered,
+                showSource = mixesSources,
+                cover = cover,
+                isSeries = book.item?.isKavitaSeriesContainer() == true,
+                selected = selection?.contains(itemId),
+                onClick = {
+                    when {
+                        selection != null -> onSelectionChange(if (itemId in selection) selection - itemId else selection + itemId)
+                        !book.isMissing -> onOpenBook(book)
+                    }
+                },
+                onLongClick = if (canSelect && selection == null) ({ onSelectionChange(setOf(itemId)) }) else null,
+            )
+        }
+    }
+}
+
+/** What an empty list says, and Add books for a list you pick. */
+@Composable
+private fun UserListEmpty(list: UserList, books: List<UserListBook>, onAddBooks: (() -> Unit)?) {
+    val server = list.server?.sourceType?.displayName()
+    AppPanel(modifier = Modifier.fillMaxWidth()) {
+        AppSettingsRow(
+            title = if (books.isNotEmpty()) "Every book here is finished" else "No books yet",
+            supporting = when {
+                books.isNotEmpty() -> "Hide finished is on."
+                list.kind == UserListKind.Stalled -> "Nothing has stalled: every book you started was opened in the last three weeks."
+                list.kind == UserListKind.Smart -> "Nothing in your library matches these filters now."
+                list.kind == UserListKind.ServerMagicShelf -> "Nothing on $server matches these rules now."
+                list.kind == UserListKind.ServerCollection -> "Nothing in this collection that your library holds."
+                onAddBooks != null -> "Pick them in the library: they come straight here. Or long-press covers anywhere in the library and choose Add to list."
+                else -> "Nothing here yet, or nothing your library holds."
+            },
+        )
     }
 }
 
@@ -195,10 +231,13 @@ private fun UserListHeader(
     cover: ListCover,
     onOpenBook: (UserListBook) -> Unit,
     onEdit: () -> Unit,
+    onAddBooks: (() -> Unit)?,
+    modifier: Modifier = Modifier,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(AppLayout.sectionGap), verticalAlignment = Alignment.Bottom) {
+    val compact = currentAppWindowWidth() == AppWindowWidth.Compact
+    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(AppLayout.sectionGap), verticalAlignment = Alignment.Bottom) {
         val coverItems = books.take(4).map { book -> book.item ?: book.entry.asReadableItem() }
-        Box(modifier = Modifier.width(132.dp)) {
+        Box(modifier = Modifier.width(if (compact) UserListPageDefaults.mosaicWidthCompact else UserListPageDefaults.mosaicWidth)) {
             AppListCover(count = coverItems.size) { index, cellModifier -> cover(coverItems[index], cellModifier) }
         }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -254,12 +293,25 @@ private fun UserListHeader(
                         )
                     }
                 }
-                // A magic shelf whose rules the app can't read is changed in its server's web app.
-                if (list.isEditable && (list.kind != UserListKind.ServerMagicShelf || list.smart != null)) {
-                    AppTonalButton(onClick = onEdit) {
+                // A smart list changes its filters; a list you pick takes books from the library; a
+                // collection (series) keeps its editor. A magic shelf whose rules the app can't read
+                // is changed in its server's web app.
+                when {
+                    !list.isEditable -> Unit
+                    list.smart != null -> AppTonalButton(onClick = onEdit) {
+                        Icon(imageVector = AppIcons.Tune, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = "Change filters")
+                    }
+                    onAddBooks != null -> AppTonalButton(onClick = onAddBooks) {
+                        Icon(imageVector = AppIcons.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = "Add books")
+                    }
+                    list.kind != UserListKind.ServerMagicShelf -> AppTonalButton(onClick = onEdit) {
                         Icon(imageVector = AppIcons.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = if (list.smart != null) "Edit rules" else "Edit")
+                        Text(text = "Edit")
                     }
                 }
             }
@@ -296,58 +348,106 @@ private fun UserListOrderChip(
     }
 }
 
+/**
+ * A book in a list as a cover, like the library's: its number on the cover in Your order, a check
+ * when finished, the title and one line under it. Picking shows a round check on the cover.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun UserListBookRow(
+private fun UserListBookTile(
     book: UserListBook,
     number: Int?,
     isNext: Boolean,
     showSource: Boolean,
     cover: ListCover,
+    isSeries: Boolean,
+    selected: Boolean?,
     onClick: () -> Unit,
-    // A collection's row is a whole series, which opens in the library.
-    isSeries: Boolean = false,
+    onLongClick: (() -> Unit)?,
 ) {
     val item: ReadableItem = book.item ?: book.entry.asReadableItem()
-    AppBookRow(
-        title = book.item?.libraryBookTitle() ?: book.entry.title,
-        cover = {
-            Box(modifier = Modifier.width(AppBookRowDefaults.coverWidth)) {
-                cover(item, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
-            }
-        },
-        onClick = if (book.isMissing) null else onClick,
+    val title = book.item?.libraryBookTitle() ?: book.entry.title
+    Column(
         modifier = Modifier
-            .padding(horizontal = AppLayout.inset)
             .alpha(
                 when {
                     book.isMissing -> 0.55f
-                    book.isFinished -> 0.7f
+                    book.isFinished && selected == null -> 0.7f
                     else -> 1f
                 },
-            ),
-        leading = number?.let { { AppBookRowNumber(it) } },
-        supporting = {
-            AppBookRowLine(
-                text = if (isSeries) book.seriesRowLine() else book.rowLine(showSource),
-                color = if (isNext) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        },
-        trailing = {
-            if (isSeries) {
-                Icon(
-                    imageVector = AppIcons.NavigateNext,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else if (book.isFinished) {
-                Icon(
-                    imageVector = AppIcons.Check,
-                    contentDescription = "Finished",
-                    tint = MaterialTheme.colorScheme.primary,
+            .clip(RoundedCornerShape(UnifiedReaderThemeTokens.presentation.controlCornerRadius))
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .semantics { if (selected != null) this.selected = selected },
+        verticalArrangement = Arrangement.spacedBy(UserListPageDefaults.titleGap),
+    ) {
+        Box(modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f)) {
+            cover(item, Modifier.fillMaxSize())
+            if (number != null) {
+                Text(
+                    text = number.toString(),
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum"),
+                    color = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(UserListPageDefaults.badgeInset)
+                        .background(Color.Black.copy(alpha = UserListPageDefaults.badgeAlpha), CircleShape)
+                        .padding(horizontal = UserListPageDefaults.badgePaddingH, vertical = UserListPageDefaults.badgePaddingV),
                 )
             }
-        },
-    )
+            when {
+                selected != null -> AppRoundCheck(
+                    checked = selected,
+                    ringColor = Color.White,
+                    ringBackdrop = Color.Black.copy(alpha = UserListPageDefaults.ringBackdropAlpha),
+                    modifier = Modifier.align(Alignment.TopEnd).padding(UserListPageDefaults.badgeInset),
+                )
+                book.isFinished -> Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(UserListPageDefaults.badgeInset)
+                        .size(UserListPageDefaults.checkSize)
+                        .background(MaterialTheme.colorScheme.primary, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = AppIcons.Check,
+                        contentDescription = "Finished",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(UserListPageDefaults.checkIconSize),
+                    )
+                }
+            }
+        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = (if (isSeries) book.seriesRowLine() else book.rowLine(showSource)).let { line -> if (isNext) "Next · $line" else line },
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = if (isNext) FontWeight.SemiBold else FontWeight.Normal),
+            color = if (isNext) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+object UserListPageDefaults {
+    /** The narrowest a book's cover gets in a list, where the library's own size isn't given. */
+    const val cellSizeDp: Int = 140
+    val mosaicWidth: Dp = 96.dp
+    val mosaicWidthCompact: Dp = 72.dp
+    val titleGap: Dp = 6.dp
+    val badgeInset: Dp = 8.dp
+    val badgePaddingH: Dp = 7.dp
+    val badgePaddingV: Dp = 2.dp
+    const val badgeAlpha: Float = 0.62f
+    const val ringBackdropAlpha: Float = 0.25f
+    val checkSize: Dp = 24.dp
+    val checkIconSize: Dp = 16.dp
 }
 
 /** A series row's line in a collection: "24 issues · Finished", "12 issues · 40%". */

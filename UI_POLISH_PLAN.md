@@ -120,7 +120,7 @@ pushes the grid in by 44 dp.
 While here: move the library's rail onto the kit `AppLetterStrip` so Lists and the library share one look, and give
 it a guideline (there is none for `AlphabetNavigationRail`).
 
-## 5. Lists: new list and the editors `[~]` (A built)
+## 5. Lists: new list and the editors `[~]` (lists from the library built)
 
 **What is wrong.** Creating a list does not look finished.
 
@@ -178,6 +178,48 @@ changes it lacked.
 - `UserListEditor`: form (Name, Description, Order, Delete) beside Books on Expanded; an empty list says how to add books.
 - Checked on the emulator (landscape and portrait): empty editor, a rule, two rules with nothing matching (the hint
   named the rule), the dialog and the list editor. Not committed, not on the tablet.
+
+**Rows, second look (2026-11-03):** after 0.35 the user still found list rows and a list's book rows "sticked to
+each other": the 0.34 dividers were not enough. Board https://claude.ai/artifact/KnqyXEgdWUado71jqjPGim ("List rows
+with room"): A each row its own card (12 corners, 8 apart, two columns of books on wide screens), B open rows with
+bigger covers and no panel, C a list's books as numbered covers. Waiting for the pick.
+The user then asked why lists need their own UI at all ("Home page + filter is exactly that"): reuse the library.
+Board https://claude.ai/artifact/QNHx6zjPifQUwG9h59PayS ("Lists from the library"): a smart list is saved Filters
+(Save as list, then a name), a list's page is the library grid (numbered covers for lists you pick), editing a smart
+list is the grid with Filters and Save, editing your own list is select covers, then Remove or Move to the top. Drops the
+smart list editor, the rule sheets, the list page's rows and the list editor page; costs cross-source smart lists,
+"none of", rule groups and time rules unless Filters gains them. Waiting for the user's call.
+2026-11-03: the user asked for the complete picture; the same board now holds every screen (23 boards): Lists and its
+places as covers (no rows); + menu (Smart list, List, Import); new smart list from Lists (pick a library, then that
+library with Filters, Save as list, name) or from any library's Filters; the smart list page (grid, rule labels, Read,
+Change filters, Filters chip); its ••• (Change filters, Rename, Keep next 3 downloaded, Pin, Hide, Delete); Change filters
+= the same panel with Discard / Save changes; Rename; New list (name + Keep it); an empty list's Add books; the library
+in adding mode ("Adding to …", Done); the numbered list; its •••; select covers (Move to the top, Remove); library
+selection Add to list; the Add to list sheet; phone versions.
+
+**Built (2026-11-03): lists from the library.** The user said "Yes, build it". Design system first (`ListsScreen`),
+republished to the Design System artifact.
+
+- Lists and its places show covers only (Show as is gone). New is Smart list / List / Import.
+- **Smart list** from Lists: pick a library (`SmartListSourceDialog`), that library opens with Filters titled "New
+  smart list" and Cancel / Save as list, then the name dialog; the new list opens. Filters › Save as list in any
+  library still works. The picks are stored beside the rules (`filter.` lines in `smartFilter`, read by
+  `decodeSmartListSpec`; an older app still reads the rules). **Change filters** opens the same panel titled with the
+  list's name, Discard / Save changes. While a list's mode is on, the library's own filters are put aside and never
+  saved to disk (`persist = false`); they come back when it ends. Older smart lists and magic shelves still open the
+  rule editor.
+- **A list's page** is a cover grid (`UserListPage`, the library's cover size): numbers in Your order, a check on
+  finished books, "Next ·" on the next one, Read/Continue and Change filters or Add books. ••• holds Change filters, Add
+  books, Select books, Rename, Pin, Hide, Delete (`RenameListDialog`, `DeleteListDialog`).
+- **Add books** opens the library in picking mode ("Adding to “X”", N picked, Done; `selectAnyItem`); Close or leaving
+  the library goes back to the list. Long-press a cover on the list (or Select books) → Move to the top / Remove.
+- Fixed on the way: Change filters opened on an unfiltered grid (the filters were set right after opening the
+  library, and the open's retained presentation won); they now go in before the library opens.
+- Checked on the emulator (portrait, landscape with docked Filters, a phone-size screen): new smart list, Change
+  filters → Save changes and Discard, Add books → Done, Move to the top, Remove, Rename, Delete, New › List. All unit
+  tests pass. Not committed, not on the tablet.
+- **Not built yet:** the Filters chip on a list's page (narrow what shows) from the board; Kavita/Stump series can't
+  be picked in Add books; Save as list always makes a list on this device (no magic shelf from Filters).
 
 ## 6. Filters: Library and the other chip groups `[ ]`
 

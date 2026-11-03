@@ -26,8 +26,11 @@ class AppLibraryBrowseController @Inject constructor(
         updateState: AppUiStateUpdater,
         scope: CoroutineScope,
         filters: LibraryFilterState,
+        // A list's library mode puts a source's own filters back after leaving it.
+        sourceType: SourceType = currentState.selectedSource,
+        // A list's library mode doesn't keep its picks: the library's own come back after it.
+        persist: Boolean = true,
     ) {
-        val sourceType = currentState.selectedSource
         updateLibraryBrowseState(
             updateState = updateState,
         ) { state ->
@@ -37,6 +40,7 @@ class AppLibraryBrowseController @Inject constructor(
                 filters = filters,
             )
         }
+        if (!persist) return
         scope.launch {
             libraryBrowseStateCoordinator.persistFilters(
                 sourceType = sourceType,
