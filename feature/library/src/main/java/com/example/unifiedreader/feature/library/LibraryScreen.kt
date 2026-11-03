@@ -55,8 +55,6 @@ import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibrarySearchTagSuggestion
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.core.model.isStumpSeriesContainer
-import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.LibraryTagSorting
 import com.example.unifiedreader.core.model.librarySearchTagSuggestions
@@ -332,8 +330,8 @@ fun LibraryScreen(
     val selectableDownloadItems = remember(renderedItems, downloadableItemIds, downloadingItemIds, selectAnyItem) {
         renderedItems.filter { item ->
             if (selectAnyItem) {
-                // A whole series isn't one book to put in a list: open it and pick its issues.
-                !item.isKavitaSeriesContainer() && !item.isStumpSeriesContainer()
+                // A whole series goes in as its issues (the list's mode opens them out on Done).
+                true
             } else {
                 item.id in downloadableItemIds && item.id !in downloadingItemIds
             }

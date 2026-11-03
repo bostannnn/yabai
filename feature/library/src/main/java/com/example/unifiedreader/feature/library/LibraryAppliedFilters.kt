@@ -69,3 +69,7 @@ internal fun appliedLibraryFilters(
 }
 
 private fun Set<String>.byLabel(): List<String> = sortedBy(String::lowercase)
+
+/** How many values [state] applies within [panels]: the Filters chip's badge. */
+fun libraryAppliedFilterCount(state: LibraryFilterState, panels: List<LibraryFilterPanel>): Int =
+    appliedLibraryFilters(state, panels, libraryTitlesById = emptyMap()).size

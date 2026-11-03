@@ -125,7 +125,7 @@ internal fun LibraryFilterRow(
 
 /** "Filters", with a 20 dp accent badge counting the applied values. */
 @Composable
-private fun LibraryFiltersChip(
+fun LibraryFiltersChip(
     appliedCount: Int,
     enabled: Boolean,
     onClick: () -> Unit,

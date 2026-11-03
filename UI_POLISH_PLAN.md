@@ -218,8 +218,18 @@ republished to the Design System artifact.
 - Checked on the emulator (portrait, landscape with docked Filters, a phone-size screen): new smart list, Change
   filters → Save changes and Discard, Add books → Done, Move to the top, Remove, Rename, Delete, New › List. All unit
   tests pass. Not committed, not on the tablet.
-- **Not built yet:** the Filters chip on a list's page (narrow what shows) from the board; Kavita/Stump series can't
-  be picked in Add books; Save as list always makes a list on this device (no magic shelf from Filters).
+- Committed as 6a4707ea. Then the rest the board and the system ask (2026-11-03):
+  - **Filters on a list's page**: the library's panel over the list's own books (their sources' panels, tags sorted
+    as in Settings › Tags), "Books 17 of 64", kept on the page only; on a smart list saved from Filters the chip
+    carries its picks' count and opens Change filters. On Compact the chips wrap under the heading.
+  - **Change filters' line** says "12 match now · 8 before".
+  - **Add books**: the list's covers start picked (unpicking one takes it out on Done); a Kavita or Stump series can be
+    picked and goes in as its issues, in issue order (`withSeriesIssues`, `addingChange`).
+  - **Selecting covers**: Select all; Move to the top / Remove say so in a toast with Undo, which puts the books and
+    order back (`restoreDraft`, one step where the list lives; Want to read re-mirrors Kavita).
+  - **Save as list** offers On Grimmory (a magic shelf of the same rules without Source) while Grimmory keeps magic
+    shelves and every pick makes a rule one can hold. Not tried against a server: the emulator's Grimmory is offline.
+  - Emulator-checked (portrait, phone size): all of the above but the magic shelf create; all unit tests pass.
 
 ## 6. Filters: Library and the other chip groups `[ ]`
 

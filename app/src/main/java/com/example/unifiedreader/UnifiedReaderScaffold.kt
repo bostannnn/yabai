@@ -288,9 +288,21 @@ fun UnifiedReaderScaffold(
         }
     }
 
+    // The list's books start picked in each view of its library, once that view's covers are in.
+    val seededAddingViews = remember(listMode) { mutableSetOf<String>() }
+    LaunchedEffect(listMode, uiState.libraryBrowseContextKey, effectiveSelectableDownloadItemIds) {
+        val adding = listMode as? ListLibraryMode.AddBooks ?: return@LaunchedEffect
+        val view = uiState.libraryBrowseContextKey
+        if (view in seededAddingViews || effectiveSelectableDownloadItemIds.isEmpty()) return@LaunchedEffect
+        seededAddingViews += view
+        val already = adding.inList.filter { itemId -> itemId in effectiveSelectableDownloadItemIds }
+        selectedDownloadItemIds = (selectedDownloadItemIds + already).distinct()
+    }
+
     fun doneAddingBooks() {
         val picked = effectiveSelectableDownloadItems.filter { item -> item.id in selectedDownloadItemIdSet }
-        if (listsViewModel != null) finishAddingBooks(picked, listsState, viewModel, listsViewModel, onListFailure)
+        val shown = effectiveSelectableDownloadItems
+        if (listsViewModel != null) finishAddingBooks(picked, shown, listsState, viewModel, listsViewModel, onListFailure)
         updateLibraryDownloadSelectionMode(false)
     }
 
@@ -659,6 +671,7 @@ fun UnifiedReaderScaffold(
                                     state = listsState,
                                     listsViewModel = listsViewModel,
                                     onDrawerClick = openDrawer,
+                                    catalog = uiState.items,
                                 )
                             }
 

@@ -15,9 +15,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import com.example.unifiedreader.core.model.LibraryFilterState
+import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.isKavitaSeriesContainer
+import com.example.unifiedreader.core.model.isStumpSeriesContainer
+import com.example.unifiedreader.core.model.kavitaSeriesContainerId
+import com.example.unifiedreader.core.model.kavitaSeriesGroupKey
+import com.example.unifiedreader.core.model.stumpSeriesContainerId
+import com.example.unifiedreader.core.model.stumpSeriesGroupKey
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.feature.library.LibraryFilterListMode
+import com.example.unifiedreader.feature.library.sortedInCanonicalSeriesIssueOrder
 import com.example.unifiedreader.feature.lists.ListLibraryMode
 import com.example.unifiedreader.feature.lists.ListsRouteState
 import com.example.unifiedreader.feature.lists.UserList
@@ -104,6 +112,7 @@ internal fun listFilterMode(
         primaryLabel = "Save changes",
         cancelLabel = "Discard",
         primaryEnabled = !uiState.selectedLibraryFilters.isEmpty,
+        countBefore = listsViewModel.listFor(mode.listId, state)?.entries?.size,
         onPrimary = {
             listsViewModel.listFor(mode.listId, state)?.toSmartDraft()?.let { draft ->
                 val spec = smartSpecFromFilters(uiState.selectedLibraryFilters, uiState)
@@ -116,9 +125,13 @@ internal fun listFilterMode(
     else -> null
 }
 
-/** Adds the books picked in the library to the list being added to, then goes back to it. */
+/**
+ * Done in the library: the books picked there that weren't in the list go in, and the list's books
+ * [shown] there but unpicked come out. Then back to the list.
+ */
 internal fun finishAddingBooks(
-    picked: List<com.example.unifiedreader.core.model.ReadableItem>,
+    picked: List<ReadableItem>,
+    shown: List<ReadableItem>,
     state: ListsRouteState,
     viewModel: AppViewModel,
     listsViewModel: AppListsViewModel,
@@ -126,8 +139,54 @@ internal fun finishAddingBooks(
 ) {
     val mode = state.libraryMode as? ListLibraryMode.AddBooks ?: return
     val list = listsViewModel.listFor(mode.listId, state)
-    if (list != null && picked.isNotEmpty()) listsViewModel.setInList(list, picked, inList = true, onFailure = onFailure)
+    if (list != null) {
+        val change = addingChange(picked, shown, mode.inList, viewModel.uiState.items)
+        if (change.added.isNotEmpty()) listsViewModel.setInList(list, change.added, inList = true, onFailure = onFailure)
+        if (change.removed.isNotEmpty()) listsViewModel.setInList(list, change.removed, inList = false, onFailure = onFailure)
+    }
     endListLibraryMode(state, viewModel, openListId = mode.listId)
+}
+
+/**
+ * [this] with each Kavita or Stump series in it opened out into its issues from [catalog], in issue
+ * order: a list holds books and issues, not whole series. Each book once.
+ */
+internal fun List<ReadableItem>.withSeriesIssues(catalog: List<ReadableItem>): List<ReadableItem> {
+    val seriesIds = filter { item -> item.isKavitaSeriesContainer() || item.isStumpSeriesContainer() }.mapTo(HashSet(), ReadableItem::id)
+    if (seriesIds.isEmpty()) return this
+    val issuesBySeries = catalog
+        .filter { item -> item.seriesContainerId() in seriesIds }
+        .groupBy { item -> item.seriesContainerId() }
+    return flatMap { item ->
+        if (item.id in seriesIds) issuesBySeries[item.id].orEmpty().sortedInCanonicalSeriesIssueOrder() else listOf(item)
+    }.distinctBy(ReadableItem::id)
+}
+
+private fun ReadableItem.seriesContainerId(): String? = when (sourceType) {
+    SourceType.KAVITA -> kavitaSeriesGroupKey()?.let(::kavitaSeriesContainerId)
+    SourceType.STUMP -> stumpSeriesGroupKey()?.let(::stumpSeriesContainerId)
+    SourceType.GRIMMORY,
+    SourceType.LOCAL -> null
+}
+
+/** What Done in the adding mode changes: the books to put in the list, and those to take out. */
+internal data class AddingChange(val added: List<ReadableItem>, val removed: List<ReadableItem>)
+
+/**
+ * Done's change: [picked] (series opened out from [catalog]) less what [inList] already holds go in;
+ * the list's books among [shown] that are no longer picked come out.
+ */
+internal fun addingChange(
+    picked: List<ReadableItem>,
+    shown: List<ReadableItem>,
+    inList: Set<String>,
+    catalog: List<ReadableItem>,
+): AddingChange {
+    val pickedIds = picked.mapTo(HashSet(), ReadableItem::id)
+    return AddingChange(
+        added = picked.withSeriesIssues(catalog).filterNot { item -> item.id in inList },
+        removed = shown.filter { item -> item.id in inList && item.id !in pickedIds },
+    )
 }
 
 /** The library Add books opens for [list]: its server's for a server's list, else the one last open. */
@@ -249,23 +308,29 @@ internal fun DeleteListDialog(list: UserList, onDelete: () -> Unit, onDismiss: (
 
 /**
  * The open list's selected books: Move to the top (a list with an order of its own) or Remove,
- * saved at once where the list lives.
+ * saved at once where the list lives. Returns what takes the change back: the removed books
+ * ([catalog]'s) go back in and the list's order and books are as they were.
  */
 internal fun changeListBooks(
     list: UserList,
     picked: Set<String>,
     remove: Boolean,
     listsViewModel: AppListsViewModel,
+    catalog: List<ReadableItem>,
     onFailure: (String) -> Unit,
-) {
-    val draft = list.toDraft()
+): () -> Unit {
+    val before = list.toDraft()
     val changed = if (remove) {
-        draft.copy(itemIds = draft.itemIds.filterNot { it in picked }, removedItemIds = draft.removedItemIds + picked)
+        before.copy(itemIds = before.itemIds.filterNot { it in picked }, removedItemIds = before.removedItemIds + picked)
     } else {
-        draft.copy(
-            itemIds = draft.itemIds.filter { it in picked } + draft.itemIds.filterNot { it in picked },
+        before.copy(
+            itemIds = before.itemIds.filter { it in picked } + before.itemIds.filterNot { it in picked },
             order = com.example.unifiedreader.feature.lists.UserListOrder.Custom,
         )
     }
     listsViewModel.applyDraft(changed, onFailure = onFailure)
+    return {
+        val readded = if (remove) catalog.filter { item -> item.id in picked } else emptyList()
+        listsViewModel.restoreDraft(list, before, readded, onFailure = onFailure)
+    }
 }

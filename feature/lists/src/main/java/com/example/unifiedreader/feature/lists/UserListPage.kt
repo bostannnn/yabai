@@ -53,7 +53,19 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
+import com.example.unifiedreader.core.model.LibraryFilterPanel
+import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.applyLibraryFilters
+import com.example.unifiedreader.core.model.availableLibraryFilterPanels
+import com.example.unifiedreader.core.model.LibraryTagKind
+import com.example.unifiedreader.core.model.buildContextualLibraryFilterFacets
+import com.example.unifiedreader.core.model.buildLibraryTagFilterFacets
+import com.example.unifiedreader.core.model.withTagFacets
+import com.example.unifiedreader.feature.library.LibraryFilterSheet
+import com.example.unifiedreader.feature.library.LibraryFiltersChip
+import com.example.unifiedreader.feature.library.libraryAppliedFilterCount
 import com.example.unifiedreader.core.model.ListRules
 import com.example.unifiedreader.core.model.pill
 import com.example.unifiedreader.core.model.displayName
@@ -80,7 +92,8 @@ import com.example.unifiedreader.ui.components.appGutter
  * One list, as the library shows books: its mosaic, name, description and facts, Continue (or
  * Read) and its second button (Change filters, Add books or Edit), the Order chip and Hide
  * finished, then its books as covers in the library's grid ([cellSizeDp] wide at least), numbered
- * when the list is in Your order. A book that left the library keeps its cover, greyed.
+ * when the list is in Your order. Filters narrows what shows, with the library's own panel over
+ * the list's books; the picks live on this page only. A book that left the library keeps its cover, greyed.
  * [selection] holds the picked books while selecting ([canSelect]: a list you pick); a long-press
  * starts it.
  */
@@ -105,6 +118,11 @@ fun UserListPage(
     canSelect: Boolean = false,
     selection: Set<String>? = null,
     onSelectionChange: (Set<String>?) -> Unit = {},
+    // For Filters: the libraries' names, and the server books on this device (Location).
+    libraryTitlesById: Map<String, String> = emptyMap(),
+    onDeviceItemIds: Set<String> = emptySet(),
+    // Where each tag goes (Settings › Tags): Set in, When or About.
+    tagKindOf: (String) -> LibraryTagKind = { LibraryTagKind.THEME },
 ) {
     val gridState = rememberLazyGridState()
     val scrolled by remember {
@@ -113,8 +131,61 @@ fun UserListPage(
     LaunchedEffect(scrolled) { onScrolledChanged(scrolled) }
     val next = remember(books) { books.nextToRead() }
     val numbered = list.isReadingOrder
-    val shown = remember(books, list.hideFinished) {
-        books.withIndex().filter { (_, book) -> !list.hideFinished || !book.isFinished }
+    var narrowing by remember(list.id) { mutableStateOf(LibraryFilterState()) }
+    var filtersOpen by remember { mutableStateOf(false) }
+    val filterPanels = remember(books) { listFilterPanels(books) }
+    val listItems = remember(books) { books.mapNotNull(UserListBook::item) }
+    val statusOf = remember(books) {
+        val progressById = books.associate { book -> (book.item?.id ?: book.entry.itemId) to book.progress }
+        ({ item: ReadableItem -> progressById[item.id].readingStatus() })
+    }
+    val narrowedIds = remember(listItems, narrowing, onDeviceItemIds, statusOf) {
+        if (narrowing.isEmpty) {
+            null
+        } else {
+            applyLibraryFilters(
+                items = listItems,
+                filters = narrowing,
+                downloadedRemoteItemIds = onDeviceItemIds,
+                readingStatusProvider = statusOf,
+            ).mapTo(HashSet(), ReadableItem::id)
+        }
+    }
+    val shown = remember(books, list.hideFinished, narrowedIds) {
+        books.withIndex().filter { (_, book) ->
+            (!list.hideFinished || !book.isFinished) &&
+                (narrowedIds == null || book.item?.id in narrowedIds)
+        }
+    }
+    if (filtersOpen) {
+        val facets = remember(listItems, narrowing, onDeviceItemIds, statusOf) {
+            buildContextualLibraryFilterFacets(
+                items = listItems,
+                filters = narrowing,
+                downloadedRemoteItemIds = onDeviceItemIds,
+                readingStatusProvider = statusOf,
+            ).withTagFacets(
+                buildLibraryTagFilterFacets(
+                    items = listItems,
+                    filters = narrowing,
+                    tagKindOf = tagKindOf,
+                    downloadedRemoteItemIds = onDeviceItemIds,
+                    readingStatusProvider = statusOf,
+                ),
+            )
+        }
+        LibraryFilterSheet(
+            filterPanels = filterPanels,
+            filterState = narrowing,
+            filterFacets = facets,
+            libraryTitlesById = libraryTitlesById,
+            shownCount = shown.size,
+            totalCount = books.size,
+            initialPanel = null,
+            onFilterStateChanged = { narrowing = it },
+            onClearFilters = { narrowing = LibraryFilterState() },
+            onDismiss = { filtersOpen = false },
+        )
     }
     val mixesSources = remember(books) { books.map { it.entry.sourceType }.distinct().size > 1 }
     val gutter = appGutter()
@@ -161,12 +232,24 @@ fun UserListPage(
         }
         item(key = "books-heading", span = { GridItemSpan(maxLineSpan) }) {
             Column(verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AppLayout.headingGap)) {
-                    AppSectionHeading(
-                        text = if (list.kind == UserListKind.ServerCollection) "Series" else "Books",
-                        count = shown.size.toString(),
-                        modifier = Modifier.weight(1f),
-                    )
+                val chips: @Composable () -> Unit = {
+                    // A collection's rows are series, which Filters doesn't narrow.
+                    // A smart list saved from Filters is its picks: its chip opens them (Change filters).
+                    val savedPicks = list.smart?.filter?.takeIf { list.server == null && list.isEditable }
+                    if (savedPicks != null) {
+                        LibraryFiltersChip(
+                            appliedCount = libraryAppliedFilterCount(savedPicks.filters, availableLibraryFilterPanels(savedPicks.sourceType)),
+                            enabled = true,
+                            onClick = onEdit,
+                        )
+                    } else if (list.kind != UserListKind.ServerCollection && listItems.isNotEmpty()) {
+                        LibraryFiltersChip(
+                            appliedCount = libraryAppliedFilterCount(narrowing, filterPanels),
+                            enabled = true,
+                            selected = filtersOpen,
+                            onClick = { filtersOpen = true },
+                        )
+                    }
                     if (list.isEditable && list.orders.size > 1) {
                         UserListOrderChip(order = list.order, options = list.orders, onSetOrder = onSetOrder)
                     }
@@ -176,8 +259,28 @@ fun UserListPage(
                         label = { Text("Hide finished") },
                     )
                 }
+                val heading: @Composable (Modifier) -> Unit = { headingModifier ->
+                    AppSectionHeading(
+                        text = if (list.kind == UserListKind.ServerCollection) "Series" else "Books",
+                        count = if (narrowedIds != null) "${shown.size} of ${books.size}" else shown.size.toString(),
+                        modifier = headingModifier,
+                    )
+                }
+                // A phone has no room for the heading and three chips on one line: the chips go under it.
+                if (currentAppWindowWidth() == AppWindowWidth.Compact) {
+                    heading(Modifier)
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(AppLayout.headingGap),
+                        verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap),
+                    ) { chips() }
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AppLayout.headingGap)) {
+                        heading(Modifier.weight(1f))
+                        chips()
+                    }
+                }
                 if (shown.isEmpty()) {
-                    UserListEmpty(list = list, books = books, onAddBooks = onAddBooks)
+                    UserListEmpty(list = list, books = books, narrowed = narrowedIds != null, onAddBooks = onAddBooks)
                 }
             }
         }
@@ -205,12 +308,17 @@ fun UserListPage(
 
 /** What an empty list says, and Add books for a list you pick. */
 @Composable
-private fun UserListEmpty(list: UserList, books: List<UserListBook>, onAddBooks: (() -> Unit)?) {
+private fun UserListEmpty(list: UserList, books: List<UserListBook>, narrowed: Boolean, onAddBooks: (() -> Unit)?) {
     val server = list.server?.sourceType?.displayName()
     AppPanel(modifier = Modifier.fillMaxWidth()) {
         AppSettingsRow(
-            title = if (books.isNotEmpty()) "Every book here is finished" else "No books yet",
+            title = when {
+                narrowed -> "No book here fits these filters"
+                books.isNotEmpty() -> "Every book here is finished"
+                else -> "No books yet"
+            },
             supporting = when {
+                narrowed -> "Filters only narrow what shows here; the list keeps its books."
                 books.isNotEmpty() -> "Hide finished is on."
                 list.kind == UserListKind.Stalled -> "Nothing has stalled: every book you started was opened in the last three weeks."
                 list.kind == UserListKind.Smart -> "Nothing in your library matches these filters now."
@@ -433,6 +541,15 @@ private fun UserListBookTile(
             overflow = TextOverflow.Ellipsis,
         )
     }
+}
+
+/**
+ * The Filters panels for a list's books: the library's panels for each source they come from, in
+ * the library's order (Grimmory's holds every panel the others have).
+ */
+internal fun listFilterPanels(books: List<UserListBook>): List<LibraryFilterPanel> {
+    val offered = books.mapNotNull { book -> book.item?.sourceType }.distinct().flatMap(::availableLibraryFilterPanels).toSet()
+    return availableLibraryFilterPanels(SourceType.GRIMMORY).filter { panel -> panel in offered }
 }
 
 object UserListPageDefaults {

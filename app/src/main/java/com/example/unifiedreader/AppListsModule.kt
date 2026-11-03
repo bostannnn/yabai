@@ -338,6 +338,26 @@ class AppListsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Takes back a change to [list]'s books: [readded] go back in first, then [before] (its order and
+     * books as they were) is saved, one after the other where the list lives.
+     */
+    fun restoreDraft(list: UserList, before: UserListDraft, readded: List<ReadableItem>, onFailure: (String) -> Unit = {}) {
+        serverLists.forList(list)?.let { serverStore ->
+            onServer(serverStore, onFailure) {
+                if (readded.isNotEmpty()) serverStore.setInShelf(list.id, readded, true)
+                if (before.isServerShelf) serverStore.setOrder(before.listId, before.order) else serverStore.reorder(before.listId, before.itemIds)
+            }
+            return
+        }
+        viewModelScope.launch {
+            if (readded.isNotEmpty()) store.addItems(list.id, readded)
+            store.setOrder(before.listId, before.order)
+            store.reorder(before.listId, before.itemIds)
+        }
+        if (list.kind == UserListKind.WantToRead && readded.isNotEmpty()) mirrorWantToRead(list, readded, added = true, onFailure = onFailure)
+    }
+
     fun deleteList(list: UserList, onFailure: (String) -> Unit = {}) {
         serverLists.forList(list)?.let { serverStore ->
             onServer(serverStore, onFailure) { serverStore.delete(list.id) }

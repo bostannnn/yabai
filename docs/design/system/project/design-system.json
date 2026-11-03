@@ -13,9 +13,9 @@
   "groups": [],
   "lastChange": {
     "by": "bostannnn",
-    "at": "2026-11-03T09:05:00Z",
+    "at": "2026-11-03T10:35:00Z",
     "via": "Claude Code",
-    "note": "Lists from the library: covers only, New = Smart list / List / Import, a smart list is saved Filters (Change filters), a list's page is the library grid with Add books and selecting, Rename and Delete dialogs"
+    "note": "Lists: Filters on a list's page, Undo for list changes, Add books starts with the list's covers picked and takes series as issues, Save as list can make a Grimmory magic shelf"
   },
   "layout": "files",
   "libraries": [],

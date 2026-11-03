@@ -68,6 +68,7 @@ import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.AppListRowDefaults
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppToastIcon
 import com.example.unifiedreader.ui.components.AppToastMessage
 import com.example.unifiedreader.ui.components.AppTonalButton
 import com.example.unifiedreader.ui.components.LocalAppToastState
@@ -172,7 +173,12 @@ internal fun ListsRoute(
 
     fun addBooks(list: UserList) {
         startListLibraryMode(
-            mode = ListLibraryMode.AddBooks(listId = list.id, listName = list.name, sourceType = addBooksSource(list, uiState)),
+            mode = ListLibraryMode.AddBooks(
+                listId = list.id,
+                listName = list.name,
+                sourceType = addBooksSource(list, uiState),
+                inList = list.entries.mapTo(LinkedHashSet()) { entry -> entry.itemId },
+            ),
             filters = null,
             state = state,
             viewModel = viewModel,
@@ -258,6 +264,9 @@ internal fun ListsRoute(
                 canSelect = openList.takesBooksByHand,
                 selection = state.bookSelection,
                 onSelectionChange = { picked -> state.bookSelection = picked },
+                libraryTitlesById = remember(uiState.libraries) { uiState.libraries.associate { library -> library.id to library.title } },
+                onDeviceItemIds = uiState.locallyAvailableRemoteItemIds,
+                tagKindOf = tagKindOf,
                 keepDownloadedLine = if (openList.kind == UserListKind.User || openList.kind == UserListKind.WantToRead) {
                     keepDownloadedLine(
                         next = remember(openList, itemsById, progress) { openList.nextToKeepDownloaded(itemsById, progress) },
@@ -383,6 +392,8 @@ internal fun ListsTopBar(
     state: ListsRouteState,
     listsViewModel: AppListsViewModel,
     onDrawerClick: (() -> Unit)?,
+    // The library's books, for Undo after Remove.
+    catalog: List<ReadableItem> = emptyList(),
 ) {
     val onShelfFailure = rememberShelfFailureToast()
     ThemedTopBarContainer(surfaceVisible = state.scrolled) {
@@ -447,7 +458,7 @@ internal fun ListsTopBar(
                         Text(text = "Done", fontWeight = FontWeight.SemiBold)
                     }
                 }
-                state.openListId != null && state.bookSelection != null -> ListBooksSelectionBar(state, listsViewModel, onShelfFailure)
+                state.openListId != null && state.bookSelection != null -> ListBooksSelectionBar(state, listsViewModel, catalog, onShelfFailure)
                 state.openListId != null -> {
                     AppIconButton(onClick = { state.back() }) {
                         Icon(imageVector = AppIcons.ArrowBack, contentDescription = "Back to lists")
@@ -540,7 +551,7 @@ private fun NewListMenuButton(onList: () -> Unit, onSmartList: () -> Unit, onImp
         AppMenu(expanded = open, onDismissRequest = { open = false }) {
             AppMenuItem(
                 text = { Text("Smart list") },
-                supporting = "Filters in a library; keeps itself up to date",
+                supporting = "Filters in a library, kept up to date",
                 leadingIcon = { Icon(imageVector = AppIcons.Tune, contentDescription = null) },
                 onClick = { open = false; onSmartList() },
             )
@@ -633,9 +644,30 @@ private fun ListPageMoreButton(listId: String, state: ListsRouteState, listsView
  * an order of its own) and Remove, each saved at once.
  */
 @Composable
-private fun RowScope.ListBooksSelectionBar(state: ListsRouteState, listsViewModel: AppListsViewModel, onFailure: (String) -> Unit) {
+private fun RowScope.ListBooksSelectionBar(
+    state: ListsRouteState,
+    listsViewModel: AppListsViewModel,
+    catalog: List<ReadableItem>,
+    onFailure: (String) -> Unit,
+) {
     val picked = state.bookSelection.orEmpty()
     val list = state.openListSnapshot
+    val toasts = LocalAppToastState.current
+    // Each change is saved at once; its toast takes it back.
+    fun change(remove: Boolean) {
+        if (list == null) return
+        val undo = changeListBooks(list, picked, remove = remove, listsViewModel = listsViewModel, catalog = catalog, onFailure = onFailure)
+        state.bookSelection = null
+        val count = if (picked.size == 1) "1 book" else "${picked.size} books"
+        toasts?.show(
+            AppToastMessage(
+                text = if (remove) "$count removed" else "$count moved to the top",
+                icon = if (remove) AppToastIcon.Removed else AppToastIcon.Done,
+                actionLabel = "Undo",
+                onAction = undo,
+            ),
+        )
+    }
     AppIconButton(onClick = { state.bookSelection = null }) {
         Icon(imageVector = AppIcons.Close, contentDescription = "Stop selecting")
     }
@@ -646,24 +678,17 @@ private fun RowScope.ListBooksSelectionBar(state: ListsRouteState, listsViewMode
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.weight(1f),
     )
+    if (list != null && picked.size < list.entries.size) {
+        AppTextButton(onClick = { state.bookSelection = list.entries.mapTo(LinkedHashSet()) { entry -> entry.itemId } }) {
+            Text(text = "Select all", fontWeight = FontWeight.SemiBold)
+        }
+    }
     if (list != null && list.kind != UserListKind.ServerShelf && list.kind != UserListKind.ServerCollection) {
-        AppTextButton(
-            onClick = {
-                changeListBooks(list, picked, remove = false, listsViewModel = listsViewModel, onFailure = onFailure)
-                state.bookSelection = null
-            },
-            enabled = picked.isNotEmpty(),
-        ) {
+        AppTextButton(onClick = { change(remove = false) }, enabled = picked.isNotEmpty()) {
             Text(text = "Move to the top", fontWeight = FontWeight.SemiBold)
         }
     }
-    AppButton(
-        onClick = {
-            if (list != null) changeListBooks(list, picked, remove = true, listsViewModel = listsViewModel, onFailure = onFailure)
-            state.bookSelection = null
-        },
-        enabled = list != null && picked.isNotEmpty(),
-    ) {
+    AppButton(onClick = { change(remove = true) }, enabled = list != null && picked.isNotEmpty()) {
         Text(text = "Remove", fontWeight = FontWeight.SemiBold)
     }
 }

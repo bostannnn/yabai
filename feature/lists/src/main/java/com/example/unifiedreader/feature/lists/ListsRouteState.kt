@@ -154,5 +154,7 @@ sealed interface ListLibraryMode {
         val listId: String,
         val listName: String,
         override val sourceType: SourceType,
+        // The books already in the list: their covers start picked, and unpicking one takes it out on Done.
+        val inList: Set<String> = emptySet(),
     ) : ListLibraryMode
 }

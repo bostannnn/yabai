@@ -44,6 +44,9 @@ fun NewListDialog(
     onDismiss: () -> Unit,
     subtitle: String? = null,
     servers: List<NewListServer> = emptyList(),
+    title: String = "New list",
+    // What keeping it on this device means; a smart list's says something else than "in your order".
+    onDeviceLine: String = OnThisDeviceLine,
 ) {
     var name by rememberSaveable { mutableStateOf("") }
     var chosen by rememberSaveable { mutableStateOf<String?>(null) }
@@ -52,8 +55,8 @@ fun NewListDialog(
     LaunchedEffect(Unit) { focus.requestFocus() }
     AppDialogCard(
         onDismissRequest = onDismiss,
-        title = "New list",
-        subtitle = subtitle ?: OnThisDeviceLine.takeIf { servers.isEmpty() },
+        title = title,
+        subtitle = subtitle ?: onDeviceLine.takeIf { servers.isEmpty() },
         actions = {
             AppDialogDismissButton(text = "Cancel", onClick = onDismiss)
             AppDialogConfirmButton(
@@ -74,7 +77,7 @@ fun NewListDialog(
             if (servers.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(KeepItTileGap)) {
                     AppSheetLabel(text = "Keep it", horizontalInset = 0.dp)
-                    KeepItRow(title = "On this device", line = OnThisDeviceLine, selected = server == null, onClick = { chosen = null })
+                    KeepItRow(title = "On this device", line = onDeviceLine, selected = server == null, onClick = { chosen = null })
                     servers.forEach { option ->
                         KeepItRow(
                             title = "On ${option.name}",

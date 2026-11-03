@@ -59,7 +59,7 @@ fun buildVisibleLibraryItems(
     }
 }
 
-internal fun List<ReadableItem>.sortedInCanonicalSeriesIssueOrder(): List<ReadableItem> = withIndex()
+fun List<ReadableItem>.sortedInCanonicalSeriesIssueOrder(): List<ReadableItem> = withIndex()
     .sortedWith(
         Comparator<IndexedValue<ReadableItem>> { left, right ->
             canonicalSeriesIssueComparator().compare(left.value, right.value)

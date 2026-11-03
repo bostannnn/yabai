@@ -146,7 +146,7 @@ fun List<UserList>.withSmartBooks(
     }
 }
 
-private fun ItemProgressSummary?.readingStatus(): LibraryReadingStatus = when {
+internal fun ItemProgressSummary?.readingStatus(): LibraryReadingStatus = when {
     this == null -> LibraryReadingStatus.NOT_STARTED
     isFinished -> LibraryReadingStatus.FINISHED
     fraction > 0f -> LibraryReadingStatus.IN_PROGRESS

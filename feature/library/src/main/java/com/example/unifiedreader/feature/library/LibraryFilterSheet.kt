@@ -46,6 +46,7 @@ import com.example.unifiedreader.ui.components.AppCheckbox
 import com.example.unifiedreader.ui.components.AppChip
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppLayout
+import com.example.unifiedreader.ui.components.appCount
 import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppPanelHeader
 import com.example.unifiedreader.ui.components.AppScreenBack
@@ -71,6 +72,8 @@ data class LibraryFilterListMode(
     val onCancel: () -> Unit,
     val cancelLabel: String = "Cancel",
     val primaryEnabled: Boolean = true,
+    // How many books the list held before these changes: the line then says "12 match now · 8 before".
+    val countBefore: Int? = null,
 )
 
 /**
@@ -81,7 +84,7 @@ data class LibraryFilterListMode(
  * the grid shows now, of [totalCount] in this view.
  */
 @Composable
-internal fun LibraryFilterSheet(
+fun LibraryFilterSheet(
     filterPanels: List<LibraryFilterPanel>,
     filterState: LibraryFilterState,
     filterFacets: LibraryFilterFacets,
@@ -219,6 +222,7 @@ private fun LibraryFilterContent(
                     onOpenPage = { panel -> page = panel },
                     onClose = onClose,
                     title = listMode?.title ?: "Filters",
+                    countBefore = listMode?.countBefore,
                 )
             } else {
                 LibraryFilterFacetPage(
@@ -318,6 +322,7 @@ private fun LibraryFilterOverview(
     onOpenPage: (LibraryFilterPanel) -> Unit,
     onClose: () -> Unit,
     title: String,
+    countBefore: Int? = null,
 ) {
     val anyApplied = filterPanels.any { panel -> panel.selectedCount(filterState) > 0 }
     // The sections in panel order, each while it has something to offer (Pages while it has lengths).
@@ -335,7 +340,8 @@ private fun LibraryFilterOverview(
     Column(modifier = Modifier.fillMaxSize()) {
         AppPanelHeader(
             title = title,
-            subtitle = libraryFilterShowingLabel(shownCount, totalCount),
+            subtitle = countBefore?.let { before -> "${appCount(shownCount)} match now · ${appCount(before)} before" }
+                ?: libraryFilterShowingLabel(shownCount, totalCount),
             onClose = onClose,
             closeContentDescription = if (docked) "Hide filters" else "Close filters",
         ) {
