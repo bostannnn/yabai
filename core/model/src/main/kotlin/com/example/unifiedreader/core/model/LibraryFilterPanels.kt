@@ -21,55 +21,88 @@ enum class LibraryFilterPanel(
 }
 
 /**
- * The panels a source's filter sheet offers, in their default order: reading status first, then what the
- * books are (places, times, themes, moods, genre, people and series), then their length, then where and
- * how they are kept. Pages' slider is half a docked panel tall, so it waits below what the books are.
- * Kavita and Stump have no moods; a local library has only its files' authors and series.
+ * Where a panel sits in the filter sheet: which books (where they are kept, read or not, in what
+ * language and file), what kind they are, who wrote them and where and when they are set, then their
+ * length. The sheet heads each group by its [label].
+ */
+enum class LibraryFilterGroup(
+    val label: String,
+) {
+    WhichBooks("Which books"),
+    WhatKind("What kind"),
+    WhoWhereWhen("Who, where, when"),
+    Length("Length"),
+}
+
+val LibraryFilterPanel.group: LibraryFilterGroup
+    get() = when (this) {
+        LibraryFilterPanel.Library,
+        LibraryFilterPanel.ReadingStatus,
+        LibraryFilterPanel.Language,
+        LibraryFilterPanel.Format,
+        LibraryFilterPanel.Location -> LibraryFilterGroup.WhichBooks
+        LibraryFilterPanel.Genre,
+        LibraryFilterPanel.Tag,
+        LibraryFilterPanel.Mood -> LibraryFilterGroup.WhatKind
+        LibraryFilterPanel.Author,
+        LibraryFilterPanel.Series,
+        LibraryFilterPanel.SetIn,
+        LibraryFilterPanel.When,
+        LibraryFilterPanel.Publisher -> LibraryFilterGroup.WhoWhereWhen
+        LibraryFilterPanel.Pages -> LibraryFilterGroup.Length
+    }
+
+/**
+ * The panels a source's filter sheet offers, in their default order, group by group
+ * ([LibraryFilterGroup]): the short choices picked most (library, reading status, language, format,
+ * location) first, then genre, tags and moods, then people, series, places and times, then Pages, whose
+ * slider is half a docked panel tall. Kavita and Stump have no moods or authors; a local library has
+ * only its files' authors and series.
  */
 fun availableLibraryFilterPanels(
     sourceType: SourceType,
 ): List<LibraryFilterPanel> = when (sourceType) {
     SourceType.KAVITA,
     SourceType.STUMP -> listOf(
+        LibraryFilterPanel.Library,
         LibraryFilterPanel.ReadingStatus,
+        LibraryFilterPanel.Language,
+        LibraryFilterPanel.Format,
+        LibraryFilterPanel.Location,
+        LibraryFilterPanel.Genre,
+        LibraryFilterPanel.Tag,
+        LibraryFilterPanel.Series,
         LibraryFilterPanel.SetIn,
         LibraryFilterPanel.When,
-        LibraryFilterPanel.Tag,
-        LibraryFilterPanel.Genre,
-        LibraryFilterPanel.Series,
         LibraryFilterPanel.Publisher,
-        LibraryFilterPanel.Language,
         LibraryFilterPanel.Pages,
-        LibraryFilterPanel.Format,
-        LibraryFilterPanel.Library,
-        LibraryFilterPanel.Location,
     )
 
     SourceType.GRIMMORY -> listOf(
+        LibraryFilterPanel.Library,
         LibraryFilterPanel.ReadingStatus,
-        LibraryFilterPanel.SetIn,
-        LibraryFilterPanel.When,
+        LibraryFilterPanel.Language,
+        LibraryFilterPanel.Format,
+        LibraryFilterPanel.Location,
+        LibraryFilterPanel.Genre,
         LibraryFilterPanel.Tag,
         LibraryFilterPanel.Mood,
-        LibraryFilterPanel.Genre,
         LibraryFilterPanel.Author,
         LibraryFilterPanel.Series,
+        LibraryFilterPanel.SetIn,
+        LibraryFilterPanel.When,
         LibraryFilterPanel.Publisher,
-        LibraryFilterPanel.Language,
         LibraryFilterPanel.Pages,
-        LibraryFilterPanel.Format,
-        LibraryFilterPanel.Library,
-        LibraryFilterPanel.Location,
     )
 
     SourceType.LOCAL -> listOf(
+        LibraryFilterPanel.Library,
         LibraryFilterPanel.ReadingStatus,
+        LibraryFilterPanel.Format,
+        LibraryFilterPanel.Location,
         LibraryFilterPanel.Author,
         LibraryFilterPanel.Series,
         LibraryFilterPanel.Pages,
-        LibraryFilterPanel.Format,
-        LibraryFilterPanel.Library,
-        LibraryFilterPanel.Location,
     )
 }
 

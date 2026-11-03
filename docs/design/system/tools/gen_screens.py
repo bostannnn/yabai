@@ -437,10 +437,13 @@ docked = f"""
         <div class="yb-panel-header"><div class="yb-panel-header-text"><h2 class="yb-panel-title">Filters</h2><span class="yb-panel-sub">Showing 72 of 1,474</span></div><button class="yb-btn is-text">Clear all</button><button class="yb-icon-btn">{ic("navigate_next")}</button></div>
         <div style="padding:0 20px;display:flex;flex-direction:column;gap:16px;overflow:hidden">
           {filters_find}
-          <div style="display:flex;flex-direction:column;gap:6px"><h3 class="yb-sheet-label">Set in</h3>{pane_set_in}</div>
-          <div style="display:flex;flex-direction:column;gap:6px"><h3 class="yb-sheet-label">When</h3>{pane_when}</div>
+          <h3 class="yb-group-label">Which books</h3>
+          <div style="display:flex;flex-direction:column;gap:8px"><h3 class="yb-sheet-label">Library</h3><div class="yb-chip-row">{chips([("Books", 61), ("Comics", 11)])}</div></div>
+          <div style="display:flex;flex-direction:column;gap:8px"><h3 class="yb-sheet-label">Reading status</h3><div class="yb-chip-row">{chips([("Not started", 58), ("Reading", 3), ("Finished", 11)])}</div></div>
+          <div style="display:flex;flex-direction:column;gap:8px"><h3 class="yb-sheet-label">Language</h3><div class="yb-chip-row">{chips([("Русский", 49), ("English", 23)])}</div></div>
+          <h3 class="yb-group-label">What kind</h3>
+          <div style="display:flex;flex-direction:column;gap:8px"><h3 class="yb-sheet-label">Genre</h3><div class="yb-chip-row">{chips([("Classics", 40), ("Literary fiction", 22), ("Horror", 6)])}</div></div>
           <div style="display:flex;flex-direction:column;gap:8px"><h3 class="yb-sheet-label">About</h3><div class="yb-chip-row">{chips([("Love and relationships", 9), ("Supernatural", 8), ("Aristocracy", 7), ("Philosophical fiction", 6)])}</div></div>
-          <div style="display:flex;flex-direction:column;gap:8px"><h3 class="yb-sheet-label">Mood</h3><div class="yb-chip-row">{chips([("Dark", 31), ("Reflective", 28), ("Slow-paced", 22)])}</div></div>
         </div>
       </div>
       <div class="yb-spec">{g(24)}{g(BW - 88 - 448, "grid")}{g(BW - 88 - 24, "24")}{h(84)}<span class="t" style="left:560px;top:90px">84 content top</span></div>
@@ -458,15 +461,19 @@ One way to narrow a source's library: by anything its books carry, the places, t
 - **The books stay in view.** While the panel is docked open, the library leaves out the reading card and the shelves (as a search does): All books' row starts at content top, with the books under it. They come back when the panel closes, even with picks still applied, so a filter left on never hides what you are reading. Every change of picks (in Filters, a chip's ×, a tag on the book page) scrolls the library to All books' row, unless that combination was scrolled further down before; it opens where it was left.
 - **Header:** `AppPanelHeader` "Filters" with "Showing 72 of 1,474" (or "Showing all 1,474"), Clear all once something is picked, and close (docked: hide). Docked, the Filters chip shows as selected while the panel is open.
 - **Find:** an `AppSearchField` ("Find a place, tag, mood or author") at the top. While it holds text, the sections give way to the matches from every text section (a word starting with what you typed: "war" finds Cold War and Ruth Ware, not Edward), grouped under their section's `AppSheetLabel`, picked ones first, each a value row with a checkbox, the matched part bold and the count; a tap picks it. Named periods (World War II, Cold War), which have no pile under When, are reached here.
-- **Sections**, in the order Settings › Filter chips gives (by default Reading status, Set in, When, About, Mood, Genre, Author, Series, Publisher, Language, Pages, Format, Library, Location: what the books are first, then their length, then where they are kept); a section no book has stays out (a source without moods has no Mood):
-  - **Reading status, Format, Library, Location:** chips with counts.
-  - **Set in:** the tags you sorted as places (Settings › Tags) and Kavita's Locations, most books first: rows with the name and the count, six of them, then "All 53 places", which opens the section's full list with its search and letters. Cities fold into their country: picking a country picks its cities' books, and a picked country (selected, `primary-container`, a check) shows its cities under it, indented, each pickable.
-  - **When:** one 26 row per pile (a century or decade, in time order) with its books standing as 4 wide spines, as many as the square root of its count allows (14 at most), in the title-cover fills; the count at the end. A pick takes every tag in the pile. "All N times" opens the full list, named periods among them.
-  - **About:** every other tag as chips, most books first, 14 of them, then "All 283 tags".
-  - **Mood:** chips (Grimmory's moods, paces such as Fast-paced among them).
-  - **Genre:** chips, 10, then "All 49 genres".
-  - **Author, Series, Publisher, Language:** a value row (52) with its top three values and counts on the line under its name ("Ryu Murakami 5 · Yukio Mishima 4 · Edogawa Rampo 4"), what is picked ("Any") at its end, opening the section's full list.
-  - **Pages:** the range slider: the histogram, the slider and its scale `heading-gap` 8 apart, then From and To `grid-gap` 16 apart, then Include unknown length (when some books have none). It comes after the sections of what the books are, because it is half a docked panel tall.
+- **Sections**, in the order Settings › Filter chips gives, by default in four groups, the short choices picked most first and the tall sections last, so the first screen holds nearly every section:
+  - **Which books:** Library, Reading status, Language, Format, Location.
+  - **What kind:** Genre, About, Mood.
+  - **Who, where, when:** Author, Series, Set in, When, Publisher.
+  - **Length:** Pages.
+
+  Each group that shows two sections or more starts with its `AppGroupLabel` (15 SemiBold, `on-surface`), `grid-gap` 16 under the divider, over the first section's `AppSheetLabel` (the sheet's two levels, as in Downloads). A custom order that splits a group shows no group labels. A section no book has stays out (a source without moods has no Mood), and so does one with a single value to choose (one library, every book an EPUB, one language) unless something is picked in it.
+  - **Reading status, Format, Location:** chips with counts.
+  - **Library, Language, Genre, About, Mood:** chips, most books first (a library by its title): Library 6, Language 5, Genre 10, About 8 (the tags not sorted as places or times), Mood all of them (Grimmory's moods, paces such as Fast-paced among them); then "All 49 genres", which opens the section's full list with its search and letters.
+  - **Author, Series, Set in, When, Publisher:** a value row (52) with its top three values and counts on the line under its name ("Ryu Murakami 5 · Yukio Mishima 4 · Edogawa Rampo 4"), what is picked ("Any") at its end, opening the section's page. Author, Series and Publisher open their full list. Set in and When open in their own forms until you search the page:
+    - **Set in's page:** the tags you sorted as places (Settings › Tags) and Kavita's Locations, every one, most books first: rows with the name and the count. Cities fold into their country: picking a country picks its cities' books, and a picked country (selected, `primary-container`, a check) shows its cities under it, indented, each pickable.
+    - **When's page:** one 26 row per pile (a century or decade, in time order) with its books standing as 4 wide spines, as many as the square root of its count allows (14 at most), in the title-cover fills; the count at the end. A pick takes every tag in the pile. Then "Named periods" (World War II, Cold War), which have no pile, most books first.
+  - **Pages:** the range slider: the histogram, the slider and its scale `heading-gap` 8 apart, then From and To `grid-gap` 16 apart, then Include unknown length (when some books have none). It comes last because it is half a docked panel tall.
 - **Counts narrow.** Each section counts the books every other section leaves. Two picks in one section mean either one (Japan or France); picks in different sections narrow (Japan and Dark).
 - Save as list keeps the picks as a smart list's rules.
 """, f"""

@@ -137,12 +137,12 @@ class LibraryPageFilterTest {
     }
 
     @Test
-    fun `every source offers the pages panel after what the books are and before where they are kept`() {
+    fun `every source offers its panels group by group with pages last`() {
         SourceType.entries.forEach { source ->
             val panels = availableLibraryFilterPanels(source)
-            val pages = panels.indexOf(LibraryFilterPanel.Pages)
-            assertTrue(pages > panels.indexOf(LibraryFilterPanel.Series))
-            assertEquals(panels.indexOf(LibraryFilterPanel.Format) - 1, pages)
+            assertEquals(LibraryFilterPanel.Pages, panels.last())
+            assertEquals(LibraryFilterPanel.Library, panels.first())
+            assertEquals(panels.map { it.group }.sorted(), panels.map { it.group })
         }
     }
 }

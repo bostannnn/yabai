@@ -39,7 +39,9 @@ import com.example.unifiedreader.ui.components.AppTextButton
 
 /**
  * One long facet (Author, Series, ...) as a page inside the filter sheet: a search field, the
- * picks pinned under "Selected", then every other value under its letter with its count.
+ * picks pinned under "Selected", then every other value under its letter with its count. Set in and
+ * When keep their own forms until you search: the places by most books, a picked country's cities
+ * under it; the piles in time order with their spines, then the named periods.
  */
 @Composable
 internal fun LibraryFilterFacetPage(
@@ -85,6 +87,25 @@ internal fun LibraryFilterFacetPage(
             // top that item is this spacer, so a value picked there shows up under "Selected"
             // instead of landing above the screen.
             item(key = "top") { Spacer(modifier = Modifier.height(4.dp)) }
+            if (query.isBlank() && panel in PanelsWithOwnPage) {
+                item(key = "own") {
+                    if (panel == LibraryFilterPanel.SetIn) {
+                        LibraryFilterPlacesSection(
+                            state = filterState,
+                            facets = filterFacets,
+                            onFilterStateChanged = onFilterStateChanged,
+                            limit = Int.MAX_VALUE,
+                        )
+                    } else {
+                        LibraryFilterPilesSection(
+                            state = filterState,
+                            facets = filterFacets,
+                            onFilterStateChanged = onFilterStateChanged,
+                        )
+                    }
+                }
+                return@LazyColumn
+            }
             if (groups.isEmpty()) {
                 item(key = "empty") {
                     Text(
@@ -156,3 +177,5 @@ private fun FacetValueRow(
 }
 
 private val FacetSearchFieldHeight = 42.dp
+
+private val PanelsWithOwnPage = setOf(LibraryFilterPanel.SetIn, LibraryFilterPanel.When)

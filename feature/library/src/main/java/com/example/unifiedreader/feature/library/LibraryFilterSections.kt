@@ -95,15 +95,19 @@ internal fun rememberLibraryFilterFacetsWithTags(
     return remember(facets, sections) { facets.withTagFacets(sections) }
 }
 
-/** Set in: its places as rows, a picked country with its cities under it, then "All N places". */
+/**
+ * Set in's page: its places as rows, most books first, a picked country with its cities under it.
+ * [limit] places at most; with [onShowAll], "All N places" past them.
+ */
 @Composable
 internal fun LibraryFilterPlacesSection(
     state: LibraryFilterState,
     facets: LibraryFilterFacets,
     onFilterStateChanged: (LibraryFilterState) -> Unit,
-    onShowAll: () -> Unit,
+    limit: Int = PlaceRowLimit,
+    onShowAll: (() -> Unit)? = null,
 ) {
-    val rows = remember(state, facets) { libraryFilterPlaceRows(state, facets) }
+    val rows = remember(state, facets, limit) { libraryFilterPlaceRows(state, facets, limit) }
     val allCount = remember(state, facets) { libraryFacetValueCount(LibraryFilterPanel.SetIn, state, facets) }
     Column(modifier = Modifier.fillMaxWidth()) {
         rows.forEach { row ->
@@ -115,22 +119,24 @@ internal fun LibraryFilterPlacesSection(
                 onClick = { onFilterStateChanged(state.toggling(LibraryFilterPanel.SetIn, row.value)) },
             )
         }
-        if (allCount > rows.size) {
+        if (onShowAll != null && allCount > rows.size) {
             LibraryFilterShowAll(label = "All ${appCount(allCount)} places", onClick = onShowAll)
         }
     }
 }
 
-/** When: one row per pile in time order, its books standing as spines in the title-cover fills. */
+/**
+ * When's page: one row per pile in time order, its books standing as spines in the title-cover fills,
+ * then the named periods, which have no pile, under their own label.
+ */
 @Composable
 internal fun LibraryFilterPilesSection(
     state: LibraryFilterState,
     facets: LibraryFilterFacets,
     onFilterStateChanged: (LibraryFilterState) -> Unit,
-    onShowAll: () -> Unit,
 ) {
     val rows = remember(state, facets) { libraryFilterPileRows(state, facets) }
-    val allCount = remember(state, facets) { libraryFacetValueCount(LibraryFilterPanel.When, state, facets) }
+    val periods = remember(state, facets) { libraryFilterNamedPeriods(state, facets) }
     val fallback = MaterialTheme.colorScheme.outline
     Column(modifier = Modifier.fillMaxWidth()) {
         rows.forEach { row ->
@@ -162,24 +168,34 @@ internal fun LibraryFilterPilesSection(
                 },
             )
         }
-        // Named periods have no pile: the full list (and Find) reaches them.
-        if (allCount > rows.size) {
-            LibraryFilterShowAll(label = "All ${appCount(allCount)} times", onClick = onShowAll)
+        if (periods.isNotEmpty()) {
+            AppSheetLabel(text = "Named periods")
+            periods.forEach { period ->
+                LibraryFilterValueRow(
+                    name = period.value,
+                    count = period.count,
+                    selected = false,
+                    onClick = { onFilterStateChanged(state.toggling(LibraryFilterPanel.When, period.value)) },
+                )
+            }
         }
     }
 }
 
-/** About, Mood or Genre: the values with most books as chips, then "All N" for the rest. */
+/** Library, Language, Genre, About or Mood: the values with most books as chips, then "All N" for the rest. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun LibraryFilterTopChipsSection(
     panel: LibraryFilterPanel,
     state: LibraryFilterState,
     facets: LibraryFilterFacets,
+    libraryTitlesById: Map<String, String>,
     onFilterStateChanged: (LibraryFilterState) -> Unit,
     onShowAll: () -> Unit,
 ) {
-    val chips = remember(panel, state, facets) { libraryFilterTopChips(panel, state, facets, panel.topChipLimit) }
+    val chips = remember(panel, state, facets, libraryTitlesById) {
+        libraryFilterTopChips(panel, state, facets, panel.topChipLimit, libraryTitlesById)
+    }
     val allCount = remember(panel, state, facets) { libraryFacetValueCount(panel, state, facets) }
     Column(modifier = Modifier.fillMaxWidth()) {
         FlowRow(
