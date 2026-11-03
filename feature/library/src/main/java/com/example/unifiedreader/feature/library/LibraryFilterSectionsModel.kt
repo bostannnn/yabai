@@ -10,8 +10,8 @@ import com.example.unifiedreader.ui.components.appCount
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
-// What the filter sheet's richer sections show, apart from how they draw it: Set in's places, When's
-// piles, the chips of the values with most books, a row's top values, and Find's matches.
+// What the filter sheet's richer sections show, apart from how they draw it: Set in's places and When's
+// piles (on their pages), the chips of the values with most books, a row's top values, and Find's matches.
 
 /** One row of Set in: a place, how many books it has, and whether it is a city under its picked country. */
 internal data class LibraryFilterPlaceRow(
@@ -22,7 +22,7 @@ internal data class LibraryFilterPlaceRow(
 )
 
 /**
- * Set in's rows: the places with most books, [limit] of them, plus any picked one; a city counts under
+ * Set in's page: the places with most books, [limit] of them, plus any picked one; a city counts under
  * its country, so it shows on its own only while picked without it. A picked country lists its cities
  * under it.
  */
@@ -63,7 +63,7 @@ internal data class LibraryFilterPileRow(
 )
 
 /**
- * When's rows: every pile in time order. A named period has no pile; it shows only while picked
+ * When's page: every pile in time order. A named period has no pile; it shows only while picked
  * (found with Find), after the piles. A pile's spines are as many as the square root of its count
  * allows, [PileMaxSpines] at most.
  */
@@ -86,15 +86,29 @@ internal fun libraryFilterPileRows(state: LibraryFilterState, facets: LibraryFil
         .sortedWith(compareBy<LibraryFilterPileRow> { it.order }.thenBy { it.value.lowercase() })
 }
 
+/** When's named periods (World War II, Cold War), which have no pile: the ones not picked, most books first. */
+internal fun libraryFilterNamedPeriods(state: LibraryFilterState, facets: LibraryFilterFacets): List<LibraryFilterPileRow> {
+    val counts = facets.counts.takeUnless { it.isEmpty }?.times
+    val picked = state.times.map(String::lowercase).toSet()
+    return facets.times
+        .filter { value -> libraryEraPile(value) == null && value.lowercase() !in picked }
+        .distinctBy(String::lowercase)
+        .map { value ->
+            LibraryFilterPileRow(value = value, count = counts?.get(value.lowercase()), selected = false, spines = 0, order = Int.MAX_VALUE)
+        }
+        .sortedWith(compareByDescending<LibraryFilterPileRow> { it.count ?: 0 }.thenBy { it.value.lowercase() })
+}
+
 /**
- * The chips of a top-chips section (About, Mood, Genre): the values with most books, [limit] of them,
- * then any picked one past them, each with its count.
+ * The chips of a top-chips section (Library, Language, Genre, About, Mood): the values with most books,
+ * [limit] of them, then any picked one past them, each with its count and its name (a library's title).
  */
 internal fun libraryFilterTopChips(
     panel: LibraryFilterPanel,
     state: LibraryFilterState,
     facets: LibraryFilterFacets,
     limit: Int,
+    libraryTitlesById: Map<String, String> = emptyMap(),
 ): List<LibraryFilterChipOption> {
     val counts = facets.counts.takeUnless { it.isEmpty }
     val selected = state.selectedValues(panel)
@@ -103,7 +117,7 @@ internal fun libraryFilterTopChips(
     return (values.take(limit) + values.filter { it in selected }).distinct().map { value ->
         LibraryFilterChipOption(
             key = value.lowercase(),
-            label = value,
+            label = panel.valueLabel(value, libraryTitlesById),
             count = counts?.countOf(panel, value),
             selected = value in selected,
             toggled = state.toggling(panel, value),
@@ -114,6 +128,8 @@ internal fun libraryFilterTopChips(
 /** How many chips a top-chips section shows before "All N". */
 internal val LibraryFilterPanel.topChipLimit: Int
     get() = when (this) {
+        LibraryFilterPanel.Library -> LibraryChipLimit
+        LibraryFilterPanel.Language -> LanguageChipLimit
         LibraryFilterPanel.Tag -> AboutChipLimit
         LibraryFilterPanel.Genre -> GenreChipLimit
         else -> OtherChipLimit
@@ -216,7 +232,9 @@ internal fun libraryFilterReadingStatus(progress: ItemProgressSummary?): Library
 
 internal const val PlaceRowLimit = 6
 internal const val PileMaxSpines = 14
-private const val AboutChipLimit = 14
+private const val LibraryChipLimit = 6
+private const val LanguageChipLimit = 5
+private const val AboutChipLimit = 8
 private const val GenreChipLimit = 10
 private const val OtherChipLimit = 20
 private const val TopValuesLimit = 3

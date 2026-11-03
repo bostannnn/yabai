@@ -6,6 +6,7 @@ import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.core.model.LibraryReadingStatus
 import com.example.unifiedreader.core.model.authorFacetKey
+import com.example.unifiedreader.core.model.group
 import com.example.unifiedreader.ui.components.appCount
 
 // What the filter sheet shows, apart from how it draws it: the open chip groups, the facet rows'
@@ -17,13 +18,12 @@ internal enum class LibraryFilterSectionStyle {
     Chips,
     /** The page-length slider. */
     Slider,
-    /** Set in: rows of places, most books first, a picked country's cities under it. */
-    Places,
-    /** When: one row per pile, its books standing as spines. */
-    Piles,
-    /** The values with most books as chips, then "All N" for the rest: About, Mood, Genre. */
+    /** The values with most books as chips, then "All N" for the rest: Library, Language, Genre, About, Mood. */
     TopChips,
-    /** A row naming its top values, opening the full list: Library, Author, Series, Publisher, Language. */
+    /**
+     * A row naming its top values, opening the full list: Author, Series, Set in, When, Publisher. Set in's
+     * page lists the places by most books, a picked country's cities under it; When's, the piles in time order.
+     */
     Row,
 }
 
@@ -33,16 +33,16 @@ internal val LibraryFilterPanel.sectionStyle: LibraryFilterSectionStyle
         LibraryFilterPanel.Format,
         LibraryFilterPanel.Location -> LibraryFilterSectionStyle.Chips
         LibraryFilterPanel.Pages -> LibraryFilterSectionStyle.Slider
-        LibraryFilterPanel.SetIn -> LibraryFilterSectionStyle.Places
-        LibraryFilterPanel.When -> LibraryFilterSectionStyle.Piles
+        LibraryFilterPanel.Library,
+        LibraryFilterPanel.Language,
         LibraryFilterPanel.Tag,
         LibraryFilterPanel.Mood,
         LibraryFilterPanel.Genre -> LibraryFilterSectionStyle.TopChips
-        LibraryFilterPanel.Library,
+        LibraryFilterPanel.SetIn,
+        LibraryFilterPanel.When,
         LibraryFilterPanel.Author,
         LibraryFilterPanel.Series,
-        LibraryFilterPanel.Publisher,
-        LibraryFilterPanel.Language -> LibraryFilterSectionStyle.Row
+        LibraryFilterPanel.Publisher -> LibraryFilterSectionStyle.Row
     }
 
 /** Whether the panel's values have a full list of their own (its search and letters) to open. */
@@ -50,11 +50,24 @@ internal val LibraryFilterPanel.opensAsPage: Boolean
     get() = when (sectionStyle) {
         LibraryFilterSectionStyle.Chips,
         LibraryFilterSectionStyle.Slider -> false
-        LibraryFilterSectionStyle.Places,
-        LibraryFilterSectionStyle.Piles,
         LibraryFilterSectionStyle.TopChips,
         LibraryFilterSectionStyle.Row -> true
     }
+
+/**
+ * The group heading over each of the overview's [sections], by index: where a group starts that shows two
+ * sections or more (one section names itself). None at all when the order splits a group in two (a
+ * custom order from Settings › Filter chips), since a heading would then come back further down.
+ */
+internal fun libraryFilterGroupHeadings(sections: List<LibraryFilterPanel>): Map<Int, String> {
+    val groups = sections.map { it.group }
+    val runs = groups.indices.filter { index -> index == 0 || groups[index] != groups[index - 1] }
+    if (runs.size != groups.distinct().size) return emptyMap()
+    val sizes = groups.groupingBy { it }.eachCount()
+    return runs
+        .filter { index -> (sizes[groups[index]] ?: 0) > 1 }
+        .associateWith { index -> groups[index].label }
+}
 
 /** The facet's name in a sentence: "Search 13 authors". */
 internal val LibraryFilterPanel.pluralLabel: String

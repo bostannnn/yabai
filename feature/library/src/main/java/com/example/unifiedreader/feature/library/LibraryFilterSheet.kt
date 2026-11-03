@@ -44,6 +44,7 @@ import com.example.unifiedreader.core.model.LibraryFilterState
 import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppCheckbox
 import com.example.unifiedreader.ui.components.AppChip
+import com.example.unifiedreader.ui.components.AppGroupLabel
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.appCount
@@ -77,10 +78,10 @@ data class LibraryFilterListMode(
 )
 
 /**
- * Every library filter in one side sheet (a bottom sheet on phones). Short choices stay open as
- * chips with counts; Set in, When, About, Mood and Genre show their values with most books; the long
- * facets are rows naming their top values, each opening its own page inside the sheet; Find searches
- * them all. Filters apply as they are tapped; "Show N books" closes the sheet. [shownCount] is what
+ * Every library filter in one side sheet (a bottom sheet on phones), group by group under their
+ * headings. Short choices stay open as chips with counts; Library, Language, Genre, About and Mood show
+ * their values with most books; the long facets (Set in and When among them) are rows naming their top
+ * values, each opening its own page inside the sheet; Find searches them all. Filters apply as they are tapped; "Show N books" closes the sheet. [shownCount] is what
  * the grid shows now, of [totalCount] in this view.
  */
 @Composable
@@ -325,15 +326,18 @@ private fun LibraryFilterOverview(
     countBefore: Int? = null,
 ) {
     val anyApplied = filterPanels.any { panel -> panel.selectedCount(filterState) > 0 }
-    // The sections in panel order, each while it has something to offer (Pages while it has lengths).
+    // The sections in panel order, each while it has something to offer (Pages while it has lengths,
+    // Library while there is more than one).
     val sections = remember(filterPanels, filterState, filterFacets, libraryTitlesById) {
         filterPanels.filter { panel ->
-            when (panel.sectionStyle) {
+            val available = when (panel.sectionStyle) {
                 LibraryFilterSectionStyle.Chips -> libraryFilterChipOptions(panel, filterState, filterFacets).isNotEmpty()
                 else -> panel.isEnabled(filterState, filterFacets, libraryTitlesById)
             }
+            available && panel.offersChoice(filterState, filterFacets)
         }
     }
+    val groupHeadings = remember(sections) { libraryFilterGroupHeadings(sections) }
     val findGroups = remember(findQuery, filterPanels, filterState, filterFacets, libraryTitlesById) {
         libraryFilterFindGroups(findQuery, filterPanels, filterState, filterFacets, libraryTitlesById)
     }
@@ -374,6 +378,14 @@ private fun LibraryFilterOverview(
                 item(key = "section:${panel.name}") {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         if (index > 0) AppSheetDivider()
+                        groupHeadings[index]?.let { heading ->
+                            AppGroupLabel(
+                                text = heading,
+                                modifier = Modifier
+                                    .padding(horizontal = AppLayout.inset)
+                                    .padding(top = AppLayout.gridGap),
+                            )
+                        }
                         when (panel.sectionStyle) {
                             LibraryFilterSectionStyle.Slider -> LibraryPagesFilterSection(
                                 range = filterState.pages,
@@ -401,30 +413,13 @@ private fun LibraryFilterOverview(
                                     }
                                 }
                             }
-                            LibraryFilterSectionStyle.Places -> {
-                                AppSheetLabel(text = panel.label)
-                                LibraryFilterPlacesSection(
-                                    state = filterState,
-                                    facets = filterFacets,
-                                    onFilterStateChanged = onFilterStateChanged,
-                                    onShowAll = { onOpenPage(panel) },
-                                )
-                            }
-                            LibraryFilterSectionStyle.Piles -> {
-                                AppSheetLabel(text = panel.label)
-                                LibraryFilterPilesSection(
-                                    state = filterState,
-                                    facets = filterFacets,
-                                    onFilterStateChanged = onFilterStateChanged,
-                                    onShowAll = { onOpenPage(panel) },
-                                )
-                            }
                             LibraryFilterSectionStyle.TopChips -> {
                                 AppSheetLabel(text = panel.label)
                                 LibraryFilterTopChipsSection(
                                     panel = panel,
                                     state = filterState,
                                     facets = filterFacets,
+                                    libraryTitlesById = libraryTitlesById,
                                     onFilterStateChanged = onFilterStateChanged,
                                     onShowAll = { onOpenPage(panel) },
                                 )

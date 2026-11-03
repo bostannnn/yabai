@@ -44,3 +44,19 @@ internal fun LibraryFilterPanel.isEnabled(
     LibraryFilterPanel.When -> filterFacets.times.isNotEmpty() || filterState.times.isNotEmpty()
     LibraryFilterPanel.Mood -> filterFacets.moods.isNotEmpty() || filterState.moods.isNotEmpty()
 }
+
+/**
+ * Whether the overview shows the panel: a section of where and how the books are kept, or of their
+ * language, has nothing to choose with one value (one library, every book an EPUB), so it stays out
+ * then, unless something is picked in it.
+ */
+internal fun LibraryFilterPanel.offersChoice(
+    filterState: LibraryFilterState,
+    filterFacets: LibraryFilterFacets,
+): Boolean = selectedCount(filterState) > 0 || when (this) {
+    LibraryFilterPanel.Library -> filterFacets.libraries.size > 1
+    LibraryFilterPanel.Format -> filterFacets.formats.size > 1
+    LibraryFilterPanel.Location -> filterFacets.fileLocations.size > 1
+    LibraryFilterPanel.Language -> filterFacets.languages.distinctBy(String::lowercase).size > 1
+    else -> true
+}
