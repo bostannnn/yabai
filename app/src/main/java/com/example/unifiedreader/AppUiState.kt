@@ -85,6 +85,7 @@ data class AppUiState(
     val libraryFilterPanelsBySource: Map<SourceType, List<LibraryFilterPanel>> = emptyMap(),
     val libraryGridCellSizeDp: Int = defaultLibraryGridCellSizeDp,
     val libraryFadeReadItems: Boolean = false,
+    val libraryCoverAsPrinted: Boolean = false,
     val progressByItemId: Map<String, ItemProgressSummary> = emptyMap(),
     val downloadedRemoteItemIds: Set<String> = emptySet(),
     val locallyAvailableRemoteItemIds: Set<String> = emptySet(),

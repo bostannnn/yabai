@@ -15,6 +15,7 @@ data class LibraryBrowseState(
     val filterPanelsBySource: Map<SourceType, List<LibraryFilterPanel>> = emptyMap(),
     val gridCellSizeDp: Int = defaultLibraryGridCellSizeDp,
     val fadeReadItems: Boolean = false,
+    val coverAsPrinted: Boolean = false,
 )
 
 class LibraryBrowseStateCoordinator(
@@ -31,6 +32,7 @@ class LibraryBrowseStateCoordinator(
             filterPanelsBySource = preferences.filterPanelsBySource,
             gridCellSizeDp = preferences.gridCellSizeDp,
             fadeReadItems = preferences.fadeReadItems,
+            coverAsPrinted = preferences.coverAsPrinted,
         )
     }
 
@@ -114,6 +116,13 @@ class LibraryBrowseStateCoordinator(
         fadeReadItems = fadeReadItems,
     )
 
+    fun updateCoverAsPrinted(
+        currentState: LibraryBrowseState,
+        coverAsPrinted: Boolean,
+    ): LibraryBrowseState = currentState.copy(
+        coverAsPrinted = coverAsPrinted,
+    )
+
     suspend fun persistFilters(
         sourceType: SourceType,
         filters: LibraryFilterState,
@@ -157,6 +166,14 @@ class LibraryBrowseStateCoordinator(
     ) {
         preferencesStore.setFadeReadItems(
             fadeReadItems = fadeReadItems,
+        )
+    }
+
+    suspend fun persistCoverAsPrinted(
+        coverAsPrinted: Boolean,
+    ) {
+        preferencesStore.setCoverAsPrinted(
+            coverAsPrinted = coverAsPrinted,
         )
     }
 }

@@ -265,6 +265,10 @@ class AppViewModel @Inject constructor(
         )
     }
 
+    fun onLibraryCoverAsPrintedChanged(coverAsPrinted: Boolean) {
+        libraryBrowseController.onLibraryCoverAsPrintedChanged(::updateUiState, viewModelScope, coverAsPrinted)
+    }
+
     fun onLibraryFilterPanelsChanged(
         sourceType: SourceType,
         panels: List<LibraryFilterPanel>,

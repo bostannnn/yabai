@@ -587,6 +587,122 @@ A thin bar: 4 tall, `primary` on `surface-container-highest`, pill ends.
 </div>""", width=468)
 
 # ---------------------------------------------------------------- Foundations
+def tiles(values, cols, selected=(), more=None):
+    cells = "".join(
+        f'<div class="yb-tile{" is-selected" if name in selected else ""}"><b>{name}</b><small>{count}</small></div>'
+        for name, count in values
+    )
+    if more:
+        cells += f'<div class="yb-tile is-more"><b>{more[0]}</b><small>{more[1]}</small></div>'
+    return f'<div class="yb-tiles" style="--yb-cols:{cols}">{cells}</div>'
+
+
+def check_row(name, count, checked=False, share=None, indented=False):
+    cls = "yb-check-row" + (" is-checked" if checked else "") + (" is-indented" if indented else "")
+    bar = f'<i class="yb-share" style="width:calc((100% - 40px) * {share})"></i>' if share is not None else ""
+    tick = ic("check") if checked else ""
+    return (f'<div class="{cls}">{bar}<span class="yb-box" style="margin-left:{8 if share is not None else 0}px">{tick}</span>'
+            f'<span>{name}</span><span class="yb-count">{count}</span></div>')
+
+
+def letter_grid(letters, empty):
+    return '<div class="yb-letters">' + "".join(
+        f'<span class="{"is-empty" if c in empty else ""}">{c}</span>' for c in letters) + "</div>"
+
+
+def stack(name, line, indices):
+    art = "".join(cover(i) for i in indices[::-1])
+    return f'<div class="yb-stack"><div class="yb-stack-art">{art}</div><b>{name}</b><small>{line}</small></div>'
+
+
+def timeline_row(label, count, kind=""):
+    cls = "yb-timeline-row" + (f" is-{kind}" if kind else "")
+    return f'<div class="{cls}"><span class="yb-rail"><span class="yb-dot"></span></span><span>{label}</span><span class="yb-count">{count}</span></div>'
+
+
+comp("AppTileGrid", "Selection", 260, """
+# AppTileGrid
+
+A few short choices with their counts, as tiles you tap: a library, a reading status, a mood, a length. Quieter than chips and easier to hit; the counts sit under the names, so the tiles line up.
+
+- Kit: `AppTileGrid(tiles, onToggle)` with `AppTile(label, supporting, selected)`; `more` adds a last tile ("4 more") that opens the section's page.
+- A tile: at least 56 tall, `radius-control` 12, `surface-container` (a step above the sheet's `surface`), the name in 14 Medium `on-surface`, the line under it 12 `on-surface-variant` in tabular figures. Selected: `primary-container` with a 1 `primary` edge, both lines `on-primary-container`.
+- Columns: 2 for 2 or 4 tiles or when a name is longer than 11 characters (Medium-paced), 3 otherwise; `grid-gap` 8 both ways. More than six choices show five and a "N more" tile with a hairline edge and its name in `primary`.
+- Filters: Library, Reading status, Mood and Length. Not for long lists of names; those are `AppCheckRow`s or chips.
+""", f"""
+<div class="yb yb-ground" style="padding:20px;display:flex;flex-direction:column;gap:16px;max-width:420px">
+  <h3 class="yb-sheet-label">Reading status</h3>
+  {tiles([("Not started", "2,097"), ("In progress", "8"), ("Finished", "4")], 3, selected=("In progress",))}
+  <h3 class="yb-sheet-label">Library, nine of them</h3>
+  {tiles([("Books", "1,102"), ("Russian", "200"), ("Comics", "214"), ("Manga", "118"), ("Nonfiction", "300")], 3, more=("4 more", "Magazines, Kids…"))}
+</div>""")
+
+
+comp("AppCheckRow", "Selection", 300, """
+# AppCheckRow
+
+One value of a list you can pick several of: a checkbox, the name, the count at the end. With `share`, a faint bar behind the row shows how big the value is next to the biggest in its list.
+
+- Kit: `AppCheckRow(label, count, checked, onClick, share, indent)`.
+- 44 tall (40 indented), the box 20 with 5 corners, `outline` edge; checked fills `primary` with an `on-primary` check. The name in 15 Regular, the count 13 `on-surface-variant` in tabular figures at the end.
+- `share` (0 to 1): a `surface-container-low` bar from the box's start, `radius-inner` 8, 6 in from the row's top and bottom, as long as that share of the row less the count's room.
+- `indent`: 26 in, for a city under its country.
+- Filters: Language, Format, Location; Set in with its share bars, a picked country's cities indented under it.
+""", f"""
+<div class="yb yb-ground" style="padding:20px;display:flex;flex-direction:column;max-width:420px">
+  <h3 class="yb-sheet-label" style="margin-bottom:6px">Language</h3>
+  {check_row("English", "1,503")}{check_row("Russian", "605", checked=True)}{check_row("Portuguese", "1")}
+  <h3 class="yb-sheet-label" style="margin:14px 0 6px">Set in</h3>
+  {check_row("Russia", "402", checked=True, share=1)}{check_row("Moscow", "120", share=0.3, indented=True)}{check_row("England", "288", share=0.72)}{check_row("France", "140", share=0.35)}
+</div>""")
+
+
+comp("AppLetterGrid", "Selection", 240, """
+# AppLetterGrid
+
+The alphabet as keys, to open a long list of names at a letter: Author and Publisher in Filters. Cyrillic first when the library holds Russian names, then Latin.
+
+- Kit: `AppLetterGrid(letters, available, onLetter)`.
+- Nine keys to a row, 34 tall, `radius-inner` 8, `surface-container-low`, the letter in 13 Medium. A letter no name starts with is drawn at 35% and does nothing.
+- A tap opens the section's page scrolled to that letter's group; what is picked shows at the end of the section's label ("Ivan Bunin", or "Any").
+""", f"""
+<div class="yb yb-ground" style="padding:20px;display:flex;flex-direction:column;gap:8px;max-width:420px">
+  <div style="display:flex"><h3 class="yb-sheet-label" style="flex:1">Author</h3><span class="yb-supporting" style="font-size:13px">Any</span></div>
+  {letter_grid("АБВГДЕЖЗИКЛМНОПРСТУФХЧШЭЯ", "ЖЗХЧШЭ")}
+  {letter_grid("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "QXYZUIOV")}
+</div>""")
+
+
+comp("AppCoverStack", "Lists", 230, """
+# AppCoverStack
+
+A series as a thing you can see: its first three covers fanned, the name under them and how far you are ("41 · 12 read"). A row of them scrolls sideways.
+
+- Kit: `AppCoverStack(name, line, selected, onClick, cover = { index, modifier -> ... })`; the caller draws the covers (the library's cover composable) in the modifiers it gets.
+- 96 wide; the covers 64 wide, the back two turned 6° and 2° and set 20 and 10 to the end, the front one with the small cover shadow. Name 13 Medium, line 12 `on-surface-variant`. Selected: the front cover gets a 2 `primary` ring.
+- Filters › Series: the series with most books, then "All 86" at the label's end opens the page.
+""", f"""
+<div class="yb yb-ground" style="padding:20px;display:flex;flex-direction:column;gap:12px">
+  <div style="display:flex"><h3 class="yb-sheet-label" style="flex:1">Series</h3><span class="yb-supporting" style="font-size:13px;color:var(--primary);font-weight:600">All 86</span></div>
+  <div class="yb-stacks">{stack("The Lantern Keepers", "6 · 2 read", [0, 4, 6])}{stack("Дом у реки", "3 · all read", [1, 2, 3])}{stack("Star Courier", "12 · 1 read", [5, 7, 0])}{stack("Paper Cranes", "4", [7, 1, 4])}</div>
+</div>""")
+
+
+comp("AppTimeline", "Selection", 420, """
+# AppTimeline
+
+Time as one line down the start: a dot per pile (a century or a decade) in time order, and the named periods (Russian Revolution, World War II, Cold War) placed where they fall, smaller and in italics.
+
+- Kit: `AppTimeline(entries, onToggle)` with `AppTimelineEntry(label, count, selected, period)`.
+- Rows 40 tall; the line 2 `outline-variant` in a 20 wide rail; a pile's dot 10 `outline-variant`, a period's 8 `outline`, both ringed in the ground. Selected: the dot 14 `primary`, the label SemiBold. Label 14 Medium (a period 13 italic `on-surface-variant`), the count at the end.
+- Filters › When, in the panel itself. A whole century with no pile of its own (20th century) is a stop just before its first decade; a period with no known years goes after the piles.
+""", f"""
+<div class="yb yb-ground" style="padding:20px;display:flex;flex-direction:column;max-width:420px">
+  <h3 class="yb-sheet-label" style="margin-bottom:8px">When</h3>
+  <div class="yb-timeline">{timeline_row("1800s", 198)}{timeline_row("1910s", 88)}{timeline_row("Russian Revolution", 31, "period")}{timeline_row("1940s", 140, "selected")}{timeline_row("World War II", 40, "period")}{timeline_row("1960s", 40)}{timeline_row("Cold War", 22, "period")}{timeline_row("Future", 88)}</div>
+</div>""")
+
+
 comp("Icons", "Foundations", 520, """
 # Icons
 

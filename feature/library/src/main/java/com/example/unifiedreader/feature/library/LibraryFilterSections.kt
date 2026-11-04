@@ -95,94 +95,7 @@ internal fun rememberLibraryFilterFacetsWithTags(
     return remember(facets, sections) { facets.withTagFacets(sections) }
 }
 
-/**
- * Set in's page: its places as rows, most books first, a picked country with its cities under it.
- * [limit] places at most; with [onShowAll], "All N places" past them.
- */
-@Composable
-internal fun LibraryFilterPlacesSection(
-    state: LibraryFilterState,
-    facets: LibraryFilterFacets,
-    onFilterStateChanged: (LibraryFilterState) -> Unit,
-    limit: Int = PlaceRowLimit,
-    onShowAll: (() -> Unit)? = null,
-) {
-    val rows = remember(state, facets, limit) { libraryFilterPlaceRows(state, facets, limit) }
-    val allCount = remember(state, facets) { libraryFacetValueCount(LibraryFilterPanel.SetIn, state, facets) }
-    Column(modifier = Modifier.fillMaxWidth()) {
-        rows.forEach { row ->
-            LibraryFilterValueRow(
-                name = row.value,
-                count = row.count,
-                selected = row.selected,
-                indent = row.city,
-                onClick = { onFilterStateChanged(state.toggling(LibraryFilterPanel.SetIn, row.value)) },
-            )
-        }
-        if (onShowAll != null && allCount > rows.size) {
-            LibraryFilterShowAll(label = "All ${appCount(allCount)} places", onClick = onShowAll)
-        }
-    }
-}
-
-/**
- * When's page: one row per pile in time order, its books standing as spines in the title-cover fills,
- * then the named periods, which have no pile, under their own label.
- */
-@Composable
-internal fun LibraryFilterPilesSection(
-    state: LibraryFilterState,
-    facets: LibraryFilterFacets,
-    onFilterStateChanged: (LibraryFilterState) -> Unit,
-) {
-    val rows = remember(state, facets) { libraryFilterPileRows(state, facets) }
-    val periods = remember(state, facets) { libraryFilterNamedPeriods(state, facets) }
-    val fallback = MaterialTheme.colorScheme.outline
-    Column(modifier = Modifier.fillMaxWidth()) {
-        rows.forEach { row ->
-            LibraryFilterValueRow(
-                name = row.value,
-                count = row.count,
-                selected = row.selected,
-                onClick = { onFilterStateChanged(state.toggling(LibraryFilterPanel.When, row.value)) },
-                height = PileRowHeight,
-                middle = {
-                    Row(
-                        modifier = Modifier.height(SpineAreaHeight),
-                        horizontalArrangement = Arrangement.spacedBy(SpineGap),
-                        verticalAlignment = Alignment.Bottom,
-                    ) {
-                        repeat(row.spines) { index ->
-                            val shade = (index + row.order).mod(SpineHeights.size)
-                            Box(
-                                modifier = Modifier
-                                    .width(SpineWidth)
-                                    .height(SpineHeights[shade])
-                                    .clip(RoundedCornerShape(SpineCorner))
-                                    .background(
-                                        LibraryTitleCoverFills.getOrNull((index * 5 + row.order).mod(LibraryTitleCoverFills.size)) ?: fallback,
-                                    ),
-                            )
-                        }
-                    }
-                },
-            )
-        }
-        if (periods.isNotEmpty()) {
-            AppSheetLabel(text = "Named periods")
-            periods.forEach { period ->
-                LibraryFilterValueRow(
-                    name = period.value,
-                    count = period.count,
-                    selected = false,
-                    onClick = { onFilterStateChanged(state.toggling(LibraryFilterPanel.When, period.value)) },
-                )
-            }
-        }
-    }
-}
-
-/** Library, Language, Genre, About or Mood: the values with most books as chips, then "All N" for the rest. */
+/** Genre or About: the values with most books as chips, then "All N" for the rest. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun LibraryFilterTopChipsSection(
@@ -280,60 +193,6 @@ private fun LibraryFilterFindRow(match: LibraryFilterFindMatch, onClick: () -> U
     }
 }
 
-/**
- * A value row of the filter sheet (a place, a pile): its name, an optional [middle] (a pile's spines),
- * the count, and, picked, a `primary-container` fill with a check.
- */
-@Composable
-private fun LibraryFilterValueRow(
-    name: String,
-    count: Int?,
-    selected: Boolean,
-    onClick: () -> Unit,
-    indent: Boolean = false,
-    height: androidx.compose.ui.unit.Dp = if (indent) CityRowHeight else ValueRowHeight,
-    middle: (@Composable () -> Unit)? = null,
-) {
-    val colors = MaterialTheme.colorScheme
-    val content = if (selected) colors.onPrimaryContainer else colors.onSurface
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = ValueRowOuterInset)
-            .height(height)
-            .clip(RoundedCornerShape(UnifiedReaderThemeTokens.presentation.controlCornerRadius))
-            .background(if (selected) colors.primaryContainer else Color.Transparent)
-            .clickable(role = Role.Button, onClick = onClick)
-            .semantics { this.selected = selected }
-            .padding(start = if (indent) ValueRowFillInset + CityIndent else ValueRowFillInset, end = ValueRowFillInset),
-        horizontalArrangement = Arrangement.spacedBy(ValueRowGap),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = name,
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (indent && !selected) colors.onSurfaceVariant else content,
-            fontWeight = if (selected) FontWeight.SemiBold else null,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = if (middle == null) Modifier.weight(1f) else Modifier.width(PileNameWidth),
-        )
-        if (middle != null) {
-            Box(modifier = Modifier.weight(1f)) { middle() }
-        }
-        count?.let {
-            Text(
-                text = appCount(it),
-                style = MaterialTheme.typography.labelLarge,
-                color = if (selected) content else colors.onSurfaceVariant,
-            )
-        }
-        if (selected) {
-            Icon(imageVector = AppIcons.Check, contentDescription = null, tint = content, modifier = Modifier.size(CheckIconSize))
-        }
-    }
-}
-
 /** "All 53 places": opens the section's full list, with its search and letters. */
 @Composable
 private fun LibraryFilterShowAll(label: String, onClick: () -> Unit) {
@@ -342,21 +201,6 @@ private fun LibraryFilterShowAll(label: String, onClick: () -> Unit) {
     }
 }
 
-// The fill of a picked row reaches 8 past the sheet's inset, so its text stays on the inset line.
-private val ValueRowFillInset = 8.dp
-private val ValueRowOuterInset = AppLayout.inset - ValueRowFillInset
-private val ValueRowHeight = 40.dp
-private val CityRowHeight = 34.dp
-private val CityIndent = 16.dp
-private val ValueRowGap = 12.dp
-private val PileRowHeight = 30.dp
-private val PileNameWidth = 100.dp
-private val SpineAreaHeight = 18.dp
-private val SpineWidth = 4.dp
-private val SpineGap = 1.dp
-private val SpineCorner = 1.dp
-private val SpineHeights = listOf(14.dp, 16.dp, 18.dp)
-private val CheckIconSize = 18.dp
 private val FindRowStart = 8.dp
 private val FindRowGap = 4.dp
 private val ShowAllStart = 8.dp

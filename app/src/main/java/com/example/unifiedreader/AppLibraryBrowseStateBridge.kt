@@ -9,6 +9,7 @@ internal fun AppUiState.toLibraryBrowseState(): LibraryBrowseState = LibraryBrow
     filterPanelsBySource = libraryFilterPanelsBySource,
     gridCellSizeDp = libraryGridCellSizeDp,
     fadeReadItems = libraryFadeReadItems,
+    coverAsPrinted = libraryCoverAsPrinted,
 )
 
 internal fun AppUiState.withLibraryBrowseState(
@@ -20,4 +21,5 @@ internal fun AppUiState.withLibraryBrowseState(
     libraryFilterPanelsBySource = browseState.filterPanelsBySource,
     libraryGridCellSizeDp = browseState.gridCellSizeDp,
     libraryFadeReadItems = browseState.fadeReadItems,
+    libraryCoverAsPrinted = browseState.coverAsPrinted,
 )

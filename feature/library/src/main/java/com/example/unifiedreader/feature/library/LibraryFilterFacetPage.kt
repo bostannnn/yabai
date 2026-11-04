@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +53,8 @@ internal fun LibraryFilterFacetPage(
     libraryTitlesById: Map<String, String>,
     onFilterStateChanged: (LibraryFilterState) -> Unit,
     onBack: () -> Unit,
+    // A letter grid's letter: the page opens scrolled to that letter's group.
+    initialLetter: String? = null,
 ) {
     var query by rememberSaveable(panel) { mutableStateOf("") }
     val groups = remember(panel, filterState, filterFacets, libraryTitlesById, query) {
@@ -80,7 +84,14 @@ internal fun LibraryFilterFacetPage(
                 .fillMaxWidth()
                 .padding(horizontal = AppLayout.inset, vertical = 6.dp),
         )
+        val listState = rememberLazyListState()
+        LaunchedEffect(panel, initialLetter) {
+            val letter = initialLetter ?: return@LaunchedEffect
+            val index = libraryFacetPageLetterIndex(groups, letter) ?: return@LaunchedEffect
+            listState.scrollToItem(index)
+        }
         LazyColumn(
+            state = listState,
             modifier = Modifier.weight(1f),
         ) {
             // A lazy list keeps its first visible item in place when items arrive above it. At the
@@ -90,17 +101,19 @@ internal fun LibraryFilterFacetPage(
             if (query.isBlank() && panel in PanelsWithOwnPage) {
                 item(key = "own") {
                     if (panel == LibraryFilterPanel.SetIn) {
-                        LibraryFilterPlacesSection(
+                        LibraryFilterPlacesChecksSection(
                             state = filterState,
                             facets = filterFacets,
                             onFilterStateChanged = onFilterStateChanged,
                             limit = Int.MAX_VALUE,
+                            showLabel = false,
                         )
                     } else {
-                        LibraryFilterPilesSection(
+                        LibraryFilterTimelineSection(
                             state = filterState,
                             facets = filterFacets,
                             onFilterStateChanged = onFilterStateChanged,
+                            showLabel = false,
                         )
                     }
                 }
@@ -179,3 +192,16 @@ private fun FacetValueRow(
 private val FacetSearchFieldHeight = 42.dp
 
 private val PanelsWithOwnPage = setOf(LibraryFilterPanel.SetIn, LibraryFilterPanel.When)
+
+/**
+ * The lazy list index of [letter]'s group label on a facet page: the top spacer, then each group's label
+ * and values in turn. Null when the page has no group for it.
+ */
+internal fun libraryFacetPageLetterIndex(groups: List<LibraryFacetPageGroup>, letter: String): Int? {
+    var index = 1
+    groups.forEach { group ->
+        if (group.title == letter) return index
+        index += 1 + group.values.size
+    }
+    return null
+}

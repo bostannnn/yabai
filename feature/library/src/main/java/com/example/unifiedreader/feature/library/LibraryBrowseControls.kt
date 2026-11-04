@@ -26,6 +26,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.unifiedreader.ui.components.AppSegmentedRow
+import com.example.unifiedreader.ui.components.AppSegment
 import com.example.unifiedreader.ui.components.AppChip
 import com.example.unifiedreader.ui.components.AppChipDefaults
 import com.example.unifiedreader.ui.components.AppDivider
@@ -77,7 +79,10 @@ fun LibraryBrowseOptionsMenu(
     fadeReadItemsLabel: String = "Fade read books",
     // Just the icon, for a top bar: the label becomes its description.
     iconOnly: Boolean = false,
+    // Cover shape (All the same / As printed) under Cover size; null leaves it out.
+    onCoverAsPrintedChanged: ((Boolean) -> Unit)? = null,
 ) {
+    val coverAsPrinted = LocalLibraryCoverAsPrinted.current
     var expanded by rememberSaveable { mutableStateOf(false) }
     val coverSize = LibraryCoverSize.of(gridCellSizeDp)
     Box(modifier = modifier) {
@@ -186,9 +191,27 @@ fun LibraryBrowseOptionsMenu(
                             stateDescription = coverSize.label
                         },
                 )
+                if (onCoverAsPrintedChanged != null) {
+                    Text(
+                        text = "Cover shape",
+                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = 14.sp),
+                        modifier = Modifier.padding(start = AppMenuDefaults.horizontalPadding, end = AppMenuDefaults.horizontalPadding, top = CoverShapeLabelTop),
+                    )
+                    AppSegmentedRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = AppMenuDefaults.horizontalPadding, end = AppMenuDefaults.horizontalPadding, top = CoverShapeRowTop, bottom = CoverShapeRowBottom),
+                    ) {
+                        AppSegment(selected = !coverAsPrinted, onClick = { onCoverAsPrintedChanged(false) }, label = { Text(text = "All the same") })
+                        AppSegment(selected = coverAsPrinted, onClick = { onCoverAsPrintedChanged(true) }, label = { Text(text = "As printed") })
+                    }
+                }
             }
         }
     }
 }
 
 private val LibraryBrowseOptionsMenuWidth = 300.dp
+private val CoverShapeLabelTop = 4.dp
+private val CoverShapeRowTop = 8.dp
+private val CoverShapeRowBottom = 12.dp

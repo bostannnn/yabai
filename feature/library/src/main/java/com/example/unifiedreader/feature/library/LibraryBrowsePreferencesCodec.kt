@@ -52,6 +52,7 @@ internal fun Preferences.toLibraryBrowsePreferences(): LibraryBrowsePreferences 
         this[gridCellSizeKey()] ?: defaultLibraryGridCellSizeDp,
     ),
     fadeReadItems = this[fadeReadItemsKey()] ?: false,
+    coverAsPrinted = this[coverAsPrintedKey()] ?: false,
 )
 
 internal fun MutablePreferences.writeFilterState(
@@ -126,6 +127,16 @@ internal fun MutablePreferences.writeFadeReadItems(
     }
 }
 
+internal fun MutablePreferences.writeCoverAsPrinted(
+    coverAsPrinted: Boolean,
+) {
+    if (coverAsPrinted) {
+        this[coverAsPrintedKey()] = true
+    } else {
+        remove(coverAsPrintedKey())
+    }
+}
+
 internal fun loadStartupLibraryBrowsePreferences(
     startupPreferences: SharedPreferences,
 ): LibraryBrowsePreferences = LibraryBrowsePreferences(
@@ -184,6 +195,7 @@ internal fun loadStartupLibraryBrowsePreferences(
         ),
     ),
     fadeReadItems = startupPreferences.getBoolean(fadeReadItemsStorageKey(), false),
+    coverAsPrinted = startupPreferences.getBoolean(coverAsPrintedStorageKey(), false),
 )
 
 internal fun writeStartupLibraryBrowsePreferences(
@@ -237,6 +249,11 @@ internal fun writeStartupLibraryBrowsePreferences(
             putBoolean(fadeReadItemsStorageKey(), true)
         } else {
             remove(fadeReadItemsStorageKey())
+        }
+        if (preferences.coverAsPrinted) {
+            putBoolean(coverAsPrintedStorageKey(), true)
+        } else {
+            remove(coverAsPrintedStorageKey())
         }
         commit()
     }
@@ -484,6 +501,8 @@ private fun gridCellSizeKey(): Preferences.Key<Int> = intPreferencesKey(gridCell
 
 private fun fadeReadItemsKey(): Preferences.Key<Boolean> = booleanPreferencesKey(fadeReadItemsStorageKey())
 
+private fun coverAsPrintedKey(): Preferences.Key<Boolean> = booleanPreferencesKey(coverAsPrintedStorageKey())
+
 private fun sortModeStorageKey(
     sourceType: SourceType,
 ): String = "library_sort_mode_${sourceType.keySuffix()}"
@@ -555,6 +574,8 @@ private fun moodsFilterStorageKey(
 private fun gridCellSizeStorageKey(): String = "library_grid_cell_size_dp"
 
 private fun fadeReadItemsStorageKey(): String = "library_fade_read_items"
+
+private fun coverAsPrintedStorageKey(): String = "library_cover_as_printed"
 
 private fun SourceType.keySuffix(): String = name.lowercase(Locale.ROOT)
 

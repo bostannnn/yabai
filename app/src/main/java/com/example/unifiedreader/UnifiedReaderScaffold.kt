@@ -40,6 +40,7 @@ import com.example.unifiedreader.data.repository.RemoteSyncArtifact
 import com.example.unifiedreader.feature.lists.ListLibraryMode
 import com.example.unifiedreader.feature.downloads.DownloadsSheet
 import com.example.unifiedreader.feature.journal.JournalScreen
+import com.example.unifiedreader.feature.library.LocalLibraryCoverAsPrinted
 import com.example.unifiedreader.feature.library.LibraryViewMode
 import com.example.unifiedreader.feature.library.libraryDownloadSelectableItems
 import com.example.unifiedreader.feature.library.rememberLibrarySelectionTip
@@ -370,7 +371,11 @@ fun UnifiedReaderScaffold(
 
     // One glass state for the whole shell: the drawer and the top bar both blur the content.
     val glassState = rememberAppGlassState()
-    CompositionLocalProvider(LocalAppGlassState provides glassState, LocalLibraryTagSorting provides tagSorting) {
+    CompositionLocalProvider(
+        LocalAppGlassState provides glassState,
+        LocalLibraryTagSorting provides tagSorting,
+        LocalLibraryCoverAsPrinted provides uiState.libraryCoverAsPrinted,
+    ) {
     val waitingUpdateVersion = updateState.newerRelease?.version?.toString()
     // The rail and the drawer list the connected servers; the set is kept for the next launch.
     val connectedServers = uiState.navigationConnectedServers
@@ -497,6 +502,7 @@ fun UnifiedReaderScaffold(
                                 onViewModeChanged = onLibraryViewModeChanged,
                                 onGridCellSizeDpChanged = viewModel::onLibraryGridCellSizeChanged,
                                 onFadeReadItemsChanged = viewModel::onLibraryFadeReadItemsChanged,
+                                onCoverAsPrintedChanged = viewModel::onLibraryCoverAsPrintedChanged,
                                 showSortControl = !uiState.isSeriesBrowseActive,
                                 activeShelfBrowserKind = activeLibraryShelfBrowserKind,
                                 onActiveShelfBrowserKindChanged = { activeLibraryShelfBrowserKind = it },

@@ -67,6 +67,7 @@ internal fun LibraryFilterRow(
     onGridCellSizeDpChanged: (Int) -> Unit,
     onFadeReadItemsChanged: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    onCoverAsPrintedChanged: ((Boolean) -> Unit)? = null,
 ) {
     val appliedFilters = remember(filterPanels, filterState, libraryTitlesById) {
         appliedLibraryFilters(filterState, filterPanels, libraryTitlesById)
@@ -118,6 +119,7 @@ internal fun LibraryFilterRow(
             onSortModeChanged = onSortModeChanged,
             onGridCellSizeDpChanged = onGridCellSizeDpChanged,
             onFadeReadItemsChanged = onFadeReadItemsChanged,
+            onCoverAsPrintedChanged = onCoverAsPrintedChanged,
         )
     }
 }

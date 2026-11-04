@@ -1,7 +1,7 @@
 # Screen mocks for the yabai design system (dp = px). Run after gen_components.py.
 import sys
 sys.path.insert(0, __import__("os").path.dirname(__import__("os").path.abspath(__file__)))
-from gen_components import comp, ic, row, group, cover, theme_preview, chev, DIV, list_cover, list_row, letter_strip  # noqa: E402
+from gen_components import comp, ic, row, group, cover, theme_preview, chev, DIV, list_cover, list_row, letter_strip, tiles, check_row, letter_grid, timeline_row  # noqa: E402
 
 TOGGLE_SCRIPT = """<script>
 (function(){
@@ -277,6 +277,7 @@ A source's library: the bar with its search field, the reading card, the shelf t
 - **Gutter 24** from Medium (16 on phones): the bar's glass, the reading card, the tabs, the heading and the grid share both edges.
 - Content top 84, bottom 24. The grid's gap is 16.
 - **Cover size** (the sort menu's View): a slider with five stops, Tiny, Small, Medium, Large and Huge, the name at the label's end in `primary`; covers at least 70, 96, 140, 176 and 240 wide. Large is the default. The grid fits as many columns as that minimum allows and shares out the rest of the width: on a phone Tiny gives 4 columns, Small 3, Medium 2, Large 1 or 2 (360 or 411 wide), Huge 1. The grid follows the slider as it moves, and the menu stays open. Tiny drops the title under the cover (the cover says it); the line under it keeps the progress or length and the •••. The reading card and the shelves keep the default (Large) covers at every size: the slider sizes All books only, so All books' row, which the menu hangs from, stays where it is while the slider moves. The one exception is the strip beside the reading card on wide windows (below), which is always Small. See all's grid follows the same size.
+- **Cover shape** (the sort menu's View, under Cover size): an `AppSegmentedRow` with All the same (the default) and As printed. All the same crops every cover to 2:3. As printed keeps each cover's own proportions: the 2:3 slot stays, so the grid and its rows don't move, and the cover sits on the slot's bottom edge, centred, as wide as the slot when it is wider than 2:3 and as tall when it is taller. Its corners, hairline and badges follow the printed cover; a cover without art (the generated one) fills the slot. It applies everywhere a library cover is drawn: the grid, the shelves, the reading card, the book page, Lists and the journal.
 - All books is `AppSectionHeading`, on the gutter line, with Filters, a chip per applied value and sort at its end. Filters narrows the library by anything its books carry, places, times, themes and moods included (see Filters); there is no separate Browse page.
 - **On Expanded, Filters docks** beside the library: a 400 wide panel on the right gutter from content top to content bottom, the bar and the grid taking the width left of it. The covers keep the width they had before it opened: the grid loses columns, and the ones left come as close to that width as whole columns allow instead of stretching to fill. While it is open the reading card and the shelves step aside, so All books' row is at content top; they come back when it closes. The Filters chip shows and hides it.
 - **The reading card** (`LibraryReadingCard`) is the book you read last, small: `radius-container` 20, the cover's tint (`coverTint`, `AppCoverColors`), `inset` 20 all round, the cover at the start and the text 16 from it. The text spans the cover: the label at the cover's top, the bar line at its bottom.
@@ -431,7 +432,7 @@ docked = f"""
     <div class="yb-pane" style="--yb-gutter:24px">
       <div class="yb-bar"><div class="yb-search">{ic("search")}<span>Search Grimmory</span></div><span class="yb-spacer"></span><button class="yb-icon-btn">{ic("download")}</button><button class="yb-icon-btn">{ic("more_horiz")}</button></div>
       <div style="position:absolute;left:24px;right:448px;top:84px;bottom:0;display:flex;flex-direction:column;gap:16px;overflow:hidden">
-        <div style="display:flex;gap:8px;align-items:center"><h2 class="yb-section-heading" style="flex:1">All books <span class="yb-count">72</span></h2><span class="yb-chip is-selected">Russia{ic("close", 18)}</span><span class="yb-chip is-selected">1800s{ic("close", 18)}</span><span class="yb-chip">{ic("tune")}Date added</span></div>
+        <div style="display:flex;gap:8px;align-items:center"><h2 class="yb-section-heading" style="flex:1">All books <span class="yb-count">72</span></h2><span class="yb-chip is-selected">Русский{ic("close", 18)}</span><span class="yb-chip is-selected">Russia{ic("close", 18)}</span><span class="yb-chip is-selected">1800s{ic("close", 18)}</span><span class="yb-chip">{ic("tune")}Date added</span></div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">{filter_tiles}</div>
       </div>
       <div class="yb-panel" style="position:absolute;right:24px;top:84px;bottom:24px;width:400px;padding:0;display:flex;flex-direction:column;overflow:hidden">
@@ -439,12 +440,13 @@ docked = f"""
         <div style="padding:0 20px;display:flex;flex-direction:column;gap:16px;overflow:hidden">
           {filters_find}
           <h3 class="yb-group-label">Which books</h3>
-          <div style="display:flex;flex-direction:column;gap:8px"><h3 class="yb-sheet-label">Library</h3><div class="yb-chip-row">{chips([("Books", 61), ("Comics", 11)])}</div></div>
-          <div style="display:flex;flex-direction:column;gap:8px"><h3 class="yb-sheet-label">Reading status</h3><div class="yb-chip-row">{chips([("Not started", 58), ("Reading", 3), ("Finished", 11)])}</div></div>
-          <div style="display:flex;flex-direction:column;gap:8px"><h3 class="yb-sheet-label">Language</h3><div class="yb-chip-row">{chips([("Русский", 49), ("English", 23)])}</div></div>
-          <h3 class="yb-group-label">What kind</h3>
-          <div style="display:flex;flex-direction:column;gap:8px"><h3 class="yb-sheet-label">Genre</h3><div class="yb-chip-row">{chips([("Classics", 40), ("Literary fiction", 22), ("Horror", 6)])}</div></div>
-          <div style="display:flex;flex-direction:column;gap:8px"><h3 class="yb-sheet-label">About</h3><div class="yb-chip-row">{chips([("Love and relationships", 9), ("Supernatural", 8), ("Aristocracy", 7), ("Philosophical fiction", 6)])}</div></div>
+          <div style="display:flex;flex-direction:column;gap:8px"><h3 class="yb-sheet-label">Library</h3>{tiles([("Books", 61), ("Comics", 11)], 2)}</div>
+          <div style="display:flex;flex-direction:column;gap:8px"><h3 class="yb-sheet-label">Reading status</h3>{tiles([("Not started", 58), ("Reading", 3), ("Finished", 11)], 3)}</div>
+          <div style="display:flex;flex-direction:column"><h3 class="yb-sheet-label">Language</h3>{check_row("Русский", 49, checked=True)}{check_row("English", 23)}</div>
+          <h3 class="yb-group-label">Who, where, when</h3>
+          <div style="display:flex;flex-direction:column;gap:8px"><div style="display:flex"><h3 class="yb-sheet-label" style="flex:1">Author</h3><span class="yb-supporting" style="font-size:13px">Any</span></div>{letter_grid("АБВГДЕЖЗИКЛМНОПРСТУФХЧШЭЯ", "ЖЗХЧШЭ")}</div>
+          <div style="display:flex;flex-direction:column"><h3 class="yb-sheet-label">Set in</h3>{check_row("Russia", 72, checked=True, share=1)}{check_row("Saint Petersburg", 14, share=0.2, indented=True)}{check_row("France", 3, share=0.05)}</div>
+          <div style="display:flex;flex-direction:column"><h3 class="yb-sheet-label">When</h3><div class="yb-timeline">{timeline_row("1700s", 3)}{timeline_row("1800s", 72, "selected")}{timeline_row("1910s", 2)}{timeline_row("Russian Revolution", 1, "period")}</div></div>
         </div>
       </div>
       <div class="yb-spec">{g(24)}{g(BW - 88 - 448, "grid")}{g(BW - 88 - 24, "24")}{h(84)}<span class="t" style="left:560px;top:90px">84 content top</span></div>
@@ -461,20 +463,22 @@ One way to narrow a source's library: by anything its books carry, the places, t
 - **Sheet or docked.** Under Expanded it is an `AppSideSheet` (a bottom sheet on phones) over the library, with Save as list and "Show 72 books" in its footer. On Expanded it docks: a 400 wide panel on the right gutter, from content top to content bottom, on `surface` with `radius-container` 20; the library takes the width left of it. Every tap changes the books at once, so the docked panel has no Show button, only Save as list. The Filters chip shows and hides it; the app remembers which.
 - **The books stay in view.** While the panel is docked open, the library leaves out the reading card and the shelves (as a search does): All books' row starts at content top, with the books under it. They come back when the panel closes, even with picks still applied, so a filter left on never hides what you are reading. Every change of picks (in Filters, a chip's ×, a tag on the book page) scrolls the library to All books' row, unless that combination was scrolled further down before; it opens where it was left.
 - **Header:** `AppPanelHeader` "Filters" with "Showing 72 of 1,474" (or "Showing all 1,474"), Clear all once something is picked, and close (docked: hide). Docked, the Filters chip shows as selected while the panel is open.
-- **Find:** an `AppSearchField` ("Find a place, tag, mood or author") at the top. While it holds text, the sections give way to the matches from every text section (a word starting with what you typed: "war" finds Cold War and Ruth Ware, not Edward), grouped under their section's `AppSheetLabel`, picked ones first, each a value row with a checkbox, the matched part bold and the count; a tap picks it. Named periods (World War II, Cold War), which have no pile under When, are reached here.
+- **Find:** an `AppSearchField` ("Find a place, tag, mood or author") at the top. While it holds text, the sections give way to the matches from every text section (a word starting with what you typed: "war" finds Cold War and Ruth Ware, not Edward), grouped under their section's `AppSheetLabel`, picked ones first, each a value row with a checkbox, the matched part bold and the count; a tap picks it. 
 - **Sections**, in the order Settings › Filter chips gives, by default in four groups, the short choices picked most first and the tall sections last, so the first screen holds nearly every section:
   - **Which books:** Library, Reading status, Language, Format, Location.
   - **What kind:** Genre, About, Mood.
   - **Who, where, when:** Author, Series, Set in, When, Publisher.
-  - **Length:** Pages.
+  - **Length:** Pages, as Length.
 
   Each group that shows two sections or more starts with its `AppGroupLabel` (15 SemiBold, `on-surface`), `grid-gap` 16 under the divider, over the first section's `AppSheetLabel` (the sheet's two levels, as in Downloads). A custom order that splits a group shows no group labels. A section no book has stays out (a source without moods has no Mood), and so does one with a single value to choose (one library, every book an EPUB, one language) unless something is picked in it.
-  - **Reading status, Format, Location:** chips with counts.
-  - **Library, Language, Genre, About, Mood:** chips, most books first (a library by its title): Library 6, Language 5, Genre 10, About 8 (the tags not sorted as places or times), Mood all of them (Grimmory's moods, paces such as Fast-paced among them); then "All 49 genres", which opens the section's full list with its search and letters.
-  - **Author, Series, Set in, When, Publisher:** a value row (52) with its top three values and counts on the line under its name ("Ryu Murakami 5 · Yukio Mishima 4 · Edogawa Rampo 4"), what is picked ("Any") at its end, opening the section's page. Author, Series and Publisher open their full list. Set in and When open in their own forms until you search the page:
-    - **Set in's page:** the tags you sorted as places (Settings › Tags) and Kavita's Locations, every one, most books first: rows with the name and the count. Cities fold into their country: picking a country picks its cities' books, and a picked country (selected, `primary-container`, a check) shows its cities under it, indented, each pickable.
-    - **When's page:** one 26 row per pile (a century or decade, in time order) with its books standing as 4 wide spines, as many as the square root of its count allows (14 at most), in the title-cover fills; the count at the end. A pick takes every tag in the pile. Then "Named periods" (World War II, Cold War), which have no pile, most books first.
-  - **Pages:** the range slider: the histogram, the slider and its scale `heading-gap` 8 apart, then From and To `grid-gap` 16 apart, then Include unknown length (when some books have none). It comes last because it is half a docked panel tall.
+  - **Library, Reading status, Mood:** `AppTileGrid`, every value as a tile with its count (a library by its title), 2 columns for 2 or 4 tiles, 3 otherwise. More than six libraries show the five with most books and a "4 more" tile that opens Library's page.
+  - **Language, Format, Location:** `AppCheckRow`s, every value with its count.
+  - **Genre, About:** chips (`AppChip`) with counts, most books first: Genre 10, About 8 (the tags not sorted as places or times); then "All 49 genres", which opens the section's full list with its search and letters.
+  - **Author, Publisher:** the section's label with what is picked at its end ("Any"), then an `AppLetterGrid`: Cyrillic keys first when any name starts with one, then Latin; a letter no name starts with is faint. A letter opens the section's page scrolled to that letter.
+  - **Series:** a row of `AppCoverStack`s, the series with most books first (eight at most), each its first three covers, its name and "41 · 12 read"; it scrolls sideways. "All 86" at the label's end opens the page. Where no covers can be drawn (a list's own Filters) it is the value row Author had before.
+  - **Set in:** `AppCheckRow`s with share bars, the six places with most books (a city counts under its country); a picked country shows its cities under it, indented. "All 64 places" opens the page with every place in the same form.
+  - **When:** an `AppTimeline` in the panel: every pile (a century or decade) in time order, and the named periods (Russian Revolution, World War II, Cold War) placed where their years fall; a period with no known years comes after the piles. A pick takes every tag in the pile.
+  - **Length:** four `AppTileGrid` tiles, Short (under 150 pages), Medium (150 to 299), Long (300 to 499) and Very long (500 and more), on the Pages slider's stops, each with its pages and count. A tap picks that span; a second tile stretches it to cover both. "Exact pages" under them opens the range slider (the histogram, the slider and its scale `heading-gap` 8 apart, then From and To `grid-gap` 16 apart, then Include unknown length when some books have none); it opens by itself when the picked span isn't one of the four.
 - **Counts narrow.** Each section counts the books every other section leaves. Two picks in one section mean either one (Japan or France); picks in different sections narrow (Japan and Dark).
 - Save as list keeps the picks as a smart list's rules.
 """, f"""

@@ -17,6 +17,7 @@ internal fun LibraryBrowseOptionsSelector(
     onSortModeChanged: (LibrarySortMode) -> Unit,
     onGridCellSizeDpChanged: (Int) -> Unit,
     onFadeReadItemsChanged: (Boolean) -> Unit,
+    onCoverAsPrintedChanged: ((Boolean) -> Unit)? = null,
 ) {
     val sanitizedGridCellSizeDp = sanitizeLibraryGridCellSizeDp(gridCellSizeDp)
     LibraryBrowseOptionsMenu(
@@ -65,5 +66,6 @@ internal fun LibraryBrowseOptionsSelector(
         },
         onGridCellSizeDpChanged = onGridCellSizeDpChanged,
         onFadeReadItemsChanged = onFadeReadItemsChanged,
+        onCoverAsPrintedChanged = onCoverAsPrintedChanged,
     )
 }
