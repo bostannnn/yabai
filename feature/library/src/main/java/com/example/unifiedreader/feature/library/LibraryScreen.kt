@@ -929,7 +929,8 @@ fun LibraryScreen(
             visibleState = filterDockTransition,
             enter = slideInHorizontally(AppMotion.spatial(IntOffset.VisibilityThreshold)) { width -> width / 3 } +
                 fadeIn(AppMotion.effects()),
-            exit = slideOutHorizontally(AppMotion.spatial(IntOffset.VisibilityThreshold)) { width -> width / 3 } +
+            // The slide ends with the fade, so the covers don't wait beside an empty strip for a spring to settle.
+            exit = slideOutHorizontally(AppMotion.effects(IntOffset.VisibilityThreshold)) { width -> width / 3 } +
                 fadeOut(AppMotion.effects()),
         ) {
             LibraryFilterDockedPanel(
