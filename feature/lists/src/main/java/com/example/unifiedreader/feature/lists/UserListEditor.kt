@@ -1,5 +1,7 @@
 package com.example.unifiedreader.feature.lists
 
+import com.example.unifiedreader.ui.theme.AppMotion
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -152,7 +154,8 @@ fun UserListEditor(
     val books: @Composable () -> Unit = {
         Column(verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap)) {
             AppSectionHeading(text = "Books", count = draft.itemIds.size.toString())
-            AppPanel(modifier = Modifier.fillMaxWidth()) {
+            // Removing a book eases the panel to its new height instead of jumping.
+            AppPanel(modifier = Modifier.fillMaxWidth().animateContentSize(AppMotion.spatial())) {
                 if (draft.itemIds.isEmpty()) {
                     AppSettingsRow(
                         title = "No books yet",

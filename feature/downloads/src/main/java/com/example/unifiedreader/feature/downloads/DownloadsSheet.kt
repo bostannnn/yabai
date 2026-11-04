@@ -1,5 +1,9 @@
 package com.example.unifiedreader.feature.downloads
 
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.foundation.lazy.LazyItemScope
+import androidx.compose.ui.unit.IntOffset
+import com.example.unifiedreader.ui.theme.AppMotion
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -69,9 +73,21 @@ fun DownloadsSheet(
     onReadEntry: (String) -> Unit,
     onOpenBookPage: (itemId: String, source: SourceType) -> Unit,
 ) {
-    AppSideSheet(onDismissRequest = onDismiss) {
+    // A finished row's book page opens once the sheet has slid away, instead of the sheet vanishing under it.
+    val afterClose = remember { arrayOfNulls<() -> Unit>(1) }
+    AppSideSheet(
+        onDismissRequest = {
+            val action = afterClose[0]
+            afterClose[0] = null
+            if (action != null) action() else onDismiss()
+        },
+    ) {
         // Plays the sheet's exit before it closes.
         val closeSheet = { dismiss() }
+        val openBookPage: (String, SourceType) -> Unit = { itemId, source ->
+            afterClose[0] = { onOpenBookPage(itemId, source) }
+            dismiss()
+        }
         AppPanelHeader(
             title = "Downloads",
             subtitle = downloadsSheetSummary(snapshot),
@@ -96,14 +112,14 @@ fun DownloadsSheet(
             bySection[DownloadsSheetSection.Downloading]?.let { entries ->
                 sectionHeading(DownloadsSheetSection.Downloading)
                 items(entries, key = DownloadEntry::id) { entry ->
-                    DownloadRunningBlock(entry = entry, context = rowContext, onCancel = onCancel)
+                    DownloadRunningBlock(entry = entry, context = rowContext, onCancel = onCancel, modifier = Modifier.downloadRowMotion(this))
                 }
             }
             bySection[DownloadsSheetSection.Waiting]?.let { entries ->
                 sectionHeading(DownloadsSheetSection.Waiting)
                 items(entries, key = DownloadEntry::id) { entry ->
                     val item = rowContext.displayItem(entry)
-                    DownloadRow(entry = entry, item = item, line = entry.waitingLabel(item), context = rowContext) {
+                    DownloadRow(entry = entry, item = item, line = entry.waitingLabel(item), context = rowContext, modifier = Modifier.downloadRowMotion(this)) {
                         AppIconButton(onClick = { onCancel(entry.id) }) {
                             Icon(
                                 imageVector = AppIcons.Close,
@@ -123,6 +139,7 @@ fun DownloadsSheet(
                         line = entry.failureLabel(),
                         lineIsError = true,
                         context = rowContext,
+                        modifier = Modifier.downloadRowMotion(this),
                     ) {
                         RetryAndRemove(entry = entry, onRetry = onRetry, onRemove = onRemove)
                     }
@@ -146,7 +163,8 @@ fun DownloadsSheet(
                             item = item,
                             line = entry.finishedLabel(item, now),
                             context = rowContext,
-                            onClick = { onOpenBookPage(entry.selectedItemId, entry.sourceType) },
+                            onClick = { openBookPage(entry.selectedItemId, entry.sourceType) },
+                            modifier = Modifier.downloadRowMotion(this),
                         ) {
                             when {
                                 entry.status == DownloadEntryStatus.Canceled ->
@@ -167,6 +185,17 @@ fun DownloadsSheet(
         }
     }
 }
+
+/** A download moves between sections (running, finished, failed) and leaves on Clear list instead of cutting. */
+private fun Modifier.downloadRowMotion(scope: LazyItemScope): Modifier = with(scope) {
+    this@downloadRowMotion.animateItem(
+        fadeInSpec = AppMotion.effects(),
+        placementSpec = AppMotion.spatial(IntOffset.VisibilityThreshold),
+        fadeOutSpec = AppMotion.effects(),
+    )
+}
+
+private val RunningPanelMargin = 12.dp
 
 /** What every row needs to draw its cover and title. */
 private class DownloadRowContext(
@@ -202,15 +231,17 @@ private fun DownloadRunningBlock(
     entry: DownloadEntry,
     context: DownloadRowContext,
     onCancel: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val item = context.displayItem(entry)
     AppPanel(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = RunningPanelMargin, vertical = 4.dp),
     ) {
         Row(
-            modifier = Modifier.padding(14.dp),
+            // The cover lines up with the covers of the rows under it, on the sheet's inset.
+            modifier = Modifier.padding(AppLayout.inset - RunningPanelMargin),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             DownloadCover(item = item, entry = entry, context = context, width = 64.dp)
@@ -275,12 +306,13 @@ private fun DownloadRow(
     context: DownloadRowContext,
     lineIsError: Boolean = false,
     onClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
     trailing: @Composable RowScope.() -> Unit,
 ) {
     // A flat row on the sheet: its text on the sheet's inset, the ripple a little wider.
     AppBookRow(
         title = item?.libraryPrimaryText() ?: entry.selectedItemTitle,
-        modifier = Modifier.padding(horizontal = 8.dp),
+        modifier = modifier.padding(horizontal = 8.dp),
         onClick = onClick,
         contentPadding = PaddingValues(start = AppLayout.inset - 8.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
         cover = { DownloadCover(item = item, entry = entry, context = context, width = AppBookRowDefaults.coverWidth) },

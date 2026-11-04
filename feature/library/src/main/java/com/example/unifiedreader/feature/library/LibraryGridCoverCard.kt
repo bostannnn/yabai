@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.library
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.aspectRatio
@@ -56,6 +57,12 @@ internal fun GridCoverCard(
         animationSpec = AppMotion.spatial(),
         label = "libraryGridCoverSelection",
     )
+    // The ring fades with the scale instead of snapping on and off.
+    val pickedRingColor by animateColorAsState(
+        targetValue = if (picked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0f),
+        animationSpec = AppMotion.effects(),
+        label = "libraryGridCoverRing",
+    )
     val coverShape = RoundedCornerShape(UnifiedReaderThemeTokens.presentation.coverCornerRadius)
 
     LibraryCoverActionCard(
@@ -83,8 +90,8 @@ internal fun GridCoverCard(
                 scaleY = coverScale
             }
             .then(
-                if (picked) {
-                    Modifier.border(SelectedCoverRingWidth, MaterialTheme.colorScheme.primary, coverShape)
+                if (pickedRingColor.alpha > 0f) {
+                    Modifier.border(SelectedCoverRingWidth, pickedRingColor, coverShape)
                 } else {
                     Modifier
                 },

@@ -1,5 +1,8 @@
 package com.example.unifiedreader.feature.journal
 
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.ui.unit.IntOffset
+import com.example.unifiedreader.ui.theme.AppMotion
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -273,7 +276,17 @@ fun JournalStatsContent(
 /** One of the journal's rows, centred and no wider than the journal's column. */
 private fun LazyListScope.section(key: String, content: @Composable () -> Unit) {
     item(key = key) {
-        Box(modifier = Modifier.widthIn(max = JournalMaxWidth).fillMaxWidth()) { content() }
+        // A period with more or fewer panels moves the rows instead of cutting.
+        Box(
+            modifier = Modifier
+                .animateItem(
+                    fadeInSpec = AppMotion.effects(),
+                    placementSpec = AppMotion.spatial(IntOffset.VisibilityThreshold),
+                    fadeOutSpec = AppMotion.effects(),
+                )
+                .widthIn(max = JournalMaxWidth)
+                .fillMaxWidth(),
+        ) { content() }
     }
 }
 

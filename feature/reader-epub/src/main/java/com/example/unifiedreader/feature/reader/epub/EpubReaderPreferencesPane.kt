@@ -1,5 +1,16 @@
 package com.example.unifiedreader.feature.reader.epub
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import com.example.unifiedreader.ui.components.AppScreenTransition
+import com.example.unifiedreader.ui.components.appScreenTransform
+import com.example.unifiedreader.ui.components.AppLayout
+import com.example.unifiedreader.ui.theme.AppMotion
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -85,106 +96,130 @@ internal fun ColumnScope.EpubPreferencesPaneContent(
     onPageNumbersVisibleChanged: (Boolean) -> Unit,
 ) {
     val compact = currentAppWindowWidth() == AppWindowWidth.Compact
-    if (isFontPickerOpen) {
-        AppPanelHeader(
-            title = "Font",
-            onBack = { onFontPickerOpenChanged(false) },
-            onClose = onDismissRequest,
-        )
-        Column(
-            modifier = Modifier
-                .weight(1f, fill = false)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 20.dp),
-        ) {
-            EpubFontPicker(
-                selected = fontFamily,
-                onSelected = { selectedFontFamily ->
-                    onFontFamilyChanged(selectedFontFamily)
-                    onFontPickerOpenChanged(false)
-                },
+    val layoutDirection = LocalLayoutDirection.current
+    val density = LocalDensity.current
+    // The font picker is one level deeper: it slides in from the end and back out, as a settings page does.
+    AnimatedContent(
+        targetState = isFontPickerOpen,
+        modifier = Modifier.weight(1f, fill = false),
+        transitionSpec = {
+            appScreenTransform(
+                if (targetState) AppScreenTransition.Forward else AppScreenTransition.Backward,
+                layoutDirection,
+                density,
             )
-        }
-        return
-    }
-
-    AppPanelHeader(
-        title = "Reading settings",
-        onClose = onDismissRequest,
-    )
-    if (compact) {
-        AppSegmentedRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 20.dp, end = 20.dp, top = 2.dp, bottom = 6.dp),
-        ) {
-            EpubPreferencesTab.entries.forEach { tab ->
-                AppSegment(
-                    selected = tab == selectedTab,
-                    onClick = { onSelectedTabChanged(tab) },
-                    label = { Text(text = tab.label) },
+        },
+        label = "epubFontPicker",
+    ) { fontPickerOpen ->
+        Column {
+            if (fontPickerOpen) {
+                AppPanelHeader(
+                    title = "Font",
+                    onBack = { onFontPickerOpenChanged(false) },
+                    onClose = onDismissRequest,
                 )
-            }
-        }
-    }
-    key(if (compact) selectedTab else null) {
-        Column(
-            modifier = Modifier
-                .weight(1f, fill = false)
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 16.dp),
-        ) {
-            if (!compact || selectedTab == EpubPreferencesTab.Text) {
-                if (!compact) EpubSettingsSectionLabel("Text")
-                EpubTextSection(
-                    typographyMode = typographyMode,
-                    fontFamily = fontFamily,
-                    fontSize = fontSize,
-                    lineHeight = lineHeight,
-                    textAlign = textAlign,
-                    onTypographyModeChanged = onTypographyModeChanged,
-                    onFontPickerRequested = { onFontPickerOpenChanged(true) },
-                    onFontSizeChanged = onFontSizeChanged,
-                    onLineHeightChanged = onLineHeightChanged,
-                    onTextAlignChanged = onTextAlignChanged,
-                )
-            }
-            if (!compact || selectedTab == EpubPreferencesTab.Page) {
-                if (!compact) EpubSettingsSectionLabel("Page")
-                AppFormRow(label = "Page colour", stacked = true) { controlModifier ->
-                    EpubPageColorSwatches(
-                        selected = theme,
-                        // "Aa" in the font the book is read in; the book's own font is a serif.
-                        fontFamily = rememberEpubFontPreviewFamily(fontFamily)
-                            .takeIf { typographyMode == EpubTypographyMode.Custom } ?: FontFamily.Serif,
-                        onSelected = onThemeChanged,
-                        modifier = controlModifier,
+                Column(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = AppLayout.inset)
+                        .padding(bottom = 20.dp),
+                ) {
+                    EpubFontPicker(
+                        selected = fontFamily,
+                        onSelected = { selectedFontFamily ->
+                            onFontFamilyChanged(selectedFontFamily)
+                            onFontPickerOpenChanged(false)
+                        },
                     )
                 }
-                ReaderPageNumberChoiceRow(
-                    visible = pageNumbersVisible,
-                    onVisibleChanged = onPageNumbersVisibleChanged,
-                    label = "Page number and chapter",
+            } else {
+                AppPanelHeader(
+                    title = "Reading settings",
+                    onClose = onDismissRequest,
                 )
-            }
-            if (!compact || selectedTab == EpubPreferencesTab.Layout) {
-                if (!compact) EpubSettingsSectionLabel("Layout")
-                EpubLayoutSection(
-                    typographyMode = typographyMode,
-                    pageMargins = pageMargins,
-                    paragraphSpacing = paragraphSpacing,
-                    paragraphIndent = paragraphIndent,
-                    layoutMode = layoutMode,
-                    useOrientationLayoutDefault = useOrientationLayoutDefault,
-                    pageTurnStyle = pageTurnStyle,
-                    onPageMarginsChanged = onPageMarginsChanged,
-                    onParagraphSpacingChanged = onParagraphSpacingChanged,
-                    onParagraphIndentChanged = onParagraphIndentChanged,
-                    onLayoutModeChanged = onLayoutModeChanged,
-                    onUseOrientationLayoutDefault = onUseOrientationLayoutDefault,
-                    onPageTurnStyleChanged = onPageTurnStyleChanged,
-                )
+                if (compact) {
+                    AppSegmentedRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = AppLayout.inset, end = AppLayout.inset, top = 2.dp, bottom = 6.dp),
+                    ) {
+                        EpubPreferencesTab.entries.forEach { tab ->
+                            AppSegment(
+                                selected = tab == selectedTab,
+                                onClick = { onSelectedTabChanged(tab) },
+                                label = { Text(text = tab.label) },
+                            )
+                        }
+                    }
+                }
+                // The phone's tabs fade into each other, and the pane eases to the new tab's height.
+                AnimatedContent(
+                    targetState = if (compact) selectedTab else null,
+                    modifier = Modifier.weight(1f, fill = false),
+                    transitionSpec = { fadeIn(AppMotion.effects()) togetherWith fadeOut(AppMotion.effects()) },
+                    label = "epubPreferencesTab",
+                ) { tab ->
+                    Column(
+                        // Original/Custom typography adds or drops rows: the pane grows and shrinks instead of jumping.
+                        modifier = Modifier
+                            .animateContentSize(AppMotion.spatial())
+                            .verticalScroll(rememberScrollState())
+                            .padding(bottom = 16.dp),
+                    ) {
+                        if (!compact || tab == EpubPreferencesTab.Text) {
+                            if (!compact) EpubSettingsSectionLabel("Text")
+                            EpubTextSection(
+                                typographyMode = typographyMode,
+                                fontFamily = fontFamily,
+                                fontSize = fontSize,
+                                lineHeight = lineHeight,
+                                textAlign = textAlign,
+                                onTypographyModeChanged = onTypographyModeChanged,
+                                onFontPickerRequested = { onFontPickerOpenChanged(true) },
+                                onFontSizeChanged = onFontSizeChanged,
+                                onLineHeightChanged = onLineHeightChanged,
+                                onTextAlignChanged = onTextAlignChanged,
+                            )
+                        }
+                        if (!compact || tab == EpubPreferencesTab.Page) {
+                            if (!compact) EpubSettingsSectionLabel("Page")
+                            AppFormRow(label = "Page colour", stacked = true) { controlModifier ->
+                                EpubPageColorSwatches(
+                                    selected = theme,
+                                    // "Aa" in the font the book is read in; the book's own font is a serif.
+                                    fontFamily = rememberEpubFontPreviewFamily(fontFamily)
+                                        .takeIf { typographyMode == EpubTypographyMode.Custom } ?: FontFamily.Serif,
+                                    onSelected = onThemeChanged,
+                                    modifier = controlModifier,
+                                )
+                            }
+                            ReaderPageNumberChoiceRow(
+                                visible = pageNumbersVisible,
+                                onVisibleChanged = onPageNumbersVisibleChanged,
+                                label = "Page number and chapter",
+                            )
+                        }
+                        if (!compact || tab == EpubPreferencesTab.Layout) {
+                            if (!compact) EpubSettingsSectionLabel("Layout")
+                            EpubLayoutSection(
+                                typographyMode = typographyMode,
+                                pageMargins = pageMargins,
+                                paragraphSpacing = paragraphSpacing,
+                                paragraphIndent = paragraphIndent,
+                                layoutMode = layoutMode,
+                                useOrientationLayoutDefault = useOrientationLayoutDefault,
+                                pageTurnStyle = pageTurnStyle,
+                                onPageMarginsChanged = onPageMarginsChanged,
+                                onParagraphSpacingChanged = onParagraphSpacingChanged,
+                                onParagraphIndentChanged = onParagraphIndentChanged,
+                                onLayoutModeChanged = onLayoutModeChanged,
+                                onUseOrientationLayoutDefault = onUseOrientationLayoutDefault,
+                                onPageTurnStyleChanged = onPageTurnStyleChanged,
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -211,7 +246,7 @@ private fun EpubTextSection(
         optionLabel = ::epubTypographyModeLabel,
     )
     if (typographyMode == EpubTypographyMode.Original) {
-        Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
+        Box(modifier = Modifier.padding(horizontal = AppLayout.inset, vertical = 6.dp)) {
             EpubPublisherTypographySummary()
         }
         return
@@ -284,7 +319,7 @@ private fun EpubLayoutSection(
         enabled = layoutMode != EpubReaderLayoutMode.Scroll,
     )
     if (typographyMode == EpubTypographyMode.Original) {
-        Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
+        Box(modifier = Modifier.padding(horizontal = AppLayout.inset, vertical = 6.dp)) {
             EpubPublisherSpacingSummary()
         }
         return
@@ -323,7 +358,7 @@ private fun EpubFontRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(horizontal = AppLayout.inset, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -436,7 +471,7 @@ private fun EpubSettingsSectionLabel(text: String) {
         style = MaterialTheme.typography.labelLarge,
         fontWeight = FontWeight.SemiBold,
         color = readerOverlayTokens().colors.secondaryText,
-        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 2.dp),
+        modifier = Modifier.padding(start = AppLayout.inset, end = AppLayout.inset, top = 14.dp, bottom = 2.dp),
     )
 }
 

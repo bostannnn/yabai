@@ -24,11 +24,16 @@ internal class LibraryFilterDockState(private val context: Context) {
         private set
     var openRequest by mutableIntStateOf(0)
         private set
+
+    /** True once the saved state is read: a panel restored then appears in place instead of sliding in. */
+    var loaded by mutableStateOf(false)
+        private set
     private var changed = false
 
     suspend fun load() {
         val saved = withContext(Dispatchers.IO) { preferences().getBoolean(OpenKey, false) }
         if (!changed) open = saved
+        loaded = true
     }
 
     /** Shows the panel, turned to the section asked for (if any). */

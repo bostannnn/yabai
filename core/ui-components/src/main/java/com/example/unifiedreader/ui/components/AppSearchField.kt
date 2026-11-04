@@ -1,5 +1,11 @@
 package com.example.unifiedreader.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import com.example.unifiedreader.ui.theme.AppMotion
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -108,7 +114,11 @@ fun AppSearchField(
                         innerTextField()
                     }
                     trailingContent?.invoke()
-                    if (active) {
+                    AnimatedVisibility(
+                        visible = active,
+                        enter = fadeIn(AppMotion.effects()) + scaleIn(AppMotion.spatial(), initialScale = AppMotion.pressedScale),
+                        exit = fadeOut(AppMotion.effects()) + scaleOut(AppMotion.spatial(), targetScale = AppMotion.pressedScale),
+                    ) {
                         AppIconButton(
                             onClick = { onQueryChange("") },
                             modifier = Modifier.size(36.dp),

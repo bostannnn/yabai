@@ -1,5 +1,11 @@
 package com.example.unifiedreader.ui.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import com.example.unifiedreader.ui.theme.AppMotion
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,7 +22,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -38,17 +43,36 @@ fun AppTabPill(
     count: Int? = null,
 ) {
     val colors = MaterialTheme.colorScheme
+    // The pill fades between tabs, as the segmented control and the rail do, and shrinks under a press.
+    val background by animateColorAsState(
+        targetValue = if (selected) colors.surfaceContainerHigh else colors.surfaceContainerHigh.copy(alpha = 0f),
+        animationSpec = AppMotion.effects(),
+        label = "appTabPillBackground",
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (selected) colors.onSurface else colors.onSurfaceVariant,
+        animationSpec = AppMotion.effects(),
+        label = "appTabPillContent",
+    )
+    val interactionSource = remember { MutableInteractionSource() }
     Row(
         modifier = modifier
+            .appPressScale(interactionSource)
             .height(AppTabPillDefaults.height)
             .clip(CircleShape)
-            .background(if (selected) colors.surfaceContainerHigh else Color.Transparent)
-            .selectable(selected = selected, role = Role.Tab, onClick = onClick)
+            .background(background)
+            .selectable(
+                selected = selected,
+                interactionSource = interactionSource,
+                indication = LocalIndication.current,
+                role = Role.Tab,
+                onClick = onClick,
+            )
             .padding(AppTabPillDefaults.contentPadding),
         horizontalArrangement = Arrangement.spacedBy(AppTabPillDefaults.countGap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        CompositionLocalProvider(LocalContentColor provides if (selected) colors.onSurface else colors.onSurfaceVariant) {
+        CompositionLocalProvider(LocalContentColor provides contentColor) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),

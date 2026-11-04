@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.reader.core
 
+import com.example.unifiedreader.ui.theme.AppMotion
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -129,8 +130,8 @@ fun ImmersiveReaderOverlay(
             if (pageIndicator != null) {
                 AnimatedVisibility(
                     visible = !overlayState.isVisible,
-                    enter = fadeIn(),
-                    exit = fadeOut(),
+                    enter = fadeIn(AppMotion.effects()),
+                    exit = fadeOut(AppMotion.effects()),
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     Box(modifier = Modifier.fillMaxSize(), content = pageIndicator)
@@ -139,8 +140,8 @@ fun ImmersiveReaderOverlay(
 
             AnimatedVisibility(
                 visible = overlayState.isVisible,
-                enter = fadeIn(),
-                exit = fadeOut(),
+                enter = fadeIn(AppMotion.effects()),
+                exit = fadeOut(AppMotion.effects()),
                 modifier = Modifier
                     .fillMaxSize()
                     .zIndex(1f),

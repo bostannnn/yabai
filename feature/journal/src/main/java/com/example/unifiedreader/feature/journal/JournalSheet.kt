@@ -1,5 +1,9 @@
 package com.example.unifiedreader.feature.journal
 
+import androidx.compose.foundation.layout.fillMaxSize
+import com.example.unifiedreader.ui.components.AppScreenTransition
+import com.example.unifiedreader.ui.components.AppScreenBack
+import com.example.unifiedreader.ui.components.AppScreenHost
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,7 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,12 +46,10 @@ import com.example.unifiedreader.ui.components.AppButtonDefaults
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.AppPanelHeader
-import com.example.unifiedreader.ui.components.AppScreenBackHandler
 import com.example.unifiedreader.ui.components.AppSideSheet
 import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.components.AppTextField
 import com.example.unifiedreader.ui.components.AppTonalButton
-import com.example.unifiedreader.ui.components.LocalAppScreenBackGesture
 
 /** What the journal's side sheet shows. Pages stack: Back returns to the one before, × closes. */
 internal sealed interface JournalSheetPage {
@@ -85,72 +86,78 @@ internal fun JournalSheet(
     onOpenInLibrary: ((ReadableItem) -> Unit)?,
     onDismiss: () -> Unit,
 ) {
-    val page = pages.lastOrNull() ?: return
+    if (pages.isEmpty()) return
     AppSideSheet(onDismissRequest = onDismiss) {
         // Plays the sheet's exit before it closes.
         val dismiss = { dismiss() }
-        // Back steps to the page before; the journal under the sheet stays put.
-        CompositionLocalProvider(LocalAppScreenBackGesture provides null) {
-            AppScreenBackHandler(enabled = pages.size > 1) { onBack() }
-        }
         // Back and Close where every sheet has them; each page's title is its first content.
         AppPanelHeader(
             title = null,
             onBack = if (pages.size > 1) onBack else null,
             onClose = { dismiss() },
         )
-        // Each page starts at its top.
-        val listState = remember(page) { LazyListState() }
-        LazyColumn(
-            state = listState,
+        // A page opened from this one slides in from the end and Back slides it out, as a settings page does;
+        // the back gesture scrubs to the page before, and the journal under the sheet stays put.
+        AppScreenHost(
+            screen = pages,
             modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(start = AppLayout.inset, end = AppLayout.inset, bottom = 28.dp),
-        ) {
-            when (page) {
-                is JournalSheetPage.Day -> dayPage(
-                    day = page.day,
-                    entries = overview.dayEntries(page.day),
-                    coverImageUrlProvider = coverImageUrlProvider,
-                    onCoverVisible = onCoverVisible,
-                    onOpenItem = { itemId -> onOpenPage(JournalSheetPage.Item(itemId)) },
-                )
-                is JournalSheetPage.Name -> namePage(
-                    page = page,
-                    summaries = overview.facetSummaries(page.row),
-                    coverImageUrlProvider = coverImageUrlProvider,
-                    onCoverVisible = onCoverVisible,
-                    onOpenItem = { itemId -> onOpenPage(JournalSheetPage.Item(itemId)) },
-                )
-                is JournalSheetPage.AllNames -> allNamesPage(
-                    group = page.group,
-                    onOpenName = { row -> onOpenPage(JournalSheetPage.Name(page.group, row)) },
-                )
-                is JournalSheetPage.Finished -> finishedPage(
-                    title = if (page.waitingOnly) "Waiting for a rating" else "Finished in ${overview.periodName()}",
-                    summaries = if (page.waitingOnly) finishedItemsNeedingRating(overview) else overview.finishedItems,
-                    coverImageUrlProvider = coverImageUrlProvider,
-                    onCoverVisible = onCoverVisible,
-                    onOpenItem = { itemId -> onOpenPage(JournalSheetPage.Item(itemId)) },
-                )
-                is JournalSheetPage.Item -> item(key = "item:${page.itemId}") {
-                    val summary = itemSummaries.firstOrNull { it.item.itemId == page.itemId }
-                    if (summary == null) {
-                        // Removed while open: step back, or close when it was the first page.
-                        LaunchedEffect(page.itemId) { if (pages.size > 1) onBack() else onDismiss() }
-                    } else {
-                        JournalItemPage(
-                            summary = summary,
-                            coverImageUrlProvider = coverImageUrlProvider,
-                            onCoverVisible = onCoverVisible,
-                            onSaveJournalEntry = onSaveJournalEntry,
-                            onOpenInLibrary = onOpenInLibrary?.let { open ->
-                                summary.catalogItem?.let { catalogItem -> { open(catalogItem); dismiss() } }
-                            },
-                            onRemove = {
-                                dismiss()
-                                onRemoveItem(summary.item.itemId)
-                            },
-                        )
+            back = if (pages.size > 1) AppScreenBack(target = pages.dropLast(1), onBack = onBack) else null,
+            transitionFor = { from, to -> if (to.size > from.size) AppScreenTransition.Forward else AppScreenTransition.Backward },
+        ) { shown ->
+            val page = shown.last()
+            // Each page starts at its top.
+            val listState = remember(page) { LazyListState() }
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = AppLayout.inset, end = AppLayout.inset, bottom = 28.dp),
+            ) {
+                when (page) {
+                    is JournalSheetPage.Day -> dayPage(
+                        day = page.day,
+                        entries = overview.dayEntries(page.day),
+                        coverImageUrlProvider = coverImageUrlProvider,
+                        onCoverVisible = onCoverVisible,
+                        onOpenItem = { itemId -> onOpenPage(JournalSheetPage.Item(itemId)) },
+                    )
+                    is JournalSheetPage.Name -> namePage(
+                        page = page,
+                        summaries = overview.facetSummaries(page.row),
+                        coverImageUrlProvider = coverImageUrlProvider,
+                        onCoverVisible = onCoverVisible,
+                        onOpenItem = { itemId -> onOpenPage(JournalSheetPage.Item(itemId)) },
+                    )
+                    is JournalSheetPage.AllNames -> allNamesPage(
+                        group = page.group,
+                        onOpenName = { row -> onOpenPage(JournalSheetPage.Name(page.group, row)) },
+                    )
+                    is JournalSheetPage.Finished -> finishedPage(
+                        title = if (page.waitingOnly) "Waiting for a rating" else "Finished in ${overview.periodName()}",
+                        summaries = if (page.waitingOnly) finishedItemsNeedingRating(overview) else overview.finishedItems,
+                        coverImageUrlProvider = coverImageUrlProvider,
+                        onCoverVisible = onCoverVisible,
+                        onOpenItem = { itemId -> onOpenPage(JournalSheetPage.Item(itemId)) },
+                    )
+                    is JournalSheetPage.Item -> item(key = "item:${page.itemId}") {
+                        val summary = itemSummaries.firstOrNull { it.item.itemId == page.itemId }
+                        if (summary == null) {
+                            // Removed while open: step back, or close when it was the first page.
+                            LaunchedEffect(page.itemId) { if (pages.size > 1) onBack() else onDismiss() }
+                        } else {
+                            JournalItemPage(
+                                summary = summary,
+                                coverImageUrlProvider = coverImageUrlProvider,
+                                onCoverVisible = onCoverVisible,
+                                onSaveJournalEntry = onSaveJournalEntry,
+                                onOpenInLibrary = onOpenInLibrary?.let { open ->
+                                    summary.catalogItem?.let { catalogItem -> { open(catalogItem); dismiss() } }
+                                },
+                                onRemove = {
+                                    dismiss()
+                                    onRemoveItem(summary.item.itemId)
+                                },
+                            )
+                        }
                     }
                 }
             }

@@ -1,5 +1,13 @@
 package com.example.unifiedreader
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import com.example.unifiedreader.ui.theme.AppMotion
 import com.example.unifiedreader.core.model.SourceType
 import kotlinx.coroutines.delay
 import androidx.lifecycle.repeatOnLifecycle
@@ -218,14 +226,32 @@ fun UnifiedReaderAppContent(
                             }
                         }
                     }
-                    sourceStartRequest?.takeIf { !isReaderMode }?.let { request ->
-                        SourceStartHost(
-                            request = request,
-                            uiState = uiState,
-                            viewModel = viewModel,
-                            onImportLocalFileClick = onImportLocalFileClick,
-                            onFinished = { sourceStartRequest = null },
-                        )
+                    // Adding a server comes and goes on the same fade-through as a screen change; the last
+                    // request keeps drawing while it fades out.
+                    val startRequest = sourceStartRequest?.takeIf { !isReaderMode }
+                    val shownStartRequest = remember { mutableStateOf(startRequest) }
+                    if (startRequest != null) shownStartRequest.value = startRequest
+                    AnimatedVisibility(
+                        visible = startRequest != null,
+                        enter = fadeIn(
+                            tween(
+                                durationMillis = AppMotion.screenFadeInMillis,
+                                delayMillis = AppMotion.screenFadeOutMillis,
+                                easing = LinearOutSlowInEasing,
+                            ),
+                        ) + scaleIn(AppMotion.spatial(), initialScale = AppMotion.fadeThroughInitialScale),
+                        exit = fadeOut(tween(AppMotion.screenFadeOutMillis, easing = LinearEasing)),
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        shownStartRequest.value?.let { request ->
+                            SourceStartHost(
+                                request = request,
+                                uiState = uiState,
+                                viewModel = viewModel,
+                                onImportLocalFileClick = onImportLocalFileClick,
+                                onFinished = { sourceStartRequest = null },
+                            )
+                        }
                     }
                     ProgressSyncNoticeToast(
                         notice = uiState.progressSyncNotice,

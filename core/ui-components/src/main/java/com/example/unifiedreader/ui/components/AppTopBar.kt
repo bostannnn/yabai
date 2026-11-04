@@ -1,5 +1,8 @@
 package com.example.unifiedreader.ui.components
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -52,6 +55,15 @@ fun AppTopBar(
         animationSpec = AppMotion.effects(),
         label = "appTopBarSurface",
     )
+    // A solid color fades in over the glass and back out (the library's selection bar), instead of
+    // swapping at once; the last color stays drawn while it fades away.
+    var solidColor by remember { mutableStateOf(containerColor ?: Color.Transparent) }
+    if (containerColor != null) solidColor = containerColor
+    val solidAlpha by animateFloatAsState(
+        targetValue = if (containerColor != null) 1f else 0f,
+        animationSpec = AppMotion.effects(),
+        label = "appTopBarSolid",
+    )
     val background = MaterialTheme.colorScheme.background
     val sideMargin = appGutter()
     val statusBarTop = WindowInsets.appSystemBars.getTop(LocalDensity.current).toFloat()
@@ -96,9 +108,8 @@ fun AppTopBar(
                         ambientColor = Color.Black.copy(alpha = 0.35f),
                         spotColor = Color.Black.copy(alpha = 0.35f),
                     )
-                    .then(
-                        if (containerColor != null) Modifier.background(containerColor, shape) else Modifier.appGlass(shape = shape),
-                    ),
+                    .then(if (solidAlpha < 1f) Modifier.appGlass(shape = shape) else Modifier)
+                    .then(if (solidAlpha > 0f) Modifier.background(solidColor.copy(alpha = solidColor.alpha * solidAlpha), shape) else Modifier),
             )
         }
         BoxWithConstraints(

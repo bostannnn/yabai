@@ -1,5 +1,11 @@
 package com.example.unifiedreader.feature.settings
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import com.example.unifiedreader.ui.theme.AppMotion
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -95,7 +101,13 @@ internal fun SourceSettingsPage(
                     }
                 },
             )
-            if (editing) form()
+            AnimatedVisibility(
+                visible = editing,
+                enter = expandVertically(AppMotion.spatial()) + fadeIn(AppMotion.effects()),
+                exit = shrinkVertically(AppMotion.spatial()) + fadeOut(AppMotion.effects()),
+            ) {
+                Column { form() }
+            }
         }
     }
 }

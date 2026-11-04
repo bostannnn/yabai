@@ -1,6 +1,16 @@
 package com.example.unifiedreader.feature.library
 
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.Box
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
@@ -210,7 +220,11 @@ fun LibraryScreen(
     }
     // Docked open, the books the filters find start at content top: the reading card and shelves step
     // aside, as for a search, and come back when the panel closes (a filter left on never hides them).
-    val filtersDocked = dockFilters && filterDock.open
+    // The panel slides in and out; the grid keeps its docked layout until the panel has gone, so closing
+    // plays opening backwards: the panel leaves, then the covers spread and the shelves come back.
+    val filterDockTransition = remember(filterDock.loaded) { MutableTransitionState(dockFilters && filterDock.open) }
+    filterDockTransition.targetState = dockFilters && filterDock.open
+    val filtersDocked = filterDockTransition.targetState || !filterDockTransition.isIdle
     val shownTopContent = topContent.takeUnless { filtersDocked }
     val shownFilterFacets = rememberLibraryFilterFacetsWithTags(
         facets = filterFacets,
@@ -411,16 +425,19 @@ fun LibraryScreen(
     // A row that arrives above a grid still at its very top (the shelves, when the library was
     // drawn under a back gesture before they were computed) is scrolled into view: the lazy grid
     // would otherwise keep its old first row in place and leave the new one above the screen.
-    var shownLeadingContentItemCount by remember(browseContextKey) { mutableIntStateOf(leadingContentItemCount) }
-    LaunchedEffect(leadingContentItemCount) {
-        val added = leadingContentItemCount - shownLeadingContentItemCount
-        shownLeadingContentItemCount = leadingContentItemCount
+    // Asked for before the grid measures the new row, so a grid already at 0 keeps its item animations
+    // (closing the docked filters brings the shelves back while the covers move to their wider places);
+    // a scroll jump after the fact would cut them.
+    val shownLeadingContentItemCount = remember(browseContextKey) { intArrayOf(leadingContentItemCount) }
+    SideEffect {
+        val added = leadingContentItemCount - shownLeadingContentItemCount[0]
+        shownLeadingContentItemCount[0] = leadingContentItemCount
         if (added > 0 &&
             pendingScrollRestore == null &&
             gridState.firstVisibleItemIndex <= added &&
             gridState.firstVisibleItemScrollOffset == 0
         ) {
-            gridState.scrollToItem(0)
+            gridState.requestScrollToItem(0)
         }
     }
     pendingScrollRestore?.let { savedPosition ->
@@ -738,8 +755,17 @@ fun LibraryScreen(
                             onGridCellSizeDpChanged = onGridCellSizeDpChanged,
                             onFadeReadItemsChanged = onFadeReadItemsChanged,
                         )
-                        if (searchTagSuggestions.isNotEmpty() && onFilterByTag != null) {
-                            LibrarySearchTagStrip(suggestions = searchTagSuggestions, onFilterByTag = onFilterByTag)
+                        // Held while it leaves, so the strip folds away with the chips it had.
+                        val shownTagSuggestions = remember { mutableStateOf(searchTagSuggestions) }
+                        if (searchTagSuggestions.isNotEmpty()) shownTagSuggestions.value = searchTagSuggestions
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = searchTagSuggestions.isNotEmpty() && onFilterByTag != null,
+                            enter = expandVertically(AppMotion.spatial()) + fadeIn(AppMotion.effects()),
+                            exit = shrinkVertically(AppMotion.spatial()) + fadeOut(AppMotion.effects()),
+                        ) {
+                            onFilterByTag?.let { filterByTag ->
+                                LibrarySearchTagStrip(suggestions = shownTagSuggestions.value, onFilterByTag = filterByTag)
+                            }
                         }
                     }
                 }
@@ -754,24 +780,33 @@ fun LibraryScreen(
                         },
                         span = { GridItemSpan(maxLineSpan) },
                     ) {
-                        if (showGridLoading) {
-                            LoadingLibraryState(
-                                gridCellSizeDp = gridPresentation.selectedGridSize.cellSizeDp,
-                            )
-                        } else {
-                            LibraryEmptyState(
-                                reason = libraryEmptyReason(
-                                    searchActive = searchQuery.isNotBlank(),
-                                    filtersActive = !filterState.isEmpty,
-                                    sourceUnreachable = sourceUnreachable,
-                                    sourceNotConnected = sourceNotConnected,
-                                ),
-                                selectedSource = selectedSource,
-                                onClearFilters = onClearFilters,
-                                onImportFile = onImportLocalFile,
-                                onConnectServer = onConnectServer,
-                                onRetry = onRetrySource,
-                            )
+                        // The empty state fades in where the covers were and out when books come back.
+                        Box(
+                            modifier = Modifier.animateItem(
+                                fadeInSpec = AppMotion.effects(),
+                                placementSpec = null,
+                                fadeOutSpec = AppMotion.effects(),
+                            ),
+                        ) {
+                            if (showGridLoading) {
+                                LoadingLibraryState(
+                                    gridCellSizeDp = gridPresentation.selectedGridSize.cellSizeDp,
+                                )
+                            } else {
+                                LibraryEmptyState(
+                                    reason = libraryEmptyReason(
+                                        searchActive = searchQuery.isNotBlank(),
+                                        filtersActive = !filterState.isEmpty,
+                                        sourceUnreachable = sourceUnreachable,
+                                        sourceNotConnected = sourceNotConnected,
+                                    ),
+                                    selectedSource = selectedSource,
+                                    onClearFilters = onClearFilters,
+                                    onImportFile = onImportLocalFile,
+                                    onConnectServer = onConnectServer,
+                                    onRetry = onRetrySource,
+                                )
+                            }
                         }
                     }
                 } else if (isPaged) {
@@ -800,6 +835,11 @@ fun LibraryScreen(
                             actionContext = itemActionContext,
                             coverImageUrlProvider = coverImageUrlProvider,
                             onClick = { onItemSelected(item) },
+                            modifier = Modifier.animateItem(
+                                fadeInSpec = null,
+                                placementSpec = AppMotion.spatial(IntOffset.VisibilityThreshold),
+                                fadeOutSpec = null,
+                            ),
                         )
                     }
                 } else {
@@ -830,9 +870,17 @@ fun LibraryScreen(
                     )
                 }
             }
-            if (alphabetRailVisible) {
+            // The rail fades in with a title sort and out without one, keeping its letters while it fades.
+            val railLetters = remember { mutableStateOf(sortLetters) }
+            if (alphabetRailVisible) railLetters.value = sortLetters
+            androidx.compose.animation.AnimatedVisibility(
+                visible = alphabetRailVisible,
+                enter = fadeIn(AppMotion.effects()),
+                exit = fadeOut(AppMotion.effects()),
+                modifier = Modifier.align(Alignment.CenterEnd),
+            ) {
                 AlphabetNavigationRail(
-                    sections = sortLetters,
+                    sections = railLetters.value,
                     activeSection = activeSortLetter,
                     onSectionSelected = { section ->
                         alphabetSectionStarts[section]?.let { itemIndex ->
@@ -844,13 +892,14 @@ fun LibraryScreen(
                         }
                     },
                     modifier = Modifier
-                        .align(Alignment.CenterEnd)
                         .padding(end = 8.dp, top = contentTopInset + AppLayout.contentTop, bottom = 8.dp),
                 )
             }
             // Plain, not the Row's: the button sits in the grid's box beside the docked filters.
             androidx.compose.animation.AnimatedVisibility(
                 visible = showBackToTop,
+                enter = fadeIn(AppMotion.effects()) + scaleIn(AppMotion.spatial(), initialScale = AppMotion.pressedScale),
+                exit = fadeOut(AppMotion.effects()) + scaleOut(AppMotion.spatial(), targetScale = AppMotion.pressedScale),
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(
@@ -859,7 +908,7 @@ fun LibraryScreen(
                         } else {
                             gutter
                         },
-                        bottom = 24.dp,
+                        bottom = AppLayout.contentBottom,
                     ),
             ) {
                 LibraryBackToTopButton(
@@ -876,7 +925,13 @@ fun LibraryScreen(
             }
         }
 
-        if (filtersDocked) {
+        AnimatedVisibility(
+            visibleState = filterDockTransition,
+            enter = slideInHorizontally(AppMotion.spatial(IntOffset.VisibilityThreshold)) { width -> width / 3 } +
+                fadeIn(AppMotion.effects()),
+            exit = slideOutHorizontally(AppMotion.spatial(IntOffset.VisibilityThreshold)) { width -> width / 3 } +
+                fadeOut(AppMotion.effects()),
+        ) {
             LibraryFilterDockedPanel(
                 filterPanels = filterPanels,
                 filterState = filterState,

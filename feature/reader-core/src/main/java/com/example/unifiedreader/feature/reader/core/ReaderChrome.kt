@@ -1,5 +1,8 @@
 package com.example.unifiedreader.feature.reader.core
 
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.ui.unit.IntOffset
+import com.example.unifiedreader.ui.theme.AppMotion
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -248,8 +251,8 @@ fun ReaderChromeFrame(
         }
         AnimatedVisibility(
             visible = !(compact && panelOpen),
-            enter = slideInVertically { height -> height } + fadeIn(),
-            exit = slideOutVertically { height -> height } + fadeOut(),
+            enter = slideInVertically(AppMotion.spatial(IntOffset.VisibilityThreshold)) { height -> height } + fadeIn(AppMotion.effects()),
+            exit = slideOutVertically(AppMotion.spatial(IntOffset.VisibilityThreshold)) { height -> height } + fadeOut(AppMotion.effects()),
             modifier = Modifier.align(Alignment.BottomCenter),
         ) {
             Box(

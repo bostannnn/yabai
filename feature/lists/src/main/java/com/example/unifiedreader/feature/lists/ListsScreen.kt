@@ -1,5 +1,8 @@
 package com.example.unifiedreader.feature.lists
 
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.ui.unit.IntOffset
+import com.example.unifiedreader.ui.theme.AppMotion
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -189,7 +192,14 @@ fun ListsScreen(
                 span = { placed -> if (placed.cell is ListsCell.Tile) GridItemSpan(1) else GridItemSpan(maxLineSpan) },
                 contentType = { placed -> placed.cell::class },
             ) { placed ->
-                val cellModifier = Modifier.padding(top = placed.top, bottom = placed.bottom)
+                // Folds, sorts, places and pins move the lists to their new places instead of cutting.
+                val cellModifier = Modifier
+                    .animateItem(
+                        fadeInSpec = AppMotion.effects(),
+                        placementSpec = AppMotion.spatial(IntOffset.VisibilityThreshold),
+                        fadeOutSpec = AppMotion.effects(),
+                    )
+                    .padding(top = placed.top, bottom = placed.bottom)
                 when (val cell = placed.cell) {
                     is ListsCell.Places -> Row(
                         modifier = cellModifier.horizontalScroll(rememberScrollState()),

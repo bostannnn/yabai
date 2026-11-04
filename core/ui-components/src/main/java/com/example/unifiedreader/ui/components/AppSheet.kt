@@ -52,10 +52,13 @@ fun AppSheet(
     ) { _ -> content() }
 }
 
-/** [AppSheet], with a `hide` for the content that slides the sheet away before dismissing it. */
+/**
+ * [AppSheet], with a `hide` for the content that slides the sheet away before dismissing it: a button
+ * that closes the sheet calls it instead of removing the sheet, so it leaves the way it came.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun AppSheetLayout(
+fun AppSheetLayout(
     onDismissRequest: () -> Unit,
     skipPartiallyExpanded: Boolean = false,
     containerColor: Color = Color.Unspecified,

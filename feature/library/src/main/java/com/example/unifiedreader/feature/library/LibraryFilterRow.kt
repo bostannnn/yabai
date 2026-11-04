@@ -1,5 +1,8 @@
 package com.example.unifiedreader.feature.library
 
+import androidx.compose.animation.animateContentSize
+import com.example.unifiedreader.ui.theme.AppMotion
+import com.example.unifiedreader.ui.components.AppLayout
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -88,8 +91,10 @@ internal fun LibraryFilterRow(
             contentAlignment = if (heading != null) Alignment.CenterEnd else Alignment.CenterStart,
         ) {
             Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .animateContentSize(AppMotion.spatial()),
+                horizontalArrangement = Arrangement.spacedBy(AppLayout.headingGap),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 LibraryFiltersChip(
@@ -107,7 +112,7 @@ internal fun LibraryFilterRow(
                 }
             }
         }
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(AppLayout.headingGap))
         LibraryBrowseOptionsSelector(
             sortMode = sortMode,
             gridCellSizeDp = gridCellSizeDp,
@@ -147,7 +152,8 @@ fun LibraryFiltersChip(
         },
         label = {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.animateContentSize(AppMotion.spatial()),
+                horizontalArrangement = Arrangement.spacedBy(AppLayout.headingGap),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(text = "Filters", maxLines = 1)

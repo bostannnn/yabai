@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import androidx.compose.animation.AnimatedContent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -598,98 +599,114 @@ fun UnifiedReaderScaffold(
                 }
                 Box(modifier = Modifier.align(Alignment.TopCenter)) {
                     CompositionLocalProvider(LocalDrawerButtonDot provides (waitingUpdateVersion != null)) {
-                        when (uiState.topLevel) {
-                            TopLevelDestination.Library -> if (activeLibraryShelfBrowser != null) {
-                                LibraryShelfBrowserTopBar(
-                                    searchQuery = activeLibraryShelfSearchQuery,
-                                    onSearchQueryChanged = { query -> activeLibraryShelfSearchQuery = query },
-                                    onBack = { activeLibraryShelfBrowserKind = null },
-                                    scrolled = libraryShelfBrowserViewState.scrolled,
-                                    actions = if (currentAppWindowWidth() == AppWindowWidth.Compact) {
-                                        {
-                                            LibraryShelfBrowserOptionsButton(
-                                                shelves = uiState.libraryShelvesState,
-                                                kind = activeLibraryShelfBrowser.kind,
-                                                viewState = libraryShelfBrowserViewState,
-                                                gridCellSizeDp = uiState.libraryGridCellSizeDp,
-                                                onGridCellSizeDpChanged = viewModel::onLibraryGridCellSizeChanged,
-                                                iconOnly = true,
-                                            )
-                                        }
+                        // The bar changes with the screen under it, on the screen's fade-through.
+                        AnimatedContent(
+                            targetState = uiState.topLevel,
+                            transitionSpec = { topBarFadeThrough() },
+                            contentAlignment = Alignment.TopCenter,
+                            label = "topLevelTopBar",
+                        ) { topLevel ->
+                            when (topLevel) {
+                                TopLevelDestination.Library -> AnimatedContent(
+                                    targetState = activeLibraryShelfBrowser,
+                                    contentKey = { browser -> browser?.kind },
+                                    transitionSpec = { topBarFadeThrough() },
+                                    contentAlignment = Alignment.TopCenter,
+                                    label = "libraryTopBar",
+                                ) { shelfBrowser ->
+                                    if (shelfBrowser != null) {
+                                        LibraryShelfBrowserTopBar(
+                                            searchQuery = activeLibraryShelfSearchQuery,
+                                            onSearchQueryChanged = { query -> activeLibraryShelfSearchQuery = query },
+                                            onBack = { activeLibraryShelfBrowserKind = null },
+                                            scrolled = libraryShelfBrowserViewState.scrolled,
+                                            actions = if (currentAppWindowWidth() == AppWindowWidth.Compact) {
+                                                {
+                                                    LibraryShelfBrowserOptionsButton(
+                                                        shelves = uiState.libraryShelvesState,
+                                                        kind = shelfBrowser.kind,
+                                                        viewState = libraryShelfBrowserViewState,
+                                                        gridCellSizeDp = uiState.libraryGridCellSizeDp,
+                                                        onGridCellSizeDpChanged = viewModel::onLibraryGridCellSizeChanged,
+                                                        iconOnly = true,
+                                                    )
+                                                }
+                                            } else {
+                                                null
+                                            },
+                                        )
+                                    } else {
+                                        LibraryTopBar(
+                                            selectedSource = uiState.selectedSource,
+                                            sourceConnectivity = uiState.selectedSourceConnectivity,
+                                            searchQuery = uiState.selectedLibrarySearchQuery,
+                                            contextTitle = uiState.selectedLibraryContextTitle,
+                                            downloadSelectionState = LibraryDownloadSelectionTopBarState(
+                                                isSelectionMode = isLibraryDownloadSelectionMode,
+                                                selectedCount = selectedDownloadItemIdSet.size,
+                                                selectableCount = effectiveSelectableDownloadItemIds.size,
+                                            ),
+                                            refreshState = uiState.libraryRefreshTopBarState(),
+                                            onSourceConnectivityClick = viewModel::retrySelectedSourceConnection,
+                                            onDrawerClick = openDrawer,
+                                            onSearchQueryChanged = viewModel::onLibrarySearchQueryChanged,
+                                            onRefreshClick = viewModel::refreshSelectedRemoteLibrary,
+                                            downloadsButtonState = viewModel.downloadsSnapshot.buttonState,
+                                            onDownloadsClick = viewModel::showDownloadsSheet,
+                                            onDownloadSelectionModeChanged = ::updateLibraryDownloadSelectionMode,
+                                            onSelectAllDownloadItems = ::selectAllLibraryDownloadItems,
+                                            onDownloadSelectedItems = ::downloadSelectedLibraryItems,
+                                            onMarkSelectedRead = ::markSelectedLibraryItemsRead,
+                                            addingToList = (listMode as? ListLibraryMode.AddBooks)?.listName,
+                                            onDoneAdding = ::doneAddingBooks,
+                                            onAddSelectedToList = listsViewModel?.let {
+                                                {
+                                                    val selectedItems = effectiveSelectableDownloadItems
+                                                        .filter { item -> item.id in selectedDownloadItemIdSet }
+                                                    if (selectedItems.isNotEmpty()) {
+                                                        addToListFromBookPage = false
+                                                        addToListItems = selectedItems
+                                                        updateLibraryDownloadSelectionMode(false)
+                                                    }
+                                                }
+                                            },
+                                            onImportLocalFileClick = onImportLocalFileClick,
+                                            onLeaveSeries = viewModel::onBackPressed,
+                                            showSelectionTip = librarySelectionTip.shouldShow,
+                                            // Until the screen reports, the saved scroll position says.
+                                            scrolled = libraryScrolled[uiState.libraryBrowseContextKey]
+                                                ?: viewModel.libraryScrollPositionFor(uiState.libraryBrowseContextKey).let { position ->
+                                                    position.index > 0 || position.offset > 0
+                                                },
+                                        )
+                                    }
+                                }
+
+                                TopLevelDestination.Lists -> if (listsViewModel != null) {
+                                    ListsTopBar(
+                                        state = listsState,
+                                        listsViewModel = listsViewModel,
+                                        onDrawerClick = openDrawer,
+                                        catalog = uiState.items,
+                                    )
+                                }
+
+                                TopLevelDestination.Journal -> JournalTopBar(
+                                    onDrawerClick = openDrawer,
+                                    scrolled = journalScrolled,
+                                )
+
+                                TopLevelDestination.Settings -> SettingsTopBar(
+                                    title = if (settingsUsesSidePane) null else settingsPage?.title,
+                                    onDrawerClick = openDrawer,
+                                    onBack = if (settingsPage != null && !settingsUsesSidePane) {
+                                        { settingsPage = settingsPage?.parent }
                                     } else {
                                         null
                                     },
-                                )
-                            } else {
-                                LibraryTopBar(
-                                    selectedSource = uiState.selectedSource,
-                                    sourceConnectivity = uiState.selectedSourceConnectivity,
-                                    searchQuery = uiState.selectedLibrarySearchQuery,
-                                    contextTitle = uiState.selectedLibraryContextTitle,
-                                    downloadSelectionState = LibraryDownloadSelectionTopBarState(
-                                        isSelectionMode = isLibraryDownloadSelectionMode,
-                                        selectedCount = selectedDownloadItemIdSet.size,
-                                        selectableCount = effectiveSelectableDownloadItemIds.size,
-                                    ),
-                                    refreshState = uiState.libraryRefreshTopBarState(),
-                                    onSourceConnectivityClick = viewModel::retrySelectedSourceConnection,
-                                    onDrawerClick = openDrawer,
-                                    onSearchQueryChanged = viewModel::onLibrarySearchQueryChanged,
-                                    onRefreshClick = viewModel::refreshSelectedRemoteLibrary,
-                                    downloadsButtonState = viewModel.downloadsSnapshot.buttonState,
-                                    onDownloadsClick = viewModel::showDownloadsSheet,
-                                    onDownloadSelectionModeChanged = ::updateLibraryDownloadSelectionMode,
-                                    onSelectAllDownloadItems = ::selectAllLibraryDownloadItems,
-                                    onDownloadSelectedItems = ::downloadSelectedLibraryItems,
-                                    onMarkSelectedRead = ::markSelectedLibraryItemsRead,
-                                    addingToList = (listMode as? ListLibraryMode.AddBooks)?.listName,
-                                    onDoneAdding = ::doneAddingBooks,
-                                    onAddSelectedToList = listsViewModel?.let {
-                                        {
-                                            val selectedItems = effectiveSelectableDownloadItems
-                                                .filter { item -> item.id in selectedDownloadItemIdSet }
-                                            if (selectedItems.isNotEmpty()) {
-                                                addToListFromBookPage = false
-                                                addToListItems = selectedItems
-                                                updateLibraryDownloadSelectionMode(false)
-                                            }
-                                        }
-                                    },
-                                    onImportLocalFileClick = onImportLocalFileClick,
-                                    onLeaveSeries = viewModel::onBackPressed,
-                                    showSelectionTip = librarySelectionTip.shouldShow,
-                                    // Until the screen reports, the saved scroll position says.
-                                    scrolled = libraryScrolled[uiState.libraryBrowseContextKey]
-                                        ?: viewModel.libraryScrollPositionFor(uiState.libraryBrowseContextKey).let { position ->
-                                            position.index > 0 || position.offset > 0
-                                        },
+                                    scrolled = settingsScrolled,
                                 )
                             }
-
-                            TopLevelDestination.Lists -> if (listsViewModel != null) {
-                                ListsTopBar(
-                                    state = listsState,
-                                    listsViewModel = listsViewModel,
-                                    onDrawerClick = openDrawer,
-                                    catalog = uiState.items,
-                                )
-                            }
-
-                            TopLevelDestination.Journal -> JournalTopBar(
-                                onDrawerClick = openDrawer,
-                                scrolled = journalScrolled,
-                            )
-
-                            TopLevelDestination.Settings -> SettingsTopBar(
-                                title = if (settingsUsesSidePane) null else settingsPage?.title,
-                                onDrawerClick = openDrawer,
-                                onBack = if (settingsPage != null && !settingsUsesSidePane) {
-                                    { settingsPage = settingsPage?.parent }
-                                } else {
-                                    null
-                                },
-                                scrolled = settingsScrolled,
-                            )
                         }
                     }
                 }

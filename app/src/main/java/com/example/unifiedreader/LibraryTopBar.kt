@@ -1,5 +1,10 @@
 package com.example.unifiedreader
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import com.example.unifiedreader.ui.theme.AppMotion
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -82,68 +87,76 @@ fun LibraryTopBar(
         surfaceVisible = scrolled || selecting,
         containerColor = if (selecting) UnifiedReaderThemeTokens.colors.surfaceSelected else null,
     ) {
-        if (selecting) {
-            LibrarySelectionTopBar(
-                selectedCount = downloadSelectionState.selectedCount,
-                selectableCount = downloadSelectionState.selectableCount,
-                onClose = { onDownloadSelectionModeChanged(false) },
-                onSelectAll = onSelectAllDownloadItems,
-                onDownload = onDownloadSelectedItems,
-                onAddToList = onAddSelectedToList,
-                onMarkRead = onMarkSelectedRead,
-                addingTo = addingToList,
-                onDoneAdding = onDoneAdding,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            return@ThemedTopBarContainer
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            when {
-                contextTitle != null -> AppIconButton(onClick = onLeaveSeries) {
-                    Icon(imageVector = AppIcons.ArrowBack, contentDescription = "Back to source library")
-                }
-                onDrawerClick != null -> DrawerMenuButton(onClick = onDrawerClick)
+        // The selection bar fades in over the search bar and back, with the bar's color.
+        AnimatedContent(
+            targetState = selecting,
+            transitionSpec = { fadeIn(AppMotion.effects()) togetherWith fadeOut(AppMotion.effects()) },
+            contentAlignment = Alignment.Center,
+            label = "libraryTopBarSelection",
+        ) { showSelectionBar ->
+            if (showSelectionBar) {
+                LibrarySelectionTopBar(
+                    selectedCount = downloadSelectionState.selectedCount,
+                    selectableCount = downloadSelectionState.selectableCount,
+                    onClose = { onDownloadSelectionModeChanged(false) },
+                    onSelectAll = onSelectAllDownloadItems,
+                    onDownload = onDownloadSelectedItems,
+                    onAddToList = onAddSelectedToList,
+                    onMarkRead = onMarkSelectedRead,
+                    addingTo = addingToList,
+                    onDoneAdding = onDoneAdding,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                return@AnimatedContent
             }
-            // The field takes the middle, up to a width that still reads as one field on a wide window.
-            Box(modifier = Modifier.weight(1f)) {
-                LibraryBrowseTopBarSearchField(
-                    query = searchQuery,
-                    onQueryChanged = onSearchQueryChanged,
-                    placeholder = "Search ${contextTitle ?: selectedSource.displayName()}",
-                    trailingContent = if (searchQuery.isEmpty()) {
-                        {
-                            SourceConnectivityBadge(
-                                sourceType = selectedSource,
-                                state = sourceConnectivity,
-                                onClick = onSourceConnectivityClick,
-                            )
-                        }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                when {
+                    contextTitle != null -> AppIconButton(onClick = onLeaveSeries) {
+                        Icon(imageVector = AppIcons.ArrowBack, contentDescription = "Back to source library")
+                    }
+                    onDrawerClick != null -> DrawerMenuButton(onClick = onDrawerClick)
+                }
+                // The field takes the middle, up to a width that still reads as one field on a wide window.
+                Box(modifier = Modifier.weight(1f)) {
+                    LibraryBrowseTopBarSearchField(
+                        query = searchQuery,
+                        onQueryChanged = onSearchQueryChanged,
+                        placeholder = "Search ${contextTitle ?: selectedSource.displayName()}",
+                        trailingContent = if (searchQuery.isEmpty()) {
+                            {
+                                SourceConnectivityBadge(
+                                    sourceType = selectedSource,
+                                    state = sourceConnectivity,
+                                    onClick = onSourceConnectivityClick,
+                                )
+                            }
+                        } else {
+                            null
+                        },
+                        modifier = Modifier
+                            .widthIn(max = LibraryBarSearchFieldMaxWidth)
+                            .fillMaxWidth(),
+                    )
+                }
+                DownloadsButton(state = downloadsButtonState, onClick = onDownloadsClick)
+                LibraryTopBarMoreMenu(
+                    onImportFile = onImportLocalFileClick,
+                    refresh = if (refreshState.isVisible) {
+                        LibraryRefreshAction(
+                            enabled = refreshState.isEnabled,
+                            refreshing = refreshState.isRefreshing,
+                            onRefresh = onRefreshClick,
+                        )
                     } else {
                         null
                     },
-                    modifier = Modifier
-                        .widthIn(max = LibraryBarSearchFieldMaxWidth)
-                        .fillMaxWidth(),
+                    showSelectionTip = showSelectionTip && selectedSource != SourceType.LOCAL,
                 )
             }
-            DownloadsButton(state = downloadsButtonState, onClick = onDownloadsClick)
-            LibraryTopBarMoreMenu(
-                onImportFile = onImportLocalFileClick,
-                refresh = if (refreshState.isVisible) {
-                    LibraryRefreshAction(
-                        enabled = refreshState.isEnabled,
-                        refreshing = refreshState.isRefreshing,
-                        onRefresh = onRefreshClick,
-                    )
-                } else {
-                    null
-                },
-                showSelectionTip = showSelectionTip && selectedSource != SourceType.LOCAL,
-            )
         }
     }
 }

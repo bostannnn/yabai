@@ -1,5 +1,7 @@
 package com.example.unifiedreader.ui.components
 
+import androidx.compose.animation.animateContentSize
+import com.example.unifiedreader.ui.theme.AppMotion
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -151,7 +153,10 @@ fun AppSettingsRow(
             )
         }
         Column(
-            modifier = Modifier.weight(1f),
+            // A progress bar or a button arriving under the text grows the row instead of popping in.
+            modifier = Modifier
+                .weight(1f)
+                .animateContentSize(AppMotion.spatial()),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(

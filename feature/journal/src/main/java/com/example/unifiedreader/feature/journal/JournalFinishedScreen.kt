@@ -1,5 +1,8 @@
 package com.example.unifiedreader.feature.journal
 
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.example.unifiedreader.ui.components.AppSheetLayout
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -60,7 +63,6 @@ import com.example.unifiedreader.ui.components.AppDialogCardDefaults
 import com.example.unifiedreader.ui.components.AppDialogHost
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppLayout
-import com.example.unifiedreader.ui.components.AppSheet
 import com.example.unifiedreader.ui.components.AppTextField
 import com.example.unifiedreader.ui.components.AppTonalIconButton
 import com.example.unifiedreader.ui.components.AppWindowWidth
@@ -103,7 +105,9 @@ fun JournalFinishedScreen(
     onDismiss: () -> Unit,
     next: JournalFinishedNext? = null,
 ) {
-    val content = @Composable { layout: JournalFinishedLayout, modifier: Modifier ->
+    // Every way out (close, a tap outside, Back, Read next) plays the way in backwards before it acts:
+    // the sheet slides down, the card fades out to a little smaller.
+    val content = @Composable { layout: JournalFinishedLayout, modifier: Modifier, leave: (() -> Unit) -> Unit ->
         JournalFinishedContent(
             item = item,
             title = title,
@@ -112,26 +116,50 @@ fun JournalFinishedScreen(
             reviewState = reviewState,
             coverContent = coverContent,
             onRatingSelected = onRatingSelected,
-            onBackToLibrary = onBackToLibrary,
+            onBackToLibrary = { leave(onBackToLibrary) },
             backLabel = backLabel,
-            onDismiss = onDismiss,
-            next = next,
+            onDismiss = { leave(onDismiss) },
+            next = next?.let { shown -> JournalFinishedNext(shown.item, shown.title, shown.label, onRead = { leave(shown.onRead) }) },
             layout = layout,
             modifier = modifier,
         )
     }
     if (currentAppWindowWidth() == AppWindowWidth.Compact) {
-        AppSheet(onDismissRequest = onDismiss, containerColor = colors.tintStart, skipPartiallyExpanded = true) {
-            content(JournalFinishedLayout.Sheet, Modifier.coverTint(colors))
+        // What the sheet does once it has slid away; a swipe or a tap outside just closes it.
+        val afterHide = remember { arrayOfNulls<() -> Unit>(1) }
+        AppSheetLayout(
+            onDismissRequest = {
+                val action = afterHide[0] ?: onDismiss
+                afterHide[0] = null
+                action()
+            },
+            containerColor = colors.tintStart,
+            skipPartiallyExpanded = true,
+        ) { hide ->
+            content(JournalFinishedLayout.Sheet, Modifier.coverTint(colors)) { action ->
+                afterHide[0] = action
+                hide()
+            }
         }
     } else {
         val layout = journalFinishedCardLayout(LocalConfiguration.current.screenWidthDp.dp)
+        val shown = remember { Animatable(0f) }
+        val scope = rememberCoroutineScope()
+        var leaving by remember { mutableStateOf(false) }
+        val leave: (() -> Unit) -> Unit = { action ->
+            if (!leaving) {
+                leaving = true
+                scope.launch {
+                    shown.animateTo(0f, AppMotion.effects())
+                    action()
+                }
+            }
+        }
         AppDialogHost(
-            onDismissRequest = onDismiss,
+            onDismissRequest = { leave(onDismiss) },
             properties = DialogProperties(usePlatformDefaultWidth = false),
         ) {
             // The card fades in from a little smaller; the sheet on phones slides up by itself.
-            val shown = remember { Animatable(0f) }
             LaunchedEffect(Unit) { shown.animateTo(1f, AppMotion.effects()) }
             val shape = RoundedCornerShape(AppDialogCardDefaults.cornerRadius)
             content(
@@ -153,6 +181,7 @@ fun JournalFinishedScreen(
                     }
                     .clip(shape)
                     .coverTint(colors),
+                leave,
             )
         }
     }

@@ -258,6 +258,16 @@ fun <S, F> AppScreenHost(
     }
 }
 
+/**
+ * The change an [AppScreenHost] plays for [kind], for a pane that swaps its own pages in an
+ * AnimatedContent (a sheet's sub-page) and should move exactly as a screen does.
+ */
+fun appScreenTransform(
+    kind: AppScreenTransition,
+    layoutDirection: LayoutDirection,
+    density: Density,
+): ContentTransform = screenTransform(kind, layoutDirection, density)
+
 private fun screenTransform(
     kind: AppScreenTransition,
     layoutDirection: LayoutDirection,

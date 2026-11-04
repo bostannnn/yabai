@@ -1,5 +1,12 @@
 package com.example.unifiedreader.feature.library
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.ui.unit.IntOffset
+import com.example.unifiedreader.ui.theme.AppMotion
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -272,7 +279,8 @@ private fun LibraryFilterContent(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = AppLayout.inset, vertical = FooterVerticalPadding),
+                .padding(horizontal = AppLayout.inset, vertical = FooterVerticalPadding)
+                .animateContentSize(AppMotion.spatial()),
             verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap),
         ) {
             if (onSaveAsList != null) {
@@ -349,7 +357,11 @@ private fun LibraryFilterOverview(
             onClose = onClose,
             closeContentDescription = if (docked) "Hide filters" else "Close filters",
         ) {
-            if (anyApplied) {
+            AnimatedVisibility(
+                visible = anyApplied,
+                enter = fadeIn(AppMotion.effects()),
+                exit = fadeOut(AppMotion.effects()),
+            ) {
                 AppTextButton(onClick = onClearFilters) {
                     Text(text = "Clear all", fontWeight = FontWeight.SemiBold)
                 }
@@ -376,7 +388,16 @@ private fun LibraryFilterOverview(
             }
             sections.forEachIndexed { index, panel ->
                 item(key = "section:${panel.name}") {
-                    Column(modifier = Modifier.fillMaxWidth()) {
+                    // A pick that adds or drops sections moves the ones below instead of cutting.
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateItem(
+                                fadeInSpec = AppMotion.effects(),
+                                placementSpec = AppMotion.spatial(IntOffset.VisibilityThreshold),
+                                fadeOutSpec = AppMotion.effects(),
+                            ),
+                    ) {
                         if (index > 0) AppSheetDivider()
                         groupHeadings[index]?.let { heading ->
                             AppGroupLabel(

@@ -2,6 +2,10 @@
 
 package com.example.unifiedreader.feature.lists
 
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.ui.unit.IntOffset
+import com.example.unifiedreader.ui.theme.AppMotion
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -157,6 +161,16 @@ fun UserListPage(
                 (narrowedIds == null || book.item?.id in narrowedIds)
         }
     }
+    // Keyed by the book, not its place, so a reorder or a narrowing moves the covers instead of cutting
+    // (a book listed twice counts its copies).
+    val shownKeys = remember(shown) {
+        val seen = HashMap<String, Int>()
+        shown.map { (_, book) ->
+            val itemId = book.entry.itemId
+            val copy = seen.merge(itemId, 1, Int::plus)!!
+            if (copy == 1) "book:$itemId" else "book:$itemId:$copy"
+        }
+    }
     if (filtersOpen) {
         val facets = remember(listItems, narrowing, onDeviceItemIds, statusOf) {
             buildContextualLibraryFilterFacets(
@@ -284,9 +298,14 @@ fun UserListPage(
                 }
             }
         }
-        items(items = shown, key = { (position, book) -> "book:$position:${book.entry.itemId}" }) { (position, book) ->
+        itemsIndexed(items = shown, key = { index, _ -> shownKeys[index] }) { _, (position, book) ->
             val itemId = book.entry.itemId
             UserListBookTile(
+                modifier = Modifier.animateItem(
+                    fadeInSpec = AppMotion.effects(),
+                    placementSpec = AppMotion.spatial(IntOffset.VisibilityThreshold),
+                    fadeOutSpec = AppMotion.effects(),
+                ),
                 book = book,
                 number = if (numbered) position + 1 else null,
                 isNext = book == next && numbered,
@@ -472,11 +491,12 @@ private fun UserListBookTile(
     selected: Boolean?,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
 ) {
     val item: ReadableItem = book.item ?: book.entry.asReadableItem()
     val title = book.item?.libraryBookTitle() ?: book.entry.title
     Column(
-        modifier = Modifier
+        modifier = modifier
             .alpha(
                 when {
                     book.isMissing -> 0.55f
