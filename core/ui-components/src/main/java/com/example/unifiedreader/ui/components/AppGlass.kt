@@ -10,6 +10,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -49,9 +50,10 @@ fun Modifier.appGlass(
     shape: Shape,
     containerColor: Color = MaterialTheme.colorScheme.surface,
     tintAlpha: Float = AppGlassDefaults.tintAlpha,
+    edgeColor: Color = Color.Unspecified,
 ): Modifier {
     val state = LocalAppGlassState.current
-    val edge = MaterialTheme.colorScheme.outlineVariant.copy(alpha = AppGlassDefaults.edgeAlpha)
+    val edge = edgeColor.takeOrElse { MaterialTheme.colorScheme.outlineVariant.copy(alpha = AppGlassDefaults.edgeAlpha) }
     val base = clip(shape)
     val filled = if (state != null) {
         base.hazeEffect(

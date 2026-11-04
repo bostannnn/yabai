@@ -37,6 +37,7 @@ fun AppSectionHeading(
                 lineHeight = if (compact) 24.sp else 26.sp,
                 fontWeight = FontWeight.SemiBold,
             ),
+            color = appLabelColor(),
             maxLines = 1,
         )
         count?.let {

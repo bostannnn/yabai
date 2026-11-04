@@ -97,7 +97,11 @@ fun AppTopBar(
                         spotColor = Color.Black.copy(alpha = 0.35f),
                     )
                     .then(
-                        if (containerColor != null) Modifier.background(containerColor, shape) else Modifier.appGlass(shape = shape),
+                        if (containerColor != null) {
+                            Modifier.background(containerColor, shape)
+                        } else {
+                            Modifier.appGlass(shape = shape, edgeColor = UnifiedReaderThemeTokens.character.barEdgeColor)
+                        },
                     ),
             )
         }

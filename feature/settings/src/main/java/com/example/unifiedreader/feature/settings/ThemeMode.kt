@@ -91,7 +91,7 @@ enum class ThemeMode(
         label = "Terminal 95",
         description = "Use phosphor green, amber, and cyan accents over deep terminal-black browsing surfaces.",
         previewSwatches = ThemePreviewSwatches(
-            surface = 0xFF07110A,
+            surface = 0xFF041D0E,
             reader = 0xFF7CFF8A,
             sync = 0xFFFFD166,
             source = 0xFF6DE7FF,
@@ -103,7 +103,7 @@ enum class ThemeMode(
         label = "Crimson Court",
         description = "Use blood-red chrome, antique gold accents, and candlelit gothic surfaces.",
         previewSwatches = ThemePreviewSwatches(
-            surface = 0xFF191016,
+            surface = 0xFF280C19,
             reader = 0xFFFF6B86,
             sync = 0xFFE8C276,
             source = 0xFFC8B6FF,
@@ -126,7 +126,7 @@ enum class ThemeMode(
         label = "Blueprint",
         description = "Use drafting-blue surfaces, precise cyan linework, and technical diagram accents.",
         previewSwatches = ThemePreviewSwatches(
-            surface = 0xFF092139,
+            surface = 0xFF0B2A4D,
             reader = 0xFF9BE7FF,
             sync = 0xFFFFC857,
             source = 0xFFB8D8FF,
@@ -138,9 +138,9 @@ enum class ThemeMode(
         label = "VHS Night",
         description = "Use washed analog blacks, faded cyan, tracking red, and tape-label surfaces.",
         previewSwatches = ThemePreviewSwatches(
-            surface = 0xFF171720,
-            reader = 0xFF86CAD5,
-            sync = 0xFFFF5C7A,
+            surface = 0xFF16102F,
+            reader = 0xFF7FE6F2,
+            sync = 0xFFFF5CA8,
             source = 0xFFE1D7BA,
         ),
         isDark = true,
@@ -150,9 +150,9 @@ enum class ThemeMode(
         label = "Detective File",
         description = "Use manila folder surfaces, typewriter ink, evidence red, and case-file blue.",
         previewSwatches = ThemePreviewSwatches(
-            surface = 0xFFF3E4C2,
+            surface = 0xFFE2C68A,
             reader = 0xFF233D5A,
-            sync = 0xFFB3362D,
+            sync = 0xFF8E2219,
             source = 0xFF8A6B2F,
         ),
     ),

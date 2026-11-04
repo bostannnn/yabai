@@ -173,8 +173,10 @@ Use this ownership map when deciding where code goes.
 - `core:common`
   - generic shared utilities with no product-specific behavior
 - `core:ui-theme`
-  - shared visual tokens (semantic colors, presentation sizes) and theme setup. Themes are
-    palettes only: no per-theme shapes, fonts, or drawing treatments.
+  - shared visual tokens (semantic colors, presentation sizes, a theme's character) and theme
+    setup. Themes are palettes: no per-theme shapes or fonts. A character theme may add only what
+    `UnifiedReaderThemeCharacter` holds (ground pattern, label accent, bar edge, filled rail
+    selection); see the design system's README, "Quiet and character themes".
 - `core:ui-components`
   - the app's component kit (`AppPanel`, `AppDialog`, `AppSheet`, `AppButton`, `AppChip`, ...):
     the only place feature and app code gets containers, dialogs, buttons, chips, menus,

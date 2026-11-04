@@ -1,6 +1,7 @@
 package com.example.unifiedreader.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -91,7 +92,7 @@ object AppPanelDefaults {
         @Composable get() = CardDefaults.outlinedCardBorder()
 }
 
-/** A full-screen background surface for a route or a screen-sized sheet. */
+/** A full-screen background surface for a route or a screen-sized sheet, with the theme's ground pattern. */
 @Composable
 fun AppBackground(
     modifier: Modifier = Modifier,
@@ -99,9 +100,13 @@ fun AppBackground(
     contentColor: Color = contentColorFor(color),
     content: @Composable () -> Unit,
 ) {
+    // The colour and the theme's ground pattern draw under a see-through surface, so the pattern
+    // sits between the ground and the content.
     Surface(
-        modifier = modifier,
-        color = color,
+        modifier = modifier
+            .background(color)
+            .appGroundPattern(),
+        color = Color.Transparent,
         contentColor = contentColor,
         content = content,
     )

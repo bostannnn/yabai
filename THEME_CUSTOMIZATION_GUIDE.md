@@ -5,6 +5,16 @@ components; only colors change. This was decided on 2026-10-17 (see `UI_REDESIGN
 the earlier per-theme shapes, fonts, and "personality" treatments (scanlines, halftone,
 frames, dashed borders) were removed because they made the app read as mismatched.
 
+Since 2026-11-04 five themes are *character* themes (Terminal 95, Crimson Court, VHS Night,
+Blueprint, Detective File): a coloured ground, a static ground pattern on the screen ground and the
+rail, section headings and group labels in an accent, an accent glass edge on the top bar, and a
+rail/drawer selection filled with `primary`. That is all a theme may add, held in
+`UnifiedReaderThemeCharacter` (`core:ui-theme`) and mapped per theme in
+`unifiedReaderThemeCharacter()` (`UnifiedReaderTheme.kt`); the kit draws it. Every other theme is
+*quiet* and has none of it. `ThemeCharacterTest` keeps a character ground coloured (OKLab chroma
+0.04+), 0.045 from every other theme's ground, and its label accent at 4.5:1 on the ground and on
+panels. The rules are in `docs/design/system/project/README.md`, "Quiet and character themes".
+
 ## Main Files
 
 - `feature/settings/src/main/java/com/example/unifiedreader/feature/settings/ThemeMode.kt`

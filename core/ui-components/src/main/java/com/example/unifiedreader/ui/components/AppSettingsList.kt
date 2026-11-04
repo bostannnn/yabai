@@ -69,7 +69,7 @@ fun AppGroupLabel(
             text = text,
             style = style,
             fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = appLabelColor(),
             modifier = modifier.semantics { heading() },
         )
         return
@@ -78,7 +78,7 @@ fun AppGroupLabel(
         modifier = modifier.semantics(mergeDescendants = true) { heading() },
         horizontalArrangement = Arrangement.spacedBy(AppLayout.headingGap),
     ) {
-        Text(text = text, style = style, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+        Text(text = text, style = style, fontWeight = FontWeight.SemiBold, color = appLabelColor())
         Text(text = count, style = style, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

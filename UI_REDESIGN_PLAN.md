@@ -11,6 +11,12 @@ the design system in `docs/design/system/` (the source of truth for every screen
 
 ## Decisions
 
+- **Quiet and character themes, 2026-11-04.** Themes looked alike: dark grounds were near grey
+  (OKLab chroma 0.03 or less) and colour was rationed. Board: https://claude.ai/artifact/PnVtzzEV8wfuyeZ6gN5yPP.
+  Picked A+B: Terminal 95, Crimson Court, VHS Night, Blueprint and Detective File get coloured
+  grounds, a static ground pattern, accent labels, an accent bar edge and a filled rail selection
+  (design system README, Colour). The rest stay quiet; Panel Pop stays as it was (its redraws
+  were rejected, and it stays in the app). Rejected for now: C, a second face and a shape per theme.
 - **Direction approved 2026-10-17: glass chrome over flat content, themes as palettes only.**
   Mock: https://claude.ai/artifact/HUb2kC5y5k17dniBJgxTKa (library home, seven color-only
   themes). One translucent blurred material for the top bar, drawer, sheets, and reader bars;

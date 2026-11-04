@@ -22,6 +22,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -407,7 +408,8 @@ fun UnifiedReaderScaffold(
         },
     ) {
         Scaffold(
-            containerColor = MaterialTheme.colorScheme.background,
+            // See-through: the root AppBackground under it is the ground, with the theme's pattern.
+            containerColor = Color.Transparent,
             contentWindowInsets = WindowInsets.appSystemBars,
         ) { innerPadding ->
             // Content fills the screen and scrolls under the floating glass top bar; each

@@ -65,6 +65,7 @@ fun AppNavigationRail(
         modifier = modifier
             .fillMaxHeight()
             .background(MaterialTheme.colorScheme.background)
+            .appGroundPattern()
             .drawBehind {
                 val stroke = AppNavigationRailDefaults.lineWidth.toPx()
                 val x = if (layoutDirection == LayoutDirection.Ltr) size.width - stroke / 2f else stroke / 2f
@@ -109,14 +110,14 @@ fun AppNavigationRailItem(
     badged: Boolean = false,
     badgeDescription: String? = null,
 ) {
-    val semanticColors = UnifiedReaderThemeTokens.colors
+    val (selectedFill, onSelectedFill) = appNavigationSelectedColors()
     val indicatorColor by animateColorAsState(
-        targetValue = if (selected) semanticColors.surfaceSelected else Color.Transparent,
+        targetValue = if (selected) selectedFill else Color.Transparent,
         animationSpec = AppMotion.effects(),
         label = "appRailIndicator",
     )
     val iconColor by animateColorAsState(
-        targetValue = if (selected) semanticColors.onSurfaceSelected else MaterialTheme.colorScheme.onSurfaceVariant,
+        targetValue = if (selected) onSelectedFill else MaterialTheme.colorScheme.onSurfaceVariant,
         animationSpec = AppMotion.effects(),
         label = "appRailIcon",
     )

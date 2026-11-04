@@ -122,6 +122,7 @@ The floating top bar every screen shares: 56 tall, 12 below the status bar, its 
 - **Its sides follow the gutter** (`appGutter()`): 16 on Compact, 24 from Medium.
 - Contents by screen: a source's library has the menu, the search field ("Search Kavita"), Downloads and •••. A top-level screen without search (journal, settings hub) has only the menu, and only while the drawer is the navigation. A page you opened has Back and its name. See Names and titles.
 - Icon buttons are the kit's default size; do not force 36.
+- The glass edge is `outline-variant` at 28%; a character theme draws it in its `bar-edge` (see Colour).
 """, f"""
 <div class="yb yb-ground" style="padding:16px;display:flex;flex-direction:column;gap:20px">
   <div style="position:relative;height:80px;--yb-gutter:24px">
@@ -142,7 +143,7 @@ comp("AppNavigationRail", "Navigation", 420, """
 The rail on Expanded windows whose height is not Compact: 88 wide, a hairline at its edge, sources at the top and Journal and Settings at the bottom.
 
 - Kit: `AppNavigationRail` + `AppNavigationRailItem`; `SourceNavigationRail` in feature:navigation chooses it (`sourceNavigationUsesRail()`).
-- The selected item's indicator is `primary-container`; labels are 12 Medium.
+- The selected item's indicator is `primary-container` (in a character theme `primary`, its icon `on-primary`); labels are 12 Medium.
 - Content beside the rail starts `gutter` after its hairline.
 - The rail is the screen's name: nothing on the screen repeats it.
 """, f"""
@@ -168,7 +169,7 @@ comp("AppSettingsGroup", "Lists", 560, """
 A labelled group of rows on a panel: the settings hub and every settings page, the source page's groups, About.
 
 - Kit: `AppSettingsGroup(label)` holding `AppSettingsRow`s separated by `AppSettingsRowDivider()`.
-- The label is `AppGroupLabel` (`group-label`: 15 SemiBold, `on-surface`), **flush with the panel's edge**, `heading-gap` 8 above the panel. A count may follow it, `heading-gap` apart, in Medium `on-surface-variant` ("Rules 1,284 match"). The theme page's Device / Light / Dark use the same label over their tiles.
+- The label is `AppGroupLabel` (`group-label`: 15 SemiBold, `on-surface`, a character theme's `label-accent`), **flush with the panel's edge**, `heading-gap` 8 above the panel. A count may follow it, `heading-gap` apart, in Medium `on-surface-variant` ("Rules 1,284 match"). The theme page's Device / Light / Dark use the same label over their tiles.
 - Rows: `AppSettingsRow(title, icon, supporting, selected, onClick, trailing, leading)`. Inset 20, min height 64, icon 24 then 16 to the text. One trailing thing: a chevron (`navigate_next`), a switch, a value, a button or a drag handle.
 - Dividers start under the text (60) and use `outline-variant` at 60%.
 - The selected row (two panes) fills with `primary-container`; its supporting text and chevron drop to 72%.
@@ -207,7 +208,7 @@ One row for a book in a list: a 40 wide cover, the title at 15 SemiBold, one lin
 comp("AppSectionHeading", "Text", 200, """
 # AppSectionHeading
 
-The heading on the page ground above a grid or a list: `section-heading` 20 SemiBold (18 on phones) with an optional count in 15 Regular `on-surface-variant`, and optional actions at the end of its row.
+The heading on the page ground above a grid or a list: `section-heading` 20 SemiBold (18 on phones), `on-surface` (a character theme's `label-accent`), with an optional count in 15 Regular `on-surface-variant`, and optional actions at the end of its row.
 
 - Kit: `AppSectionHeading(text, count)`; the caller puts actions (Filters, sort, Hide finished) after it in the same row.
 - It sits **on the gutter line**, flush with the grid under it, `heading-gap` 8 above it.
