@@ -109,4 +109,8 @@ object UnifiedReaderThemeTokens {
     val presentation: UnifiedReaderPresentationTokens
         @androidx.compose.runtime.Composable
         get() = LocalUnifiedReaderPresentationTokens.current
+
+    val character: UnifiedReaderThemeCharacter
+        @androidx.compose.runtime.Composable
+        get() = LocalUnifiedReaderThemeCharacter.current
 }

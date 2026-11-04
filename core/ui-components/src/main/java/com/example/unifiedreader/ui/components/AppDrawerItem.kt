@@ -48,11 +48,11 @@ fun AppDrawerItem(
 object AppDrawerItemDefaults {
     @Composable
     fun colors(): NavigationDrawerItemColors {
-        val semanticColors = UnifiedReaderThemeTokens.colors
+        val (selectedFill, onSelectedFill) = appNavigationSelectedColors()
         return NavigationDrawerItemDefaults.colors(
-            selectedContainerColor = semanticColors.surfaceSelected,
-            selectedIconColor = semanticColors.onSurfaceSelected,
-            selectedTextColor = semanticColors.onSurfaceSelected,
+            selectedContainerColor = selectedFill,
+            selectedIconColor = onSelectedFill,
+            selectedTextColor = onSelectedFill,
             unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
             unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -68,11 +68,11 @@ fun AppDrawerBadge(
     text: String,
     selected: Boolean = false,
 ) {
-    val semanticColors = UnifiedReaderThemeTokens.colors
+    val (selectedFill, onSelectedFill) = appNavigationSelectedColors()
     AppBadge(
         shape = CircleShape,
-        color = if (selected) semanticColors.onSurfaceSelected else MaterialTheme.colorScheme.primary,
-        contentColor = if (selected) semanticColors.surfaceSelected else MaterialTheme.colorScheme.onPrimary,
+        color = if (selected) onSelectedFill else MaterialTheme.colorScheme.primary,
+        contentColor = if (selected) selectedFill else MaterialTheme.colorScheme.onPrimary,
     ) {
         Text(
             text = text,
