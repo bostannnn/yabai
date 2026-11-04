@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
@@ -42,7 +43,10 @@ import com.example.unifiedreader.ui.components.AppPanel
 import com.example.unifiedreader.ui.components.AppWindowWidth
 import com.example.unifiedreader.ui.components.currentAppWindowWidth
 
-/** One of the journal's panels: the kit's raised panel with the journal's padding. */
+/**
+ * One of the journal's panels: the kit's raised panel with the journal's padding. In a row of the
+ * journal's grid it fills the height the row gives it; elsewhere it is as tall as its content.
+ */
 @Composable
 internal fun JournalPanel(
     modifier: Modifier = Modifier,
@@ -51,7 +55,7 @@ internal fun JournalPanel(
 ) {
     AppPanel(modifier = modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(horizontal = contentPadding, vertical = JournalPanelVerticalPadding),
+            modifier = Modifier.fillMaxHeight().padding(horizontal = contentPadding, vertical = JournalPanelVerticalPadding),
             content = content,
         )
     }
@@ -117,7 +121,8 @@ internal fun JournalSummaryPanel(
     }
     val width = currentAppWindowWidth()
     val compact = width == AppWindowWidth.Compact
-    // All in a row on a wide tablet, three then two on a narrower one, two by two on phones.
+    // All in a row on a wide tablet, rows of three on a narrower one, two by two on phones; a short
+    // last row's cells widen, so every row ends flush.
     val perRow = when (width) {
         AppWindowWidth.Compact -> 2
         AppWindowWidth.Medium -> 3
@@ -135,10 +140,6 @@ internal fun JournalSummaryPanel(
                             .weight(1f)
                             .padding(horizontal = if (compact) 16.dp else 20.dp, vertical = if (compact) 12.dp else 2.dp),
                     )
-                }
-                // A short last row keeps its cells the width of the others.
-                repeat(perRow - row.size) {
-                    Box(modifier = Modifier.weight(1f))
                 }
             }
         }
@@ -252,6 +253,8 @@ private fun MixLegend(
 internal fun JournalWhenYouReadPanel(
     buckets: List<JournalTimeBucket>,
     modifier: Modifier = Modifier,
+    // In a row taller than the chart needs, the bars grow into the room.
+    stretch: Boolean = false,
 ) {
     val maxMillis = buckets.maxOfOrNull(JournalTimeBucket::totalMillis)?.takeIf { it > 0L } ?: return
     val window = journalReadingHours(buckets)
@@ -267,7 +270,8 @@ internal fun JournalWhenYouReadPanel(
             height = 72.dp,
             gap = 4.dp,
             description = "Reading by hour of the day. ${journalReadingHoursLabel(buckets)}",
-            modifier = Modifier.padding(top = 16.dp),
+            stretch = stretch,
+            modifier = Modifier.padding(top = 16.dp).then(if (stretch) Modifier.weight(1f) else Modifier),
         )
     }
 }
@@ -281,6 +285,7 @@ internal fun JournalWhenYouReadPanel(
 internal fun JournalPagesPanel(
     overview: JournalPeriodOverview,
     modifier: Modifier = Modifier,
+    stretch: Boolean = false,
 ) {
     val bars = remember(overview) { overview.pagesBars() }
     val busiest = bars.maxByOrNull(JournalPagesBar::pages)?.takeIf { it.pages > 0 } ?: return
@@ -294,10 +299,11 @@ internal fun JournalPagesPanel(
             labels = bars.mapIndexed { index, bar -> bar.label.takeIf { !month || index % 7 == 0 } },
             highlighted = bars.map { bar -> bar === busiest },
             highlightColor = MaterialTheme.colorScheme.primary,
-            height = if (month) 96.dp else 116.dp,
+            height = 72.dp,
             gap = if (month) 3.dp else 8.dp,
             description = "${if (month) "Pages per day" else "Pages per month"}. $line",
-            modifier = Modifier.padding(top = 16.dp),
+            stretch = stretch,
+            modifier = Modifier.padding(top = 16.dp).then(if (stretch) Modifier.weight(1f) else Modifier),
         )
     }
 }
@@ -310,6 +316,7 @@ internal fun JournalPagesPanel(
 internal fun JournalTimeByMonthPanel(
     buckets: List<JournalTimeBucket>,
     modifier: Modifier = Modifier,
+    stretch: Boolean = false,
 ) {
     val busiest = journalBusiestMonth(buckets) ?: return
     val maxMillis = buckets.maxOf(JournalTimeBucket::totalMillis)
@@ -321,15 +328,19 @@ internal fun JournalTimeByMonthPanel(
             labels = buckets.map(JournalTimeBucket::label),
             highlighted = buckets.map { bucket -> bucket.key == busiest },
             highlightColor = MaterialTheme.colorScheme.primary,
-            height = 116.dp,
+            height = 72.dp,
             gap = 8.dp,
             description = "Reading time by month, most in ${longMonthName(busiest)}",
-            modifier = Modifier.padding(top = 18.dp),
+            stretch = stretch,
+            modifier = Modifier.padding(top = 16.dp).then(if (stretch) Modifier.weight(1f) else Modifier),
         )
     }
 }
 
-/** Bars from a shared baseline; an empty slot keeps a 2 dp stub so the scale reads. */
+/**
+ * Bars from a shared baseline; an empty slot keeps a 2 dp stub so the scale reads. [height] tall,
+ * or at least that and as tall as its panel lets it when [stretch].
+ */
 @Composable
 private fun BarChart(
     values: List<Long>,
@@ -341,12 +352,13 @@ private fun BarChart(
     gap: Dp,
     description: String,
     modifier: Modifier = Modifier,
+    stretch: Boolean = false,
 ) {
     val barColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
     val stubColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
     Column(modifier = modifier.clearAndSetSemantics { contentDescription = description }) {
         Row(
-            modifier = Modifier.fillMaxWidth().height(height),
+            modifier = Modifier.fillMaxWidth().then(if (stretch) Modifier.weight(1f).heightIn(min = height) else Modifier.height(height)),
             horizontalArrangement = Arrangement.spacedBy(gap),
             verticalAlignment = Alignment.Bottom,
         ) {
@@ -355,7 +367,7 @@ private fun BarChart(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .height(if (value > 0L) (height * fraction).coerceAtLeast(3.dp) else 2.dp)
+                        .then(if (value > 0L) Modifier.fillMaxHeight(fraction).heightIn(min = 3.dp) else Modifier.height(2.dp))
                         .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp, bottomStart = 1.dp, bottomEnd = 1.dp))
                         .background(
                             when {

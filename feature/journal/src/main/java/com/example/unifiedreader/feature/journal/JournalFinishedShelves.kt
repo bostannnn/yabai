@@ -1,21 +1,22 @@
 package com.example.unifiedreader.feature.journal
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -100,21 +101,23 @@ private fun JournalCoverShelfPanel(
     }
     JournalPanel(modifier = modifier) {
         JournalSectionHeader(title = title, summary = summary, trailing = seeAll)
-        LazyRow(
-            modifier = Modifier.padding(top = 14.dp),
+        // A plain scrolling row (a dozen covers at most), so the panel can be measured for its row's height.
+        Row(
+            modifier = Modifier.padding(top = 14.dp).horizontalScroll(rememberScrollState()).padding(end = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
-            contentPadding = PaddingValues(end = 4.dp),
         ) {
-            items(items.take(CoverShelfCount), key = { summary -> summary.item.itemId }) { summary ->
-                CoverShelfItem(
-                    summary = summary,
-                    coverImageUrlProvider = coverImageUrlProvider,
-                    onCoverVisible = onCoverVisible,
-                    onOpen = { onOpenItem(summary) },
-                )
+            items.take(CoverShelfCount).forEach { summary ->
+                key(summary.item.itemId) {
+                    CoverShelfItem(
+                        summary = summary,
+                        coverImageUrlProvider = coverImageUrlProvider,
+                        onCoverVisible = onCoverVisible,
+                        onOpen = { onOpenItem(summary) },
+                    )
+                }
             }
             if (items.size > CoverShelfCount) {
-                item(key = "more") {
+                run {
                     Box(
                         modifier = Modifier
                             .width(CoverShelfWidth)

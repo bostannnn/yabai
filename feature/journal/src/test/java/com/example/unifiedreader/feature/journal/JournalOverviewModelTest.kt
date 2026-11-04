@@ -116,10 +116,9 @@ class JournalOverviewModelTest {
     }
 
     @Test
-    fun `year months go four across on a tablet and two on a narrow phone`() {
-        assertEquals(4, journalYearMonthColumns(760f))
-        assertEquals(3, journalYearMonthColumns(450f))
-        assertEquals(2, journalYearMonthColumns(340f))
+    fun `year months go four across on a tablet and three on a phone`() {
+        assertEquals(4, journalYearMonthColumns(compact = false))
+        assertEquals(3, journalYearMonthColumns(compact = true))
     }
 
     private fun day(

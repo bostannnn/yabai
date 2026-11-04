@@ -597,6 +597,14 @@ days = "".join(
     f'<div style="height:48px;border-radius:10px;padding:4px 6px;font:500 12px/14px var(--font-sans);{("background:var(--surface-container-highest);" if d in (17, 21, 22, 23, 24, 25) else "box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--outline-variant) 60%,transparent);")}">{d}</div>'
     if d > 0 else '<div></div>' for d in [0, 0, 0] + list(range(1, 32))
 )
+hour_bars = "".join(
+    f'<i style="flex:1;height:{max(3, v * 100 // 72)}%;border-radius:3px 3px 1px 1px;background:{"var(--tertiary)" if 19 <= i <= 22 else "var(--outline)"}"></i>'
+    for i, v in enumerate([0, 0, 0, 0, 0, 0, 5, 12, 8, 4, 2, 6, 14, 10, 4, 3, 6, 8, 20, 35, 58, 72, 64, 22])
+)
+page_bars = "".join(
+    f'<i style="flex:1;height:{max(3, v * 100 // 126)}%;border-radius:3px 3px 1px 1px;background:{"var(--primary)" if v == 126 else "var(--outline)"}"></i>'
+    for v in [0, 21, 40, 0, 76, 52, 0, 13, 101, 63, 0, 0, 38, 25, 74, 118, 50, 0, 0, 29, 80, 92, 17, 0, 55, 126, 67, 34, 0, 60, 113]
+)
 journal = f"""
 <div class="yb-device" style="width:{W}px;height:{H}px">
   {statusbar()}
@@ -614,16 +622,21 @@ journal = f"""
           {stat("110", "", "Pages", "Books 85 · comics 25")}
           {stat("15", "", "Finished", "13 waiting for a rating")}
         </div>
-        <div style="display:grid;grid-template-columns:1.25fr 1fr;gap:16px">
-          <div class="yb-panel" style="padding-bottom:8px">
-            <div style="padding:20px 20px 4px"><div style="font:600 17px/24px var(--font-sans)">What you read</div><div class="yb-caption">Longest first · tap one for its rating, review and sessions</div></div>
-            <div class="yb-book-row">{cover(0)}<div style="flex:1;min-width:0"><div class="yb-book-title">The Lantern Keepers</div><div class="yb-book-line">Oona Fitch · Book</div></div><span class="yb-supporting">9 h 43 min</span></div>
-            {DIV}
-            <div class="yb-book-row">{cover(5)}<div style="flex:1;min-width:0"><div class="yb-book-title">Star Courier #2</div><div class="yb-book-line">Finished 17 Oct · Comic</div></div><button class="yb-btn is-tonal">Rate</button></div>
-          </div>
-          <div class="yb-panel" style="padding:20px">
+        <div class="yb-group-label" style="margin-bottom:-8px">Time</div>
+        <div style="display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px">
+          <div class="yb-panel" style="padding:20px;grid-column:span 7">
             <div style="font:600 17px/24px var(--font-sans)">Reading days</div><div class="yb-caption" style="margin-bottom:12px">Minutes each day · tap a day for what you read</div>
             <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">{days}</div>
+          </div>
+          <div style="grid-column:span 5;display:flex;flex-direction:column;gap:16px">
+            <div class="yb-panel" style="padding:20px;flex:1;display:flex;flex-direction:column">
+              <div style="font:600 17px/24px var(--font-sans)">When you read</div><div class="yb-caption">Mostly 19:00–23:00</div>
+              <div style="flex:1;min-height:72px;display:flex;align-items:flex-end;gap:4px;margin-top:16px">{hour_bars}</div>
+            </div>
+            <div class="yb-panel" style="padding:20px;flex:1;display:flex;flex-direction:column">
+              <div style="font:600 17px/24px var(--font-sans)">Pages per day</div><div class="yb-caption">Most on 26 Oct: 126 pages</div>
+              <div style="flex:1;min-height:72px;display:flex;align-items:flex-end;gap:3px;margin-top:16px">{page_bars}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -635,12 +648,18 @@ journal = f"""
 comp("JournalScreen", "Screens", 900, """
 # Journal
 
-The journal's month: the period with its arrows and Month / Year, the numbers, then What you read and Reading days.
+The journal's month or year: the period with its arrows and Month / Year, then its panels in three groups, each under an `AppGroupLabel`: **Time**, **Books** and **Taste**.
 
 - **No "Journal" eyebrow.** The period, "October 2026", is the first content and stays as the title: it is the content, and its arrows move it.
-- **Gutter 24** from Medium, 16 on phones; content top 84; bottom 24.
-- Panels use `inset` 20 at every width and `grid-gap` 16 between them.
-- Book rows are `AppBookRow`.
+- **Gutter 24** from Medium, 16 on phones; content top 84; bottom 24. Panels use `inset` 20 at every width, `grid-gap` 16 between panels and rows, `section-gap` 24 between groups.
+- **Rows, never columns.** Where the journal is 880 wide or more, a group is rows on a 12-column grid and every row ends flush: one big panel with up to two small ones stacked beside it, the stack as tall as the big panel (or the big panel as tall as the stack). Below 880 every panel takes the full width, in the same order.
+  - **Time:** the summary; then Reading days (7) beside When you read over Pages per day (5). The year: the year's Reading days (8) beside Reading time by month over Pages per month (4).
+  - **Books:** What you read (7) beside Finished over Needs rating (5); then Lists you finished. The year: Finished (8) beside Needs rating (4); then Lists you finished.
+  - **Taste:** Ratings (4) beside Most read (8).
+- **A panel with nothing in it steps aside**, and what is left in its row widens to fill it; a row with nothing goes, and so does a group. A period with nothing at all shows one empty state.
+- **The summary's rows end flush:** every figure in one row where they fit (all five on Expanded), else rows of three, two on phones, the cells of a shorter last row widening to fill it.
+- **Charts** are 72 tall at least and grow with their panel; **the month's calendar fills its panel**, its days as wide as a seventh of it; its days never taller than 64; the year's months go four to a row, three on phones.
+- What you read shows the longest six, then Show all; "Opened for a minute or two" closes the panel. Book rows are `AppBookRow`; Finished and Needs rating are rows of covers that scroll sideways.
 """, f"""
 <div class="yb" style="padding:16px">
   {TOGGLE}

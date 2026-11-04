@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,6 +29,14 @@ import androidx.compose.ui.unit.sp
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppTextButton
 
+/** Every rating in the period, books and comics together; null when nothing was rated. */
+internal fun JournalPeriodOverview.allRatingsSummary(): JournalRatingSummary? {
+    val counts = stats.ratingCountsByMediaType
+    val books = counts[JournalMediaType.BOOK].orEmpty()
+    val comics = counts[JournalMediaType.COMIC].orEmpty()
+    return journalRatingSummary((books.keys + comics.keys).associateWith { rating -> (books[rating] ?: 0) + (comics[rating] ?: 0) })
+}
+
 /**
  * Ratings: your ratings of the books read in the period, books and comics apart. A kind with a
  * few ratings gets five rows of bars, five stars at the top; one or two get a line. Not shown
@@ -43,11 +50,7 @@ internal fun JournalRatingsPanel(
     val counts = overview.stats.ratingCountsByMediaType
     val books = journalRatingSummary(counts[JournalMediaType.BOOK].orEmpty())
     val comics = journalRatingSummary(counts[JournalMediaType.COMIC].orEmpty())
-    val all = journalRatingSummary(
-        (counts[JournalMediaType.BOOK].orEmpty().keys + counts[JournalMediaType.COMIC].orEmpty().keys).associateWith { rating ->
-            (counts[JournalMediaType.BOOK]?.get(rating) ?: 0) + (counts[JournalMediaType.COMIC]?.get(rating) ?: 0)
-        },
-    ) ?: return
+    val all = overview.allRatingsSummary() ?: return
     // The kind with more ratings first: its bars carry the panel.
     val kinds = listOfNotNull(books?.let { "Books" to it }, comics?.let { "Comics" to it })
         .sortedByDescending { (_, summary) -> summary.count }
@@ -168,17 +171,13 @@ internal fun JournalMostReadPanel(
     onRowSelected: (JournalMostReadGroup, JournalFacetRow) -> Unit,
     onSeeAll: (JournalMostReadGroup) -> Unit,
     modifier: Modifier = Modifier,
+    // How many kinds across: the journal's grid knows the panel's span.
+    columns: Int = 2,
 ) {
     if (groups.isEmpty()) return
     JournalPanel(modifier = modifier) {
         JournalSectionHeader(title = "Most read", summary = "From the ${finishedCount} you finished")
-        BoxWithConstraints(modifier = Modifier.padding(top = 10.dp)) {
-            // At least three across on a tablet, so one or two kinds don't stretch over the page.
-            val columns = when {
-                maxWidth >= 860.dp -> groups.size.coerceIn(3, 5)
-                maxWidth >= 480.dp -> 2
-                else -> 1
-            }
+        Box(modifier = Modifier.padding(top = 10.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
                 groups.chunked(columns).forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {

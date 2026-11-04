@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -41,6 +42,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppEmptyState
+import com.example.unifiedreader.ui.components.AppGroupLabel
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppLayout
@@ -55,12 +57,11 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * The journal: the period between its arrows and Month / Year, then the period in panels.
- * Month: the summary, what you read, ratings, reading days, pages per day, when you read. Year:
- * the summary, reading days, time and pages by month, ratings. Then both: finished, needs rating
- * and most read. Two columns where the window is wide, one on phones; a panel with nothing in it
- * is left out, and a period with nothing at all shows one empty state. Days, books and names open
- * the journal's side sheet.
+ * The journal: the period between its arrows and Month / Year, then the period in panels, in
+ * three groups (Time, Books, Taste; see [journalLayout]): rows that end flush where the window is
+ * wide, one panel to a row on phones and portrait tablets. A panel with nothing in it steps aside,
+ * and a period with nothing at all shows one empty state. Days, books and names open the
+ * journal's side sheet.
  */
 @Composable
 fun JournalStatsContent(
@@ -122,6 +123,82 @@ fun JournalStatsContent(
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val sidePadding = appGutter()
         val wide = (maxWidth - sidePadding * 2).coerceAtMost(JournalMaxWidth) >= JournalTwoColumnMinWidth
+        val month = period == JournalPeriod.MONTH
+        val periodLists = remember(finishedLists, period, selected) {
+            val (start, end) = periodBounds(period, selected)
+            finishedLists.filter { list -> list.finishedAtEpochMillis in start until end }
+        }
+        val groups = remember(overview, loading, periodLists, listCover, mostRead, wide) {
+            val reading = overview.whatYouRead()
+            val present = buildSet {
+                add(JournalSlot.Summary)
+                add(JournalSlot.ReadingDays)
+                if (loading || reading.read.isNotEmpty() || reading.opened.isNotEmpty()) add(JournalSlot.WhatYouRead)
+                if (month && overview.averageReadingTimeBuckets.any { bucket -> bucket.totalMillis > 0L }) add(JournalSlot.WhenYouRead)
+                if (!month && journalBusiestMonth(overview.averageReadingTimeBuckets) != null) add(JournalSlot.TimeByMonth)
+                if (overview.pagesBars().any { bar -> bar.pages > 0 }) add(JournalSlot.Pages)
+                if (overview.finishedItems.isNotEmpty()) add(JournalSlot.Finished)
+                if (finishedItemsNeedingRating(overview).isNotEmpty()) add(JournalSlot.NeedsRating)
+                if (periodLists.isNotEmpty() && listCover != null) add(JournalSlot.Lists)
+                if (overview.allRatingsSummary() != null) add(JournalSlot.Ratings)
+                if (mostRead.isNotEmpty()) add(JournalSlot.MostRead)
+            }
+            journalLayout(month = month, wide = wide, present = present)
+        }
+        val slotContent: @Composable (JournalSlot, Modifier, Boolean, Int) -> Unit = { slot, slotModifier, stretch, span ->
+            when (slot) {
+                JournalSlot.Summary -> JournalSummaryPanel(overview = overview, summary = summary)
+                JournalSlot.ReadingDays -> if (month) {
+                    JournalMonthReadingDaysPanel(overview = overview, nowEpochMillis = now, onDaySelected = openDay, modifier = slotModifier)
+                } else {
+                    JournalYearReadingDaysPanel(overview = overview, nowEpochMillis = now, onDaySelected = openDay, modifier = slotModifier)
+                }
+                JournalSlot.WhenYouRead -> JournalWhenYouReadPanel(buckets = overview.averageReadingTimeBuckets, modifier = slotModifier, stretch = stretch)
+                JournalSlot.Pages -> JournalPagesPanel(overview = overview, modifier = slotModifier, stretch = stretch)
+                JournalSlot.TimeByMonth -> JournalTimeByMonthPanel(buckets = overview.averageReadingTimeBuckets, modifier = slotModifier, stretch = stretch)
+                JournalSlot.WhatYouRead -> JournalWhatYouReadPanel(
+                    overview = overview,
+                    loading = loading,
+                    coverImageUrlProvider = coverImageUrlProvider,
+                    onCoverVisible = onCoverVisible,
+                    onOpenItem = openItem,
+                    modifier = slotModifier,
+                )
+                JournalSlot.Finished -> JournalFinishedPanel(
+                    overview = overview,
+                    coverImageUrlProvider = coverImageUrlProvider,
+                    onCoverVisible = onCoverVisible,
+                    onOpenItem = openItem,
+                    onSeeAll = { sheetPages = listOf(JournalSheetPage.Finished(waitingOnly = false)) },
+                    modifier = slotModifier,
+                )
+                JournalSlot.NeedsRating -> JournalNeedsRatingPanel(
+                    overview = overview,
+                    coverImageUrlProvider = coverImageUrlProvider,
+                    onCoverVisible = onCoverVisible,
+                    onOpenItem = openItem,
+                    onSeeAll = { sheetPages = listOf(JournalSheetPage.Finished(waitingOnly = true)) },
+                    modifier = slotModifier,
+                )
+                JournalSlot.Lists -> listCover?.let { cover ->
+                    JournalFinishedListsPanel(lists = periodLists, periodName = overview.periodName(), cover = cover, modifier = slotModifier)
+                }
+                JournalSlot.Ratings -> JournalRatingsPanel(overview = overview, modifier = slotModifier)
+                JournalSlot.MostRead -> JournalMostReadPanel(
+                    groups = mostRead,
+                    finishedCount = overview.finishedItems.size,
+                    onRowSelected = { group, row -> sheetPages = listOf(JournalSheetPage.Name(group, row)) },
+                    onSeeAll = { group -> sheetPages = listOf(JournalSheetPage.AllNames(group)) },
+                    modifier = slotModifier,
+                    // At least three across over the whole width, so one or two kinds don't stretch over the page.
+                    columns = when {
+                        compact -> 1
+                        wide && span == 12 -> mostRead.size.coerceIn(3, 5)
+                        else -> 2
+                    },
+                )
+            }
+        }
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
@@ -156,81 +233,22 @@ fun JournalStatsContent(
                 }
                 return@LazyColumn
             }
-            section("summary") { JournalSummaryPanel(overview = overview, summary = summary) }
-            val readingDays: @Composable () -> Unit = {
-                if (period == JournalPeriod.MONTH) {
-                    JournalMonthReadingDaysPanel(overview = overview, nowEpochMillis = now, onDaySelected = openDay)
-                } else {
-                    JournalYearReadingDaysPanel(overview = overview, nowEpochMillis = now, onDaySelected = openDay)
-                }
-            }
-            val ratings: @Composable () -> Unit = { JournalRatingsPanel(overview = overview) }
-            val pages: @Composable () -> Unit = { JournalPagesPanel(overview = overview) }
-            if (period == JournalPeriod.MONTH) {
-                val whatYouRead: @Composable () -> Unit = {
-                    JournalWhatYouReadPanel(
-                        overview = overview,
-                        loading = loading,
-                        coverImageUrlProvider = coverImageUrlProvider,
-                        onCoverVisible = onCoverVisible,
-                        onOpenItem = openItem,
-                    )
-                }
-                val whenYouRead: @Composable () -> Unit = { JournalWhenYouReadPanel(buckets = overview.averageReadingTimeBuckets) }
-                columns(
-                    key = "month",
-                    wide = wide,
-                    start = listOf(whatYouRead, ratings),
-                    end = listOf(readingDays, pages, whenYouRead),
-                )
-            } else {
-                val timeByMonth: @Composable () -> Unit = { JournalTimeByMonthPanel(buckets = overview.averageReadingTimeBuckets) }
-                columns(
-                    key = "year",
-                    wide = wide,
-                    start = listOf(readingDays),
-                    end = listOf(timeByMonth, pages, ratings),
-                )
-            }
-            // Only rows with something in them, so an empty one leaves no gap.
-            if (overview.finishedItems.isNotEmpty()) {
-                section("finished") {
-                    JournalFinishedPanel(
-                        overview = overview,
-                        coverImageUrlProvider = coverImageUrlProvider,
-                        onCoverVisible = onCoverVisible,
-                        onOpenItem = openItem,
-                        onSeeAll = { sheetPages = listOf(JournalSheetPage.Finished(waitingOnly = false)) },
-                    )
-                }
-            }
-            val periodLists = finishedLists.filter { list ->
-                periodBounds(period, selected).let { (start, end) -> list.finishedAtEpochMillis in start until end }
-            }
-            if (periodLists.isNotEmpty() && listCover != null) {
-                section("finished-lists") {
-                    JournalFinishedListsPanel(lists = periodLists, periodName = overview.periodName(), cover = listCover)
-                }
-            }
-            if (finishedItemsNeedingRating(overview).isNotEmpty()) {
-                section("needs-rating") {
-                    JournalNeedsRatingPanel(
-                        overview = overview,
-                        coverImageUrlProvider = coverImageUrlProvider,
-                        onCoverVisible = onCoverVisible,
-                        onOpenItem = openItem,
-                        onSeeAll = { sheetPages = listOf(JournalSheetPage.Finished(waitingOnly = true)) },
-                    )
-                }
-            }
-            if (mostRead.isNotEmpty()) {
-                section("most-read") {
-                    JournalMostReadPanel(
-                        groups = mostRead,
-                        finishedCount = overview.finishedItems.size,
-                        onRowSelected = { group, row -> sheetPages = listOf(JournalSheetPage.Name(group, row)) },
-                        onSeeAll = { group -> sheetPages = listOf(JournalSheetPage.AllNames(group)) },
-                    )
+            groups.forEachIndexed { groupIndex, group ->
+                group.rows.forEachIndexed { rowIndex, row ->
+                    section("${group.label}-$rowIndex") {
+                        Column {
+                            if (rowIndex == 0) {
+                                AppGroupLabel(
+                                    text = group.label,
+                                    // Groups are a section gap apart; the label sits a heading gap over its first row.
+                                    modifier = Modifier
+                                        .then(if (groupIndex > 0) Modifier.padding(top = AppLayout.sectionGap - AppLayout.gridGap) else Modifier)
+                                        .padding(bottom = AppLayout.headingGap),
+                                )
+                            }
+                            JournalGridRow(row = row, content = slotContent)
+                        }
+                    }
                 }
             }
         }
@@ -260,26 +278,25 @@ private fun LazyListScope.section(key: String, content: @Composable () -> Unit) 
 }
 
 /**
- * Panels in two columns, seven twelfths and five, where the journal is wide; one after another
- * where it isn't. A panel with nothing to show draws nothing and leaves no gap.
+ * One row of the journal's grid. A lone panel is as tall as its content; otherwise each place
+ * takes its span of the width, the row is as tall as its tallest place, and the panels of every
+ * place share that height ([JournalStack]), so the row ends flush.
  */
-private fun LazyListScope.columns(
-    key: String,
-    wide: Boolean,
-    start: List<@Composable () -> Unit>,
-    end: List<@Composable () -> Unit>,
+@Composable
+private fun JournalGridRow(
+    row: List<JournalCellLayout>,
+    content: @Composable (JournalSlot, Modifier, Boolean, Int) -> Unit,
 ) {
-    if (wide) {
-        section(key) {
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Column(modifier = Modifier.weight(7f), verticalArrangement = Arrangement.spacedBy(16.dp)) { start.forEach { it() } }
-                Column(modifier = Modifier.weight(5f), verticalArrangement = Arrangement.spacedBy(16.dp)) { end.forEach { it() } }
+    val single = row.singleOrNull()?.slots?.singleOrNull()
+    if (single != null) {
+        content(single, Modifier, false, row.single().span)
+        return
+    }
+    JournalSplitRow(weights = row.map(JournalCellLayout::span), gap = AppLayout.gridGap, modifier = Modifier.fillMaxWidth()) {
+        row.forEach { cell ->
+            JournalStack(gap = AppLayout.gridGap) {
+                cell.slots.forEach { slot -> content(slot, Modifier.fillMaxSize(), true, cell.span) }
             }
-        }
-    } else {
-        // One item, so a panel that folds away doesn't leave its gap in the list.
-        section(key) {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) { (start + end).forEach { it() } }
         }
     }
 }
@@ -414,4 +431,4 @@ private enum class JournalStatsScope(
 }
 
 private val JournalMaxWidth = 1140.dp
-private val JournalTwoColumnMinWidth = 880.dp
+private val JournalTwoColumnMinWidth = 880.dp // the grid's rows from here

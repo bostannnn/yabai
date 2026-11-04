@@ -5,7 +5,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,10 +28,12 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,12 +42,14 @@ import com.example.unifiedreader.ui.components.AppWindowWidth
 import com.example.unifiedreader.ui.components.currentAppWindowWidth
 import java.util.Calendar
 import java.util.Locale
+import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
  * Reading days in Month: each day a square shaded in the accent by its minutes of reading (four
- * steps, scaled to the month's longest day) with the minutes written in it where it is big
- * enough, today ringed, a dot on a day something was finished. A day without reading is only an
- * outline, and a day still to come is fainter still.
+ * steps, scaled to the month's longest day) with the minutes written in it on a tablet, today
+ * ringed, a dot on a day something was finished. A day without reading is only an outline, and a
+ * day still to come is fainter still. The days share the panel's width, so the calendar fills it.
  */
 @Composable
 internal fun JournalMonthReadingDaysPanel(
@@ -63,69 +66,67 @@ internal fun JournalMonthReadingDaysPanel(
             title = "Reading days",
             summary = if (compact) "Tap a day for what you read" else "Minutes each day · tap a day for what you read",
         )
-        BoxWithConstraints(modifier = Modifier.padding(top = 14.dp)) {
-            val cell = ((maxWidth - MonthCellGap * 6) / 7).coerceAtMost(MonthCellMax)
-            MonthGrid(
-                monthStartEpochMillis = overview.periodStartEpochMillis,
-                daysByKey = daysByKey,
-                maxValue = maxValue,
-                todayKey = localDateKey(nowEpochMillis),
-                cell = cell,
-                gap = MonthCellGap,
-                corner = if (cell >= 48.dp) 12.dp else 10.dp,
-                showNumbers = true,
-                showMinutes = cell >= MinutesCellMin,
-                showFinished = true,
-                onDaySelected = onDaySelected,
-            )
-        }
+        MonthGrid(
+            monthStartEpochMillis = overview.periodStartEpochMillis,
+            daysByKey = daysByKey,
+            maxValue = maxValue,
+            todayKey = localDateKey(nowEpochMillis),
+            // Phones' days are about 44 wide: square, without their minutes.
+            cellAspect = if (compact) 1f else MonthCellAspect,
+            cellMaxHeight = MonthCellMaxHeight,
+            gap = MonthCellGap,
+            corner = if (compact) 10.dp else 12.dp,
+            showNumbers = true,
+            showMinutes = !compact,
+            showFinished = true,
+            onDaySelected = onDaySelected,
+            modifier = Modifier.padding(top = 14.dp),
+        )
         HeatLegend(showFinished = true, modifier = Modifier.padding(top = 14.dp))
     }
 }
 
-/** Reading days in Year: the twelve months, four across, as squares without day numbers. */
+/** Reading days in Year: the twelve months, [columns] across, as squares without day numbers. */
 @Composable
 internal fun JournalYearReadingDaysPanel(
     overview: JournalPeriodOverview,
     nowEpochMillis: Long,
     onDaySelected: (JournalActivityDay) -> Unit,
     modifier: Modifier = Modifier,
+    columns: Int = journalYearMonthColumns(compact = currentAppWindowWidth() == AppWindowWidth.Compact),
 ) {
     val daysByKey = remember(overview) { overview.activityDays.associateBy(JournalActivityDay::localDayKey) }
     val maxValue = overview.activityDays.maxOfOrNull { day -> day.heatValue } ?: 0
     JournalPanel(modifier = modifier) {
         JournalSectionHeader(title = "Reading days", summary = "Tap a day for what you read")
-        BoxWithConstraints(modifier = Modifier.padding(top = 16.dp)) {
-            val columns = journalYearMonthColumns(maxWidth.value)
-            val monthWidth = (maxWidth - YearMonthGap * (columns - 1)) / columns
-            val cell = ((monthWidth - YearCellGap * 6) / 7).coerceAtMost(YearCellMax)
-            Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                (Calendar.JANUARY..Calendar.DECEMBER).chunked(columns).forEach { months ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(YearMonthGap)) {
-                        months.forEach { month ->
-                            Column(modifier = Modifier.width(monthWidth), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(
-                                    text = longMonthName(month),
-                                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp),
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                MonthGrid(
-                                    monthStartEpochMillis = monthStartInYear(overview.periodStartEpochMillis, month),
-                                    daysByKey = daysByKey,
-                                    maxValue = maxValue,
-                                    todayKey = localDateKey(nowEpochMillis),
-                                    cell = cell,
-                                    gap = YearCellGap,
-                                    corner = 4.dp,
-                                    showNumbers = false,
-                                    showMinutes = false,
-                                    showFinished = false,
-                                    onDaySelected = onDaySelected,
-                                )
-                            }
+        Column(modifier = Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            (Calendar.JANUARY..Calendar.DECEMBER).chunked(columns).forEach { months ->
+                JournalEqualRow(count = columns, gap = YearMonthGap) {
+                    months.forEach { month ->
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = longMonthName(month),
+                                style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp),
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            MonthGrid(
+                                monthStartEpochMillis = monthStartInYear(overview.periodStartEpochMillis, month),
+                                daysByKey = daysByKey,
+                                maxValue = maxValue,
+                                todayKey = localDateKey(nowEpochMillis),
+                                cellAspect = 1f,
+                                cellMaxHeight = YearCellMaxHeight,
+                                gap = YearCellGap,
+                                corner = 4.dp,
+                                showNumbers = false,
+                                showMinutes = false,
+                                showFinished = false,
+                                onDaySelected = onDaySelected,
+                            )
                         }
                     }
+                    repeat(columns - months.size) { Spacer(modifier = Modifier) }
                 }
             }
         }
@@ -133,12 +134,8 @@ internal fun JournalYearReadingDaysPanel(
     }
 }
 
-/** Months across in Year: four on a tablet, fewer as the space narrows. */
-internal fun journalYearMonthColumns(maxWidthDp: Float): Int = when {
-    maxWidthDp >= 520f -> 4
-    maxWidthDp >= 380f -> 3
-    else -> 2
-}
+/** Months across in Year: four on a tablet (the panel spans eight twelfths, or a portrait window), three on phones. */
+internal fun journalYearMonthColumns(compact: Boolean): Int = if (compact) 3 else 4
 
 /** A day's minutes in its square: "22m", "1h 27", "2h", and whole hours from ten: "10h". */
 internal fun formatJournalCellMinutes(millis: Long): String {
@@ -148,28 +145,34 @@ internal fun formatJournalCellMinutes(millis: Long): String {
     return if (rest == 0L || minutes >= 600L) "${minutes / 60L}h" else "${minutes / 60L}h ${rest.toString().padStart(2, '0')}"
 }
 
+/**
+ * A month's days in weeks of seven, each day an equal share of the width at [cellAspect]
+ * (width over height), laid out by [JournalEqualRow] so a row of panels can ask for its height.
+ */
 @Composable
 private fun MonthGrid(
     monthStartEpochMillis: Long,
     daysByKey: Map<Int, JournalActivityDay>,
     maxValue: Int,
     todayKey: Int,
-    cell: Dp,
+    cellAspect: Float,
+    cellMaxHeight: Dp,
     gap: Dp,
     corner: Dp,
     showNumbers: Boolean,
     showMinutes: Boolean,
     showFinished: Boolean,
     onDaySelected: (JournalActivityDay) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val cells = remember(monthStartEpochMillis) { monthCells(monthStartEpochMillis) }
-    Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+    val cellSize = Modifier.cellSize(cellAspect, cellMaxHeight)
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(gap)) {
         if (showNumbers) {
-            Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+            JournalEqualRow(count = 7, gap = gap) {
                 listOf("M", "T", "W", "T", "F", "S", "S").forEach { label ->
                     Text(
                         text = label,
-                        modifier = Modifier.width(cell),
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -179,10 +182,10 @@ private fun MonthGrid(
             }
         }
         cells.chunked(7).forEach { week ->
-            Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+            JournalEqualRow(count = 7, gap = gap) {
                 week.forEach { day ->
                     if (day == null) {
-                        Spacer(modifier = Modifier.size(cell))
+                        Spacer(modifier = cellSize)
                     } else {
                         val activity = daysByKey[day.localDayKey]?.takeIf { it.heatValue > 0 }
                         HeatCell(
@@ -196,13 +199,26 @@ private fun MonthGrid(
                             corner = corner,
                             onClick = activity?.let { { onDaySelected(it) } },
                             description = activity?.cellDescription(),
-                            modifier = Modifier.size(cell),
+                            modifier = cellSize,
                         )
                     }
                 }
+                // The last week keeps its days the width of the others.
+                repeat(7 - week.size) { Spacer(modifier = cellSize) }
             }
         }
     }
+}
+
+/**
+ * A day's square: the width its row gives it, [aspect] (width over height) tall but never taller
+ * than [maxHeight], so a calendar across a wide panel stays a calendar's height.
+ */
+private fun Modifier.cellSize(aspect: Float, maxHeight: Dp): Modifier = layout { measurable, constraints ->
+    val width = constraints.maxWidth
+    val height = min((width / aspect).roundToInt(), maxHeight.roundToPx())
+    val placeable = measurable.measure(Constraints.fixed(width, height))
+    layout(width, height) { placeable.place(0, 0) }
 }
 
 @Composable
@@ -374,9 +390,10 @@ private fun monthStartInYear(
     set(Calendar.DAY_OF_MONTH, 1)
 }.timeInMillis
 
-private val MonthCellMax = 56.dp
+// A day in Month: a little wider than tall, and no taller than 64, however wide the panel.
+private const val MonthCellAspect = 1.2f
+private val MonthCellMaxHeight = 64.dp
 private val MonthCellGap = 5.dp
-private val MinutesCellMin = 48.dp
-private val YearCellMax = 18.dp
+private val YearCellMaxHeight = 22.dp
 private val YearCellGap = 3.dp
 private val YearMonthGap = 22.dp
