@@ -51,6 +51,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
+import com.example.unifiedreader.ui.components.AppBookType
 import com.example.unifiedreader.ui.components.AppButton
 import com.example.unifiedreader.ui.components.AppButtonDefaults
 import com.example.unifiedreader.ui.components.AppChoiceRow
@@ -306,10 +307,13 @@ private fun LibraryBookPageTop(
                     ) {
                         Text(
                             text = text.title,
-                            style = MaterialTheme.typography.headlineSmall.copy(
-                                fontSize = 26.sp,
-                                lineHeight = 30.sp,
-                                fontWeight = FontWeight.SemiBold,
+                            // The book's own title, in the book face.
+                            style = AppBookType.title(
+                                MaterialTheme.typography.headlineSmall.copy(
+                                    fontSize = 30.sp,
+                                    lineHeight = 34.sp,
+                                    fontWeight = FontWeight.Medium,
+                                ),
                             ),
                             color = tint.content,
                             maxLines = 4,

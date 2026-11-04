@@ -178,6 +178,24 @@ class AppLibraryBrowseController @Inject constructor(
         }
     }
 
+    fun onLibraryCoverAsPrintedChanged(
+        updateState: AppUiStateUpdater,
+        scope: CoroutineScope,
+        coverAsPrinted: Boolean,
+    ) {
+        updateLibraryBrowseState(
+            updateState = updateState,
+        ) { state ->
+            libraryBrowseStateCoordinator.updateCoverAsPrinted(
+                currentState = state,
+                coverAsPrinted = coverAsPrinted,
+            )
+        }
+        scope.launch {
+            libraryBrowseStateCoordinator.persistCoverAsPrinted(coverAsPrinted)
+        }
+    }
+
     private inline fun updateLibraryBrowseState(
         updateState: AppUiStateUpdater,
         crossinline transform: (LibraryBrowseState) -> LibraryBrowseState,

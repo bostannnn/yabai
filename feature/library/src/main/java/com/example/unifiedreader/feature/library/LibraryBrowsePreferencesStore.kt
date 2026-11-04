@@ -31,6 +31,8 @@ data class LibraryBrowsePreferences(
     val filterPanelsBySource: Map<SourceType, List<LibraryFilterPanel>> = emptyMap(),
     val gridCellSizeDp: Int = defaultLibraryGridCellSizeDp,
     val fadeReadItems: Boolean = false,
+    // Covers as printed: each in its own proportions, on the bottom of the 2:3 slot, instead of cropped.
+    val coverAsPrinted: Boolean = false,
 )
 
 interface LibraryBrowsePreferencesStore {
@@ -58,6 +60,10 @@ interface LibraryBrowsePreferencesStore {
     suspend fun setFadeReadItems(
         fadeReadItems: Boolean,
     )
+
+    suspend fun setCoverAsPrinted(
+        coverAsPrinted: Boolean,
+    ) = Unit
 }
 
 class DataStoreLibraryBrowsePreferencesStore(
@@ -163,6 +169,19 @@ class DataStoreLibraryBrowsePreferencesStore(
         }
         val updatedPreferences = latestPreferences.get().copy(
             fadeReadItems = fadeReadItems,
+        )
+        latestPreferences.set(updatedPreferences)
+        writeStartupPreferences(updatedPreferences)
+    }
+
+    override suspend fun setCoverAsPrinted(
+        coverAsPrinted: Boolean,
+    ) {
+        dataStore.edit { preferences ->
+            preferences.writeCoverAsPrinted(coverAsPrinted)
+        }
+        val updatedPreferences = latestPreferences.get().copy(
+            coverAsPrinted = coverAsPrinted,
         )
         latestPreferences.set(updatedPreferences)
         writeStartupPreferences(updatedPreferences)

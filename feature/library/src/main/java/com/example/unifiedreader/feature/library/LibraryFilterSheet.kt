@@ -107,6 +107,8 @@ fun LibraryFilterSheet(
     onSaveAsList: (() -> Unit)? = null,
     // The panel opened on a list's behalf: its title and its own two buttons instead of Save as list.
     listMode: LibraryFilterListMode? = null,
+    // Covers for Series' stacks; without them Series is a row naming its top values.
+    seriesCovers: LibraryFilterSeriesCovers? = null,
 ) {
     AppSideSheet(onDismissRequest = onDismiss) {
         val close = { dismiss() }
@@ -125,6 +127,7 @@ fun LibraryFilterSheet(
             onClose = close,
             onSaveAsList = onSaveAsList,
             listMode = listMode,
+            seriesCovers = seriesCovers,
             modifier = Modifier.weight(1f),
         )
     }
@@ -151,6 +154,7 @@ internal fun LibraryFilterDockedPanel(
     onSaveAsList: (() -> Unit)?,
     modifier: Modifier = Modifier,
     listMode: LibraryFilterListMode? = null,
+    seriesCovers: LibraryFilterSeriesCovers? = null,
 ) {
     AppPanel(
         modifier = modifier,
@@ -172,6 +176,7 @@ internal fun LibraryFilterDockedPanel(
             onClose = onHide,
             onSaveAsList = onSaveAsList,
             listMode = listMode,
+            seriesCovers = seriesCovers,
             modifier = Modifier.weight(1f),
         )
     }
@@ -194,15 +199,21 @@ private fun LibraryFilterContent(
     onSaveAsList: (() -> Unit)?,
     listMode: LibraryFilterListMode?,
     modifier: Modifier = Modifier,
+    seriesCovers: LibraryFilterSeriesCovers? = null,
 ) {
     // The facet page on screen; null is the overview.
     var page by rememberSaveable {
         mutableStateOf(initialPanel?.takeIf { panel -> panel.opensAsPage && panel in filterPanels })
     }
+    // The letter a letter grid opened the page at; null opens it at the top.
+    var pageLetter by rememberSaveable { mutableStateOf<String?>(null) }
     var findQuery by rememberSaveable { mutableStateOf("") }
     // A docked panel stays open: an applied value's chip opens its section again.
     LaunchedEffect(openRequest) {
-        if (openRequest != 0) page = initialPanel?.takeIf { panel -> panel.opensAsPage && panel in filterPanels }
+        if (openRequest != 0) {
+            page = initialPanel?.takeIf { panel -> panel.opensAsPage && panel in filterPanels }
+            pageLetter = null
+        }
     }
     // Kept out here so the overview comes back where it was left.
     val overviewListState = rememberLazyListState()
@@ -227,10 +238,14 @@ private fun LibraryFilterContent(
                     listState = overviewListState,
                     onFilterStateChanged = onFilterStateChanged,
                     onClearFilters = onClearFilters,
-                    onOpenPage = { panel -> page = panel },
+                    onOpenPage = { panel, letter ->
+                        pageLetter = letter
+                        page = panel
+                    },
                     onClose = onClose,
                     title = listMode?.title ?: "Filters",
                     countBefore = listMode?.countBefore,
+                    seriesCovers = seriesCovers,
                 )
             } else {
                 LibraryFilterFacetPage(
@@ -240,6 +255,7 @@ private fun LibraryFilterContent(
                     libraryTitlesById = libraryTitlesById,
                     onFilterStateChanged = onFilterStateChanged,
                     onBack = { page = null },
+                    initialLetter = pageLetter,
                 )
             }
         }
@@ -328,18 +344,21 @@ private fun LibraryFilterOverview(
     listState: LazyListState,
     onFilterStateChanged: (LibraryFilterState) -> Unit,
     onClearFilters: () -> Unit,
-    onOpenPage: (LibraryFilterPanel) -> Unit,
+    onOpenPage: (LibraryFilterPanel, String?) -> Unit,
     onClose: () -> Unit,
     title: String,
     countBefore: Int? = null,
+    seriesCovers: LibraryFilterSeriesCovers? = null,
 ) {
     val anyApplied = filterPanels.any { panel -> panel.selectedCount(filterState) > 0 }
     // The sections in panel order, each while it has something to offer (Pages while it has lengths,
     // Library while there is more than one).
     val sections = remember(filterPanels, filterState, filterFacets, libraryTitlesById) {
         filterPanels.filter { panel ->
-            val available = when (panel.sectionStyle) {
-                LibraryFilterSectionStyle.Chips -> libraryFilterChipOptions(panel, filterState, filterFacets).isNotEmpty()
+            val available = when (panel) {
+                LibraryFilterPanel.ReadingStatus,
+                LibraryFilterPanel.Format,
+                LibraryFilterPanel.Location -> libraryFilterChipOptions(panel, filterState, filterFacets).isNotEmpty()
                 else -> panel.isEnabled(filterState, filterFacets, libraryTitlesById)
             }
             available && panel.offersChoice(filterState, filterFacets)
@@ -407,56 +426,16 @@ private fun LibraryFilterOverview(
                                     .padding(top = AppLayout.gridGap),
                             )
                         }
-                        when (panel.sectionStyle) {
-                            LibraryFilterSectionStyle.Slider -> LibraryPagesFilterSection(
-                                range = filterState.pages,
-                                histogram = filterFacets.pages,
-                                onRangeChanged = { range -> onFilterStateChanged(filterState.copy(pages = range)) },
-                            )
-                            LibraryFilterSectionStyle.Chips -> {
-                                AppSheetLabel(text = panel.label)
-                                FlowRow(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = AppLayout.inset),
-                                    horizontalArrangement = Arrangement.spacedBy(AppLayout.headingGap),
-                                    verticalArrangement = Arrangement.spacedBy(AppLayout.headingGap),
-                                ) {
-                                    libraryFilterChipOptions(panel, filterState, filterFacets).forEach { option ->
-                                        AppChip(
-                                            selected = option.selected,
-                                            onClick = { onFilterStateChanged(option.toggled) },
-                                            count = option.count,
-                                            label = {
-                                                Text(text = option.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                            },
-                                        )
-                                    }
-                                }
-                            }
-                            LibraryFilterSectionStyle.TopChips -> {
-                                AppSheetLabel(text = panel.label)
-                                LibraryFilterTopChipsSection(
-                                    panel = panel,
-                                    state = filterState,
-                                    facets = filterFacets,
-                                    libraryTitlesById = libraryTitlesById,
-                                    onFilterStateChanged = onFilterStateChanged,
-                                    onShowAll = { onOpenPage(panel) },
-                                )
-                            }
-                            LibraryFilterSectionStyle.Row -> LibraryFilterFacetRow(
-                                label = panel.label,
-                                summary = libraryFacetSelectionSummary(panel, filterState, libraryTitlesById),
-                                topValues = libraryFilterTopValuesLine(panel, filterFacets, libraryTitlesById),
-                                enabled = true,
-                                onClick = { onOpenPage(panel) },
-                            )
-                        }
-                        // Pages ends itself: with its switch row, or with this space.
-                        if (panel.sectionStyle != LibraryFilterSectionStyle.Row && panel.sectionStyle != LibraryFilterSectionStyle.Slider) {
-                            AppSheetSectionEnd()
-                        }
+                        LibraryFilterOverviewSection(
+                            panel = panel,
+                            filterState = filterState,
+                            filterFacets = filterFacets,
+                            libraryTitlesById = libraryTitlesById,
+                            seriesCovers = seriesCovers,
+                            onFilterStateChanged = onFilterStateChanged,
+                            onOpenPage = onOpenPage,
+                        )
+                        AppSheetSectionEnd()
                     }
                 }
             }
@@ -464,6 +443,88 @@ private fun LibraryFilterOverview(
                 item(key = "end") { AppSheetDivider() }
             }
         }
+    }
+}
+
+/** One section of the overview, in the form its kind of choice takes. */
+@Composable
+private fun LibraryFilterOverviewSection(
+    panel: LibraryFilterPanel,
+    filterState: LibraryFilterState,
+    filterFacets: LibraryFilterFacets,
+    libraryTitlesById: Map<String, String>,
+    seriesCovers: LibraryFilterSeriesCovers?,
+    onFilterStateChanged: (LibraryFilterState) -> Unit,
+    onOpenPage: (LibraryFilterPanel, String?) -> Unit,
+) {
+    when (panel.sectionStyle) {
+        LibraryFilterSectionStyle.Tiles -> LibraryFilterTilesSection(
+            panel = panel,
+            state = filterState,
+            facets = filterFacets,
+            libraryTitlesById = libraryTitlesById,
+            onFilterStateChanged = onFilterStateChanged,
+            onShowAll = { onOpenPage(panel, null) },
+        )
+        LibraryFilterSectionStyle.Checks -> LibraryFilterChecksSection(
+            panel = panel,
+            state = filterState,
+            facets = filterFacets,
+            libraryTitlesById = libraryTitlesById,
+            onFilterStateChanged = onFilterStateChanged,
+            onShowAll = { onOpenPage(panel, null) },
+        )
+        LibraryFilterSectionStyle.TopChips -> {
+            AppSheetLabel(text = panel.label)
+            LibraryFilterTopChipsSection(
+                panel = panel,
+                state = filterState,
+                facets = filterFacets,
+                libraryTitlesById = libraryTitlesById,
+                onFilterStateChanged = onFilterStateChanged,
+                onShowAll = { onOpenPage(panel, null) },
+            )
+        }
+        LibraryFilterSectionStyle.Letters -> LibraryFilterLettersSection(
+            panel = panel,
+            state = filterState,
+            facets = filterFacets,
+            libraryTitlesById = libraryTitlesById,
+            onOpenAtLetter = { letter -> onOpenPage(panel, letter) },
+        )
+        LibraryFilterSectionStyle.Stacks -> if (seriesCovers != null) {
+            LibraryFilterStacksSection(
+                state = filterState,
+                facets = filterFacets,
+                covers = seriesCovers,
+                onFilterStateChanged = onFilterStateChanged,
+                onShowAll = { onOpenPage(panel, null) },
+            )
+        } else {
+            LibraryFilterFacetRow(
+                label = panel.label,
+                summary = libraryFacetSelectionSummary(panel, filterState, libraryTitlesById),
+                topValues = libraryFilterTopValuesLine(panel, filterFacets, libraryTitlesById),
+                enabled = true,
+                onClick = { onOpenPage(panel, null) },
+            )
+        }
+        LibraryFilterSectionStyle.Places -> LibraryFilterPlacesChecksSection(
+            state = filterState,
+            facets = filterFacets,
+            onFilterStateChanged = onFilterStateChanged,
+            onShowAll = { onOpenPage(panel, null) },
+        )
+        LibraryFilterSectionStyle.Timeline -> LibraryFilterTimelineSection(
+            state = filterState,
+            facets = filterFacets,
+            onFilterStateChanged = onFilterStateChanged,
+        )
+        LibraryFilterSectionStyle.Length -> LibraryFilterLengthSection(
+            range = filterState.pages,
+            histogram = filterFacets.pages,
+            onRangeChanged = { range -> onFilterStateChanged(filterState.copy(pages = range)) },
+        )
     }
 }
 

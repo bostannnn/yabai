@@ -1,5 +1,7 @@
 package com.example.unifiedreader.feature.library.shelves
 
+import com.example.unifiedreader.ui.components.AppCoverShape
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -110,13 +112,31 @@ internal fun LibraryShelvesSlotPlaceholder(
         } else {
             ShelfPreviewPlaceholderCount
         }
+        // The reading card has no box: its skeleton is the cover and the start of two lines beside it.
         val card = @Composable { cardModifier: Modifier ->
-            Box(
-                modifier = cardModifier
-                    .appSkeletonPulse()
-                    .clip(RoundedCornerShape(LibraryReadingCardDefaults.cornerRadius))
-                    .background(semanticColors.surfaceRaised),
-            )
+            Row(
+                modifier = cardModifier.appSkeletonPulse(),
+                horizontalArrangement = Arrangement.spacedBy(LibraryReadingCardDefaults.coverGap),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .aspectRatio(LibraryCoverAspectRatio, matchHeightConstraintsFirst = true)
+                        .clip(AppCoverShape.shape)
+                        .background(semanticColors.surfaceRaised),
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(CardSkeletonLineGap)) {
+                    listOf(CardSkeletonTitleWidth, CardSkeletonLineWidth).forEach { width ->
+                        Box(
+                            modifier = Modifier
+                                .width(width)
+                                .height(CardSkeletonLineHeight)
+                                .clip(RoundedCornerShape(CardSkeletonLineHeight / 2))
+                                .background(semanticColors.surfaceOverlay),
+                        )
+                    }
+                }
+            }
         }
         val band = @Composable { bandModifier: Modifier ->
             Column(modifier = bandModifier) {
@@ -159,3 +179,8 @@ internal fun LibraryShelvesSlotPlaceholder(
 }
 
 private const val ShelfPreviewPlaceholderCount = 3
+
+private val CardSkeletonLineGap = 10.dp
+private val CardSkeletonLineHeight = 18.dp
+private val CardSkeletonTitleWidth = 180.dp
+private val CardSkeletonLineWidth = 120.dp

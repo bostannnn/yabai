@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ripple
@@ -22,8 +21,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -36,7 +33,6 @@ import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.appPressScale
-import com.example.unifiedreader.ui.theme.AppCoverColors
 import com.example.unifiedreader.ui.theme.UnifiedReaderDefaultPresentationTokens
 import java.time.ZoneId
 
@@ -72,31 +68,20 @@ fun LibraryReadingCard(
         val day = libraryLastReadDay(lastReadAt, nowMillis = System.currentTimeMillis(), zone = ZoneId.systemDefault())
         listOfNotNull(overline, day?.text).joinToString(" · ")
     }
-    // The cover's colours, the theme accent until they arrive (or for a cover without any).
+    // No box: the cover is what you see, and the text sits on the ground's own colours.
     val scheme = MaterialTheme.colorScheme
-    val tint = animateCoverColors(
-        rememberLibraryCoverColors(item, coverImageUrlProvider) ?: AppCoverColors(
-            tintStart = scheme.primaryContainer,
-            tintEnd = scheme.primaryContainer,
-            content = scheme.onPrimaryContainer,
-            track = scheme.onPrimaryContainer.copy(alpha = 0.16f),
-            accent = scheme.primary,
-            onAccent = scheme.onPrimary,
-            accentContainer = scheme.primaryContainer,
-            onAccentContainer = scheme.onPrimaryContainer,
-        ),
+    val colors = LibraryReadingCardColors(
+        content = scheme.onSurface,
+        track = scheme.onSurface.copy(alpha = LibraryReadingCardDefaults.trackAlpha),
+        accent = scheme.primary,
     )
-    val colors = LibraryReadingCardColors(content = tint.content, track = tint.track, accent = tint.accent)
     val author = item.librarySecondaryText()
     val lines = remember(author, progress, footnote, tall) { libraryReadingCardLines(author, progress, footnote, tall) }
 
-    val cardShape = RoundedCornerShape(LibraryReadingCardDefaults.cornerRadius)
     val interactionSource = remember { MutableInteractionSource() }
     Box(
         modifier = modifier
             .appPressScale(interactionSource)
-            .clip(cardShape)
-            .coverTint(tint)
             .clickable(
                 interactionSource = interactionSource,
                 indication = ripple(color = colors.content),
@@ -107,15 +92,13 @@ fun LibraryReadingCard(
     ) {
         Row(
             modifier = Modifier
-                .then(if (tall) Modifier.fillMaxHeight() else Modifier.height(LibraryReadingCardDefaults.height))
-                .padding(LibraryReadingCardDefaults.padding),
+                .then(if (tall) Modifier.fillMaxHeight() else Modifier.height(LibraryReadingCardDefaults.height)),
             horizontalArrangement = Arrangement.spacedBy(LibraryReadingCardDefaults.coverGap),
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .aspectRatio(LibraryCoverAspectRatio, matchHeightConstraintsFirst = true)
-                    .shadow(elevation = 10.dp, shape = RoundedCornerShape(6.dp), clip = false),
+                    .aspectRatio(LibraryCoverAspectRatio, matchHeightConstraintsFirst = true),
             ) {
                 VisibleResolvedLibraryCover(
                     item = item,
@@ -149,7 +132,7 @@ fun LibraryReadingCard(
             Icon(
                 imageVector = AppIcons.MoreHoriz,
                 contentDescription = "Details",
-                tint = colors.content.copy(alpha = 0.74f),
+                tint = scheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp),
             )
         }
@@ -166,9 +149,10 @@ internal class LibraryReadingCardColors(
 
 object LibraryReadingCardDefaults {
     val cornerRadius: Dp = UnifiedReaderDefaultPresentationTokens.cardCornerRadius
-    val padding: Dp = AppLayout.inset
+    /** The bar's track: the text colour this faint. */
+    internal const val trackAlpha: Float = 0.14f
 
-    /** On its own (above the shelves, at the top of a series): an 80 dp cover inside the inset. */
+    /** On its own (above the shelves, at the top of a series): the cover as tall as the card, about 107 wide. */
     val height: Dp = 160.dp
     val coverGap: Dp = 16.dp
 

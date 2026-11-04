@@ -99,14 +99,15 @@
 .yb-progress > i { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
 
 /* Covers */
-.yb-cover { border-radius: var(--radius-cover); aspect-ratio: 2 / 3; display: flex; flex-direction: column; justify-content: space-between; padding: 10% 9%; overflow: hidden; font-family: Georgia, "Times New Roman", serif; position: relative; }
-.yb-cover b { font-weight: 400; font-size: 1.05em; line-height: 1.15; overflow-wrap: anywhere; }
+.yb-cover { border-radius: 2px 5px 5px 2px; box-shadow: 0 3px 8px rgb(0 0 0 / 0.28), 0 1px 2px rgb(0 0 0 / 0.2); aspect-ratio: 2 / 3; display: flex; flex-direction: column; justify-content: space-between; padding: 10% 9%; overflow: hidden; font-family: Georgia, "Times New Roman", serif; position: relative; }
+.yb-cover::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(90deg, rgb(0 0 0 / 0.22) 0, rgb(255 255 255 / 0.08) 2.5%, rgb(0 0 0 / 0.06) 6%, transparent 9%); }
+.yb-cover b { font-family: var(--font-book, Georgia, serif); font-weight: 400; font-size: 1.05em; line-height: 1.15; overflow-wrap: anywhere; }
 .yb-cover small { font-size: 0.6em; opacity: 0.8; }
 
 /* Book row (proposed AppBookRow) */
 .yb-book-row { display: flex; align-items: center; gap: 14px; padding: 10px 20px; min-height: 76px; }
 .yb-book-row .yb-cover { width: 40px; flex: none; padding: 4px; font-size: 7px; }
-.yb-book-title { font: 600 15px/20px var(--font-sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.yb-book-title { font: 500 15px/20px var(--font-book, Georgia, serif); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .yb-book-line { font: 400 13px/18px var(--font-sans); color: var(--on-surface-variant); }
 
 /* Panel header: title 20 Bold; Back/Close 8 from the edge, title at 20 otherwise */
@@ -177,3 +178,52 @@
 /* Text field (AppTextField): outlined, the label riding the top edge */
 .yb-field { position: relative; flex: 1; height: 56px; display: flex; align-items: center; padding: 0 16px; border-radius: var(--radius-control); box-shadow: inset 0 0 0 1px var(--outline); font: 400 16px/24px var(--font-sans); color: var(--on-surface); }
 .yb-field-label { position: absolute; top: -8px; left: 12px; padding: 0 4px; background: var(--surface); font: 400 12px/16px var(--font-sans); color: var(--on-surface-variant); }
+
+/* Tiles (AppTileGrid): a few short choices with counts, 2 or 3 to a row */
+.yb-tiles { display: grid; grid-template-columns: repeat(var(--yb-cols, 3), minmax(0, 1fr)); gap: 8px; }
+.yb-tile { min-height: 56px; padding: 8px 12px; border-radius: var(--radius-control); background: var(--surface-container); display: flex; flex-direction: column; justify-content: center; gap: 2px; box-shadow: inset 0 0 0 1px transparent; }
+.yb-tile b { font: 500 14px/18px var(--font-sans); color: var(--on-surface); }
+.yb-tile small { font: 400 12px/16px var(--font-sans); color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
+.yb-tile.is-selected { background: var(--primary-container); box-shadow: inset 0 0 0 1px var(--primary); }
+.yb-tile.is-selected b, .yb-tile.is-selected small { color: var(--on-primary-container); }
+.yb-tile.is-more { background: transparent; box-shadow: inset 0 0 0 1px var(--outline-variant); }
+.yb-tile.is-more b { color: var(--primary); }
+
+/* Check rows (AppCheckRow): a checkbox, the name, the count at the end; an optional bar behind for the share */
+.yb-check-row { position: relative; display: flex; align-items: center; gap: 14px; height: 44px; font: 400 15px/20px var(--font-sans); }
+.yb-check-row .yb-box { width: 20px; height: 20px; border-radius: 5px; box-shadow: inset 0 0 0 1.5px var(--outline); flex: none; display: flex; align-items: center; justify-content: center; position: relative; }
+.yb-check-row .yb-box [data-icon] { width: 16px; height: 16px; }
+.yb-check-row.is-checked .yb-box { background: var(--primary); box-shadow: none; color: var(--on-primary); }
+.yb-check-row .yb-count { margin-left: auto; font: 400 13px/18px var(--font-sans); color: var(--on-surface-variant); font-variant-numeric: tabular-nums; position: relative; }
+.yb-check-row span { position: relative; }
+.yb-check-row .yb-share { position: absolute; left: 0; top: 6px; bottom: 6px; border-radius: var(--radius-inner); background: var(--surface-container-low); }
+.yb-check-row.is-indented { padding-left: 26px; height: 40px; }
+.yb-check-row.is-indented .yb-share { left: 26px; }
+
+/* Letter grid (AppLetterGrid): the alphabet as keys; a letter nobody starts with is faint */
+.yb-letters { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 4px; }
+.yb-letters span { height: 34px; border-radius: var(--radius-inner); background: var(--surface-container-low); display: flex; align-items: center; justify-content: center; font: 500 13px/18px var(--font-sans); color: var(--on-surface); }
+.yb-letters span.is-empty { opacity: 0.35; }
+
+/* Cover stacks (AppCoverStack): a series as its first three covers, fanned */
+.yb-stacks { display: flex; gap: 16px; overflow: hidden; }
+.yb-stack { width: 96px; flex: none; display: flex; flex-direction: column; gap: 6px; }
+.yb-stack-art { position: relative; height: 118px; width: 92px; }
+.yb-stack-art .yb-cover { position: absolute; width: 64px; padding: 6px; font-size: 10px; }
+.yb-stack-art .yb-cover:nth-child(1) { left: 20px; top: 0; transform: rotate(6deg); }
+.yb-stack-art .yb-cover:nth-child(2) { left: 10px; top: 4px; transform: rotate(2deg); }
+.yb-stack-art .yb-cover:nth-child(3) { left: 0; top: 8px; }
+.yb-stack b { font: 500 13px/16px var(--font-sans); color: var(--on-surface); }
+.yb-stack small { font: 400 12px/16px var(--font-sans); color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
+
+/* Timeline (AppTimeline): one line in time order, a dot per pile, named periods in their place */
+.yb-timeline { display: flex; flex-direction: column; }
+.yb-timeline-row { display: flex; align-items: center; gap: 14px; height: 40px; font: 500 14px/20px var(--font-sans); color: var(--on-surface); }
+.yb-timeline-row .yb-rail { width: 20px; align-self: stretch; position: relative; display: flex; justify-content: center; }
+.yb-timeline-row .yb-rail::before { content: ""; position: absolute; top: 0; bottom: 0; width: 2px; background: var(--outline-variant); }
+.yb-timeline-row .yb-dot { position: relative; align-self: center; width: 10px; height: 10px; border-radius: 50%; background: var(--outline-variant); box-shadow: 0 0 0 2px var(--surface); }
+.yb-timeline-row .yb-count { margin-left: auto; font: 400 13px/18px var(--font-sans); color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
+.yb-timeline-row.is-period { font-size: 13px; font-style: italic; color: var(--on-surface-variant); }
+.yb-timeline-row.is-period .yb-dot { width: 8px; height: 8px; background: var(--outline); }
+.yb-timeline-row.is-selected { font-weight: 600; }
+.yb-timeline-row.is-selected .yb-dot { width: 14px; height: 14px; background: var(--primary); }

@@ -164,6 +164,7 @@ fun LibraryScreen(
     onViewModeChanged: (LibraryViewMode) -> Unit = {},
     onGridCellSizeDpChanged: (Int) -> Unit = {},
     onFadeReadItemsChanged: (Boolean) -> Unit = {},
+    onCoverAsPrintedChanged: ((Boolean) -> Unit)? = null,
     initialScrollPosition: LibraryScrollPosition = LibraryScrollPosition(),
     scrollToTopRequest: Long = 0L,
     onScrollPositionChanged: (LibraryScrollPosition) -> Unit = {},
@@ -235,6 +236,9 @@ fun LibraryScreen(
         pageCountByItemId = pageCountByItemId,
         locallyAvailableItemIds = locallyAvailableItemIds,
     )
+    val filterSeriesCovers = remember(filterPool, progressByItemId, coverImageUrlProvider) {
+        libraryFilterSeriesCovers(filterPool, progressByItemId, coverImageUrlProvider)
+    }
     var handledScrollToTopRequest by remember { mutableStateOf(scrollToTopRequest) }
     val coroutineScope = rememberCoroutineScope()
     val visibleItems = items
@@ -754,6 +758,7 @@ fun LibraryScreen(
                             onSortModeChanged = onSortModeChanged,
                             onGridCellSizeDpChanged = onGridCellSizeDpChanged,
                             onFadeReadItemsChanged = onFadeReadItemsChanged,
+                            onCoverAsPrintedChanged = onCoverAsPrintedChanged,
                         )
                         // Held while it leaves, so the strip folds away with the chips it had.
                         val shownTagSuggestions = remember { mutableStateOf(searchTagSuggestions) }
@@ -947,6 +952,7 @@ fun LibraryScreen(
                 onHide = filterDock::hide,
                 onSaveAsList = onSaveFiltersAsList?.takeIf { !filterState.isEmpty }?.let { save -> { save(filterState) } },
                 listMode = filterListMode,
+                seriesCovers = filterSeriesCovers,
                 modifier = Modifier
                     .padding(top = contentTopInset + AppLayout.contentTop, end = gutter, bottom = AppLayout.contentBottom)
                     .width(AppLayout.sheetWidth)
@@ -969,6 +975,7 @@ fun LibraryScreen(
             onDismiss = { isFilterSheetOpen = false },
             onSaveAsList = onSaveFiltersAsList?.takeIf { !filterState.isEmpty }?.let { save -> { save(filterState) } },
             listMode = filterListMode,
+            seriesCovers = filterSeriesCovers,
         )
     }
 }

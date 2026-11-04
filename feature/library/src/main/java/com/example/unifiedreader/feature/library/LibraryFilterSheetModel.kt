@@ -12,46 +12,52 @@ import com.example.unifiedreader.ui.components.appCount
 // What the filter sheet shows, apart from how it draws it: the open chip groups, the facet rows'
 // summaries and the facet pages' grouped values.
 
-/** How a panel shows in the sheet's overview. */
+/** How a panel shows in the sheet's overview: one form per kind of choice (see the design system's Filters). */
 internal enum class LibraryFilterSectionStyle {
-    /** Every value as a chip with its count: reading status, format, location. */
-    Chips,
-    /** The page-length slider. */
-    Slider,
-    /** The values with most books as chips, then "All N" for the rest: Library, Language, Genre, About, Mood. */
+    /** Every value as a tile with its count: Library (past six, five and "N more"), Reading status, Mood. */
+    Tiles,
+    /** The values as check rows with their counts: Language, Format, Location. */
+    Checks,
+    /** The values with most books as chips, then "All N" for the rest: Genre, About. */
     TopChips,
-    /**
-     * A row naming its top values, opening the full list: Author, Series, Set in, When, Publisher. Set in's
-     * page lists the places by most books, a picked country's cities under it; When's, the piles in time order.
-     */
-    Row,
+    /** The alphabet, a letter opening the page there: Author, Publisher. */
+    Letters,
+    /** The series with most books as cover stacks: Series (a row naming its top values without covers). */
+    Stacks,
+    /** The places as check rows with share bars, a picked country's cities under it: Set in. */
+    Places,
+    /** The piles and named periods on one line in time order: When. */
+    Timeline,
+    /** Four lengths as tiles, then the page slider behind "Exact pages": Pages. */
+    Length,
 }
 
 internal val LibraryFilterPanel.sectionStyle: LibraryFilterSectionStyle
     get() = when (this) {
-        LibraryFilterPanel.ReadingStatus,
-        LibraryFilterPanel.Format,
-        LibraryFilterPanel.Location -> LibraryFilterSectionStyle.Chips
-        LibraryFilterPanel.Pages -> LibraryFilterSectionStyle.Slider
         LibraryFilterPanel.Library,
+        LibraryFilterPanel.ReadingStatus,
+        LibraryFilterPanel.Mood -> LibraryFilterSectionStyle.Tiles
         LibraryFilterPanel.Language,
-        LibraryFilterPanel.Tag,
-        LibraryFilterPanel.Mood,
-        LibraryFilterPanel.Genre -> LibraryFilterSectionStyle.TopChips
-        LibraryFilterPanel.SetIn,
-        LibraryFilterPanel.When,
+        LibraryFilterPanel.Format,
+        LibraryFilterPanel.Location -> LibraryFilterSectionStyle.Checks
+        LibraryFilterPanel.Genre,
+        LibraryFilterPanel.Tag -> LibraryFilterSectionStyle.TopChips
         LibraryFilterPanel.Author,
-        LibraryFilterPanel.Series,
-        LibraryFilterPanel.Publisher -> LibraryFilterSectionStyle.Row
+        LibraryFilterPanel.Publisher -> LibraryFilterSectionStyle.Letters
+        LibraryFilterPanel.Series -> LibraryFilterSectionStyle.Stacks
+        LibraryFilterPanel.SetIn -> LibraryFilterSectionStyle.Places
+        LibraryFilterPanel.When -> LibraryFilterSectionStyle.Timeline
+        LibraryFilterPanel.Pages -> LibraryFilterSectionStyle.Length
     }
 
 /** Whether the panel's values have a full list of their own (its search and letters) to open. */
 internal val LibraryFilterPanel.opensAsPage: Boolean
-    get() = when (sectionStyle) {
-        LibraryFilterSectionStyle.Chips,
-        LibraryFilterSectionStyle.Slider -> false
-        LibraryFilterSectionStyle.TopChips,
-        LibraryFilterSectionStyle.Row -> true
+    get() = when (this) {
+        LibraryFilterPanel.ReadingStatus,
+        LibraryFilterPanel.Format,
+        LibraryFilterPanel.Location,
+        LibraryFilterPanel.Pages -> false
+        else -> true
     }
 
 /**
