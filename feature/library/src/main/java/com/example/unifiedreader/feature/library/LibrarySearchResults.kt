@@ -58,7 +58,7 @@ internal fun LibrarySearchTagStrip(
     ) {
         Text(
             text = "Filter by",
-            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         suggestions.forEach { suggestion ->

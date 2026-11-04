@@ -49,7 +49,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import com.example.unifiedreader.core.model.ReadableItem
@@ -335,14 +334,14 @@ private fun JournalFinishedCover(
                 translationY = (1f - rise.value) * JournalFinishedDefaults.coverRise.toPx()
                 alpha = rise.value.coerceIn(0f, 1f)
             }
-            .shadow(elevation = 18.dp, shape = coverShape, clip = false)
+            .shadow(elevation = 12.dp, shape = coverShape, clip = false)
             .clip(coverShape),
     ) {
         coverContent(item, Modifier.fillMaxSize())
     }
 }
 
-/** "FINISHED" in the accent over the title and the subtitle, at the start or centred. */
+/** "Finished" in the accent over the title and the subtitle, at the start or centred. */
 @Composable
 private fun JournalFinishedHeading(
     title: String,
@@ -358,24 +357,23 @@ private fun JournalFinishedHeading(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
-            text = "Finished".uppercase(),
+            text = "Finished",
             style = MaterialTheme.typography.labelSmall.copy(
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 0.08.em,
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.sp,
             ),
             color = accent,
             maxLines = 1,
-            // 6 dp above the title, with the column's 4.
-            modifier = Modifier.padding(bottom = 2.dp),
         )
         Text(
             text = title,
             style = MaterialTheme.typography.headlineSmall.copy(
                 fontSize = if (centred) 24.sp else 26.sp,
                 lineHeight = 30.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = (-0.01).em,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.sp,
             ),
             textAlign = align,
             maxLines = 3,

@@ -272,7 +272,7 @@ private fun ComicSpreadPreviewItem(
             text = spread.previewLabel(),
             color = if (selected) tokens.colors.primaryText else tokens.colors.secondaryText,
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp, fontFeatureSettings = "tnum"),
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
         )
     }
 }

@@ -339,7 +339,7 @@ private fun AppToast(
             message.supportingText?.let { line ->
                 Text(
                     text = line,
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.5.sp, fontWeight = FontWeight.Medium),
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium),
                     color = colors.onSurfaceVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -356,7 +356,7 @@ private fun AppToast(
                 contentPadding = PaddingValues(horizontal = 14.dp),
                 modifier = Modifier.height(AppToastDefaults.actionHeight),
             ) {
-                Text(text = label, style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp, fontWeight = FontWeight.ExtraBold), maxLines = 1)
+                Text(text = label, style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold), maxLines = 1)
             }
         }
     }

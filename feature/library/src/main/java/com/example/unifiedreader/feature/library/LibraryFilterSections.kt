@@ -254,7 +254,7 @@ private fun LibraryFilterFindRow(match: LibraryFilterFindMatch, onClick: () -> U
     val label = remember(match) {
         buildAnnotatedString {
             append(match.label.substring(0, match.matchStart))
-            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(match.label.substring(match.matchStart, match.matchEnd)) }
+            withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append(match.label.substring(match.matchStart, match.matchEnd)) }
             append(match.label.substring(match.matchEnd))
         }
     }

@@ -179,7 +179,7 @@ private fun ComicPagesGridItem(
         Text(
             text = (page.pageIndex + 1).toString(),
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp, fontFeatureSettings = "tnum"),
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
             color = if (selected) tokens.colors.primaryText else tokens.colors.secondaryText,
             modifier = if (selected) Modifier.testTag(ComicPagesCurrentTag) else Modifier,
         )

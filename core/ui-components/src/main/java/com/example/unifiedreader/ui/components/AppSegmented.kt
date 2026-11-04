@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -36,7 +36,7 @@ import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 interface AppSegmentedRowScope : RowScope
 
 /**
- * A single-choice row: a pill track holding [AppSegment]s, the selected one filled. Give it a
+ * A single-choice row: a track at the control radius holding [AppSegment]s, the selected one filled. Give it a
  * width (`fillMaxWidth()`, a control width) or let a menu size it; segments split it equally.
  */
 @Composable
@@ -46,7 +46,10 @@ fun AppSegmentedRow(
 ) {
     Row(
         modifier = modifier
-            .background(MaterialTheme.colorScheme.surfaceContainerLow, CircleShape)
+            .background(
+                MaterialTheme.colorScheme.surfaceContainerLow,
+                RoundedCornerShape(UnifiedReaderThemeTokens.presentation.controlCornerRadius),
+            )
             .padding(AppSegmentedDefaults.trackPadding)
             .selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(AppSegmentedDefaults.segmentSpacing),
@@ -59,7 +62,7 @@ fun AppSegmentedRow(
 
 private class AppSegmentedRowScopeImpl(rowScope: RowScope) : AppSegmentedRowScope, RowScope by rowScope
 
-/** One option in an [AppSegmentedRow]: a 34 dp pill, filled while [selected]. */
+/** One option in an [AppSegmentedRow]: 36 dp at the inner radius, filled while [selected]. */
 @Composable
 fun AppSegmentedRowScope.AppSegment(
     selected: Boolean,
@@ -85,7 +88,7 @@ fun AppSegmentedRowScope.AppSegment(
         modifier = modifier
             .weight(1f)
             .height(AppSegmentedDefaults.segmentHeight)
-            .clip(CircleShape)
+            .clip(RoundedCornerShape(UnifiedReaderThemeTokens.presentation.innerCornerRadius))
             .background(containerColor)
             .selectable(
                 selected = selected,
@@ -121,9 +124,9 @@ fun AppSegmentedRowScope.AppSegment(
 }
 
 object AppSegmentedDefaults {
-    val trackPadding: Dp = 3.dp
+    val trackPadding: Dp = 4.dp
     val segmentSpacing: Dp = 2.dp
-    val segmentHeight: Dp = 34.dp
+    val segmentHeight: Dp = 36.dp
     val segmentHorizontalPadding: Dp = 12.dp
     const val disabledAlpha: Float = 0.38f
 }

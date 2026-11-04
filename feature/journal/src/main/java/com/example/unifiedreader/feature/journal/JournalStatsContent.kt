@@ -329,7 +329,7 @@ private fun JournalHeader(
                 lineHeight = if (compact) 32.sp else 36.sp,
                 letterSpacing = (-0.01).em,
             ),
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.SemiBold,
             maxLines = 1,
         )
     }

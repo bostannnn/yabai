@@ -47,12 +47,12 @@ internal fun LibraryReadingCardText(
     val clearOfMenu = Modifier.padding(end = LibraryReadingCardDefaults.menuClearance)
     Column(modifier = modifier) {
         Text(
-            text = overline.uppercase(),
+            text = overline,
             style = MaterialTheme.typography.labelSmall.copy(
-                fontSize = 11.5.sp,
+                fontSize = 12.sp,
                 lineHeight = 16.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.08.em,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.sp,
             ),
             color = colors.accent,
             maxLines = if (tall) 2 else 1,
@@ -63,9 +63,9 @@ internal fun LibraryReadingCardText(
             text = title,
             style = MaterialTheme.typography.titleLarge.copy(
                 color = colors.content,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 lineHeight = 1.28.em,
-                letterSpacing = (-0.01).em,
+                letterSpacing = 0.sp,
             ),
             maxLines = if (tall) 4 else 2,
             overflow = TextOverflow.Ellipsis,
@@ -92,7 +92,7 @@ internal fun LibraryReadingCardText(
         val label = @Composable {
             Text(
                 text = libraryReadingCardBarLabel(progress, timeLeftMillis),
-                style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold),
+                style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium),
                 color = colors.content.copy(alpha = 0.82f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -100,14 +100,14 @@ internal fun LibraryReadingCardText(
         }
         if (tall) {
             // The narrow card beside the shelves: the label over a bar across the column.
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 label()
                 LibraryReadingCardBar(fraction = fraction, segments = segments, colors = colors, modifier = Modifier.fillMaxWidth())
             }
         } else {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 LibraryReadingCardBar(fraction = fraction, segments = segments, colors = colors, modifier = Modifier.weight(1f))

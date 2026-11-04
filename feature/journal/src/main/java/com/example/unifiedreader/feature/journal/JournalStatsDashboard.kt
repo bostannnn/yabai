@@ -165,7 +165,7 @@ private fun SummaryFigure(
                 fontFeatureSettings = "tnum",
                 letterSpacing = (-0.01).em,
             ),
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.SemiBold,
             maxLines = 1,
         )
         Text(

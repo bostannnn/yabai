@@ -135,8 +135,8 @@ fun AppSettingsRow(
             .padding(
                 start = if (leading != null) (horizontalInset - AppSettingsDefaults.handleOverhang).coerceAtLeast(0.dp) else horizontalInset,
                 end = if (showChevron) 12.dp else (horizontalInset - 4.dp).coerceAtLeast(0.dp),
-                top = 10.dp,
-                bottom = 10.dp,
+                top = 12.dp,
+                bottom = 12.dp,
             ),
         horizontalArrangement = Arrangement.spacedBy(AppSettingsDefaults.iconGap),
         verticalAlignment = Alignment.CenterVertically,

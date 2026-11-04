@@ -210,7 +210,7 @@ private fun SourceStartChoice(
             Text(text = title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(
                 text = supporting,
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp),
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

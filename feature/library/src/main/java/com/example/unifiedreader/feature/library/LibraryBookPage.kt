@@ -309,7 +309,7 @@ private fun LibraryBookPageTop(
                             style = MaterialTheme.typography.headlineSmall.copy(
                                 fontSize = 26.sp,
                                 lineHeight = 30.sp,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.SemiBold,
                             ),
                             color = tint.content,
                             maxLines = 4,
@@ -327,7 +327,7 @@ private fun LibraryBookPageTop(
                         text.creators?.let { creators ->
                             Text(
                                 text = creators,
-                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp),
+                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                                 color = secondaryText,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
@@ -365,7 +365,7 @@ private fun LibraryBookPageTop(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = text.progressLine,
-                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp, fontWeight = FontWeight.Medium),
+                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium),
                             color = secondaryText,
                             modifier = Modifier.weight(1f),
                         )
@@ -373,7 +373,7 @@ private fun LibraryBookPageTop(
                             Text(
                                 text = pages,
                                 style = MaterialTheme.typography.labelMedium.copy(
-                                    fontSize = 12.5.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium,
                                     fontFeatureSettings = "tnum",
                                 ),

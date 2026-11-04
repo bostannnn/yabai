@@ -101,8 +101,8 @@ fun AppLetterStrip(
                 ) {
                     Text(
                         text = letter.toString(),
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp, lineHeight = 12.sp),
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, lineHeight = 12.sp),
+                        fontWeight = FontWeight.SemiBold,
                         textAlign = TextAlign.Center,
                         color = if (isCurrent) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -125,7 +125,7 @@ fun AppLetterStrip(
                 Text(
                     text = shown.toString(),
                     style = MaterialTheme.typography.headlineMedium.copy(fontSize = 28.sp),
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onPrimary,
                 )
             }

@@ -76,7 +76,7 @@ fun AppDrawerBadge(
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold),
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
         )
     }

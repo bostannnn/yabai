@@ -94,7 +94,7 @@ internal fun LibraryBookPageAbout(
                     LibraryBookPageRowLabel(text = label)
                     Text(
                         text = value,
-                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp),
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -189,7 +189,7 @@ private fun LibraryBookPageRowLabel(
 ) {
     Text(
         text = text,
-        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.5.sp),
+        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = modifier.width(LibraryBookPageFactLabelWidth),
     )

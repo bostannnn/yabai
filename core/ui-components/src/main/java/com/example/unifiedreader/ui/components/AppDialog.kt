@@ -184,7 +184,7 @@ fun AppDialogCard(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontSize = 13.5.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
                     ),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -359,7 +359,7 @@ object AppDialogCardDefaults {
         @Composable get() = MaterialTheme.typography.headlineSmall.copy(
             fontSize = 24.sp,
             lineHeight = 28.sp,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.SemiBold,
         )
 
     val bodyStyle: TextStyle

@@ -161,7 +161,7 @@ internal fun JournalSheet(
 private fun LazyListScope.pageTitle(title: String, summary: String?) {
     item(key = "title") {
         Column(modifier = Modifier.padding(bottom = 12.dp)) {
-            Text(text = title, style = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp, lineHeight = 28.sp), fontWeight = FontWeight.Bold)
+            Text(text = title, style = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp, lineHeight = 28.sp), fontWeight = FontWeight.SemiBold)
             summary?.takeIf(String::isNotBlank)?.let { line ->
                 Text(text = line, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -277,7 +277,7 @@ private fun JournalSheetBookRow(
             showRate -> Text(
                 text = "Rate",
                 style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary,
             )
         }
@@ -348,7 +348,7 @@ private fun JournalItemPage(
                 Text(
                     text = item.displayTitle,
                     style = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp, lineHeight = 28.sp),
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -424,7 +424,7 @@ private fun JournalItemPage(
                 onClick = onRemove,
                 colors = AppButtonDefaults.destructiveTextColors(),
             ) {
-                Text(text = "Remove from journal", fontWeight = FontWeight.Bold)
+                Text(text = "Remove from journal", fontWeight = FontWeight.SemiBold)
             }
         }
     }

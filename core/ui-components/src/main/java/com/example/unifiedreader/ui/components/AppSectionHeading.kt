@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.sp
 
 /**
  * The heading on the page ground above a grid or a list ("All books 1,474", "Your lists 5"):
- * 20 sp Bold (18 on phones) with an optional [count] in `onSurfaceVariant`. It sits on the gutter
+ * 20 sp SemiBold (18 on phones) with an optional [count] in Regular `onSurfaceVariant`. It sits on the gutter
  * line, flush with what it heads; not inside panels or sheets.
  */
 @Composable
@@ -35,7 +35,7 @@ fun AppSectionHeading(
             style = MaterialTheme.typography.titleLarge.copy(
                 fontSize = if (compact) 18.sp else 20.sp,
                 lineHeight = if (compact) 24.sp else 26.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
             ),
             maxLines = 1,
         )
@@ -44,7 +44,8 @@ fun AppSectionHeading(
                 text = it,
                 style = MaterialTheme.typography.labelLarge.copy(
                     fontSize = if (compact) 14.sp else 15.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Normal,
+                    fontFeatureSettings = "tnum",
                 ),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,

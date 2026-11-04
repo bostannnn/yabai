@@ -57,7 +57,7 @@ fun AppTabPill(
             if (count != null) {
                 Text(
                     text = appCount(count),
-                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp, fontWeight = FontWeight.Normal, fontFeatureSettings = "tnum"),
                     color = LocalContentColor.current.copy(alpha = AppTabPillDefaults.countAlpha),
                 )
             }
@@ -66,8 +66,8 @@ fun AppTabPill(
 }
 
 object AppTabPillDefaults {
-    val height: Dp = 34.dp
-    val contentPadding = PaddingValues(horizontal = 14.dp)
+    val height: Dp = 36.dp
+    val contentPadding = PaddingValues(horizontal = 16.dp)
     val countGap: Dp = 6.dp
     const val countAlpha: Float = 0.8f
 }

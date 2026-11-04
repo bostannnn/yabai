@@ -159,14 +159,14 @@ fun LibraryFiltersChip(
                         Box(
                             modifier = Modifier
                                 .defaultMinSize(minWidth = 20.dp, minHeight = 20.dp)
-                                .padding(horizontal = 5.dp),
+                                .padding(horizontal = 4.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
                                 text = appliedCount.toString(),
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.SemiBold,
                                 ),
                                 textAlign = TextAlign.Center,
                             )

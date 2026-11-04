@@ -142,10 +142,10 @@ private fun RatingLine(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = title, style = MaterialTheme.typography.titleSmall.copy(fontSize = 14.sp), fontWeight = FontWeight.Bold)
+        Text(text = title, style = MaterialTheme.typography.titleSmall.copy(fontSize = 14.sp), fontWeight = FontWeight.SemiBold)
         Text(
             text = "· ${summary.count} rated · ${formatJournalAverage(summary.average)}",
-            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp, fontFeatureSettings = "tnum"),
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontFeatureSettings = "tnum"),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Icon(
@@ -213,7 +213,7 @@ private fun MostReadGroup(
                 text = group.title,
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.titleSmall.copy(fontSize = 14.sp),
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
             )
             if (group.rows.size > MostReadVisibleRows) {
                 AppTextButton(onClick = onSeeAll) { Text(text = "See all") }
@@ -232,7 +232,7 @@ private fun MostReadGroup(
                     Text(
                         text = row.row.label,
                         modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.5.sp),
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

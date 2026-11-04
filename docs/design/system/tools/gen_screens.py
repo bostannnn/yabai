@@ -74,7 +74,7 @@ def hub(selected_theme=True, selected=None, supporting=None):
 
 def queue_row(title, line, state, failed=False):
     colour = "var(--error)" if failed else "var(--on-surface-variant)"
-    return row(title, line, None, f'<span style="font:700 14px/20px var(--font-sans);color:{colour}">{state}</span>')
+    return row(title, line, None, f'<span style="font:600 14px/20px var(--font-sans);color:{colour}">{state}</span>')
 
 
 def sync_page():
@@ -184,16 +184,16 @@ LW, LH = 800, 1010
 cols = 4
 
 
-def reading_card(width, height, cover_w, lines, title_font="700 18px/23px", tall=False):
+def reading_card(width, height, cover_w, lines, title_font="600 18px/23px", tall=False):
     """The reading card: the cover's tint, the cover, the label, title and lines, the bar; ••• at the top end."""
     pieces = ('<div style="flex:1;display:flex;gap:2px;height:4px">'
               + "".join(f'<i style="flex:{w};border-radius:2px;background:linear-gradient(to right,#a9c4ff {f}%,rgba(255,255,255,.18) {f}%)"></i>'
                         for w, f in [(12, 100), (18, 40), (16, 0), (20, 0), (14, 0), (20, 0)])
               + '</div>')
-    label = '<span style="font:600 12.5px/18px var(--font-sans);opacity:.82">24% · 2 h 10 min left</span>'
+    label = '<span style="font:500 12px/18px var(--font-sans);opacity:.82">24% · 2 h 10 min left</span>'
     # Beside the shelves the column is narrow: the percentage over the bar; on its own, beside it.
-    bar = (f'<div style="display:flex;flex-direction:column;gap:6px">{label}<div style="display:flex">{pieces}</div></div>' if tall
-           else f'<div style="display:flex;align-items:center;gap:10px">{pieces}{label}</div>')
+    bar = (f'<div style="display:flex;flex-direction:column;gap:8px">{label}<div style="display:flex">{pieces}</div></div>' if tall
+           else f'<div style="display:flex;align-items:center;gap:8px">{pieces}{label}</div>')
     text_lines = "".join(
         f'<span style="font:500 13px/18px var(--font-sans);opacity:.74;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{line}</span>'
         for line in lines)
@@ -254,7 +254,7 @@ library_wide = f"""
       <div class="yb-bar"><div class="yb-search">{ic("search")}<span>Search Kavita</span></div><span class="yb-spacer"></span><button class="yb-icon-btn">{ic("download")}</button><button class="yb-icon-btn">{ic("more_horiz")}</button></div>
       <div class="yb-scroll">
         <div style="display:flex;gap:16px;align-items:stretch">
-          {reading_card(370, 236, 131, ("Oona Fitch", "Chapter 1 of 6 · The Ferry"), title_font="700 20px/25px", tall=True)}
+          {reading_card(370, 236, 131, ("Oona Fitch", "Chapter 1 of 6 · The Ferry"), title_font="600 20px/25px", tall=True)}
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:14px;overflow:hidden">
             <div style="display:flex;align-items:center"><div class="yb-tabs" style="flex:1"><span class="yb-tab is-selected">In progress <span class="yb-count">8</span></span><span class="yb-tab">Up next <span class="yb-count">1</span></span><span class="yb-tab">Finished <span class="yb-count">12</span></span></div><button class="yb-btn is-text">See all</button></div>
             <div style="display:flex;gap:16px">{small_strip}</div>
@@ -280,13 +280,14 @@ A source's library: the bar with its search field, the reading card, the shelf t
 - All books is `AppSectionHeading`, on the gutter line, with Filters, a chip per applied value and sort at its end. Filters narrows the library by anything its books carry, places, times, themes and moods included (see Filters); there is no separate Browse page.
 - **On Expanded, Filters docks** beside the library: a 400 wide panel on the right gutter from content top to content bottom, the bar and the grid taking the width left of it. The covers keep the width they had before it opened: the grid loses columns, and the ones left come as close to that width as whole columns allow instead of stretching to fill. While it is open the reading card and the shelves step aside, so All books' row is at content top; they come back when it closes. The Filters chip shows and hides it.
 - **The reading card** (`LibraryReadingCard`) is the book you read last, small: `radius-container` 20, the cover's tint (`coverTint`, `AppCoverColors`), `inset` 20 all round, the cover at the start and the text 16 from it. The text spans the cover: the label at the cover's top, the bar line at its bottom.
-  - The label is the cover's accent (11.5 Bold, 0.08 em, capitals): "Continue reading · yesterday". The title is Bold on up to 2 lines at 18/23, stepping down to 16/21 before it is cut. Under it, 13 Medium in the text colour at 74%, the author and the place: "Oona Fitch · Chapter 1 of 6", a comic's "Page 14 of 24".
-  - The bar line: a 4 tall bar split at the chapters (2 apart; one piece without chapters or past 30), the accent on the text colour at 18% (14% on a light tint), then "24% · 2 h 10 min left" (12.5 SemiBold, 82%), only the percentage when the journal doesn't know the pace.
+  - The label is the cover's accent (`overline`: 12 SemiBold, sentence case, no tracking): "Continue reading · yesterday". The title is SemiBold on up to 2 lines at 18/23, stepping down to 16/21 before it is cut. Under it, 13 Medium in the text colour at 74%, the author and the place: "Oona Fitch · Chapter 1 of 6", a comic's "Page 14 of 24".
+  - The bar line: a 4 tall bar split at the chapters (2 apart; one piece without chapters or past 30), the accent on the text colour at 18% (14% on a light tint), 8 from it, then "24% · 2 h 10 min left" (12 Medium, 82%), only the percentage when the journal doesn't know the pace.
   - ••• at the top end (the icon 20, the text colour at 74%) opens the book page; the label and title keep 28 clear of it. The rest of the card is the Continue button: a tap opens the book where it was left (its click label says Continue, Read or Start). There are no buttons in it.
   - **Above the shelves** (phones, portrait tablets, and wherever the grid has fewer than 6 columns): the cover is 80 wide, so the card is 160 tall, gutter to gutter; the shelves follow 24 below, unchanged.
   - **Beside the shelves** (6 columns or more: tablet landscape beside the rail): the card takes 2 of the 6 columns and the shelves the other 4. The strip beside it is Small (96) whatever the cover size, its tiles keep the title and the progress and drop the author line, and the card is as tall as the tabs and the strip together, bottoms lined up (about 236). Its cover fills that height (about 131 wide), which leaves a narrow column: the label may wrap to a second line, the title is 20/25 stepping down to 18/23 on up to 4 lines, the author and the place get a line each (the place with the chapter's name, "Chapter 1 of 6 · The Ferry"), and the percentage sits over a bar across the column instead of beside it.
   - A series opens on the same card for the issue being read or the next one (label "Up next in this series"), 160 tall, across half the row (3 of 6 columns) on wide windows, since nothing sits beside it there.
 - No source name anywhere on the screen: the search field says it.
+- **Offline** shows at the search field's end as `AppStatusPill` in the neutral tone (an 8 dot in `outline`, "Offline" in `on-surface-variant`), the same as Checking. Being offline is a state, not an error, so it takes no error colour. A tap retries.
 - **The jump rail** runs down the right edge for a sort that groups by letter: Title, Author and Series. Only letters with books show. Pages, Date added, Last read and Issues have none: nobody jumps to "150 pages", and every cover already says its length.
 - **Sorted by Pages** (shortest first, unknown lengths last), the line under each cover gives its length instead of its progress: "212 pages", a series "212 pages · 8 issues". A series' length is all its issues together, for the sort and the Pages filter alike.
 - **Select several** (long-press a cover on a server's library): the bar turns into the selection bar (`surface-selected`): Close, "5 selected", Select all, Add to list, Download 5, then ••• with Mark finished and Mark unread for every picked book (one toast: "5 books marked as unread"). Each action ends the selection.
@@ -329,7 +330,7 @@ def pile(label, count, top, picked=None):
         for i in range(n))
     fade = "opacity:.3;" if picked and label != picked else ""
     return (f'<div style="width:40px;flex:none;display:flex;flex-direction:column;align-items:center;gap:5px;{fade}">'
-            f'<span style="font:700 11px/14px var(--font-sans)">{count}</span>'
+            f'<span style="font:600 11px/14px var(--font-sans)">{count}</span>'
             f'<div style="width:100%;display:flex;flex-direction:column-reverse;gap:1px">{books}</div></div>')
 
 
@@ -382,7 +383,7 @@ def reading_panel():
     stat = lambda n, label, i: (
         f'<div class="yb-panel" style="flex:1;padding:16px 18px;display:flex;align-items:center;gap:14px">'
         f'<div style="position:relative;width:60px;height:54px">{"".join(f"<div style=\"position:absolute;left:{k * 12}px;z-index:{3 - k};width:36px;box-shadow:0 0 0 2px var(--surface-container);border-radius:var(--radius-cover)\">{cover(i + k, 36, 5)}</div>" for k in range(3))}</div>'
-        f'<div><b style="display:block;font:700 22px/28px var(--font-sans)">{n}</b><span class="yb-caption">{label}</span></div></div>')
+        f'<div><b style="display:block;font:600 22px/28px var(--font-sans)">{n}</b><span class="yb-caption">{label}</span></div></div>')
     return (f'<div style="display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px">'
             f'<div class="yb-panel" style="padding:20px;display:flex;flex-direction:column;gap:16px"><h3 class="yb-group-label">In progress <span class="yb-caption" style="font-size:13px;font-weight:600">23</span></h3>{books}</div>'
             f'<div style="display:flex;flex-direction:column;gap:16px">{stat("259", "Finished", 2)}{stat("1,812", "Not started", 5)}</div></div>')
@@ -589,7 +590,7 @@ Settings › Library › Tags: where each source's tags go in Filters and on the
 # ------------------------------------------------------------------ Journal (Expanded landscape)
 def stat(num, unit, label, line):
     return (f'<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;padding:0 20px;border-left:1px solid color-mix(in srgb,var(--outline-variant) 60%,transparent)">'
-            f'<span style="font:700 30px/36px var(--font-sans)">{num}<span style="font:600 16px/20px var(--font-sans)"> {unit}</span></span>'
+            f'<span style="font:600 30px/36px var(--font-sans)">{num}<span style="font:600 16px/20px var(--font-sans)"> {unit}</span></span>'
             f'<span style="font:600 15px/20px var(--font-sans)">{label}</span><span class="yb-caption">{line}</span></div>')
 
 
@@ -728,7 +729,7 @@ def under_way_card():
           {cover(5, width=88)}
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
             <span class="yb-caption" style="font-weight:600">Reading order · book 3 of 5 · read yesterday</span>
-            <span style="font:700 24px/30px var(--font-sans)">Night Run</span>
+            <span style="font:600 24px/30px var(--font-sans)">Night Run</span>
             <span class="yb-supporting">Next: Star Courier #2</span>
             <div class="yb-progress" style="margin-top:8px"><i style="width:40%"></i></div>
           </div>
@@ -922,7 +923,7 @@ select_bar = f"""
     {list_row("Ashfall", "Reading list · 11 issues · 2017–2018", [6, 2, 4, 1], check=False)}
     {list_row("Cinder Road", "Reading list · 9 issues · 2019", [1, 5, 2, 7], check=True)}
   </div>
-  <div style="align-self:center;display:flex;align-items:center;gap:16px;padding:0 8px 0 20px;height:52px;border-radius:var(--radius-control);background:var(--on-surface);color:var(--surface);font:500 14px/20px var(--font-sans)"><span>5 lists hidden</span><button class="yb-btn is-text" style="color:var(--primary-container);font-weight:700">Undo</button></div>
+  <div style="align-self:center;display:flex;align-items:center;gap:16px;padding:0 8px 0 20px;height:52px;border-radius:var(--radius-control);background:var(--on-surface);color:var(--surface);font:500 14px/20px var(--font-sans)"><span>5 lists hidden</span><button class="yb-btn is-text" style="color:var(--primary-container);font-weight:600">Undo</button></div>
 </div>"""
 
 
@@ -1208,7 +1209,7 @@ keep_row = f"""
 list_finished = f"""
 <div class="yb-dialog" style="width:400px;gap:16px">
   <div style="display:flex;gap:16px;align-items:flex-end">{list_cover([0, 5, 4, 3], width=96)}<div style="display:flex;flex-direction:column;gap:4px;min-width:0"><span class="yb-overline">List finished</span><h2 class="yb-dialog-title" style="margin:0">The Long Eclipse</h2><span class="yb-supporting">Started 19 Oct · finished today</span></div></div>
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">{"".join(f'<div class="yb-panel" style="padding:12px 10px;display:flex;flex-direction:column;gap:2px"><b style="font:700 20px/24px var(--font-sans)">{v}</b><span class="yb-caption">{k}</span></div>' for v, k in [("14", "books"), ("4", "series"), ("9 h 20", "read"), ("12", "days")])}</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">{"".join(f'<div class="yb-panel" style="padding:12px 10px;display:flex;flex-direction:column;gap:2px"><b style="font:600 20px/24px var(--font-sans)">{v}</b><span class="yb-caption">{k}</span></div>' for v, k in [("14", "books"), ("4", "series"), ("9 h 20", "read"), ("12", "days")])}</div>
   <div style="display:grid;grid-template-columns:repeat(14,1fr);gap:3px">{"".join(f'<span style="aspect-ratio:2/3;border-radius:3px;background:{c}"></span>' for c in ["#5c3d1e", "#1f3b57", "#4a2c5e", "#5c3d1e", "#4a2c5e", "#1f3b57", "#0f4c5c", "#5c3d1e", "#1f3b57", "#2a2a2a", "#4a2c5e", "#5c3d1e", "#5c3d1e", "#0f4c5c"])}</div>
   <span class="yb-supporting" style="color:var(--on-surface-variant)">It goes in your journal for October.</span>
   <div class="yb-dialog-actions"><button class="yb-btn is-text" style="color:var(--error)">Delete the list</button><span class="yb-spacer"></span><button class="yb-btn is-filled">Done</button></div>
@@ -1297,7 +1298,7 @@ def rgba(hex_colour, alpha):
     return f"rgb({n >> 16 & 255} {n >> 8 & 255} {n & 255} / {alpha})"
 
 
-def fin_cover(b, width, font, title=None, shadow="0 16px 36px rgb(0 0 0 / .5)"):
+def fin_cover(b, width, font, title=None, shadow="0 12px 28px rgb(0 0 0 / .4)"):
     return (f'<div class="yb-cover" style="width:{width}px;font-size:{font}px;background:{b["bg"]};color:{b["ink"]};flex:none;box-shadow:{shadow}">'
             f'<b>{title or b["title"]}</b><small>{b["sub"] if not title else ""}</small></div>')
 
@@ -1348,13 +1349,13 @@ def fin_tint(b, reach):
 
 
 def finished_card(b, rating, note=False, has_next=False):
-    head = (f'<div style="font:800 11.5px/16px var(--font-sans);letter-spacing:.08em;color:{b["acc"]}">FINISHED</div>'
-            f'<div style="margin-top:6px;padding-right:40px;font:700 26px/30px var(--font-sans);letter-spacing:-.01em">{b["title"]}</div>'
+    head = (f'<div style="font:600 12px/16px var(--font-sans);color:{b["acc"]}">Finished</div>'
+            f'<div style="margin-top:6px;padding-right:40px;font:600 26px/30px var(--font-sans)">{b["title"]}</div>'
             f'<div style="margin-top:4px;font:500 14px/20px var(--font-sans);color:{rgba(b["fg"], .74)}">{b["sub"]}</div>')
     rating_row = (f'<div style="display:flex;margin-top:24px;font:13px/18px var(--font-sans)"><span style="flex:1;font-weight:600">Your rating</span>'
                   f'<span style="font-weight:500;color:{rgba(b["fg"], .74)}">{fin_hint(rating)}</span></div>{fin_stars(b, rating, True)}')
     note_html = fin_note(b) if note else f'<div style="display:flex;margin-top:16px">{fin_pill(b)}</div>'
-    return (f'<div style="position:relative;width:640px;display:flex;border-radius:var(--radius-sheet);overflow:hidden;{fin_tint(b, 610)};box-shadow:0 24px 64px rgb(0 0 0 / .5)">'
+    return (f'<div style="position:relative;width:640px;display:flex;border-radius:var(--radius-sheet);overflow:hidden;{fin_tint(b, 610)};box-shadow:0 16px 40px rgb(0 0 0 / .4)">'
             f'<div style="flex:none;width:232px;display:flex;align-items:center;justify-content:center;padding:36px 0;background:rgb(0 0 0 / .22)">{fin_cover(b, 152, 19)}</div>'
             f'<div style="flex:1;min-width:0;display:flex;flex-direction:column;padding:24px">{head}{rating_row}{note_html}'
             f'{fin_next(b, 20) if has_next else ""}<div style="display:flex;gap:10px;margin-top:auto;padding-top:24px">{fin_buttons(b, has_next)}</div></div>'
@@ -1384,8 +1385,8 @@ finished_phone = f"""
     <div style="display:flex;justify-content:center;padding:22px 0"><i style="width:32px;height:4px;border-radius:2px;background:{rgba(fb["fg"], .4)}"></i></div>
     <div style="display:flex;flex-direction:column;align-items:center;text-align:center">
       {fin_cover(fb, 96, 12)}
-      <div style="margin-top:20px;font:800 11.5px/16px var(--font-sans);letter-spacing:.08em;color:{fb["acc"]}">FINISHED</div>
-      <div style="margin-top:6px;font:700 24px/30px var(--font-sans);letter-spacing:-.01em">{fb["title"]}</div>
+      <div style="margin-top:20px;font:600 12px/16px var(--font-sans);color:{fb["acc"]}">Finished</div>
+      <div style="margin-top:6px;font:600 24px/30px var(--font-sans)">{fb["title"]}</div>
       <div style="margin-top:4px;font:500 14px/20px var(--font-sans);color:{rgba(fb["fg"], .74)}">{fb["sub"]}</div>
       {fin_stars(fb, 8, False)}
       <div style="margin-top:4px;font:500 13px/18px var(--font-sans);color:{rgba(fb["fg"], .74)}">{fin_hint(8)}</div>
@@ -1402,12 +1403,12 @@ comp("FinishedScreen", "Screens", 1900, """
 
 The screen at the end of a book (`JournalFinishedScreen`, feature:journal; app `ReaderFinishedHost`): one surface in the cover's colours (`coverTint`, the book page's `AppCoverColors`) over the last page. It opens when the last page is reached; ×, Back or a tap outside leaves the reader on that page.
 
-- **Tablets (Medium and Expanded, when 640 + two 24 window margins fit): the cover beside.** A 640 card at `radius-sheet` 28 in a dialog window. On the left a 232 band, the tint deepened (black at 22% on a dark tint, the text colour at 6% on a light one), with the cover at 152 centred in it and a 36 margin above and below. On the right a column at `inset-dialog` 24: × (40, at 16 from the top and end), FINISHED (11.5 ExtraBold, 0.08 em, the cover's accent), the title (26/30 Bold, 40 clear of ×), the author (14 Medium, the text colour at 74%).
+- **Tablets (Medium and Expanded, when 640 + two 24 window margins fit): the cover beside.** A 640 card at `radius-sheet` 28 in a dialog window. On the left a 232 band, the tint deepened (black at 22% on a dark tint, the text colour at 6% on a light one), with the cover at 152 centred in it and a 36 margin above and below. On the right a column at `inset-dialog` 24: × (40, at 16 from the top and end), Finished (12 SemiBold, sentence case, the cover's accent), the title (26/30 SemiBold, 40 clear of ×), the author (14 Medium, the text colour at 74%).
 - **Rating**: 24 below, "Your rating" (13 SemiBold) with the hint at the end ("Tap to rate", the value while picking, "Rated 3.5"), then five 48 stars in 52 slots spread across the column, the first and last on its edges. Empty stars are the text colour at 28%, rated ones the accent. A tap saves; the left half of a star is a half; tapping the rating again clears it.
 - **Note**: 16 below, "Add a private note" as a pill that hugs its label (40 tall, `edit` 18, 14 SemiBold, the text colour at 10% behind it, 8% on a light tint), which opens into the field ("Private note", "Only you can see this", `radius-control`) across the column. It saves when the screen closes, whichever way.
 - **Next**: 20 below, when something follows (the series, or the list the book was opened from): a strip at `radius-container` (the theme's lowest surface at 30% on dark tints, 55% on light) with the next cover at 48, "Up next in Star Courier" (12 Medium, 74%) over its title (15 SemiBold). No button in it.
 - **Buttons** at the foot of the column, 24 clear of what is above: Back to library (Back to the list when opened from one) and Read next, equal halves, 48 tall; Back to library is tonal (the text colour at 12%, 10% on a light tint) beside Read next and the accent when it is the only one, across the column.
-- **Phones (Compact), and windows too narrow for the 640 card**: everything centred, in a bottom sheet in the tint (the card at 440 with × on a narrow window): the cover at 96 (120 in the card), FINISHED, the title at 24/30, the author; the stars centred with 4 between them and the hint under them; the note pill centred; then the next strip and the two buttons across. Sides `inset` 20 in the sheet, `inset-dialog` 24 in the card.
+- **Phones (Compact), and windows too narrow for the 640 card**: everything centred, in a bottom sheet in the tint (the card at 440 with × on a narrow window): the cover at 96 (120 in the card), Finished, the title at 24/30, the author; the stars centred with 4 between them and the hint under them; the note pill centred; then the next strip and the two buttons across. Sides `inset` 20 in the sheet, `inset-dialog` 24 in the card.
 - **Motion**: the card fades in from 0.96 (the sheet slides up by itself), the cover rises 12 after 60 ms, the stars pop in from 0.6 one after another. All at once with animations off.
 """, f"""
 <div class="yb" style="padding:16px">

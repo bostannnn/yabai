@@ -129,7 +129,7 @@ fun JournalListFinishedDialog(
                 list.figures().forEach { (value, label) ->
                     AppPanel(modifier = Modifier.weight(1f)) {
                         Column(modifier = Modifier.padding(AppLayout.headingGap)) {
-                            Text(text = value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
+                            Text(text = value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1)
                             Text(text = label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }

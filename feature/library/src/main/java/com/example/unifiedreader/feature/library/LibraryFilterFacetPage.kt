@@ -163,7 +163,7 @@ private fun FacetValueRow(
                 Text(
                     text = count.toString(),
                     style = MaterialTheme.typography.labelMedium.copy(
-                        fontSize = 12.5.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         fontFeatureSettings = "tnum",
                     ),

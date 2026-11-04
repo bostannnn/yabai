@@ -38,13 +38,15 @@ data class UnifiedReaderSemanticColors(
 
 /**
  * Sizes shared by every theme. Themes change colors only; the shape scale is one set of
- * three radii: cover, control (chips, buttons, fields), and container (panels, sheets, bars).
+ * radii: cover, inner (a part inside a control, 12 less its 4 padding), control (fields, tracks),
+ * and container (panels, sheets, bars).
  */
 @Immutable
 data class UnifiedReaderPresentationTokens(
     val cardCornerRadius: Dp,
     val coverCornerRadius: Dp,
     val controlCornerRadius: Dp,
+    val innerCornerRadius: Dp,
     val chipCornerRadius: Dp,
     val shelfCardHorizontalPadding: Dp,
     val shelfCardVerticalPadding: Dp,
@@ -58,6 +60,7 @@ val UnifiedReaderDefaultPresentationTokens = UnifiedReaderPresentationTokens(
     cardCornerRadius = 20.dp,
     coverCornerRadius = 6.dp,
     controlCornerRadius = 12.dp,
+    innerCornerRadius = 8.dp,
     chipCornerRadius = 12.dp,
     shelfCardHorizontalPadding = 14.dp,
     shelfCardVerticalPadding = 12.dp,

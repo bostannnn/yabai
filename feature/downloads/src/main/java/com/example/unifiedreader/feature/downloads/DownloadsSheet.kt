@@ -132,7 +132,7 @@ fun DownloadsSheet(
                 sectionHeading(DownloadsSheetSection.Finished) {
                     // Clears the list; the files stay on the device.
                     AppTextButton(onClick = onClearCompleted) {
-                        Text(text = "Clear list", fontWeight = FontWeight.Bold)
+                        Text(text = "Clear list", fontWeight = FontWeight.SemiBold)
                     }
                 }
                 finishedDays.forEach { day ->
@@ -257,7 +257,7 @@ private fun DownloadRunningBlock(
                         Text(
                             text = label,
                             style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }

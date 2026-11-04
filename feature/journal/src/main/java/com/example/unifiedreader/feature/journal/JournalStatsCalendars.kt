@@ -106,7 +106,7 @@ internal fun JournalYearReadingDaysPanel(
                             Column(modifier = Modifier.width(monthWidth), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(
                                     text = longMonthName(month),
-                                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp),
+                                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -263,7 +263,7 @@ private fun HeatCell(
                 verticalArrangement = Arrangement.SpaceBetween,
             ) {
                 CellText(text = dayOfMonth.toString(), color = textColor.copy(alpha = 0.85f), size = 11.5f, weight = FontWeight.SemiBold)
-                minutes?.let { CellText(text = it, color = textColor, size = 12f, weight = FontWeight.Bold) }
+                minutes?.let { CellText(text = it, color = textColor, size = 12f, weight = FontWeight.SemiBold) }
             }
             else -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CellText(text = dayOfMonth.toString(), color = textColor, size = 13f, weight = FontWeight.SemiBold)
@@ -308,7 +308,7 @@ private fun HeatLegend(
     showFinished: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val textStyle = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp)
+    val textStyle = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp)
     val color = MaterialTheme.colorScheme.onSurfaceVariant
     val swatch = RoundedCornerShape(4.dp)
     Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {

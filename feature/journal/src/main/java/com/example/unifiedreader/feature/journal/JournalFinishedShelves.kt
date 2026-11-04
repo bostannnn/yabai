@@ -128,7 +128,7 @@ private fun JournalCoverShelfPanel(
                                 text = "${items.size - CoverShelfCount} more",
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                 style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.SemiBold,
                             )
                         }
                     }
@@ -174,7 +174,7 @@ private fun CoverShelfItem(
         }
         Text(
             text = summary.item.displayTitle,
-            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp, lineHeight = 16.sp),
+            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp, lineHeight = 16.sp),
             fontWeight = FontWeight.SemiBold,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -182,7 +182,7 @@ private fun CoverShelfItem(
         summary.item.displaySubtitle?.let { subtitle ->
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp),
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

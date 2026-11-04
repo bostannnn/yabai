@@ -20,12 +20,11 @@ import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.feature.navigation.navigationIcon
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
-import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppSettingsGroup
 import com.example.unifiedreader.ui.components.AppSettingsRow
 import com.example.unifiedreader.ui.components.AppStatusPill
+import com.example.unifiedreader.ui.components.AppStatusTone
 import com.example.unifiedreader.ui.components.AppTonalButton
-import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 /**
  * One remote source. Connected, it leads with what you use: its state, Sync and the cover cache,
@@ -104,26 +103,19 @@ internal fun SourceSettingsPage(
 /** The state of a connected server: a pill, then the address and the account. */
 @Composable
 internal fun ServerStatus(entry: SourceSettingsEntry) {
-    val semantic = UnifiedReaderThemeTokens.colors
     val scheme = MaterialTheme.colorScheme
     val connection = entry.connection
-    val (label, container, content) = when (entry.connectivity) {
-        SourceConnectivityState.Offline -> Triple("Offline", scheme.errorContainer, scheme.onErrorContainer)
-        SourceConnectivityState.Checking -> Triple("Checking", scheme.surfaceContainerHighest, scheme.onSurfaceVariant)
-        else -> Triple("Connected", semantic.syncAccentContainer, semantic.onSyncAccentContainer)
+    // Offline is a state, not an error: the same quiet tone as Checking (design system, AppStatusPill).
+    val (label, tone) = when (entry.connectivity) {
+        SourceConnectivityState.Offline -> "Offline" to AppStatusTone.Neutral
+        SourceConnectivityState.Checking -> "Checking" to AppStatusTone.Neutral
+        else -> "Connected" to AppStatusTone.Good
     }
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            AppStatusPill(
-                label = label,
-                containerColor = container,
-                contentColor = content,
-                icon = AppIcons.Check.takeIf {
-                    entry.connectivity != SourceConnectivityState.Offline && entry.connectivity != SourceConnectivityState.Checking
-                },
-            )
+            AppStatusPill(label = label, tone = tone)
             Text(
                 text = listOfNotNull(
                     settingsHostLabel(connection.baseUrl).takeIf(String::isNotBlank),

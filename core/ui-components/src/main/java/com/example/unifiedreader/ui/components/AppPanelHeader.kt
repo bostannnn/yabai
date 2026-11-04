@@ -65,7 +65,7 @@ fun AppPanelHeader(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = 26.sp),
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.semantics { heading() },
@@ -95,6 +95,6 @@ fun AppPanelHeader(
 
 object AppPanelHeaderDefaults {
     val horizontalPadding = AppLayout.inset
-    val topPadding = 14.dp
-    val bottomPadding = 6.dp
+    val topPadding = 16.dp
+    val bottomPadding = 8.dp
 }

@@ -20,6 +20,7 @@ import com.example.unifiedreader.ui.components.AppSettingsGroup
 import com.example.unifiedreader.ui.components.AppSettingsRow
 import com.example.unifiedreader.ui.components.AppSettingsRowDivider
 import com.example.unifiedreader.ui.components.AppStatusPill
+import com.example.unifiedreader.ui.components.AppStatusTone
 import com.example.unifiedreader.ui.components.AppTonalButton
 
 data class SyncSettingsUiState(
@@ -152,8 +153,7 @@ private fun SyncQueueHeader(
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             AppStatusPill(
                 label = state.pillLabel(),
-                containerColor = if (failed) scheme.errorContainer else scheme.surfaceContainerHighest,
-                contentColor = if (failed) scheme.onErrorContainer else scheme.onSurface,
+                tone = if (failed) AppStatusTone.Problem else AppStatusTone.Neutral,
             )
             state.lastAttemptLabel?.let { attempted ->
                 Text(
@@ -214,7 +214,7 @@ private fun SyncQueueRowItem(row: SyncQueueRow) {
             Text(
                 text = if (row.failed) "Failed" else "Waiting",
                 style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 color = if (row.failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         },

@@ -27,7 +27,7 @@ fun AppScreenTitle(
         style = MaterialTheme.typography.displaySmall.copy(
             fontSize = if (compact) 32.sp else 40.sp,
             lineHeight = if (compact) 36.sp else 44.sp,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.SemiBold,
             letterSpacing = (-0.02).em,
         ),
         color = MaterialTheme.colorScheme.onSurface,

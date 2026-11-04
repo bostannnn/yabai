@@ -55,7 +55,7 @@ fun AppEmptyState(
             style = MaterialTheme.typography.headlineMedium.copy(
                 fontSize = 28.sp,
                 lineHeight = 34.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
             ),
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
@@ -65,7 +65,7 @@ fun AppEmptyState(
         )
         Text(
             text = body,
-            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.5.sp, lineHeight = 21.sp),
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 20.sp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             modifier = Modifier
@@ -75,7 +75,7 @@ fun AppEmptyState(
         if (actions != null) {
             Row(
                 modifier = Modifier.padding(top = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 content = actions,
             )

@@ -253,7 +253,7 @@ private fun PdfPagePreviewItem(
         Text(
             text = "${pageIndex + 1}",
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp, fontFeatureSettings = "tnum"),
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
             color = if (selected) tokens.colors.primaryText else tokens.colors.secondaryText,
             maxLines = 1,
         )

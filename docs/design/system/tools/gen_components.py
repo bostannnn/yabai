@@ -190,7 +190,7 @@ One row for a book in a list: a 40 wide cover, the title at 15 SemiBold, one lin
 
 - Kit: `AppBookRow(title, cover, onClick, contentPadding, supporting, trailing, leading)` and `AppBookRowLine(text, color, maxLines)` for the usual line; `AppBookRowDefaults.coverWidth` 40.
 - The journal's What you read, a journal day's books, the downloads list and a list page all use it.
-- A list in an order you set numbers its rows: `AppBookRowNumber(n)` in `leading`, 15 Bold `on-surface-variant`, right-aligned in 24, 14 before the cover. A book that left the library keeps its row at 55% from the copy saved with the list.
+- A list in an order you set numbers its rows: `AppBookRowNumber(n)` in `leading`, 15 SemiBold `on-surface-variant`, right-aligned in 24, 14 before the cover. A book that left the library keeps its row at 55% from the copy saved with the list.
 - 14 from the cover to the text; the caller pads the row to its surface's inset. Progress, when shown, is an `AppProgressBar` under the line.
 """, f"""
 <div class="yb yb-ground" style="padding:24px;width:460px">
@@ -199,7 +199,7 @@ One row for a book in a list: a 40 wide cover, the title at 15 SemiBold, one lin
     {DIV}
     <div class="yb-book-row">{cover(3)}<div style="flex:1;min-width:0"><div class="yb-book-title">Moths of Lisbon</div><div class="yb-book-line">Finished 24 Oct · Book</div></div><button class="yb-btn is-tonal">Rate</button></div>
     {DIV}
-    <div class="yb-book-row"><span style="width:24px;text-align:right;font:700 15px/20px var(--font-sans);color:var(--on-surface-variant)">7</span>{cover(5)}<div style="flex:1;min-width:0"><div class="yb-book-title">Star Courier #2</div><div class="yb-book-line">Star Courier · Kavita</div></div></div>
+    <div class="yb-book-row"><span style="width:24px;text-align:right;font:600 15px/20px var(--font-sans);color:var(--on-surface-variant)">7</span>{cover(5)}<div style="flex:1;min-width:0"><div class="yb-book-title">Star Courier #2</div><div class="yb-book-line">Star Courier · Kavita</div></div></div>
   </div>
 </div>""", width=508)
 
@@ -207,7 +207,7 @@ One row for a book in a list: a 40 wide cover, the title at 15 SemiBold, one lin
 comp("AppSectionHeading", "Text", 200, """
 # AppSectionHeading
 
-The heading on the page ground above a grid or a list: `section-heading` 20 Bold (18 on phones) with an optional count in 15 SemiBold `on-surface-variant`, and optional actions at the end of its row.
+The heading on the page ground above a grid or a list: `section-heading` 20 SemiBold (18 on phones) with an optional count in 15 Regular `on-surface-variant`, and optional actions at the end of its row.
 
 - Kit: `AppSectionHeading(text, count)`; the caller puts actions (Filters, sort, Hide finished) after it in the same row.
 - It sits **on the gutter line**, flush with the grid under it, `heading-gap` 8 above it.
@@ -284,8 +284,8 @@ def letter_strip(current, line=17, letters="#ABCDEFGHIJKLMNOPQRSTUVWXYZ", missin
     if bubble:
         top = letters.index(current) * line - 22
         bub = (f'<span style="position:absolute;right:30px;top:{top}px;width:60px;height:60px;border-radius:30px 30px 6px 30px;'
-               f'background:var(--primary);color:var(--on-primary);display:flex;align-items:center;justify-content:center;font:700 28px/1 var(--font-sans)">{current}</span>')
-    return (f'<div style="position:absolute;display:flex;flex-direction:column;font:700 10.5px/1 var(--font-sans);'
+               f'background:var(--primary);color:var(--on-primary);display:flex;align-items:center;justify-content:center;font:600 28px/1 var(--font-sans)">{current}</span>')
+    return (f'<div style="position:absolute;display:flex;flex-direction:column;font:600 10.5px/1 var(--font-sans);'
             f'color:var(--on-surface-variant);{style}">{bub}{"".join(out)}</div>')
 
 
@@ -321,7 +321,7 @@ comp("AppLetterStrip", "Lists", 520, """
 
 The index down the end edge of a long list sorted by name, to jump to a letter: # (names that start with a digit or a sign) and A to Z.
 
-- Kit: `AppLetterStrip(letters, current, onLetter)`. 18 wide, one letter per 17 (15 on Compact), 10.5 Bold `on-surface-variant`, over the gutter at the end edge, from the first letter group's top down.
+- Kit: `AppLetterStrip(letters, current, onLetter)`. 18 wide, one letter per 17 (15 on Compact), 11 SemiBold `on-surface-variant`, over the gutter at the end edge, from the first letter group's top down.
 - A letter with no group is drawn at 38% and moves to the next letter that has one.
 - Tap or drag: the list jumps to that letter's group label, and a 60 bubble in `primary` shows the letter beside the finger while it is down. The letter of the group at the top of the window sits on `primary-container`.
 - Only while the section is sorted by name and holds more than 20 lists. Under the strip the group labels (`AppGroupLabel`, `on-surface-variant`) mark the letters.
@@ -345,9 +345,9 @@ The index down the end edge of a long list sorted by name, to jump to a letter: 
 comp("AppPanelHeader", "Surfaces", 300, """
 # AppPanelHeader
 
-The one header for every sheet and panel: an optional Back, the title in `panel-title` (20 Bold), an optional subtitle (`label-medium`, `on-surface-variant`), actions, Close.
+The one header for every sheet and panel: an optional Back, the title in `panel-title` (20 SemiBold), an optional subtitle (`label-medium`, `on-surface-variant`), actions, Close.
 
-- Kit: `AppPanelHeader(title, subtitle, onBack, onClose, backContentDescription, closeContentDescription, actions)`. Padding 20 at the start (8 when Back is there), 8 at the end, 14 above, 6 below.
+- Kit: `AppPanelHeader(title, subtitle, onBack, onClose, backContentDescription, closeContentDescription, actions)`. Padding 20 at the start (8 when Back is there), 8 at the end, 16 above, 8 below, at least 64 tall.
 - **Every sheet uses it**: filters and a filter's facet page, downloads, a journal day, the book page and the reader panels, so Back and Close sit in the same place on every sheet.
 - A sheet whose content starts with its own title (the book page, a journal day) passes no `title`: the header is just Back and Close. On the book page it is the first row of the cover-tinted top, in the tint's content colour.
 - A subtitle says something new ("Showing all 35"); it never repeats the book title the reader bar shows.
@@ -364,7 +364,7 @@ comp("AppSideSheet", "Surfaces", 1080, """
 The sheet for anything opened over a screen: the book page, filters, downloads, a journal day. 400 wide, 12 from the window, `radius-sheet` 28, on `surface`, shadow 16. Under 600 it becomes `AppSheet` (bottom sheet) with the same header and body.
 
 - Kit: `AppSideSheet(onDismissRequest)`; **one width**, `sheet-width` 400, for every sheet (it takes no width). Corners 28 like dialogs and bottom sheets.
-- Header: `AppPanelHeader`. Body inset 20. Section labels inside: `AppSheetLabel` (`sheet-label`, 13 Bold, `on-surface-variant`), 14 above, 8 to their content. A sheet with two levels (downloads: a section over its days) puts `AppGroupLabel` above `AppSheetLabel`.
+- Header: `AppPanelHeader`. Body inset 20. Section labels inside: `AppSheetLabel` (`sheet-label`, 13 SemiBold, `on-surface-variant`), 14 above, 8 to their content. A sheet with two levels (downloads: a section over its days) puts `AppGroupLabel` above `AppSheetLabel`.
 - Hairlines between a sheet's sections: `AppSheetDivider`, the sheet's width less the inset on both sides, `outline-variant` at `AppDividerDefaults.alpha` (60%).
 - A section's body (chips, value rows, a slider) ends with `AppSheetSectionEnd`, `grid-gap` 16, before the next divider, the same under every kind of section; nothing sits on a divider. A section that ends in a row (`AppSettingsRow`, a value row that opens a page) leaves it out: the row carries its own padding.
 - A footer action is a full-width filled button with 20 around it.
@@ -393,7 +393,7 @@ The sheet for anything opened over a screen: the book page, filters, downloads, 
 comp("AppDialog", "Surfaces", 320, """
 # AppDialog
 
-A question or a short form over the screen: `AppDialogCard` up to 380 wide, `radius-sheet` 28, `inset-dialog` 24, on `surface-container-high`; title 24 Bold, body 14; pill actions at the end.
+A question or a short form over the screen: `AppDialogCard` up to 380 wide, `radius-sheet` 28, `inset-dialog` 24, on `surface-container-high`; title 24 SemiBold, body 14; pill actions at the end.
 
 - Kit: `AppDialog`, `AppDialogCard`, `AppListDialog` (a searchable list), `AppDialogConfirmButton` / `AppDialogDismissButton`.
 - A destructive confirm is `error` / `on-error`.
@@ -464,7 +464,7 @@ Pill buttons, 40 tall, `button` text. Pressed, they shrink a little and their co
 comp("AppChip", "Actions", 180, """
 # AppChip
 
-A selectable pill for filters and sort: 36 tall, a hairline `outline-variant` edge, `on-surface-variant` text in SemiBold; selected fills with `primary-container` and drops the edge. An optional count follows the label at 70%.
+A selectable pill for filters and sort: 36 tall, 16 inside, a hairline `outline-variant` edge, `on-surface-variant` text in SemiBold; selected fills with `primary-container` and drops the edge. An optional count follows the label in Regular at 70%, in tabular figures.
 
 - Kit: `AppChip(selected, onClick, label, count, leadingIcon, onLongClick)`.
 - The library's Filters and sort pills, the filter sheet's values, the Lists place row and Sort chip, and a smart list's rules.
@@ -482,7 +482,7 @@ A selectable pill for filters and sort: 36 tall, a hairline `outline-variant` ed
 comp("AppTabPill", "Actions", 160, """
 # AppTabPill
 
-A tab as a pill: 34 tall, 14 inside, text only until selected, then on `surface-container-high` with `on-surface` text. An optional count follows at 80%. Quieter than an `AppChip`, so a row of tabs reads as "which list" and chips under it as "which value".
+A tab as a pill: 36 tall, 16 inside, text only until selected, then on `surface-container-high` with `on-surface` text. An optional count follows in Regular at 80%, in tabular figures. Quieter than an `AppChip`, so a row of tabs reads as "which list" and chips under it as "which value".
 
 - Kit: `AppTabPill(label, selected, onClick, count)`; 4 apart in a row that scrolls when it doesn't fit.
 - The library home's shelf tabs (In progress, Up next, Finished) and See all's.
@@ -495,7 +495,7 @@ A tab as a pill: 34 tall, 14 inside, text only until selected, then on `surface-
 comp("AppSegmentedRow", "Actions", 200, """
 # AppSegmentedRow
 
-Two or three choices in one pill: a `surface-container-low` track, 3 padding, 34 tall segments; the selected one is `primary-container`.
+Two or three choices on one track: a `surface-container-low` track at `radius-control` 12, 4 padding, 36 tall segments at `radius-inner` 8 (12 less the padding); the selected one is `primary-container`. A field, not a pill: pills are for things you tap to act or pick.
 
 - Kit: `AppSegmentedRow` + `AppSegment`.
 - Any setting with two or three values is one row of these (label + segmented row); lists are only for fonts and chapters. More values than three, ordered by size, take a stepped `AppSlider` with the value's name at the label's end (the sort menu's cover size).
@@ -528,7 +528,7 @@ A range on one track: AppSlider's 18 tall pill on `surface-container-highest`, `
 comp("AppSearchField", "Actions", 200, """
 # AppSearchField
 
-The search pill: 40 tall, `surface-container-high`, a search icon, a placeholder that names what it searches, Clear once there is text, and an optional trailing slot (the connection badge while a source is offline).
+The search field: 40 tall (56 in the library bar), `radius-control` 12, `surface-container-high`, a search icon, a placeholder that names what it searches, Clear once there is text, and an optional trailing slot (the connection state while a source is offline: `AppStatusPill` in the neutral tone; a tap retries).
 
 - Kit: `AppSearchField(query, onQueryChange, placeholder, containerColor, trailingContent)`.
 - In the library bar it fills the middle up to 640. The placeholder says the place: "Search Kavita", "Search Neon Ronin", "Search shelves".
@@ -545,7 +545,7 @@ The search pill: 40 tall, `surface-container-high`, a search icon, a placeholder
 comp("AppEmptyState", "Feedback", 360, """
 # AppEmptyState
 
-An empty or failed place: an illustration or icon, a 28 Bold title, a 14.5 line, up to two actions. `inset-dialog` 24 at the sides, 40 above and below.
+An empty or failed place: an illustration or icon, a 28 SemiBold title, a 14/20 line, up to two actions 12 apart. `inset-dialog` 24 at the sides, 40 above and below.
 
 - Kit: `AppEmptyState`. Every empty state uses it (an empty source, no downloads, no matches, a reader error).
 - "No matches" inside a filter facet or a list dialog is a short `AppEmptyState` too, not local text.
@@ -557,15 +557,15 @@ An empty or failed place: an illustration or icon, a 28 Bold title, a 14.5 line,
 comp("AppStatusPill", "Feedback", 160, """
 # AppStatusPill
 
-A source's or a queue's state as a pill: 28 tall, `label-large` Bold, an optional 16 icon.
+A source's or a queue's state as a dot and a word, with no container: an 8 dot, 8 before the label in 14 Medium. Good is the dot in `primary` with `on-surface` text; neutral (Checking, Waiting) the dot in `outline` with `on-surface-variant` text; a problem the dot and the text in `error`. 28 tall, so it lines up with the controls beside it.
 
-- Kit: `AppStatusPill(label, containerColor, contentColor, icon)`. The caller picks the colours for the state: the sync accent container for Connected, `surface-container-highest` for neutral (Checking, Waiting), `error-container` for a problem.
+- Kit: `AppStatusPill(label, tone)` with `AppStatusTone.Good`, `Neutral` or `Problem`; the kit picks the colours.
 - The source page and the sync page use it.
 """, f"""
 <div class="yb yb-ground" style="padding:24px;display:flex;gap:10px;flex-wrap:wrap">
-  <span class="yb-pill is-good">{ic("check")}Connected</span>
+  <span class="yb-pill is-good">Connected</span>
   <span class="yb-pill">Checking</span>
-  <span class="yb-pill is-bad">{ic("error")}Offline</span>
+  <span class="yb-pill is-bad">Sign-in needed</span>
 </div>""")
 
 comp("AppProgressBar", "Feedback", 160, """

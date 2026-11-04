@@ -309,7 +309,7 @@ private fun LibraryTagsLabelledChips(
     val text = @Composable { modifier: Modifier ->
         Text(
             text = "$label ${appCount(entries.size)}",
-            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = modifier,
         )

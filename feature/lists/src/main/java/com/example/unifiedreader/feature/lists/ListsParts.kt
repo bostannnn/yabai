@@ -421,13 +421,13 @@ internal fun ListUnderWayCard(
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(UnderWayLineGap)) {
                 Text(
                     text = "Reading order · book ${underWay.position} of ${underWay.count}",
-                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
                     text = underWay.list.name,
                     style = MaterialTheme.typography.headlineSmall.copy(fontSize = 24.sp, lineHeight = 30.sp),
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )

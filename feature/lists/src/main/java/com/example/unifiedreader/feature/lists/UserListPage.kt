@@ -351,7 +351,7 @@ private fun UserListHeader(
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 text = list.headerCaption(books),
-                style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold),
+                style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             AppScreenTitle(text = list.name)
@@ -494,7 +494,7 @@ private fun UserListBookTile(
             if (number != null) {
                 Text(
                     text = number.toString(),
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum"),
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, fontFeatureSettings = "tnum"),
                     color = Color.White,
                     modifier = Modifier
                         .align(Alignment.TopStart)

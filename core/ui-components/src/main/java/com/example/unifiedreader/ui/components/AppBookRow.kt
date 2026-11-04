@@ -75,7 +75,7 @@ fun AppBookRowNumber(
     Text(
         text = number.toString(),
         style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp, lineHeight = 20.sp),
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.End,
         maxLines = 1,

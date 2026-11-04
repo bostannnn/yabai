@@ -161,7 +161,7 @@ private fun ReadItemRow(
                             text = "Finished ${formatShortDate(finishedAt)}",
                             modifier = Modifier.padding(horizontal = 9.dp, vertical = 2.dp),
                             style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
                         )
                     }
@@ -198,7 +198,7 @@ private fun ReadItemRow(
                 Text(
                     text = amount,
                     style = MaterialTheme.typography.labelLarge.copy(fontSize = 15.sp, fontFeatureSettings = "tnum"),
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.End,
                     maxLines = 1,
                 )
@@ -208,7 +208,7 @@ private fun ReadItemRow(
             } else if (item.readingDays > 0) {
                 Text(
                     text = "on ${item.readingDays.counted("day")}",
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.5.sp, fontFeatureSettings = "tnum"),
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, fontFeatureSettings = "tnum"),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                 )

@@ -170,7 +170,7 @@ private fun EpubTableOfContentsRow(
             Text(
                 text = entry.title,
                 style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                 color = titleColor,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -179,7 +179,7 @@ private fun EpubTableOfContentsRow(
             throughLabel?.let { label ->
                 Text(
                     text = label,
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.5.sp),
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                     fontWeight = FontWeight.SemiBold,
                     color = titleColor.copy(alpha = 0.8f),
                     maxLines = 1,
@@ -198,7 +198,7 @@ private fun EpubTableOfContentsRow(
             // A fixed column, so the read checks before it line up.
             Text(
                 text = position.toString(),
-                style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp, fontFeatureSettings = "tnum"),
+                style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp, fontFeatureSettings = "tnum"),
                 color = if (selected) titleColor else tokens.colors.secondaryText,
                 maxLines = 1,
                 textAlign = TextAlign.End,

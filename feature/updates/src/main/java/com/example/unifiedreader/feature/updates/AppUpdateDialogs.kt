@@ -62,7 +62,7 @@ fun AppUpdateDialogs(
             DialogBody(
                 buildAnnotatedString {
                     append("Android asks once. On the next screen, turn on ")
-                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)) {
+                    withStyle(SpanStyle(fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)) {
                         append("Allow from this source")
                     }
                     append(", then come back with Back.")
@@ -219,7 +219,7 @@ private fun ReleaseNotes(
     if (shown.isNotEmpty()) {
         Text(
             text = "What's new",
-            style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp, fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
         )
@@ -260,7 +260,7 @@ private fun ReleaseNotes(
         ) {
             Text(
                 text = linkLabel,
-                style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold),
+                style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.primary,
             )
             Icon(

@@ -187,7 +187,7 @@ private fun ReaderOpeningContent(
             text = item.libraryPrimaryText(),
             fontSize = 22.sp,
             lineHeight = 28.sp,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.SemiBold,
             color = colors.text,
             textAlign = TextAlign.Center,
             maxLines = 3,

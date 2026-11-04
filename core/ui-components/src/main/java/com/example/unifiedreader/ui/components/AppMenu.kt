@@ -111,7 +111,7 @@ fun AppMenuHeading(
 ) {
     Text(
         text = text,
-        style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp, fontWeight = FontWeight.Bold),
+        style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
@@ -150,7 +150,7 @@ fun AppMenuChoiceItem(
                 }
                 Text(
                     text = text,
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(start = 8.dp),

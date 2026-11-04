@@ -1,6 +1,6 @@
 # AppChip
 
-A selectable pill for filters and sort: 36 tall, a hairline `outline-variant` edge, `on-surface-variant` text in SemiBold; selected fills with `primary-container` and drops the edge. An optional count follows the label at 70%.
+A selectable pill for filters and sort: 36 tall, 16 inside, a hairline `outline-variant` edge, `on-surface-variant` text in SemiBold; selected fills with `primary-container` and drops the edge. An optional count follows the label in Regular at 70%, in tabular figures.
 
 - Kit: `AppChip(selected, onClick, label, count, leadingIcon, onLongClick)`.
 - The library's Filters and sort pills, the filter sheet's values, the Lists place row and Sort chip, and a smart list's rules.

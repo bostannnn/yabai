@@ -114,7 +114,7 @@ fun LibraryTopBarMoreMenu(
                 AppDivider(modifier = Modifier.padding(vertical = 4.dp))
                 Text(
                     text = "Long-press a cover to select books for download.",
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.5.sp),
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(
                         horizontal = AppMenuDefaults.horizontalPadding,

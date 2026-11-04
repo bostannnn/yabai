@@ -1,7 +1,6 @@
 package com.example.unifiedreader
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,9 +25,10 @@ import com.example.unifiedreader.feature.library.LibraryBrowseTopBarSearchField
 import com.example.unifiedreader.feature.library.LibraryRefreshAction
 import com.example.unifiedreader.feature.library.LibrarySelectionTopBar
 import com.example.unifiedreader.feature.library.LibraryTopBarMoreMenu
-import com.example.unifiedreader.ui.components.AppBadge
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppStatusPill
+import com.example.unifiedreader.ui.components.AppStatusTone
 import com.example.unifiedreader.ui.components.appBadgeDot
 import com.example.unifiedreader.ui.components.appProgressRing
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
@@ -178,10 +177,12 @@ private fun SourceConnectivityBadge(
         SourceConnectivityState.Online,
         SourceConnectivityState.Unknown -> return
     }
-    val colors = MaterialTheme.colorScheme
-    AppBadge(
+    // Offline is a state, not an error: a dot and a word like Checking (design system, AppStatusPill).
+    AppStatusPill(
+        label = if (offline) "Offline" else "Checking",
+        tone = AppStatusTone.Neutral,
         modifier = Modifier
-            .padding(end = 6.dp)
+            .padding(end = 8.dp)
             .then(if (offline) Modifier.clickable(onClickLabel = "Retry connection", onClick = onClick) else Modifier)
             .semantics {
                 contentDescription = if (offline) {
@@ -190,17 +191,7 @@ private fun SourceConnectivityBadge(
                     "${sourceType.displayName()} connection is checking"
                 }
             },
-        color = if (offline) colors.errorContainer else colors.surfaceContainerHighest,
-        border = BorderStroke(1.dp, if (offline) colors.error else colors.outlineVariant),
-    ) {
-        Text(
-            text = if (offline) "Offline" else "Checking",
-            color = if (offline) colors.onErrorContainer else colors.onSurfaceVariant,
-            style = MaterialTheme.typography.labelSmall,
-            maxLines = 1,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-        )
-    }
+    )
 }
 
 @Composable
