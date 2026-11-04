@@ -9,7 +9,6 @@
 1 feature/library-shelves/src/main/java/com/example/unifiedreader/feature/library/shelves/LibraryShelvesPlaceholders.kt
 1 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryBookDescription.kt
 1 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryBookPage.kt
-1 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryReadingCard.kt
 1 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryReadingCardText.kt
 2 feature/reader-core/src/main/java/com/example/unifiedreader/feature/reader/core/ReaderOpeningLayer.kt
 3 feature/reader-epub/src/main/java/com/example/unifiedreader/feature/reader/epub/EpubFootnoteSheet.kt

@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import com.example.unifiedreader.ui.components.AppBookType
 import com.example.unifiedreader.ui.components.appProgressFill
 
 /**
@@ -61,18 +62,21 @@ internal fun LibraryReadingCardText(
         )
         BasicText(
             text = title,
-            style = MaterialTheme.typography.titleLarge.copy(
-                color = colors.content,
-                fontWeight = FontWeight.SemiBold,
-                lineHeight = 1.28.em,
-                letterSpacing = 0.sp,
+            // The book's own title, in the book face.
+            style = AppBookType.title(
+                MaterialTheme.typography.titleLarge.copy(
+                    color = colors.content,
+                    fontWeight = FontWeight.Medium,
+                    lineHeight = 1.15.em,
+                    letterSpacing = 0.sp,
+                ),
             ),
             maxLines = if (tall) 4 else 2,
             overflow = TextOverflow.Ellipsis,
             autoSize = if (tall) {
-                TextAutoSize.StepBased(minFontSize = 18.sp, maxFontSize = 20.sp, stepSize = 2.sp)
+                TextAutoSize.StepBased(minFontSize = 22.sp, maxFontSize = 28.sp, stepSize = 2.sp)
             } else {
-                TextAutoSize.StepBased(minFontSize = 16.sp, maxFontSize = 18.sp, stepSize = 2.sp)
+                TextAutoSize.StepBased(minFontSize = 20.sp, maxFontSize = 26.sp, stepSize = 2.sp)
             },
             modifier = clearOfMenu.padding(top = 4.dp),
         )

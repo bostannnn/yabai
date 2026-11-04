@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.ui.components.AppBookType
 import com.example.unifiedreader.ui.components.appPressScale
 
 @Composable
@@ -114,7 +115,8 @@ fun LibraryCoverActionCard(
                             onClick = onClick,
                             onLongClick = onLongClick,
                         ).then(title.marqueeModifier()),
-                        style = titleStyle,
+                        // The book's own title, in the book face.
+                        style = AppBookType.title(titleStyle),
                         color = titleColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

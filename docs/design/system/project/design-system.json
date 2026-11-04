@@ -13,9 +13,9 @@
   "groups": [],
   "lastChange": {
     "by": "bostannnn",
-    "at": "2026-11-04T21:00:00Z",
+    "at": "2026-11-04T21:40:00Z",
     "via": "Claude Code",
-    "note": "Filters one form per job: tiles (Library, Reading status, Mood, Length), check rows (Language, Format, Location, Set in with share bars), letter grids (Author, Publisher), cover stacks (Series), a timeline (When); Cover shape setting (All the same / As printed)"
+    "note": "Books look like books: titles in the book face (Noto Serif), covers with a spine side, a shaded spine and a soft shadow, and the reading card without its box"
   },
   "layout": "files",
   "libraries": [],

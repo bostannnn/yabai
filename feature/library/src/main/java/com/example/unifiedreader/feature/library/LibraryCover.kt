@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -33,6 +34,8 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.isGeneratedComicVolumeTitle
 import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.ui.components.AppBadge
+import com.example.unifiedreader.ui.components.AppCoverShape
+import com.example.unifiedreader.ui.components.AppCoverShape.coverSpine
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
@@ -51,11 +54,8 @@ fun LibraryCover(
     emptyCoverContent: (@Composable BoxScope.() -> Unit)? = null,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
-    val presentation = UnifiedReaderThemeTokens.presentation
-    val coverShape = RoundedCornerShape(presentation.coverCornerRadius)
-    // Covers sit flat on the background: no shadow, no gradient, no spine treatment. The
-    // hairline keeps light covers separate from light backgrounds.
-    val coverEdge = MaterialTheme.colorScheme.outlineVariant.copy(alpha = CoverEdgeAlpha)
+    // A cover is a bound book lying on the ground: the spine side squarer, a soft shadow, the spine shaded.
+    val coverShape = AppCoverShape.shape
     val imageUrl = coverUrl?.takeIf(String::isNotBlank)
     // As printed: the cover keeps its own proportions on the bottom of its slot, once its image says what they are.
     val asPrinted = LocalLibraryCoverAsPrinted.current && imageUrl != null
@@ -72,15 +72,16 @@ fun LibraryCover(
                         Modifier.aspectRatio(printedShape, matchHeightConstraintsFirst = printedShape < LibraryCoverAspectRatio)
                     },
                 )
+                .shadow(elevation = AppCoverShape.elevation, shape = coverShape, clip = false)
                 .clip(coverShape)
-                .background(semanticColors.surfaceRaised)
-                .border(width = 1.dp, color = coverEdge, shape = coverShape),
+                .background(semanticColors.surfaceRaised),
             contentAlignment = Alignment.Center,
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .alpha(if (fadeRead && isRead) ReadCoverFadeAlpha else 1f),
+                    .alpha(if (fadeRead && isRead) ReadCoverFadeAlpha else 1f)
+                    .coverSpine(),
                 contentAlignment = Alignment.Center,
             ) {
                 if (imageUrl != null) {
@@ -175,7 +176,6 @@ private const val MinPrintedAspect = 0.5f
 private const val MaxPrintedAspect = 1f
 
 private const val ReadCoverFadeAlpha = 0.42f
-private const val CoverEdgeAlpha = 0.4f
 
 @Composable
 internal fun BucketedCoverImage(
