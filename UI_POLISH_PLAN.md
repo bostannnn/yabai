@@ -253,7 +253,7 @@ republished to the Design System artifact.
 
 Ask the user which other chips bother them before the board.
 
-## 7. Journal: one grid, even widgets, no holes `[ ]`
+## 7. Journal: one grid, even widgets, no holes `[~]` (B built)
 
 **What is wrong.** The widgets have very different sizes and the layout leaves holes.
 
@@ -279,6 +279,33 @@ Ask the user which other chips bother them before the board.
 
 Then `components/JournalScreen/README.md` and the code. Keep everything the journal shows today: say plainly on the
 board if a widget is dropped or merged (see `journal-readability-board`: the user missed removed data last time).
+
+**Board (2026-11-04):** https://claude.ai/artifact/NYHUtib5pBtAAekQDs3nFT ("Journal grid"). Today's layout from the
+emulator (November thin, October, the year) beside two options, every widget kept, sample data from the component:
+
+- **A, rows of equal height:** a 12-column grid, each row one grid so its panels end flush (calendar 5 | what you read 7,
+  pages 6 | when you read 6, ratings 4 | finished 8, needs rating 6 | lists 6, most read 12; the year calendar full width
+  with six months a row). A thin month keeps every place with a short line ("Nothing rated in November yet").
+  Portrait pairs only the two charts and ratings with needs rating; phones one column.
+- **B, grouped by what it tells you:** Time (summary; calendar 7 | when you read over pages 5), Books (what you read 7 |
+  finished over needs rating 5; lists), Taste (ratings 4 | most read 8), `AppGroupLabel` over each. Two small widgets
+  stack beside a big one and share its height; an empty widget steps aside and its neighbour widens, a group with
+  nothing goes.
+- Both: the summary's rows always end flush (no lone last cell), charts one height that grows with its row, the
+  month calendar fills its panel, the opened line sits at the foot of What you read. Waiting for the pick.
+
+**Built (2026-11-04): B.** Design system first (`JournalScreen` guideline and mock, republished).
+
+- `JournalLayout.kt`: `journalLayout(month, wide, present)` places the panels (Time, Books, Taste; spans 7|5, 8|4,
+  4|8), drops what has nothing to show and widens what is left; below 880 one panel to a row. Unit-tested.
+- `JournalGridLayouts.kt`: `JournalSplitRow`, `JournalEqualRow`, `JournalStack` split the width themselves and answer
+  intrinsic heights exactly; a row is as tall as its tallest place and the panels of a place share it. (A weighted
+  `Row` under `IntrinsicSize.Min` under-reported the year calendar and squeezed its legend.)
+- No subcomposition left inside panels: the calendars size their days with weights-free rows (a day 1.2 wide to
+  1 tall, never taller than 64; phones square without minutes), Most read takes its columns from the grid, the cover
+  shelves are a scrolling `Row`. Charts are 72 at least and grow with their panel; the summary's last row widens.
+- Checked on the emulator: November (thin) in portrait and landscape, the year in landscape. Not on the tablet; the
+  emulator's journal has no full month, so a month with many books, finished books and lists is unchecked.
 
 ---
 
