@@ -193,6 +193,8 @@ fun UnifiedReaderScaffold(
         browserKind = activeLibraryShelfBrowserKind,
     )
     val libraryShelfBrowserViewState = rememberLibraryShelfBrowserViewState(uiState.libraryBrowseContextKey)
+    // The library's search panel, opened from the bar's field.
+    val librarySearchPanel = rememberLibrarySearchPanelController()
     val activeLibraryShelfBrowser = if (uiState.topLevel == TopLevelDestination.Library) {
         activeLibraryShelfBrowserKind?.let(uiState.libraryShelvesState::browserState)
     } else {
@@ -658,6 +660,8 @@ fun UnifiedReaderScaffold(
                                             onSourceConnectivityClick = viewModel::retrySelectedSourceConnection,
                                             onDrawerClick = openDrawer,
                                             onSearchQueryChanged = viewModel::onLibrarySearchQueryChanged,
+                                            onSearchFieldClick = { librarySearchPanel.open(uiState.selectedLibrarySearchQuery) },
+                                            onSearchFieldBounds = { bounds -> librarySearchPanel.anchor = bounds },
                                             onRefreshClick = viewModel::refreshSelectedRemoteLibrary,
                                             downloadsButtonState = viewModel.downloadsSnapshot.buttonState,
                                             onDownloadsClick = viewModel::showDownloadsSheet,
@@ -717,6 +721,16 @@ fun UnifiedReaderScaffold(
                             }
                         }
                     }
+                }
+                if (uiState.topLevel == TopLevelDestination.Library && activeLibraryShelfBrowser == null) {
+                    LibrarySearchPanelHost(
+                        controller = librarySearchPanel,
+                        uiState = uiState,
+                        coverImageUrlProvider = viewModel::coverImageUrlFor,
+                        onSearchQueryChanged = viewModel::onLibrarySearchQueryChanged,
+                        onFiltersChanged = { filters -> viewModel.onLibraryFiltersChanged(filters, persist = listMode == null) },
+                        onOpenItem = viewModel::onItemSelected,
+                    )
                 }
                 if (listsViewModel != null) {
                     KeepListBooksDownloaded(listsViewModel, uiState, onQueue = viewModel::onKeepDownloaded)

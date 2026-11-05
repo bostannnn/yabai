@@ -218,7 +218,7 @@ library = f"""
   {statusbar()}
   <div class="yb-device-body">
     <div class="yb-pane" style="--yb-gutter:24px">
-      <div class="yb-bar"><button class="yb-icon-btn">{ic("menu")}</button><div class="yb-search">{ic("search")}<span>Search Kavita</span></div><span class="yb-spacer"></span><button class="yb-icon-btn">{ic("download")}</button><button class="yb-icon-btn">{ic("more_horiz")}</button></div>
+      <div class="yb-bar is-centred"><span class="yb-bar-lead"><button class="yb-icon-btn">{ic("menu")}</button></span><div class="yb-search">{ic("search")}<span>Search Kavita</span></div><span class="yb-bar-trail"><button class="yb-icon-btn">{ic("download")}</button><button class="yb-icon-btn">{ic("more_horiz")}</button></span></div>
       <div class="yb-scroll">
         {reading_card(LW - 48, 160, 80, ("Oona Fitch · Chapter 1 of 6",))}
         <div style="display:flex;flex-direction:column;gap:8px">
@@ -251,7 +251,7 @@ library_wide = f"""
   <div class="yb-device-body">
     {rail("Kavita")}
     <div class="yb-pane" style="--yb-gutter:24px">
-      <div class="yb-bar"><div class="yb-search">{ic("search")}<span>Search Kavita</span></div><span class="yb-spacer"></span><button class="yb-icon-btn">{ic("download")}</button><button class="yb-icon-btn">{ic("more_horiz")}</button></div>
+      <div class="yb-bar is-centred"><span class="yb-bar-lead"></span><div class="yb-search">{ic("search")}<span>Search Kavita</span></div><span class="yb-bar-trail"><button class="yb-icon-btn">{ic("download")}</button><button class="yb-icon-btn">{ic("more_horiz")}</button></span></div>
       <div class="yb-scroll">
         <div style="display:flex;gap:16px;align-items:stretch">
           {reading_card(370, 236, 131, ("Oona Fitch", "Chapter 1 of 6 · The Ferry"), title_font="600 20px/25px", tall=True)}
@@ -288,6 +288,7 @@ A source's library: the bar with its search field, the reading card, the shelf t
   - **Beside the shelves** (6 columns or more: tablet landscape beside the rail): the card takes 2 of the 6 columns and the shelves the other 4. The strip beside it is Small (96) whatever the cover size, its tiles keep the title and the progress and drop the author line, and the card is as tall as the tabs and the strip together, bottoms lined up (about 236). Its cover fills that height (about 131 wide), which leaves a narrow column: the label may wrap to a second line, the title is 28 stepping down to 22 on up to 4 lines, the author and the place get a line each (the place with the chapter's name, "Chapter 1 of 6 · The Ferry"), and the percentage sits over a bar across the column instead of beside it.
   - A series opens on the same card for the issue being read or the next one (label "Up next in this series"), 160 tall, across half the row (3 of 6 columns) on wide windows, since nothing sits beside it there.
 - No source name anywhere on the screen: the search field says it.
+- **Search.** The bar's field is centred on the page, the same centre as the grid. A tap opens the search panel (`AppSearchPanel`) out of it, over the dimmed library; Show all there leaves the search on All books as covers, under "Results 446".
 - **Offline** shows at the search field's end as `AppStatusPill` in the neutral tone (an 8 dot in `outline`, "Offline" in `on-surface-variant`), the same as Checking. Being offline is a state, not an error, so it takes no error colour. A tap retries.
 - **The jump rail** runs down the right edge for a sort that groups by letter: Title, Author and Series. Only letters with books show. Pages, Date added, Last read and Issues have none: nobody jumps to "150 pages", and every cover already says its length.
 - **Sorted by Pages** (shortest first, unknown lengths last), the line under each cover gives its length instead of its progress: "212 pages", a series "212 pages · 8 issues". A series' length is all its issues together, for the sort and the Pages filter alike.
@@ -430,7 +431,7 @@ docked = f"""
   <div class="yb-device-body">
     {rail("Grimmory")}
     <div class="yb-pane" style="--yb-gutter:24px">
-      <div class="yb-bar"><div class="yb-search">{ic("search")}<span>Search Grimmory</span></div><span class="yb-spacer"></span><button class="yb-icon-btn">{ic("download")}</button><button class="yb-icon-btn">{ic("more_horiz")}</button></div>
+      <div class="yb-bar is-centred"><span class="yb-bar-lead"></span><div class="yb-search">{ic("search")}<span>Search Grimmory</span></div><span class="yb-bar-trail"><button class="yb-icon-btn">{ic("download")}</button><button class="yb-icon-btn">{ic("more_horiz")}</button></span></div>
       <div style="position:absolute;left:24px;right:448px;top:84px;bottom:0;display:flex;flex-direction:column;gap:16px;overflow:hidden">
         <div style="display:flex;gap:8px;align-items:center"><h2 class="yb-section-heading" style="flex:1">All books <span class="yb-count">72</span></h2><span class="yb-chip is-selected">Русский{ic("close", 18)}</span><span class="yb-chip is-selected">Russia{ic("close", 18)}</span><span class="yb-chip is-selected">1800s{ic("close", 18)}</span><span class="yb-chip">{ic("tune")}Date added</span></div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">{filter_tiles}</div>

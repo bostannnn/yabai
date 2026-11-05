@@ -7,17 +7,17 @@ import androidx.compose.animation.togetherWith
 import com.example.unifiedreader.ui.theme.AppMotion
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -34,13 +34,15 @@ import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppStatusPill
 import com.example.unifiedreader.ui.components.AppStatusTone
+import com.example.unifiedreader.ui.components.AppTopBarCentredRow
 import com.example.unifiedreader.ui.components.appBadgeDot
 import com.example.unifiedreader.ui.components.appProgressRing
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 /**
  * The library's bar: the menu button (back inside a series or a Kavita list), the search field
- * filling the middle, Downloads and "•••". The field names what it searches ("Search Kavita",
+ * centred on the bar, Downloads and "•••". The field is the door to the search panel, which opens
+ * out of it. The field names what it searches ("Search Kavita",
  * "Search Neon Ronin") and carries the source's connection badge while it is not online. The
  * glass shows once the grid has scrolled under the bar; while books are selected the bar is the
  * selection bar.
@@ -58,6 +60,9 @@ fun LibraryTopBar(
     // Null where the rail shows: the bar has no menu button then.
     onDrawerClick: (() -> Unit)?,
     onSearchQueryChanged: (String) -> Unit,
+    // The field is the door to the search panel; it reports where it is, for the panel to open out of.
+    onSearchFieldClick: () -> Unit = {},
+    onSearchFieldBounds: (Rect) -> Unit = {},
     onRefreshClick: () -> Unit = {},
     downloadsButtonState: DownloadsButtonState,
     onDownloadsClick: () -> Unit,
@@ -109,52 +114,55 @@ fun LibraryTopBar(
                 )
                 return@AnimatedContent
             }
-            Row(
+            // The field is centred on the bar, so it shares one centre with the page under it.
+            AppTopBarCentredRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                when {
-                    contextTitle != null -> AppIconButton(onClick = onLeaveSeries) {
-                        Icon(imageVector = AppIcons.ArrowBack, contentDescription = "Back to source library")
+                leading = {
+                    when {
+                        contextTitle != null -> AppIconButton(onClick = onLeaveSeries) {
+                            Icon(imageVector = AppIcons.ArrowBack, contentDescription = "Back to source library")
+                        }
+                        onDrawerClick != null -> DrawerMenuButton(onClick = onDrawerClick)
                     }
-                    onDrawerClick != null -> DrawerMenuButton(onClick = onDrawerClick)
-                }
-                // The field takes the middle, up to a width that still reads as one field on a wide window.
-                Box(modifier = Modifier.weight(1f)) {
-                    LibraryBrowseTopBarSearchField(
-                        query = searchQuery,
-                        onQueryChanged = onSearchQueryChanged,
-                        placeholder = "Search ${contextTitle ?: selectedSource.displayName()}",
-                        trailingContent = if (searchQuery.isEmpty()) {
-                            {
-                                SourceConnectivityBadge(
-                                    sourceType = selectedSource,
-                                    state = sourceConnectivity,
-                                    onClick = onSourceConnectivityClick,
+                },
+                trailing = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        DownloadsButton(state = downloadsButtonState, onClick = onDownloadsClick)
+                        LibraryTopBarMoreMenu(
+                            onImportFile = onImportLocalFileClick,
+                            refresh = if (refreshState.isVisible) {
+                                LibraryRefreshAction(
+                                    enabled = refreshState.isEnabled,
+                                    refreshing = refreshState.isRefreshing,
+                                    onRefresh = onRefreshClick,
                                 )
-                            }
-                        } else {
-                            null
-                        },
-                        modifier = Modifier
-                            .widthIn(max = LibraryBarSearchFieldMaxWidth)
-                            .fillMaxWidth(),
-                    )
-                }
-                DownloadsButton(state = downloadsButtonState, onClick = onDownloadsClick)
-                LibraryTopBarMoreMenu(
-                    onImportFile = onImportLocalFileClick,
-                    refresh = if (refreshState.isVisible) {
-                        LibraryRefreshAction(
-                            enabled = refreshState.isEnabled,
-                            refreshing = refreshState.isRefreshing,
-                            onRefresh = onRefreshClick,
+                            } else {
+                                null
+                            },
+                            showSelectionTip = showSelectionTip && selectedSource != SourceType.LOCAL,
                         )
+                    }
+                },
+            ) {
+                LibraryBrowseTopBarSearchField(
+                    query = searchQuery,
+                    onQueryChanged = onSearchQueryChanged,
+                    placeholder = "Search ${contextTitle ?: selectedSource.displayName()}",
+                    trailingContent = if (searchQuery.isEmpty()) {
+                        {
+                            SourceConnectivityBadge(
+                                sourceType = selectedSource,
+                                state = sourceConnectivity,
+                                onClick = onSourceConnectivityClick,
+                            )
+                        }
                     } else {
                         null
                     },
-                    showSelectionTip = showSelectionTip && selectedSource != SourceType.LOCAL,
+                    onClick = onSearchFieldClick,
+                    modifier = Modifier.onGloballyPositioned { coordinates ->
+                        onSearchFieldBounds(coordinates.boundsInWindow())
+                    },
                 )
             }
         }
@@ -233,5 +241,3 @@ private fun DownloadsButton(
     }
 }
 
-// Past this the field stops growing (landscape, where the rail leaves the bar very wide).
-private val LibraryBarSearchFieldMaxWidth = 640.dp

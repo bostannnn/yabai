@@ -13,9 +13,9 @@
   "groups": [],
   "lastChange": {
     "by": "bostannnn",
-    "at": "2026-11-04T21:40:00Z",
+    "at": "2026-11-05T12:00:00Z",
     "via": "Claude Code",
-    "note": "Books look like books: titles in the book face (Noto Serif), covers with a spine side, a shaded spine and a soft shadow, and the reading card without its box"
+    "note": "Search in the middle: the library bar's field centred on the page, and a search panel (AppSearchPanel) that opens out of it over the dimmed library"
   },
   "layout": "files",
   "libraries": [],

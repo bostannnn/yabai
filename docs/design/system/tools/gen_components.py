@@ -120,16 +120,16 @@ The floating top bar every screen shares: 56 tall, 12 below the status bar, its 
 - Kit: `AppTopBar(surfaceVisible, onDrawerClick, ...)` in `AppTopBar.kt`; `AppTopBarDefaults.contentInset` (76) is the inset content starts under, plus `content-top` 8.
 - **At rest it has no glass.** `surfaceVisible` turns true only once content has scrolled under the bar, on every screen: settings and journal report it with `onScrolledChanged`, the shelf browser through `LibraryShelfBrowserViewState.scrolled`.
 - **Its sides follow the gutter** (`appGutter()`): 16 on Compact, 24 from Medium.
-- Contents by screen: a source's library has the menu, the search field ("Search Kavita"), Downloads and •••. A top-level screen without search (journal, settings hub) has only the menu, and only while the drawer is the navigation. A page you opened has Back and its name. See Names and titles.
+- Contents by screen: a source's library has the menu, the search field ("Search Kavita"), Downloads and •••. **The library's search field is centred on the bar**, which is centred on the page, so the field shares one centre with the grid under it; it is 640 at most, and where the bar is too narrow for that it fills the space between the buttons (never closer than 4 to them). A top-level screen without search (journal, settings hub) has only the menu, and only while the drawer is the navigation. A page you opened has Back and its name. See Names and titles.
 - Icon buttons are the kit's default size; do not force 36.
 - The glass edge is `outline-variant` at 28%; a character theme draws it in its `bar-edge` (see Colour).
 """, f"""
 <div class="yb yb-ground" style="padding:16px;display:flex;flex-direction:column;gap:20px">
   <div style="position:relative;height:80px;--yb-gutter:24px">
-    <div class="yb-bar"><button class="yb-icon-btn">{ic("menu")}</button><div class="yb-search">{ic("search")}<span>Search Kavita</span></div><span class="yb-spacer"></span><button class="yb-icon-btn">{ic("download")}</button><button class="yb-icon-btn">{ic("more_horiz")}</button></div>
+    <div class="yb-bar is-centred"><span class="yb-bar-lead"><button class="yb-icon-btn">{ic("menu")}</button></span><div class="yb-search">{ic("search")}<span>Search Kavita</span></div><span class="yb-bar-trail"><button class="yb-icon-btn">{ic("download")}</button><button class="yb-icon-btn">{ic("more_horiz")}</button></span></div>
   </div>
   <div style="position:relative;height:80px;--yb-gutter:24px">
-    <div class="yb-bar is-glass"><button class="yb-icon-btn">{ic("menu")}</button><div class="yb-search">{ic("search")}<span>Search Kavita</span></div><span class="yb-spacer"></span><button class="yb-icon-btn">{ic("download")}</button><button class="yb-icon-btn">{ic("more_horiz")}</button></div>
+    <div class="yb-bar is-glass is-centred"><span class="yb-bar-lead"><button class="yb-icon-btn">{ic("menu")}</button></span><div class="yb-search">{ic("search")}<span>Search Kavita</span></div><span class="yb-bar-trail"><button class="yb-icon-btn">{ic("download")}</button><button class="yb-icon-btn">{ic("more_horiz")}</button></span></div>
   </div>
   <div style="position:relative;height:80px;--yb-gutter:24px">
     <div class="yb-bar"><button class="yb-icon-btn">{ic("arrow_back")}</button><span class="yb-bar-title">Theme</span></div>
@@ -531,16 +531,46 @@ comp("AppSearchField", "Actions", 200, """
 
 The search field: 40 tall (56 in the library bar), `radius-control` 12, `surface-container-high`, a search icon, a placeholder that names what it searches, Clear once there is text, and an optional trailing slot (the connection state while a source is offline: `AppStatusPill` in the neutral tone; a tap retries).
 
-- Kit: `AppSearchField(query, onQueryChange, placeholder, containerColor, trailingContent)`.
-- In the library bar it fills the middle up to 640. The placeholder says the place: "Search Kavita", "Search Neon Ronin", "Search shelves".
+- Kit: `AppSearchField(query, onQueryChange, placeholder, containerColor, trailingContent, onClick, onSearch)`.
+- In the library bar it is centred on the bar, up to 640 (see AppTopBar). The placeholder says the place: "Search Kavita", "Search Neon Ronin", "Search shelves".
+- **The library bar's field is a door, not a field**: `onClick` makes it a button that opens the search panel (`AppSearchPanel`), where you type. While a search is applied to All books (after Show all) it shows the words and Clear.
+- `onSearch` is what the keyboard's search key does; without it the key only hides the keyboard.
 - On a dialog, pass `AppSearchFieldDefaults.dialogContainerColor`.
-- **The tags a search names** (the library's search): above the results, a row that starts with "Filter by" in `on-surface-variant` and holds an `AppChip` for each tag, genre or mood the words name, its section quieter and its count after it ("Set in Japan 96"), whole names first. Picking one applies it to All books as a filter and leaves the search. The row sits above the results, not in a panel over them, so it never hides what you searched for.
-- **Results** while searching are `AppBookRow`s that say why they matched when it isn't the title or a name: the sentence of the description that holds the words, marked with `primary-container`, two lines at most (a long one cut around the first word), with "In the description" under it; or, for a tag or genre, one line named as Filters names it ("Set in **Japan**", "Genre **Historical Fiction**").
 """, f"""
 <div class="yb yb-ground" style="padding:24px;display:flex;flex-direction:column;gap:12px;width:480px">
   <div class="yb-search">{ic("search")}<span>Search Kavita</span></div>
   <div class="yb-search" style="color:var(--on-surface)">{ic("search")}<span style="flex:1">lantern</span>{ic("close")}</div>
 </div>""", width=528)
+
+comp("AppSearchPanel", "Surfaces", 640, """
+# AppSearchPanel
+
+Search in the middle of the screen, like Spotlight: the library bar's field grows into a panel over the dimmed library, and you type there.
+
+- Kit: `AppSearchPanel(query, onQueryChange, placeholder, onDismissRequest, anchor, onSearch, content, footer)`. It is its own window, like a sheet.
+- **Where**: its top and its centre are the bar field's (`anchor`), so it opens out of the field; 680 wide at most, `gutter` from the window's sides. It ends `gutter` above the keyboard or the navigation bar; with the keyboard up it holds what fits and scrolls the rest.
+- **Shape**: `surface-container`, `radius-sheet` 28, the sheet shadow. The field row is 64 (the field without its own box or Clear; Close sits at its end), then an `AppSheetDivider`, the results, and an optional footer under another divider. While the keyboard is up the footer steps aside so the results get the room.
+- **Leaving**: a tap outside, Back, or Close in the field row puts the search back as it was when the panel opened. Opening a result or Show all closes it.
+- **The library's results** (`LibrarySearchPanel`):
+  - **The tags a search names** first: "Filter by" in `on-surface-variant`, then an `AppChip` per tag, genre or mood the words name, its section quieter and its count after it ("Set in Japan 96"), whole names first, on one line that scrolls sideways. Picking one applies it to All books as a filter and closes the panel.
+  - **Books** (`AppSheetLabel` with the count), then up to 50 `AppBookRow`s. A row says why it matched when it isn't the title or a name: the sentence of the description that holds the words, marked with `primary-container`, two lines at most, with "In the description"; or, for a tag or genre, one line named as Filters names it ("Set in **Japan**"). Read state at the row's end (Finished, 12%).
+  - **The first row is highlighted** (`surface-selected`, `radius-control`): the keyboard's search key opens it.
+  - **Footer**: "Show all 446 in All books" with a chevron, in `primary`: closes the panel and leaves the search on All books, as covers. The bar's field then shows the words; tapping it opens the panel again.
+  - Nothing typed: one quiet line saying what search looks in. No match: "No books match “…”".
+""", f"""
+<div class="yb yb-ground" style="padding:24px;width:560px;background:color-mix(in srgb, var(--background) 60%, black)">
+  <div class="yb-search-panel">
+    <div class="yb-search-panel-field">{ic("search")}<span style="flex:1;color:var(--on-surface)">war</span><button class="yb-icon-btn">{ic("close")}</button></div>
+    <div class="yb-divider" style="margin:0 20px"></div>
+    <div style="display:flex;gap:8px;align-items:center;padding:12px 20px 4px;overflow:hidden;white-space:nowrap"><span class="yb-sheet-label">Filter by</span><span class="yb-chip"><span style="opacity:.72">About</span> War <span class="yb-count">183</span></span><span class="yb-chip"><span style="opacity:.72">When</span> World War II <span class="yb-count">65</span></span></div>
+    <div style="padding:14px 20px 8px"><span class="yb-sheet-label">Books 446</span></div>
+    <div class="yb-book-row is-selected" style="margin:0 8px;padding:8px 12px">{cover(0)}<div style="flex:1;min-width:0"><div class="yb-book-title">A Drink Before the War</div><div class="yb-book-line">Dennis Lehane</div></div></div>
+    <div class="yb-book-row" style="margin:0 8px;padding:8px 12px">{cover(3)}<div style="flex:1;min-width:0"><div class="yb-book-title">A Rumor of War</div><div class="yb-book-line">Philip Caputo</div></div><span class="yb-supporting">Finished</span></div>
+    <div class="yb-book-row" style="margin:0 8px;padding:8px 12px">{cover(4)}<div style="flex:1;min-width:0"><div class="yb-book-title">Civil War</div><div class="yb-book-line">Peter Ackroyd</div></div><span class="yb-supporting">12%</span></div>
+    <div class="yb-divider" style="margin:8px 20px 0"></div>
+    <div style="display:flex;align-items:center;height:52px;padding:0 20px;font:600 14px/20px var(--font-sans);color:var(--primary)"><span style="flex:1">Show all 446 in All books</span>{ic("navigate_next")}</div>
+  </div>
+</div>""", width=608)
 
 # ---------------------------------------------------------------- Feedback
 comp("AppEmptyState", "Feedback", 360, """

@@ -824,29 +824,6 @@ fun LibraryScreen(
                         // renders a sized stand-in so the row keeps its height instead of collapsing.
                         pagedItems[index]?.let { item -> gridCard(item) } ?: LibraryGridPlaceholderCard()
                     }
-                } else if (searchQuery.isNotBlank()) {
-                    // Searching: each result is a row that says why it matched.
-                    items(
-                        items = visibleItems,
-                        key = { it.id },
-                        span = { GridItemSpan(maxLineSpan) },
-                        contentType = { LibraryScreenContentTypes.SearchResult },
-                    ) { item ->
-                        LibrarySearchResultRow(
-                            item = item,
-                            title = itemPrimaryText(item),
-                            query = searchQuery,
-                            progress = effectiveProgressByItemId[item.id],
-                            actionContext = itemActionContext,
-                            coverImageUrlProvider = coverImageUrlProvider,
-                            onClick = { onItemSelected(item) },
-                            modifier = Modifier.animateItem(
-                                fadeInSpec = null,
-                                placementSpec = AppMotion.spatial(IntOffset.VisibilityThreshold),
-                                fadeOutSpec = null,
-                            ),
-                        )
-                    }
                 } else {
                     items(
                         items = visibleItems,

@@ -7,6 +7,9 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import com.example.unifiedreader.ui.theme.AppMotion
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -23,7 +26,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -44,6 +52,12 @@ import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
  * something is typed, a clear button. An accent edge marks an active query. Inside a dialog,
  * which is already `surfaceContainerHigh`, pass [AppSearchFieldDefaults.dialogContainerColor].
  * [trailingContent] sits at the end, before the clear button (a status badge, say).
+ *
+ * With [onClick] the field is a door rather than a field: it can't be typed in, and a tap calls
+ * [onClick] (the library bar's field, which opens the search panel); Clear still clears. [onSearch]
+ * is what the keyboard's search key does; without it the key only hides the keyboard. Without
+ * [showActiveEdge] an active query draws no accent edge, and without [showClear] there is no Clear
+ * (a field that is a panel's own row, whose Close sits beside it).
  */
 @Composable
 fun AppSearchField(
@@ -56,6 +70,10 @@ fun AppSearchField(
     autoFocus: Boolean = false,
     contentDescription: String = placeholder,
     trailingContent: (@Composable () -> Unit)? = null,
+    onClick: (() -> Unit)? = null,
+    onSearch: (() -> Unit)? = null,
+    showActiveEdge: Boolean = true,
+    showClear: Boolean = true,
 ) {
     val colors = MaterialTheme.colorScheme
     val accent = UnifiedReaderThemeTokens.colors.sourceAccent
@@ -65,25 +83,43 @@ fun AppSearchField(
     LaunchedEffect(autoFocus) {
         if (autoFocus) focusRequester.requestFocus()
     }
+    // The caret starts after the words already there, so typing adds to them.
+    var value by remember { mutableStateOf(TextFieldValue(query, TextRange(query.length))) }
+    if (value.text != query) value = TextFieldValue(query, TextRange(query.length))
     BasicTextField(
-        value = query,
-        onValueChange = onQueryChange,
+        value = value,
+        onValueChange = { next ->
+            value = next
+            if (next.text != query) onQueryChange(next.text)
+        },
         modifier = modifier
             .height(height)
             .focusRequester(focusRequester)
             .semantics { this.contentDescription = contentDescription },
+        enabled = onClick == null,
         singleLine = true,
         textStyle = MaterialTheme.typography.bodyMedium.copy(color = colors.onSurface),
         cursorBrush = SolidColor(accent),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         // Results show as the query is typed; the keyboard's search key only gets it out of the way.
-        keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
+        keyboardActions = KeyboardActions(onSearch = { onSearch?.invoke() ?: keyboard?.hide() }),
         decorationBox = { innerTextField ->
+            val shape = RoundedCornerShape(UnifiedReaderThemeTokens.presentation.controlCornerRadius)
             AppPanel(
-                modifier = Modifier.fillMaxSize(),
-                shape = RoundedCornerShape(UnifiedReaderThemeTokens.presentation.controlCornerRadius),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (onClick != null) {
+                            Modifier
+                                .clip(shape)
+                                .clickable(onClickLabel = contentDescription, role = Role.Button, onClick = onClick)
+                        } else {
+                            Modifier
+                        },
+                    ),
+                shape = shape,
                 color = containerColor,
-                border = if (active) BorderStroke(1.dp, accent) else null,
+                border = if (active && showActiveEdge) BorderStroke(1.dp, accent) else null,
             ) {
                 Row(
                     modifier = Modifier
@@ -115,7 +151,7 @@ fun AppSearchField(
                     }
                     trailingContent?.invoke()
                     AnimatedVisibility(
-                        visible = active,
+                        visible = active && showClear,
                         enter = fadeIn(AppMotion.effects()) + scaleIn(AppMotion.spatial(), initialScale = AppMotion.pressedScale),
                         exit = fadeOut(AppMotion.effects()) + scaleOut(AppMotion.spatial(), targetScale = AppMotion.pressedScale),
                     ) {

@@ -1,24 +1,19 @@
 package com.example.unifiedreader.feature.library.shelves
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.feature.library.LibraryBrowseTopBarContainer
 import com.example.unifiedreader.feature.library.LibraryBrowseTopBarSearchField
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppTopBarCentredRow
 
 /** See all's search: it stays while the tabs switch shelves, and clears when See all closes. */
 @Composable
@@ -52,31 +47,25 @@ fun LibraryShelfBrowserTopBar(
         focusManager.clearFocus()
     }
     LibraryBrowseTopBarContainer(surfaceVisible = scrolled) {
-        Row(
+        // The field is centred on the bar, as the library's is (design system, AppTopBar).
+        AppTopBarCentredRow(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            leading = {
+                AppIconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = AppIcons.ArrowBack,
+                        contentDescription = "Back",
+                    )
+                }
+            },
+            trailing = { actions?.invoke() },
         ) {
-            AppIconButton(onClick = onBack) {
-                Icon(
-                    imageVector = AppIcons.ArrowBack,
-                    contentDescription = "Back",
-                )
-            }
-            Box(modifier = Modifier.weight(1f)) {
-                LibraryBrowseTopBarSearchField(
-                    query = searchQuery,
-                    onQueryChanged = onSearchQueryChanged,
-                    placeholder = "Search shelves",
-                    queryContentDescription = "Search shelves",
-                    modifier = Modifier
-                        .widthIn(max = ShelfBrowserSearchFieldMaxWidth)
-                        .fillMaxWidth(),
-                )
-            }
-            actions?.invoke()
+            LibraryBrowseTopBarSearchField(
+                query = searchQuery,
+                onQueryChanged = onSearchQueryChanged,
+                placeholder = "Search shelves",
+                queryContentDescription = "Search shelves",
+            )
         }
     }
 }
-
-private val ShelfBrowserSearchFieldMaxWidth = 640.dp

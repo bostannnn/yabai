@@ -25,7 +25,10 @@ fun LibraryBrowseTopBarContainer(
     )
 }
 
-/** The library's search field: the middle of the library's bar and of the shelf browser's. */
+/**
+ * The library's search field: the middle of the library's bar and of the shelf browser's. With
+ * [onClick] it is the door to the search panel instead of a field (the library's bar).
+ */
 @Composable
 fun LibraryBrowseTopBarSearchField(
     query: String,
@@ -35,6 +38,7 @@ fun LibraryBrowseTopBarSearchField(
     queryContentDescription: String = "Library search query",
     placeholder: String = "Search",
     trailingContent: (@Composable () -> Unit)? = null,
+    onClick: (() -> Unit)? = null,
 ) {
     AppSearchField(
         query = query,
@@ -45,6 +49,7 @@ fun LibraryBrowseTopBarSearchField(
         autoFocus = autoFocus,
         contentDescription = queryContentDescription,
         trailingContent = trailingContent,
+        onClick = onClick,
     )
 }
 

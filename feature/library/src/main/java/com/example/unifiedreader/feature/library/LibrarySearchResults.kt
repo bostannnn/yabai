@@ -1,8 +1,11 @@
 package com.example.unifiedreader.feature.library
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,11 +36,11 @@ import com.example.unifiedreader.core.model.LibrarySearchTagSuggestion
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.librarySearchSnippet
 import com.example.unifiedreader.core.model.librarySecondaryText
-import com.example.unifiedreader.feature.library.menu.LibraryItemMenuButtonStyle
 import com.example.unifiedreader.ui.components.AppBookRow
 import com.example.unifiedreader.ui.components.AppBookRowDefaults
 import com.example.unifiedreader.ui.components.AppBookRowLine
 import com.example.unifiedreader.ui.components.AppChip
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 
 /**
  * The tags a search names, above its results: "Set in Japan 96". Picking one filters the library by
@@ -84,9 +87,10 @@ internal fun LibrarySearchTagStrip(
 }
 
 /**
- * A search result as a row: the cover, the title, who wrote it, and why it matched when that
- * isn't the title or a name: the sentence of its description (or the tag) with the searched words
- * marked, two lines at most, and where that came from.
+ * A search result in the search panel: the cover, the title, who wrote it, and why it matched
+ * when that isn't the title or a name: the sentence of its description (or the tag) with the
+ * searched words marked, two lines at most, and where that came from. Its read state sits at the
+ * end. The [highlighted] row is the one the keyboard's search key opens.
  */
 @Composable
 internal fun LibrarySearchResultRow(
@@ -94,10 +98,12 @@ internal fun LibrarySearchResultRow(
     title: String,
     query: String,
     progress: ItemProgressSummary?,
-    actionContext: LibraryItemActionContext,
+    isDownloaded: Boolean,
+    highlighted: Boolean,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = AppBookRowDefaults.contentPadding,
 ) {
     val snippet = remember(item.id, item.description, query) { librarySearchSnippet(item, query) }
     val sorting = LocalLibraryTagSorting.current.sortingFor(item.sourceType) ?: LibraryTagSorting()
@@ -105,15 +111,23 @@ internal fun LibrarySearchResultRow(
     val snippetText = remember(snippet, marked) {
         snippet?.marked(SpanStyle(background = marked.primaryContainer, color = marked.onPrimaryContainer, fontWeight = FontWeight.SemiBold))
     }
+    val colors = UnifiedReaderThemeTokens.colors
     AppBookRow(
         title = title,
-        modifier = modifier,
+        modifier = modifier.then(
+            if (highlighted) {
+                Modifier.background(colors.surfaceSelected, RoundedCornerShape(AppBookRowDefaults.cornerRadius))
+            } else {
+                Modifier
+            },
+        ),
         onClick = onClick,
+        contentPadding = contentPadding,
         cover = {
             ResolvedLibraryCover(
                 item = item,
                 coverImageUrlProvider = coverImageUrlProvider,
-                isDownloaded = actionContext.isDownloaded(item),
+                isDownloaded = isDownloaded,
                 isRead = progress?.isComplete == true,
                 showReadBadge = false,
                 modifier = Modifier
@@ -153,12 +167,23 @@ internal fun LibrarySearchResultRow(
             }
         },
     ) {
-        LibraryItemPageButton(
-            item = item,
-            actionContext = actionContext,
-            buttonStyle = LibraryItemMenuButtonStyle.CompactInline,
-        )
+        librarySearchReadState(progress)?.let { state ->
+            Text(
+                text = state,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
     }
+}
+
+/** A result's read state at its row's end: "Finished", "12%", or nothing before it is begun. */
+internal fun librarySearchReadState(progress: ItemProgressSummary?): String? = when {
+    progress == null -> null
+    progress.isComplete -> "Finished"
+    progress.isJustStarted -> null
+    else -> progress.percentLabel
 }
 
 /** The section a tag or genre snippet belongs to, as you sorted the tag. */
