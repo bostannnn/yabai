@@ -64,6 +64,8 @@ fun LibraryCoverActionCard(
     metadataTopPadding: Dp = 6.dp,
     metadataVerticalSpacing: Dp = 3.dp,
     menuContent: (@Composable () -> Unit)? = null,
+    // A comic series: its issues lie under the cover (LibraryCover's pile).
+    coverPile: Boolean = false,
     coverOverlay: (@Composable BoxScope.() -> Unit)? = null,
     emptyCoverContent: (@Composable BoxScope.() -> Unit)? = null,
 ) {
@@ -90,6 +92,7 @@ fun LibraryCoverActionCard(
                 imageVariant = imageVariant,
                 modifier = coverModifier,
                 showReadBadge = showReadBadge,
+                pile = coverPile,
                 emptyCoverContent = emptyCoverContent,
             )
             coverOverlay?.invoke(this)
@@ -115,8 +118,8 @@ fun LibraryCoverActionCard(
                             onClick = onClick,
                             onLongClick = onLongClick,
                         ).then(title.marqueeModifier()),
-                        // The book's own title, in the book face.
-                        style = AppBookType.title(titleStyle),
+                        // The book's own title, in the book face; a comic's in the app's.
+                        style = AppBookType.title(titleStyle, comic = item.isComic),
                         color = titleColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

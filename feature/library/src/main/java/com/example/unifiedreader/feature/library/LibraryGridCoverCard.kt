@@ -3,6 +3,7 @@ package com.example.unifiedreader.feature.library
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -19,6 +20,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.ui.components.AppCoverShape
 import com.example.unifiedreader.ui.components.AppRoundCheck
 import com.example.unifiedreader.ui.theme.AppMotion
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
@@ -32,7 +34,7 @@ internal fun GridCoverCard(
     fadeRead: Boolean,
     imageVariant: LibraryCoverImageVariant,
     coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -> String?,
-    // A series tile (Kavita or Stump): its issue count draws the stack and fills the meta line.
+    // A series tile (Kavita or Stump): its issue count draws the stack (a comic's pile) and fills the meta line.
     seriesIssueCount: Int? = null,
     // The tile's length while the grid is sorted by pages; it takes the meta line's place.
     lengthLabel: String? = null,
@@ -64,6 +66,11 @@ internal fun GridCoverCard(
         label = "libraryGridCoverRing",
     )
     val coverShape = RoundedCornerShape(UnifiedReaderThemeTokens.presentation.coverCornerRadius)
+    // A book series shows two edges raised above its cover; a comic series lies as a pile under it.
+    val isSeries = seriesIssueCount != null && seriesIssueCount > 1
+    val comicPile = isSeries && item.isComic
+    // The badges, the progress strip and the check follow the cover, which gives up the pile's room.
+    val overlayInset = if (comicPile) AppCoverShape.pileDepth else 0.dp
 
     LibraryCoverActionCard(
         item = item,
@@ -84,7 +91,7 @@ internal fun GridCoverCard(
         coverModifier = Modifier
             .fillMaxWidth()
             .aspectRatio(LibraryCoverAspectRatio)
-            .then(if (seriesIssueCount != null && seriesIssueCount > 1) Modifier.librarySeriesStack() else Modifier)
+            .then(if (isSeries && !comicPile) Modifier.librarySeriesStack() else Modifier)
             .graphicsLayer {
                 scaleX = coverScale
                 scaleY = coverScale
@@ -99,6 +106,7 @@ internal fun GridCoverCard(
         trailingText = metaLabel,
         reserveTrailingLine = true,
         menuContent = menuContent.takeUnless { isSelectionMode },
+        coverPile = comicPile,
         emptyCoverContent = {
             LibraryCoverPlaceholder(
                 item = item,
@@ -108,32 +116,34 @@ internal fun GridCoverCard(
         },
         coverOverlay = if (rating != null || isSelectionMode || progressBarFraction != null) {
             {
-                progressBarFraction?.let { fraction ->
-                    LibraryCoverProgressBar(
-                        fraction = fraction,
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth(),
-                    )
-                }
-                rating?.let { state ->
-                    LibraryRatingBadge(
-                        state = state,
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(6.dp),
-                    )
-                }
-                if (isSelectionMode) {
-                    // The whole cover toggles; the check only shows the state.
-                    AppRoundCheck(
-                        checked = isSelected,
-                        ringColor = Color.White.copy(alpha = 0.92f),
-                        ringBackdrop = Color.Black.copy(alpha = 0.4f),
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp),
-                    )
+                Box(modifier = Modifier.matchParentSize().padding(end = overlayInset, bottom = overlayInset)) {
+                    progressBarFraction?.let { fraction ->
+                        LibraryCoverProgressBar(
+                            fraction = fraction,
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth(),
+                        )
+                    }
+                    rating?.let { state ->
+                        LibraryRatingBadge(
+                            state = state,
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(6.dp),
+                        )
+                    }
+                    if (isSelectionMode) {
+                        // The whole cover toggles; the check only shows the state.
+                        AppRoundCheck(
+                            checked = isSelected,
+                            ringColor = Color.White.copy(alpha = 0.92f),
+                            ringBackdrop = Color.Black.copy(alpha = 0.4f),
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(8.dp),
+                        )
+                    }
                 }
             }
         } else {

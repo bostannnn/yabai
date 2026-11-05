@@ -68,7 +68,21 @@ class ThemeCharacterTest {
         }
     }
 
-    private fun scheme(mode: ThemeMode) = staticUnifiedReaderColorScheme(mode, systemDarkTheme = mode.isDark)
+    @Test
+    fun `the reading card stands apart from the ground in every theme and its text reads on it`() {
+        pickable.forEach { mode ->
+            val scheme = scheme(mode)
+            val card = cardStepColor(ground = scheme.background, ink = scheme.onBackground, faintText = scheme.onSurfaceVariant)
+            val step = contrast(scheme.background, card)
+            assertTrue("$mode card is $step:1 from the ground", step >= CardStepContrast)
+            listOf(scheme.onSurface, scheme.onSurfaceVariant).forEach { text ->
+                val ratio = contrast(text, card)
+                assertTrue("$mode text on the card is $ratio:1", ratio >= 4.5)
+            }
+        }
+    }
+
+    private fun scheme(mode: ThemeMode) =staticUnifiedReaderColorScheme(mode, systemDarkTheme = mode.isDark)
 
     private fun contrast(a: Color, b: Color): Double {
         val la = a.luminance().toDouble()

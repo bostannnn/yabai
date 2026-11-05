@@ -103,6 +103,16 @@
 .yb-cover::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(90deg, rgb(0 0 0 / 0.22) 0, rgb(255 255 255 / 0.08) 2.5%, rgb(0 0 0 / 0.06) 6%, transparent 9%); }
 .yb-cover b { font-family: var(--font-book, Georgia, serif); font-weight: 400; font-size: 1.05em; line-height: 1.15; overflow-wrap: anywhere; }
 .yb-cover small { font-size: 0.6em; opacity: 0.8; }
+/* Comics (AppCoverShape.comicShape): square corners, no spine; a series lies as a pile (comicPile) */
+.yb-cover.is-comic { border-radius: 2px; }
+.yb-cover.is-comic::after { display: none; }
+.yb-cover.is-comic b { font-family: var(--font-sans); font-weight: 600; }
+.yb-book-title.is-comic { font-family: var(--font-sans); }
+.yb-pile { position: relative; aspect-ratio: 2 / 3; }
+.yb-pile > .yb-cover { position: absolute; left: 0; top: 0; z-index: 1; width: calc(100% - 8px); height: calc(100% - 8px); aspect-ratio: auto; }
+.yb-pile::before, .yb-pile::after { content: ""; position: absolute; border-radius: 2px; box-shadow: 0 0 0 1px var(--background); }
+.yb-pile::before { left: 8px; top: 8px; right: 0; bottom: 0; background: color-mix(in srgb, var(--yb-pile, #555) 45%, black); }
+.yb-pile::after { left: 4px; top: 4px; right: 4px; bottom: 4px; background: color-mix(in srgb, var(--yb-pile, #555) 65%, black); }
 
 /* Book row (proposed AppBookRow) */
 .yb-book-row { display: flex; align-items: center; gap: 14px; padding: 10px 20px; min-height: 76px; }

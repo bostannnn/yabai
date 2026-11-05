@@ -31,10 +31,12 @@ import java.util.concurrent.ConcurrentHashMap
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.foundation.layout.aspectRatio
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.isGeneratedComicVolumeTitle
 import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.ui.components.AppBadge
 import com.example.unifiedreader.ui.components.AppCoverShape
+import com.example.unifiedreader.ui.components.AppCoverShape.comicPile
 import com.example.unifiedreader.ui.components.AppCoverShape.coverSpine
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
@@ -51,11 +53,15 @@ fun LibraryCover(
     modifier: Modifier = Modifier,
     // Off while selecting: the selection check takes the corner, and two checks read as one state.
     showReadBadge: Boolean = true,
+    // A comic series: its issues lie under the cover, which gives up AppCoverShape.pileDepth for them.
+    pile: Boolean = false,
     emptyCoverContent: (@Composable BoxScope.() -> Unit)? = null,
 ) {
     val semanticColors = UnifiedReaderThemeTokens.colors
-    // A cover is a bound book lying on the ground: the spine side squarer, a soft shadow, the spine shaded.
-    val coverShape = AppCoverShape.shape
+    // A book is bound: the spine side squarer, a soft shadow, the spine shaded. A comic is a stapled issue.
+    val comic = item.isComic
+    val coverShape = if (comic) AppCoverShape.comicShape else AppCoverShape.shape
+    val piled = pile && comic
     val imageUrl = coverUrl?.takeIf(String::isNotBlank)
     // As printed: the cover keeps its own proportions on the bottom of its slot, once its image says what they are.
     val asPrinted = LocalLibraryCoverAsPrinted.current && imageUrl != null
@@ -66,12 +72,16 @@ fun LibraryCover(
         Box(
             modifier = Modifier
                 .then(
+                    if (piled) Modifier.padding(end = AppCoverShape.pileDepth, bottom = AppCoverShape.pileDepth) else Modifier,
+                )
+                .then(
                     if (printedShape == null) {
                         Modifier.fillMaxSize()
                     } else {
                         Modifier.aspectRatio(printedShape, matchHeightConstraintsFirst = printedShape < LibraryCoverAspectRatio)
                     },
                 )
+                .then(if (piled) Modifier.comicPile(gap = semanticColors.appBackground) else Modifier)
                 .shadow(elevation = AppCoverShape.elevation, shape = coverShape, clip = false)
                 .clip(coverShape)
                 .background(semanticColors.surfaceRaised),
@@ -81,7 +91,7 @@ fun LibraryCover(
                 modifier = Modifier
                     .fillMaxSize()
                     .alpha(if (fadeRead && isRead) ReadCoverFadeAlpha else 1f)
-                    .coverSpine(),
+                    .then(if (comic) Modifier else Modifier.coverSpine()),
                 contentAlignment = Alignment.Center,
             ) {
                 if (imageUrl != null) {
@@ -145,6 +155,7 @@ fun ResolvedLibraryCover(
     imageVariant: LibraryCoverImageVariant = LibraryCoverImageVariant.Grid,
     modifier: Modifier = Modifier,
     showReadBadge: Boolean = true,
+    pile: Boolean = false,
     emptyCoverContent: (@Composable BoxScope.() -> Unit)? = null,
 ) {
     LibraryCover(
@@ -157,9 +168,14 @@ fun ResolvedLibraryCover(
         imageVariant = imageVariant,
         modifier = modifier,
         showReadBadge = showReadBadge,
+        pile = pile,
         emptyCoverContent = emptyCoverContent,
     )
 }
+
+/** A comic (CBZ, CBR) rather than a book: no spine, its title in the app's face, a series as a pile. */
+internal val ReadableItem.isComic: Boolean
+    get() = kind == ReadableItemKind.COMIC
 
 /**
  * Whether covers show as printed (each in its own proportions, on the bottom of its 2:3 slot) instead of cropped

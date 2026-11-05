@@ -1,7 +1,7 @@
 # Screen mocks for the yabai design system (dp = px). Run after gen_components.py.
 import sys
 sys.path.insert(0, __import__("os").path.dirname(__import__("os").path.abspath(__file__)))
-from gen_components import comp, ic, row, group, cover, theme_preview, chev, DIV, list_cover, list_row, letter_strip, tiles, check_row, letter_grid, timeline_row  # noqa: E402
+from gen_components import COVERS, comp, ic, row, group, cover, theme_preview, chev, DIV, list_cover, list_row, letter_strip, tiles, check_row, letter_grid, timeline_row  # noqa: E402
 
 TOGGLE_SCRIPT = """<script>
 (function(){
@@ -184,30 +184,36 @@ LW, LH = 800, 1010
 cols = 4
 
 
-def reading_card(width, height, cover_w, lines, title_font="600 18px/23px", tall=False):
-    """The reading card: the cover's tint, the cover, the label, title and lines, the bar; ••• at the top end."""
+def reading_card(width, height, cover_w, lines, title_font="500 22px/28px", tall=False):
+    """The reading card: `surface-card`, the cover, the label, title and lines, the bar; ••• at the top end."""
     pieces = ('<div style="flex:1;display:flex;gap:2px;height:4px">'
-              + "".join(f'<i style="flex:{w};border-radius:2px;background:linear-gradient(to right,#a9c4ff {f}%,rgba(255,255,255,.18) {f}%)"></i>'
+              + "".join(f'<i style="flex:{w};border-radius:2px;background:linear-gradient(to right,var(--primary) {f}%,color-mix(in srgb,var(--on-surface) 14%,transparent) {f}%)"></i>'
                         for w, f in [(12, 100), (18, 40), (16, 0), (20, 0), (14, 0), (20, 0)])
               + '</div>')
-    label = '<span style="font:500 12px/18px var(--font-sans);opacity:.82">24% · 2 h 10 min left</span>'
+    label = '<span style="font:500 12px/18px var(--font-sans);color:var(--on-surface-variant)">24% · 2 h 10 min left</span>'
     # Beside the shelves the column is narrow: the percentage over the bar; on its own, beside it.
     bar = (f'<div style="display:flex;flex-direction:column;gap:8px">{label}<div style="display:flex">{pieces}</div></div>' if tall
            else f'<div style="display:flex;align-items:center;gap:8px">{pieces}{label}</div>')
     text_lines = "".join(
         f'<span style="font:500 13px/18px var(--font-sans);opacity:.74;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{line}</span>'
         for line in lines)
-    return (f'<div style="position:relative;flex:none;width:{width}px;height:{height}px;box-sizing:border-box;background:#26365a;color:#eef2fb;'
+    return (f'<div style="position:relative;flex:none;width:{width}px;height:{height}px;box-sizing:border-box;background:var(--surface-card);color:var(--on-surface);'
             f'border-radius:var(--radius-container);padding:20px;display:flex;gap:16px">'
             f'<div style="flex:none;width:{cover_w}px">{cover(0, width=cover_w, font=max(8, cover_w // 10))}</div>'
             f'<div style="flex:1;min-width:0;display:flex;flex-direction:column">'
-            f'<span class="yb-overline" style="opacity:1;color:#a9c4ff;padding-right:28px">Continue reading · today</span>'
-            f'<span style="font:{title_font} var(--font-sans);margin-top:4px;padding-right:28px">The Lantern Keepers</span>'
+            f'<span class="yb-overline" style="opacity:1;color:var(--primary);padding-right:28px">Continue reading · today</span>'
+            f'<span style="font:{title_font} var(--font-book);margin-top:4px;padding-right:28px">The Lantern Keepers</span>'
             f'{text_lines}<span style="flex:1"></span>{bar}</div>'
-            f'<span style="position:absolute;top:10px;right:10px;opacity:.74">{ic("more_horiz", 20)}</span></div>')
+            f'<span style="position:absolute;top:10px;right:10px;color:var(--on-surface-variant)">{ic("more_horiz", 20)}</span></div>')
+def comic_pile(i):
+    """A comic series: the cover with square corners and no spine, two darker copies under it (AppCoverShape.comicPile)."""
+    bg = COVERS[i % len(COVERS)][2]
+    return f'<div class="yb-pile" style="--yb-pile:{bg}">{cover(i).replace('class="yb-cover"', 'class="yb-cover is-comic"')}</div>'
+
+
 grid_tiles = "".join(
-    f'<div style="display:flex;flex-direction:column;gap:6px">{cover(i)}<div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="min-width:0"><div class="yb-book-title" style="font-size:14px">{t}</div><div class="yb-caption">{m}</div></div><span style="color:var(--on-surface-variant)">{ic("more_horiz", 20)}</span></div></div>'
-    for i, (t, m) in enumerate([("Ferry Notes", "Just started"), ("The Lantern Keepers", "4%"), ("Quiet Engines", "Finished"), ("Moths of Lisbon", "Finished")])
+    f'<div style="display:flex;flex-direction:column;gap:6px">{comic_pile(5) if comic else cover(i)}<div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="min-width:0"><div class="yb-book-title{" is-comic" if comic else ""}" style="font-size:14px">{t}</div><div class="yb-caption">{m}</div></div><span style="color:var(--on-surface-variant)">{ic("more_horiz", 20)}</span></div></div>'
+    for i, (t, m, comic) in enumerate([("Ferry Notes", "Just started", False), ("The Lantern Keepers", "4%", False), ("Quiet Engines", "Finished", False), ("Star Courier", "22 issues · 3 read", True)])
 )
 strip_tiles = "".join(
     f'<div style="width:176px;display:flex;flex-direction:column;gap:6px">{cover(i)}<div class="yb-book-title" style="font-size:14px">{t}</div><div class="yb-caption">{m}</div></div>'
@@ -254,7 +260,7 @@ library_wide = f"""
       <div class="yb-bar"><div class="yb-search">{ic("search")}<span>Search Kavita</span></div><span class="yb-spacer"></span><button class="yb-icon-btn">{ic("download")}</button><button class="yb-icon-btn">{ic("more_horiz")}</button></div>
       <div class="yb-scroll">
         <div style="display:flex;gap:16px;align-items:stretch">
-          {reading_card(370, 236, 131, ("Oona Fitch", "Chapter 1 of 6 · The Ferry"), title_font="600 20px/25px", tall=True)}
+          {reading_card(370, 236, 131, ("Oona Fitch", "Chapter 1 of 6 · The Ferry"), title_font="500 22px/28px", tall=True)}
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:14px;overflow:hidden">
             <div style="display:flex;align-items:center"><div class="yb-tabs" style="flex:1"><span class="yb-tab is-selected">In progress <span class="yb-count">8</span></span><span class="yb-tab">Up next <span class="yb-count">1</span></span><span class="yb-tab">Finished <span class="yb-count">12</span></span></div><button class="yb-btn is-text">See all</button></div>
             <div style="display:flex;gap:16px">{small_strip}</div>
@@ -280,13 +286,14 @@ A source's library: the bar with its search field, the reading card, the shelf t
 - **Cover shape** (the sort menu's View, under Cover size): an `AppSegmentedRow` with All the same (the default) and As printed. All the same crops every cover to 2:3. As printed keeps each cover's own proportions: the 2:3 slot stays, so the grid and its rows don't move, and the cover sits on the slot's bottom edge, centred, as wide as the slot when it is wider than 2:3 and as tall when it is taller. Its corners, hairline and badges follow the printed cover; a cover without art (the generated one) fills the slot. It applies everywhere a library cover is drawn: the grid, the shelves, the reading card, the book page, Lists and the journal.
 - All books is `AppSectionHeading`, on the gutter line, with Filters, a chip per applied value and sort at its end. Filters narrows the library by anything its books carry, places, times, themes and moods included (see Filters); there is no separate Browse page.
 - **On Expanded, Filters docks** beside the library: a 400 wide panel on the right gutter from content top to content bottom, the bar and the grid taking the width left of it. The covers keep the width they had before it opened: the grid loses columns, and the ones left come as close to that width as whole columns allow instead of stretching to fill. While it is open the reading card and the shelves step aside, so All books' row is at content top; they come back when it closes. The Filters chip shows and hides it.
-- **The reading card** (`LibraryReadingCard`) is the book you read last, with no box around it: the cover on the gutter line, as tall as the card, and the text 16 from it on the ground's own colours, so the cover is what you see. The text spans the cover: the label at the cover's top, the bar line at its bottom.
+- **The reading card** (`LibraryReadingCard`) is the book you read last, on a quiet box: `surface-card` (one fixed step from the ground in every theme, see Colour), `radius-container` 20, `inset` 20 all round, the cover at the start and the text 16 from it. The box is never cover-tinted: a tint can land on the ground's own colour and the card disappears. The text spans the cover: the label at the cover's top, the bar line at its bottom.
   - The label is `primary` (`overline`: 12 SemiBold, sentence case, no tracking): "Continue reading · yesterday". The title is in the book face, Medium, on up to 2 lines at 26, stepping down to 20 before it is cut. Under it, 13 Medium in the text colour at 74%, the author and the place: "Oona Fitch · Chapter 1 of 6", a comic's "Page 14 of 24".
   - The bar line: a 4 tall bar split at the chapters (2 apart; one piece without chapters or past 30), `primary` on `on-surface` at 14%, 8 from it, then "24% · 2 h 10 min left" (12 Medium, `on-surface-variant`), only the percentage when the journal doesn't know the pace.
   - ••• at the top end (the icon 20, `on-surface-variant`) opens the book page; the label and title keep 28 clear of it. The rest of the card is the Continue button: a tap opens the book where it was left (its click label says Continue, Read or Start). There are no buttons in it.
   - **Above the shelves** (phones, portrait tablets, and wherever the grid has fewer than 6 columns): the cover is 80 wide, so the card is 160 tall, gutter to gutter; the shelves follow 24 below, unchanged.
   - **Beside the shelves** (6 columns or more: tablet landscape beside the rail): the card takes 2 of the 6 columns and the shelves the other 4. The strip beside it is Small (96) whatever the cover size, its tiles keep the title and the progress and drop the author line, and the card is as tall as the tabs and the strip together, bottoms lined up (about 236). Its cover fills that height (about 131 wide), which leaves a narrow column: the label may wrap to a second line, the title is 28 stepping down to 22 on up to 4 lines, the author and the place get a line each (the place with the chapter's name, "Chapter 1 of 6 · The Ferry"), and the percentage sits over a bar across the column instead of beside it.
   - A series opens on the same card for the issue being read or the next one (label "Up next in this series"), 160 tall, across half the row (3 of 6 columns) on wide windows, since nothing sits beside it there.
+- **Comics look like comics.** A comic (CBZ, CBR) has square corners (2) and no spine shading, and its title under the cover is Manrope 500, not the book face; a book (EPUB, PDF) keeps the bound cover and the serif. A comic series (Kavita, Stump) lies as a pile: two darker copies of its cover show 4 and 8 down and toward the end, the cover 8 smaller to make room, so the tile keeps the grid's outline; badges, the progress strip and the selection ring follow the cover. A book series keeps its two edges raised above the cover. The line under a series says "22 issues".
 - No source name anywhere on the screen: the search field says it.
 - **Offline** shows at the search field's end as `AppStatusPill` in the neutral tone (an 8 dot in `outline`, "Offline" in `on-surface-variant`), the same as Checking. Being offline is a state, not an error, so it takes no error colour. A tap retries.
 - **The jump rail** runs down the right edge for a sort that groups by letter: Title, Author and Series. Only letters with books show. Pages, Date added, Last read and Issues have none: nobody jumps to "150 pages", and every cover already says its length.

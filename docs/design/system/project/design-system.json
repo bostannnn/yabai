@@ -13,9 +13,9 @@
   "groups": [],
   "lastChange": {
     "by": "bostannnn",
-    "at": "2026-11-04T21:40:00Z",
+    "at": "2026-11-05T12:30:00Z",
     "via": "Claude Code",
-    "note": "Books look like books: titles in the book face (Noto Serif), covers with a spine side, a shaded spine and a soft shadow, and the reading card without its box"
+    "note": "The reading card gets its box back on surface-card, a step computed from the ground (1.2:1 in every theme); comics get square corners, no spine, Manrope titles, and a series lies as a pile of its own cover"
   },
   "layout": "files",
   "libraries": [],
