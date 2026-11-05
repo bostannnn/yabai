@@ -1,6 +1,7 @@
 package com.example.unifiedreader.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -24,8 +25,8 @@ enum class AppStatusTone { Good, Neutral, Problem }
  * A state as a dot and a word, with no container: a server's "Connected" / "Offline" /
  * "Checking", the sync queue's count. An 8 dp dot, 8 before the label in 14 Medium; 28 dp tall so
  * it lines up with the controls beside it. [AppStatusTone.Good] is the dot in `primary` with
- * `onSurface` text, [AppStatusTone.Neutral] the dot in `outline` with `onSurfaceVariant` text,
- * [AppStatusTone.Problem] both in `error`.
+ * `onSurface` text, [AppStatusTone.Neutral] a ring in `outline` with `onSurfaceVariant` text (a
+ * ring, because some themes' `outline` sits close to `primary`), [AppStatusTone.Problem] both in `error`.
  */
 @Composable
 fun AppStatusPill(
@@ -44,7 +45,7 @@ fun AppStatusPill(
         horizontalArrangement = Arrangement.spacedBy(AppStatusPillDefaults.dotGap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(modifier = Modifier.size(AppStatusPillDefaults.dotSize).background(dot, CircleShape))
+        AppStatusDot(color = dot, hollow = tone == AppStatusTone.Neutral)
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge,
@@ -59,4 +60,25 @@ object AppStatusPillDefaults {
     val height: Dp = 28.dp
     val dotSize: Dp = 8.dp
     val dotGap: Dp = 8.dp
+    val ringWidth: Dp = 1.5.dp
+}
+
+/** The 8 dp state dot: filled, or a ring for a neutral state. Also before an [AppSettingsRow]'s line. */
+@Composable
+internal fun AppStatusDot(
+    color: Color,
+    hollow: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .size(AppStatusPillDefaults.dotSize)
+            .then(
+                if (hollow) {
+                    Modifier.border(AppStatusPillDefaults.ringWidth, color, CircleShape)
+                } else {
+                    Modifier.background(color, CircleShape)
+                },
+            ),
+    )
 }

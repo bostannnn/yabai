@@ -107,10 +107,7 @@ internal fun ComicsReaderPreferencesSheet(
 }
 
 /** Words instead of "LTR"/"RTL": the row's label already says it is the direction. */
-internal fun comicReadingDirectionLabel(direction: ComicReadingDirection): String = when (direction) {
-    ComicReadingDirection.LTR -> "Left to right"
-    ComicReadingDirection.RTL -> "Right to left"
-}
+internal fun comicReadingDirectionLabel(direction: ComicReadingDirection): String = direction.wordsLabel
 
 /** Short segment labels; the row's label "Fit" carries the verb. */
 internal fun comicPageFitLabel(fitMode: ComicPageFitMode): String = when (fitMode) {

@@ -28,7 +28,7 @@ import com.example.unifiedreader.ui.components.appReorderableItem
 import com.example.unifiedreader.ui.components.movedItem
 import com.example.unifiedreader.ui.components.rememberAppReorderState
 
-/** The sources' order, for the rail and the drawer, as a drag-to-reorder list; the first opens on launch. */
+/** The sources' order, for the rail and the drawer, as a drag-to-reorder list. */
 @Composable
 fun DrawerOrderSettingsGroup(
     sourceOrder: List<SourceType>,
@@ -40,7 +40,7 @@ fun DrawerOrderSettingsGroup(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
-            text = "The rail and the drawer list your sources in this order. The first opens when the app starts.",
+            text = "The rail and the drawer list your sources in this order.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -59,7 +59,6 @@ fun DrawerOrderSettingsGroup(
                     AppSettingsRow(
                         title = sourceType.displayName(),
                         icon = sourceType.navigationIcon(),
-                        supporting = if (index == 0) "Opens when the app starts" else null,
                         modifier = Modifier.appReorderableItem(reorderState, index),
                         trailing = {
                             Icon(

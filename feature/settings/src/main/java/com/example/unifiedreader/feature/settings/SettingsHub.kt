@@ -14,7 +14,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.core.model.LibraryFilterPanel
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.feature.navigation.navigationIcon
 import com.example.unifiedreader.feature.updates.AppUpdateActions
@@ -28,12 +30,13 @@ import com.example.unifiedreader.ui.components.AppSettingsRow
 import com.example.unifiedreader.ui.components.AppSettingsRowDivider
 import com.example.unifiedreader.ui.components.appGutter
 
-/** The settings front page: grouped rows that show their current value and open a page. */
+/** The settings front page: grouped rows that each say their current value and open a page. */
 @Composable
 internal fun SettingsHub(
     themeMode: ThemeMode,
     sources: List<SourceSettingsEntry>,
     sourceOrder: List<SourceType>,
+    filterPanelsBySource: Map<SourceType, List<LibraryFilterPanel>>,
     syncSettings: SyncSettingsUiState,
     tagsSummary: String?,
     versionName: String,
@@ -64,20 +67,36 @@ internal fun SettingsHub(
             sources.forEachIndexed { index, entry ->
                 if (index > 0) AppSettingsRowDivider()
                 val page = SettingsPage.Source(entry.sourceType)
+                val status = remoteSourceHubStatus(entry.connection, entry.connectivity, entry.lastSyncedAtEpochMillis)
                 AppSettingsRow(
                     title = entry.sourceType.displayName(),
                     icon = entry.sourceType.navigationIcon(),
-                    supporting = remoteSourceStatusLabel(entry.connection, entry.connectivity),
+                    supporting = status.label,
+                    supportingTone = status.tone,
                     selected = selectedPage == page,
                     onClick = { onOpenPage(page) },
                 )
             }
+            // What waits to upload belongs with the servers it goes to.
+            if (sources.isNotEmpty()) AppSettingsRowDivider()
+            AppSettingsRow(
+                title = SettingsPage.SyncStatus.title,
+                icon = AppIcons.Refresh,
+                supporting = syncSettings.summaryLabel(),
+                supportingColor = if (syncSettings.failedCount > 0) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    Color.Unspecified
+                },
+                selected = selectedPage == SettingsPage.SyncStatus,
+                onClick = { onOpenPage(SettingsPage.SyncStatus) },
+            )
         }
         AppSettingsGroup(label = "Library") {
             AppSettingsRow(
                 title = SettingsPage.FilterChips.title,
                 icon = AppIcons.FilterList,
-                supporting = "Which filters each library shows, and in what order",
+                supporting = filterChipsSummary(sourceOrder, filterPanelsBySource),
                 selected = selectedPage == SettingsPage.FilterChips,
                 onClick = { onOpenPage(SettingsPage.FilterChips) },
             )
@@ -98,19 +117,6 @@ internal fun SettingsHub(
                 supporting = drawerOrderSummary(sourceOrder),
                 selected = selectedPage == SettingsPage.DrawerOrder,
                 onClick = { onOpenPage(SettingsPage.DrawerOrder) },
-            )
-            AppSettingsRowDivider()
-            AppSettingsRow(
-                title = SettingsPage.SyncStatus.title,
-                icon = AppIcons.Refresh,
-                supporting = syncSettings.summaryLabel(),
-                supportingColor = if (syncSettings.failedCount > 0) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    Color.Unspecified
-                },
-                selected = selectedPage == SettingsPage.SyncStatus,
-                onClick = { onOpenPage(SettingsPage.SyncStatus) },
             )
         }
         AppSettingsGroup(label = "About") {
@@ -163,7 +169,15 @@ private fun ThemeCoverPreview() {
     }
 }
 
-internal fun drawerOrderSummary(sourceOrder: List<SourceType>): String {
-    val first = sourceOrder.firstOrNull() ?: return "The order of your sources"
-    return "${first.displayName()} opens on launch"
+/** The order itself: "Kavita, Grimmory, Local". Launch restores where you were, so no source is "first to open". */
+internal fun drawerOrderSummary(sourceOrder: List<SourceType>): String =
+    sourceOrder.takeIf { it.isNotEmpty() }?.joinToString { it.displayName() } ?: "The order of your sources"
+
+/** How many filters each library's sheet shows, in the sources' order: "8 in Kavita, 6 in Grimmory, 4 in Local". */
+internal fun filterChipsSummary(
+    sourceOrder: List<SourceType>,
+    filterPanelsBySource: Map<SourceType, List<LibraryFilterPanel>>,
+): String = sourceOrder.ifEmpty { SourceType.entries }.joinToString { sourceType ->
+    val count = resolveLibraryFilterPanels(sourceType = sourceType, preferredPanels = filterPanelsBySource[sourceType]).size
+    "$count in ${sourceType.displayName()}"
 }

@@ -54,8 +54,8 @@ def theme_tile(name, bg, a, b, c, selected=False):
 
 HUB_GROUPS = [
     ("Appearance", [("Theme", "Graphite", "palette", "theme")]),
-    ("Sources", [("Kavita", "Connected", "collections_bookmark", None), ("Stump", "Not connected", "menu_book", None), ("Grimmory", "Connected", "cloud", None)]),
-    ("Library", [("Filter chips", "Which filters each library shows, and in what order", "filter_list", None), ("Tags", "3 new tags", "sell", None), ("Source order", "Kavita opens on launch", "swap_vert", None), ("Reading progress sync", "Up to date", "refresh", None)]),
+    ("Sources", [("Kavita", ("Synced 09:12", "good"), "collections_bookmark", None), ("Grimmory", ("Synced yesterday", "good"), "cloud", None), ("Stump", ("Not connected", "neutral"), "menu_book", None), ("Reading progress sync", "Up to date", "refresh", None)]),
+    ("Library", [("Filter chips", "8 in Kavita, 6 in Grimmory", "filter_list", None), ("Tags", "3 new tags", "sell", None), ("Source order", "Kavita, Grimmory, Local", "swap_vert", None)]),
 ]
 
 
@@ -93,6 +93,26 @@ def sync_page():
             f'{group("No longer in your library", gone)}'
             '<p class="yb-supporting" style="margin:0 20px">These books left your library on the server, so what you read in them can&#8217;t upload. Keep it on this device: your journal keeps it and the app stops trying.</p>'
             '<div style="margin:6px 20px 0"><button class="yb-btn is-tonal">Keep on this device</button></div></div>')
+
+
+def source_page():
+    """A connected server: Server, Library (one button per row, the rest in •••), a failed-covers row, reading defaults."""
+    more = f'<button class="yb-icon-btn">{ic("more_vert")}</button>'
+    server = row("192.168.50.60:5000", "andrew · backup 100.84.32.88", "collections_bookmark",
+                 '<span class="yb-pill is-good" style="margin-right:8px">Connected</span><button class="yb-btn is-tonal">Edit</button>')
+    sync = row("Sync", "Synced today, 09:12", None, f'<button class="yb-btn is-filled">Sync now</button>{more}')
+    covers = row("Cached covers", "Cover images kept on this device for browsing offline", None, f'<button class="yb-btn is-tonal">Preload</button>{more}')
+    failed = row("3 covers didn&#8217;t download", "Star Courier #2, Iron Garden #3 and 1 more", "error", '<button class="yb-btn is-text">Retry</button>')
+    seg = lambda a, b, first: (f'<div class="yb-seg" style="width:{240 if len(a) > 6 else 170}px"><span class="{"is-selected" if first else ""}">{a}</span>'
+                               f'<span class="{"" if first else "is-selected"}">{b}</span></div>')
+    comics = row("Comics", None, None, seg("Left to right", "Right to left", True) + seg("Paged", "Scroll", True))
+    manga = row("Manga", None, None, seg("Left to right", "Right to left", False) + seg("Paged", "Scroll", True))
+    lib = ('<section class="yb-group"><h3 class="yb-group-label">Library</h3><div class="yb-panel">'
+           f'{sync}<div class="yb-divider is-full" style="margin:0 0 0 20px"></div>{covers}{DIV}{failed}</div></section>')
+    return (f'{group("Server", [server])}{lib}'
+            '<section class="yb-group"><h3 class="yb-group-label">Reading defaults</h3><div class="yb-panel">'
+            f'{comics}<div class="yb-divider" style="margin-left:20px"></div>{manga}</div>'
+            '<p class="yb-supporting" style="margin:0">Comics in each library open this way, unless you picked something else for a book or a series in the reader.</p></section>')
 
 
 def theme_page():
@@ -133,6 +153,19 @@ settings_sync_expanded = f"""
   </div>
 </div>"""
 
+settings_source_expanded = f"""
+<div class="yb-device" style="width:{W}px;height:{H}px">
+  {statusbar()}
+  <div class="yb-device-body">
+    {rail("Settings")}
+    <div class="yb-pane" style="--yb-gutter:24px">
+      <div style="position:absolute;top:84px;left:24px;width:320px;display:flex;flex-direction:column;gap:24px">{hub(selected="Kavita")}</div>
+      <div style="position:absolute;top:84px;left:368px;right:24px;display:flex;flex-direction:column;gap:24px;max-width:800px">{source_page()}</div>
+      <div class="yb-spec">{g(24)}{g(344)}{g(368)}{h(84)}<span class="t" style="left:700px;top:62px">84 content top, both panes</span></div>
+    </div>
+  </div>
+</div>"""
+
 PW, PH = 412, 915
 settings_compact = f"""
 <div class="yb-device yb-compact" style="width:{PW}px;height:{PH}px">
@@ -146,7 +179,7 @@ settings_compact = f"""
   </div>
 </div>"""
 
-comp("SettingsScreen", "Screens", 2660, """
+comp("SettingsScreen", "Screens", 3500, """
 # Settings
 
 The settings hub and its pages, on the frame in Layout and spacing.
@@ -157,18 +190,35 @@ The settings hub and its pages, on the frame in Layout and spacing.
 - A page opened on Compact or Medium shows Back and its name in the bar, and the bar has no glass until something scrolls under it.
 - The open page is marked by the selected hub row (`primary-container`); the page itself carries no title.
 
+## The hub
+
+- **Every row says its value**, not what its page is for: a server's row its state ("Synced 09:12", "Synced yesterday", "Offline", "Checking", "Syncing", "Not connected") after the status dot (`AppSettingsRow(supportingTone)`: Good while connected, Neutral otherwise); Filter chips how many each library shows ("8 in Kavita, 6 in Grimmory"); Source order the order ("Kavita, Grimmory, Local"). Nothing claims which source opens on launch: launch restores where you were.
+- **Groups:** Appearance (Theme); Sources (one row per server, then Reading progress sync, which is about those servers); Library (Filter chips, Tags, Source order); About (Version, Check for updates daily, Open-source licenses).
+
+## A server's page
+
+Connected, top to bottom:
+
+- **Server.** One row: the address as the title, "account · backup address" under it, then the `AppStatusPill` (Connected, Offline, Checking) and a tonal Edit that opens the form in place (Done closes it). A connection or sync error shows as one `error` line above the group. There is no second Server group at the bottom.
+- **Library.** Sync: "Synced today, 09:12" (the step and an `AppProgressBar` while it runs), a filled **Sync now**, and on Kavita a ••• with Fast sync. Cached covers: its line, a tonal **Preload** (Cancel while it runs), and a ••• with Remove cached covers. One button per row; the destructive one only in •••.
+- **Failed covers** are one row under Cached covers, `error` icon: "3 covers didn't download", the first two titles "and 1 more", and a text **Retry**. No raw error lines.
+- **Reading defaults.** One row per library: Left to right / Right to left, then Paged / Scroll (`AppSegmentedRow`s beside the name from 640 wide, stacked under it below). One line under the group, flush with the panel's edge like the group label: "Comics in each library open this way, unless you picked something else for a book or a series in the reader."
+
+Not connected, the page is the sign-in form alone.
+
 ## Reading progress sync
 
 What waits to upload, and why. With nothing waiting, one row says "Everything is uploaded".
 
 - **Waiting uploads.** An `AppStatusPill` with how many and since when (`error-container` once one failed), "Last tried …", then Retry now, the page's one filled button. Then a group per server, a book's uploads of one kind on one row, "Waiting" or "Failed" at the end, and the server's last error under the group.
 - **Books no longer in your library.** An upload whose book is no longer in the app's copy of its server's library can't go anywhere: the server removed the book, so no retry helps. Those leave the count and the server groups for their own group, last on the page, "No longer in your library": one row per book, "Grimmory · Progress, 2 reading sessions", nothing at the end. Under it one line says why, and a tonal **Keep on this device** stops the uploads and keeps everything: the journal keeps the sessions and the entry, the progress stays, and the app stops trying. Nothing is deleted, so it needs no confirm. A server whose library the app holds no books from (signed out, never synced) proves nothing, so its uploads stay waiting.
-- **The hub row** says what is waiting ("1 item waiting to upload", in `error` once one failed); with only gone books, "1 book no longer in your library"; otherwise "Up to date".
+- **The hub row**, last in Sources, says what is waiting ("1 item waiting to upload", in `error` once one failed); with only gone books, "1 book no longer in your library"; otherwise "Up to date".
 """, f"""
 <div class="yb" style="padding:16px">
   {TOGGLE}
   <div id="screens" style="display:flex;flex-direction:column;gap:28px">
     <div><div class="yb-caption" style="margin-bottom:8px">Expanded, 1280 × 800: rail, hub, Theme page</div>{settings_expanded}</div>
+    <div><div class="yb-caption" style="margin-bottom:8px">Expanded: a connected server's page (Kavita)</div>{settings_source_expanded}</div>
     <div><div class="yb-caption" style="margin-bottom:8px">Expanded: Reading progress sync, one upload waiting and two books no longer in the library</div>{settings_sync_expanded}</div>
     <div style="display:flex;gap:28px;align-items:flex-start">
       <div><div class="yb-caption" style="margin-bottom:8px">Compact, 412: the hub</div>{settings_compact}</div>

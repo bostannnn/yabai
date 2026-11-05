@@ -83,12 +83,12 @@ fun AppUpdateAutoCheckRow(
     modifier: Modifier = Modifier,
 ) {
     AppSettingsRow(
-        title = "Check for updates automatically",
+        title = "Check for updates daily",
         icon = AppIcons.History,
         supporting = if (state.isDebugBuild) {
             "Off on debug builds; the button above still checks"
         } else {
-            "Once a day, when yabai opens"
+            "When yabai opens"
         },
         onClick = { onCheckedChange(!state.autoCheck) },
         enabled = !state.isDebugBuild,

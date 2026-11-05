@@ -49,7 +49,11 @@ def cover(i, width=None, font=None):
 def row(title, sup=None, icon=None, trailing="chev", selected=False, dense=False):
     cls = "yb-row" + (" is-selected" if selected else "") + (" is-dense" if dense else "")
     lead = f'<span class="yb-lead">{ic(icon)}</span>' if icon else ""
-    sup_html = f'<span class="yb-supporting">{sup}</span>' if sup else ""
+    if isinstance(sup, tuple):  # (line, tone): the status dot in front of the line (supportingTone)
+        tone = {"good": " is-good", "neutral": "", "bad": " is-bad"}[sup[1]]
+        sup_html = f'<span class="yb-supporting has-dot{tone}">{sup[0]}</span>'
+    else:
+        sup_html = f'<span class="yb-supporting">{sup}</span>' if sup else ""
     if trailing == "chev":
         tr = f'<span class="yb-chev">{ic("navigate_next")}</span>'
     elif trailing == "switch":
@@ -163,7 +167,7 @@ The rail on Expanded windows whose height is not Compact: 88 wide, a hairline at
 </div>""")
 
 # ---------------------------------------------------------------- Lists
-comp("AppSettingsGroup", "Lists", 560, """
+comp("AppSettingsGroup", "Lists", 700, """
 # AppSettingsGroup
 
 A labelled group of rows on a panel: the settings hub and every settings page, the source page's groups, About.
@@ -171,6 +175,9 @@ A labelled group of rows on a panel: the settings hub and every settings page, t
 - Kit: `AppSettingsGroup(label)` holding `AppSettingsRow`s separated by `AppSettingsRowDivider()`.
 - The label is `AppGroupLabel` (`group-label`: 15 SemiBold, `on-surface`, a character theme's `label-accent`), **flush with the panel's edge**, `heading-gap` 8 above the panel. A count may follow it, `heading-gap` apart, in Medium `on-surface-variant` ("Rules 1,284 match"). The theme page's Device / Light / Dark use the same label over their tiles.
 - Rows: `AppSettingsRow(title, icon, supporting, selected, onClick, trailing, leading)`. Inset 20, min height 64, icon 24 then 16 to the text. One trailing thing: a chevron (`navigate_next`), a switch, a value, a button or a drag handle.
+- **A row says its value.** The supporting line is the current state ("Synced 09:12", "8 in Kavita, 6 in Grimmory", "Kavita, Grimmory, Local"), not a description of what the page does.
+- **A state gets the status dot.** `supportingTone = AppStatusTone.Good / Neutral / Problem` puts `AppStatusPill`'s 8 dot 8 before the line: Good in `primary` (`on-surface-selected` on a selected row), Neutral the `outline` ring, Problem the dot and the line in `error`. The hub's server rows use it.
+- **One button per row.** A row that can do more puts one button (filled for the thing it is for, tonal otherwise) and a ••• `AppIconButton` whose `AppMenu` holds the rest. Something that deletes (Remove cached covers) never sits on the row; it lives in the •••.
 - Dividers start under the text (60) and use `outline-variant` at 60%.
 - The selected row (two panes) fills with `primary-container`; its supporting text and chevron drop to 72%.
 - Use it instead of hand-made rows: the sync queue row, the reading-defaults row, the filter-chips row and first launch's choices are rows of this family.
@@ -179,8 +186,9 @@ A labelled group of rows on a panel: the settings hub and every settings page, t
 <div class="yb yb-ground" style="padding:24px;width:520px">
   <div class="yb-stack">
     {group("Appearance", [row("Theme", "Graphite", "palette", theme_preview() + chev(), selected=True)])}
-    {group("Sources", [row("Kavita", "Not connected", "collections_bookmark"), row("Stump", "Not connected", "menu_book"), row("Grimmory", "Connected", "cloud")])}
-    {group("About", [row("Check for updates automatically", "Once a day, when yabai opens", "history", "switch-on"), row("Open-source licenses", None, "description")])}
+    {group("Sources", [row("Kavita", ("Synced 09:12", "good"), "collections_bookmark"), row("Grimmory", ("Offline", "neutral"), "cloud"), row("Stump", ("Not connected", "neutral"), "menu_book")])}
+    {group("Library", [row("Sync", "Synced today, 09:12", None, '<button class="yb-btn is-filled">Sync now</button><button class="yb-icon-btn">' + ic("more_vert") + '</button>')])}
+    {group("About", [row("Check for updates daily", "When yabai opens", "history", "switch-on"), row("Open-source licenses", None, "description")])}
   </div>
 </div>""", width=568)
 
@@ -588,10 +596,10 @@ An empty or failed place: an illustration or icon, a 28 SemiBold title, a 14/20 
 comp("AppStatusPill", "Feedback", 160, """
 # AppStatusPill
 
-A source's or a queue's state as a dot and a word, with no container: an 8 dot, 8 before the label in 14 Medium. Good is the dot in `primary` with `on-surface` text; neutral (Checking, Waiting) the dot in `outline` with `on-surface-variant` text; a problem the dot and the text in `error`. 28 tall, so it lines up with the controls beside it.
+A source's or a queue's state as a dot and a word, with no container: an 8 dot, 8 before the label in 14 Medium. Good is the dot in `primary` with `on-surface` text; neutral (Checking, Offline, Waiting, Not connected) a ring in `outline` (1.5 wide) with `on-surface-variant` text, because in some themes (Blueprint) `outline` is close to `primary` and a filled dot would read as good; a problem the dot and the text in `error`. 28 tall, so it lines up with the controls beside it.
 
 - Kit: `AppStatusPill(label, tone)` with `AppStatusTone.Good`, `Neutral` or `Problem`; the kit picks the colours.
-- The source page and the sync page use it.
+- The source page (at the end of its Server row) and the sync page use it. The hub's server rows use the same dot in front of their line, through `AppSettingsRow(supportingTone)`, not a pill of their own.
 """, f"""
 <div class="yb yb-ground" style="padding:24px;display:flex;gap:10px;flex-wrap:wrap">
   <span class="yb-pill is-good">Connected</span>

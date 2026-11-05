@@ -95,11 +95,18 @@
 
 /* Status (AppStatusPill): a dot and a word, no container */
 .yb-pill { display: inline-flex; align-items: center; gap: 8px; height: 28px; font: 500 14px/20px var(--font-sans); color: var(--on-surface-variant); }
-.yb-pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--outline); flex: none; }
+.yb-pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 1.5px var(--outline); flex: none; }
 .yb-pill.is-good { color: var(--on-surface); }
-.yb-pill.is-good::before { background: var(--primary); }
+.yb-pill.is-good::before { background: var(--primary); box-shadow: none; }
 .yb-pill.is-bad { color: var(--error); }
-.yb-pill.is-bad::before { background: var(--error); }
+.yb-pill.is-bad::before { background: var(--error); box-shadow: none; }
+/* The same dot in front of a settings row's line (AppSettingsRow supportingTone) */
+.yb-supporting.has-dot { display: inline-flex; align-items: center; gap: 8px; }
+.yb-supporting.has-dot::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 1.5px var(--outline); flex: none; }
+.yb-supporting.has-dot.is-good::before { background: var(--primary); box-shadow: none; }
+.yb-supporting.has-dot.is-bad { color: var(--error); }
+.yb-supporting.has-dot.is-bad::before { background: var(--error); box-shadow: none; }
+.yb-row.is-selected .yb-supporting.has-dot.is-good::before { background: var(--on-primary-container); }
 
 /* Progress bar (proposed AppProgressBar): 4 tall, primary on surface-container-highest */
 .yb-progress { height: 4px; border-radius: var(--radius-pill); background: var(--surface-container-highest); overflow: hidden; }

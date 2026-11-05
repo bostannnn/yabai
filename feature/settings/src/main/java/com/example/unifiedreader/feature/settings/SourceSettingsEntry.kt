@@ -4,6 +4,7 @@ import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.settings.direction.ReadingDirectionLibraryUiState
 import com.example.unifiedreader.feature.settings.mode.ReaderModeLibraryUiState
+import com.example.unifiedreader.ui.components.AppStatusTone
 
 /** What the settings UI needs to know about one remote server's connection. */
 interface RemoteSourceConnectionUiState {
@@ -53,24 +54,36 @@ data class SourceSettingsEntry(
     val lastSyncedAtEpochMillis: Long? = null,
 )
 
-/** The one-line status under a source's name on the hub. */
-fun remoteSourceStatusLabel(
+/** A source's line on the hub and the tone of the dot before it. */
+data class SourceHubStatus(
+    val label: String,
+    val tone: AppStatusTone,
+)
+
+/**
+ * The line under a source's name on the hub: what it is doing, or when it last synced. Connected
+ * and reachable is the good dot; everything else (signed out, offline, busy) the neutral one.
+ */
+fun remoteSourceHubStatus(
     connection: RemoteSourceConnectionUiState,
     connectivity: SourceConnectivityState,
-): String = when {
+    lastSyncedAtEpochMillis: Long?,
+    nowEpochMillis: Long = System.currentTimeMillis(),
+): SourceHubStatus = when {
     connection.isConnecting -> when (connection.activeAction) {
-        ServerConnectionAction.Connect, null -> "Connecting"
+        ServerConnectionAction.Connect, null -> SourceHubStatus("Connecting", AppStatusTone.Neutral)
         ServerConnectionAction.Sync,
         ServerConnectionAction.FastSync,
-        ServerConnectionAction.FullSync -> "Syncing"
+        ServerConnectionAction.FullSync -> SourceHubStatus("Syncing", AppStatusTone.Neutral)
     }
-    !connection.hasStoredSession -> "Not connected"
-    else -> when (connectivity) {
-        SourceConnectivityState.Offline -> "Connected · offline"
-        SourceConnectivityState.Checking -> "Connected · checking"
-        SourceConnectivityState.Online,
-        SourceConnectivityState.Unknown -> "Connected"
-    }
+    !connection.hasStoredSession -> SourceHubStatus("Not connected", AppStatusTone.Neutral)
+    connectivity == SourceConnectivityState.Offline -> SourceHubStatus("Offline", AppStatusTone.Neutral)
+    connectivity == SourceConnectivityState.Checking -> SourceHubStatus("Checking", AppStatusTone.Neutral)
+    lastSyncedAtEpochMillis != null -> SourceHubStatus(
+        "Synced ${formatSettingsShortMoment(lastSyncedAtEpochMillis, nowEpochMillis)}",
+        AppStatusTone.Good,
+    )
+    else -> SourceHubStatus("Connected", AppStatusTone.Good)
 }
 
 internal fun RemoteSourceConnectionUiState.toFormState(): ServerConnectionFormState = ServerConnectionFormState(

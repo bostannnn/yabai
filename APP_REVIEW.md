@@ -359,7 +359,7 @@ Decisions, 2026-10-18: #11 most recent read wins; #20 uses the series read field
 - Download queue results (rejected or already queued) are never shown, because `cd18124f` removed the messages.
 
 ### Settings and shell
-- "X opens on launch" (drawer order) is false: launch restores the last route. `SettingsHub.kt:106-109`, `DrawerOrderSettingsGroup.kt:58,77`.
+- "X opens on launch" (drawer order) is false: launch restores the last route. `SettingsHub.kt:106-109`, `DrawerOrderSettingsGroup.kt:58,77`. **Fixed 2026-11-06** (settings polish A): the hub row shows the order, the page no longer names a launch source.
 - Reordering is now drag-only, with no accessibility actions; `moveSourceUp`/`moveSourceDown` are dead code. After hiding a filter chip, stale bounds break the next drag.
   `core/ui-components/.../AppReorder.kt`.
 - The Open-source licenses page lists only Manrope and Material Symbols. It's missing Readium (BSD-3 notice required), junrar (UnRAR licence), the 7 OFL reader
@@ -367,7 +367,7 @@ Decisions, 2026-10-18: #11 most recent read wins; #20 uses the series read field
 - Back from Settings or Journal while a Kavita section is active silently resets the hidden library section; the next Back exits. `UnifiedReaderRoute.kt:145-152`.
 - A successful sync forces `topLevel = Library`, which pulls you out of Settings.
 - "System Dynamic" is listed under Light. `applyAndroidThemeMode` does nothing on a `FragmentActivity`, so the window flashes light before the first frame.
-- "Applies to books you have not opened yet" (reading defaults) is inaccurate.
+- "Applies to books you have not opened yet" (reading defaults) is inaccurate. **Fixed 2026-11-06**: "Comics in each library open this way, unless you picked something else for a book or a series in the reader."
 
 ## 4. Unfinished features
 

@@ -34,4 +34,10 @@ class SettingsLayoutTest {
         assertFalse(layout.useTwoColumnServerForm)
         assertFalse(layout.useInlineChoiceControls)
     }
+
+    @Test
+    fun `a column too narrow for both choices in words stacks them`() {
+        assertFalse(resolveSettingsAdaptiveLayout(widthDp = 600).useInlineChoiceControls)
+        assertTrue(resolveSettingsAdaptiveLayout(widthDp = 640).useInlineChoiceControls)
+    }
 }

@@ -13,9 +13,9 @@
   "groups": [],
   "lastChange": {
     "by": "bostannnn",
-    "at": "2026-11-05T13:00:00Z",
+    "at": "2026-11-06T13:00:00Z",
     "via": "Claude Code",
-    "note": "Search in the middle: the library bar's field centred on the page, and a search panel (AppSearchPanel) that opens out of it over the dimmed library"
+    "note": "Settings polish (option A): rows say their value, server rows carry the status dot (neutral is now a ring, for themes whose outline sits near primary), Reading progress sync moves into Sources, a server's page leads with its Server row and keeps one button per row"
   },
   "layout": "files",
   "libraries": [],

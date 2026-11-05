@@ -92,7 +92,8 @@ fun AppGroupLabel(
  * under it), then an optional value, a custom [trailing] slot, and a chevron when the row opens
  * something ([onClick] set and [showChevron] true). A [selected] row sits on `surfaceSelected` and
  * draws all of its content in `onSurfaceSelected`, so it reads in every theme (High Contrast's
- * selection is white). [supportingColor] overrides the supporting text's colour (an error, say).
+ * selection is white). [supportingColor] overrides the supporting text's colour (an error, say);
+ * [supportingTone] puts [AppStatusPill]'s dot before the line, for a state ("Synced 09:12").
  */
 @Composable
 fun AppSettingsRow(
@@ -107,6 +108,10 @@ fun AppSettingsRow(
     showChevron: Boolean = onClick != null,
     supportingColor: Color = Color.Unspecified,
     supportingIcon: ImageVector? = null,
+    // A state's dot before the supporting line, as AppStatusPill draws it: a server's "Synced 09:12".
+    supportingTone: AppStatusTone? = null,
+    // The leading icon's colour when it carries meaning (an error row's icon); `primary` otherwise.
+    iconTint: Color = Color.Unspecified,
     supportingContent: (@Composable ColumnScope.() -> Unit)? = null,
     trailing: (@Composable RowScope.() -> Unit)? = null,
     // The row's side inset; a row inside a dialog card, which is padded already, passes 0.
@@ -121,8 +126,20 @@ fun AppSettingsRow(
     } else {
         MaterialTheme.colorScheme.onSurfaceVariant
     }
-    val iconColor = if (selected) semanticColors.onSurfaceSelected else MaterialTheme.colorScheme.primary
-    val resolvedSupportingColor = supportingColor.takeOrElse { secondaryColor }
+    val iconColor = when {
+        selected -> semanticColors.onSurfaceSelected
+        iconTint != Color.Unspecified -> iconTint
+        else -> MaterialTheme.colorScheme.primary
+    }
+    val resolvedSupportingColor = supportingColor.takeOrElse {
+        if (supportingTone == AppStatusTone.Problem) MaterialTheme.colorScheme.error else secondaryColor
+    }
+    val supportingDotColor = when (supportingTone) {
+        null -> Color.Unspecified
+        AppStatusTone.Good -> if (selected) semanticColors.onSurfaceSelected else MaterialTheme.colorScheme.primary
+        AppStatusTone.Neutral -> MaterialTheme.colorScheme.outline
+        AppStatusTone.Problem -> MaterialTheme.colorScheme.error
+    }
     val clickModifier = if (onClick != null) {
         Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick)
     } else {
@@ -166,9 +183,17 @@ fun AppSettingsRow(
             )
             if (supporting != null) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    horizontalArrangement = Arrangement.spacedBy(
+                        if (supportingTone != null) AppStatusPillDefaults.dotGap else 5.dp,
+                    ),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    if (supportingTone != null) {
+                        AppStatusDot(
+                            color = supportingDotColor.copy(alpha = contentAlpha),
+                            hollow = supportingTone == AppStatusTone.Neutral,
+                        )
+                    }
                     if (supportingIcon != null) {
                         Icon(
                             imageVector = supportingIcon,

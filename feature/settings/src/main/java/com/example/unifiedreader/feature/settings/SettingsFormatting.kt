@@ -23,6 +23,22 @@ fun formatSettingsMoment(
     }
 }
 
+/** A hub line's short moment: "09:12" today, "yesterday", "20 Oct", or "20 Oct 2025" in another year. */
+fun formatSettingsShortMoment(
+    epochMillis: Long,
+    nowEpochMillis: Long = System.currentTimeMillis(),
+): String {
+    val then = Calendar.getInstance(Locale.US).apply { timeInMillis = epochMillis }
+    val now = Calendar.getInstance(Locale.US).apply { timeInMillis = nowEpochMillis }
+    val sameYear = then.get(Calendar.YEAR) == now.get(Calendar.YEAR)
+    val dayDifference = now.get(Calendar.DAY_OF_YEAR) - then.get(Calendar.DAY_OF_YEAR)
+    return when {
+        sameYear && dayDifference == 0 -> SimpleDateFormat("HH:mm", Locale.US).format(Date(epochMillis))
+        sameYear && dayDifference == 1 -> "yesterday"
+        else -> formatSettingsDay(epochMillis, nowEpochMillis)
+    }
+}
+
 /** "20 Oct", or "20 Oct 2025" in another year. */
 fun formatSettingsDay(
     epochMillis: Long,

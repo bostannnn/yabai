@@ -49,7 +49,7 @@
 2 feature/settings/src/main/java/com/example/unifiedreader/feature/settings/ReadingDefaultsGroup.kt
 3 feature/settings/src/main/java/com/example/unifiedreader/feature/settings/ServerConnectionForm.kt
 2 feature/settings/src/main/java/com/example/unifiedreader/feature/settings/SettingsHub.kt
-2 feature/settings/src/main/java/com/example/unifiedreader/feature/settings/SourceLibraryGroup.kt
+1 feature/settings/src/main/java/com/example/unifiedreader/feature/settings/SourceLibraryGroup.kt
 24 feature/settings/src/main/java/com/example/unifiedreader/feature/settings/SourceStartFlow.kt
 1 feature/settings/src/main/java/com/example/unifiedreader/feature/settings/SyncStatusSettingsPage.kt
 3 feature/settings/src/main/java/com/example/unifiedreader/feature/settings/ThemeSettingsPage.kt

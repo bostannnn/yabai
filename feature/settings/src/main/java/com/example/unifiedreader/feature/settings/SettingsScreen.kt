@@ -155,6 +155,7 @@ fun SettingsScreen(
                 themeMode = themeMode,
                 sources = orderedSources,
                 sourceOrder = sourceOrder,
+                filterPanelsBySource = libraryFilterPanelsBySource,
                 syncSettings = syncSettings,
                 tagsSummary = tagsPage?.summary,
                 versionName = versionName,

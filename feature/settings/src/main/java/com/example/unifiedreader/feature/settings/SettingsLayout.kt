@@ -27,7 +27,7 @@ import com.example.unifiedreader.ui.components.appGutter
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 internal const val SettingsServerFormTwoColumnBreakpointDp = 560
-internal const val SettingsInlineChoiceControlsBreakpointDp = 520
+internal const val SettingsInlineChoiceControlsBreakpointDp = 640
 
 internal val SettingsPageMaxWidth: Dp = 800.dp
 

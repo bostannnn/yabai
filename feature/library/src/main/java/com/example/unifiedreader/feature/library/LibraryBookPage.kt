@@ -161,7 +161,7 @@ fun LibraryBookPage(
                                 options = ComicReadingDirection.entries,
                                 selected = selected,
                                 onSelected = { picked -> actionContext.onSeriesDirectionSelected(item, picked) },
-                                optionLabel = ComicReadingDirection::pageLabel,
+                                optionLabel = ComicReadingDirection::wordsLabel,
                             )
                         }
                         mode?.let { selected ->
@@ -560,12 +560,6 @@ private fun LibraryBookPageRow(
     }
 }
 
-/** The page reads the direction out in full; the reader's own control keeps "LTR". */
-private val ComicReadingDirection.pageLabel: String
-    get() = when (this) {
-        ComicReadingDirection.LTR -> "Left to right"
-        ComicReadingDirection.RTL -> "Right to left"
-    }
 
 private const val SecondaryTextAlpha = 0.74f
 private val LibraryBookPageCoverWidth = 118.dp

@@ -58,6 +58,10 @@ internal fun buildReadingDefaultsRows(
         }
 }
 
+/** What the defaults reach: what you set for a book or a series in the reader wins (`ComicReadingDirectionResolver`). */
+internal const val ReadingDefaultsNote =
+    "Comics in each library open this way, unless you picked something else for a book or a series in the reader."
+
 /** The "Reading defaults" group of a source page: direction and layout per library. */
 @Composable
 internal fun ReadingDefaultsGroup(
@@ -87,12 +91,8 @@ internal fun ReadingDefaultsGroup(
                 }
             }
         }
-        Text(
-            text = "Applies to books you have not opened yet. A book keeps the direction and layout you pick in the reader.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = AppSettingsDefaults.horizontalPadding),
-        )
+        // Flush with the panel's edge, like the group label: a line of the page, not of a row.
+        SettingsPageLine(ReadingDefaultsNote)
     }
 }
 
@@ -103,20 +103,21 @@ private fun ReadingDefaultsLibraryRow(
     onLibraryDirectionSelected: (String, ComicReadingDirection) -> Unit,
     onLibraryModeSelected: (String, ComicReaderMode) -> Unit,
 ) {
-    val controls: @Composable (Modifier) -> Unit = { controlModifier ->
+    // The direction in words needs more room than Paged / Scroll.
+    val controls: @Composable (directionModifier: Modifier, modeModifier: Modifier) -> Unit = { directionModifier, modeModifier ->
         row.direction?.let { direction ->
-            AppSegmentedRow(modifier = controlModifier) {
+            AppSegmentedRow(modifier = directionModifier) {
                 ComicReadingDirection.entries.forEach { option ->
                     AppSegment(
                         selected = option == direction,
                         onClick = { onLibraryDirectionSelected(row.libraryId, option) },
-                        label = { Text(text = option.label) },
+                        label = { Text(text = option.wordsLabel) },
                     )
                 }
             }
         }
         row.mode?.let { mode ->
-            AppSegmentedRow(modifier = controlModifier) {
+            AppSegmentedRow(modifier = modeModifier) {
                 ComicReaderMode.entries.forEach { option ->
                     AppSegment(
                         selected = option == mode,
@@ -141,7 +142,7 @@ private fun ReadingDefaultsLibraryRow(
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f),
             )
-            controls(Modifier.widthIn(min = 150.dp, max = 220.dp))
+            controls(Modifier.widthIn(min = 240.dp, max = 280.dp), Modifier.widthIn(min = 150.dp, max = 200.dp))
         }
     } else {
         Column(
@@ -154,12 +155,8 @@ private fun ReadingDefaultsLibraryRow(
                 text = row.title,
                 style = MaterialTheme.typography.titleMedium,
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                controls(Modifier.weight(1f))
-            }
+            // Stacked: side by side, "Right to left" has no room on a phone.
+            controls(Modifier.fillMaxWidth(), Modifier.fillMaxWidth())
         }
     }
 }
