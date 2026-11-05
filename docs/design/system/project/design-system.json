@@ -13,9 +13,9 @@
   "groups": [],
   "lastChange": {
     "by": "bostannnn",
-    "at": "2026-11-05T12:00:00Z",
+    "at": "2026-11-05T12:30:00Z",
     "via": "Claude Code",
-    "note": "Kit clean-up: AppOutlinedButton and AppSheet removed (never used); bottom sheets are AppSheetLayout, which AppSideSheet opens as on Compact"
+    "note": "The reading card gets its box back on surface-card, a step computed from the ground (1.2:1 in every theme); comics get square corners, no spine, Manrope titles, and a series lies as a pile of its own cover"
   },
   "layout": "files",
   "libraries": [],

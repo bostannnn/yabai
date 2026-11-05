@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.library
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ripple
@@ -21,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -34,18 +37,20 @@ import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppLayout
 import com.example.unifiedreader.ui.components.appPressScale
 import com.example.unifiedreader.ui.theme.UnifiedReaderDefaultPresentationTokens
+import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import java.time.ZoneId
 
 /**
- * The card for the book being read, small: its cover and, as tall as the cover, an [overline]
+ * The card for the book being read, small, on a quiet box ([UnifiedReaderSemanticColors.surfaceCard]: one
+ * step from the ground in every theme, never the cover's tint, which can land on the ground's own colour):
+ * its cover and, as tall as the cover, an [overline]
  * ("Continue reading", with when it was last read) in the cover's accent, the title, the author and
  * where the reader is ([libraryReadingCardLines]; a [footnote] such as a reading order's "Then ..."
  * takes the place's spot), and the bar with the percentage and [timeLeftMillis] when the journal
  * knows the pace. A tap on the card continues the book ([onContinue], announced as
  * [continueLabel]); ••• opens its book page. On its own the card is
  * [LibraryReadingCardDefaults.height] tall; [tall] (beside the shelves, given their height) the cover
- * fills that height and the author and the place get a line each. Tinted with the cover's colours,
- * or the theme accent for a cover without any.
+ * fills that height and the author and the place get a line each.
  */
 @Composable
 fun LibraryReadingCard(
@@ -68,7 +73,7 @@ fun LibraryReadingCard(
         val day = libraryLastReadDay(lastReadAt, nowMillis = System.currentTimeMillis(), zone = ZoneId.systemDefault())
         listOfNotNull(overline, day?.text).joinToString(" · ")
     }
-    // No box: the cover is what you see, and the text sits on the ground's own colours.
+    // A quiet box one step from the ground; the cover carries the colour.
     val scheme = MaterialTheme.colorScheme
     val colors = LibraryReadingCardColors(
         content = scheme.onSurface,
@@ -82,6 +87,8 @@ fun LibraryReadingCard(
     Box(
         modifier = modifier
             .appPressScale(interactionSource)
+            .clip(RoundedCornerShape(LibraryReadingCardDefaults.cornerRadius))
+            .background(UnifiedReaderThemeTokens.colors.surfaceCard)
             .clickable(
                 interactionSource = interactionSource,
                 indication = ripple(color = colors.content),
@@ -92,7 +99,8 @@ fun LibraryReadingCard(
     ) {
         Row(
             modifier = Modifier
-                .then(if (tall) Modifier.fillMaxHeight() else Modifier.height(LibraryReadingCardDefaults.height)),
+                .then(if (tall) Modifier.fillMaxHeight() else Modifier.height(LibraryReadingCardDefaults.height))
+                .padding(LibraryReadingCardDefaults.padding),
             horizontalArrangement = Arrangement.spacedBy(LibraryReadingCardDefaults.coverGap),
         ) {
             Box(
@@ -119,6 +127,7 @@ fun LibraryReadingCard(
                 timeLeftMillis = timeLeftMillis,
                 colors = colors,
                 tall = tall,
+                comic = item.isComic,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),
@@ -149,10 +158,11 @@ internal class LibraryReadingCardColors(
 
 object LibraryReadingCardDefaults {
     val cornerRadius: Dp = UnifiedReaderDefaultPresentationTokens.cardCornerRadius
+    val padding: Dp = AppLayout.inset
     /** The bar's track: the text colour this faint. */
     internal const val trackAlpha: Float = 0.14f
 
-    /** On its own (above the shelves, at the top of a series): the cover as tall as the card, about 107 wide. */
+    /** On its own (above the shelves, at the top of a series): an 80 dp cover inside the inset. */
     val height: Dp = 160.dp
     val coverGap: Dp = 16.dp
 

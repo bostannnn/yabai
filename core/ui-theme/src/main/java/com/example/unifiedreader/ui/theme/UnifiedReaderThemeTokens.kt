@@ -9,12 +9,14 @@ import androidx.compose.ui.unit.dp
 /**
  * Colors the app uses by role, derived from the active theme's Material color scheme.
  * [readerCanvas] is what a comic or a page spread sits on: dark in every theme.
+ * [surfaceCard] is the reading card's box: [cardStepColor] of the ground, one fixed step from it in every theme.
  */
 @Immutable
 data class UnifiedReaderSemanticColors(
     val appBackground: Color,
     val surfaceBase: Color,
     val surfaceRaised: Color,
+    val surfaceCard: Color,
     val surfaceOverlay: Color,
     val surfaceSelected: Color,
     val onSurfaceSelected: Color,
@@ -75,6 +77,7 @@ val LocalUnifiedReaderSemanticColors = staticCompositionLocalOf {
         appBackground = Color(0xFFFFF8F0),
         surfaceBase = Color(0xFFFFFBF7),
         surfaceRaised = Color(0xFFFFF3E7),
+        surfaceCard = Color(0xFFEAE4DD),
         surfaceOverlay = Color(0xFFF0E3D6),
         surfaceSelected = Color(0xFFD3E7EF),
         onSurfaceSelected = Color(0xFF0D3642),
