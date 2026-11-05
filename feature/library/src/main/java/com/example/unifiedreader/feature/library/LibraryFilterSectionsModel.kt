@@ -7,8 +7,6 @@ import com.example.unifiedreader.core.model.LibraryReadingStatus
 import com.example.unifiedreader.core.model.libraryEraPile
 import com.example.unifiedreader.core.model.libraryPlaceCountry
 import com.example.unifiedreader.ui.components.appCount
-import kotlin.math.roundToInt
-import kotlin.math.sqrt
 
 // What the filter sheet's richer sections show, apart from how they draw it: Set in's places and When's
 // piles (on their pages), the chips of the values with most books, a row's top values, and Find's matches.
@@ -61,30 +59,6 @@ internal data class LibraryFilterPileRow(
     val spines: Int,
     val order: Int,
 )
-
-/**
- * When's page: every pile in time order. A named period has no pile; it shows only while picked
- * (found with Find), after the piles. A pile's spines are as many as the square root of its count
- * allows, [PileMaxSpines] at most.
- */
-internal fun libraryFilterPileRows(state: LibraryFilterState, facets: LibraryFilterFacets): List<LibraryFilterPileRow> {
-    val counts = facets.counts.takeUnless { it.isEmpty }?.times
-    val values = (facets.times + state.times).distinctBy(String::lowercase)
-    return values
-        .mapNotNull { value ->
-            val pile = libraryEraPile(value)
-            if (pile == null && value !in state.times) return@mapNotNull null
-            val count = counts?.get(value.lowercase())
-            LibraryFilterPileRow(
-                value = value,
-                count = count,
-                selected = value in state.times,
-                spines = sqrt((count ?: 1).toFloat()).roundToInt().coerceIn(1, PileMaxSpines),
-                order = pile?.order ?: Int.MAX_VALUE,
-            )
-        }
-        .sortedWith(compareBy<LibraryFilterPileRow> { it.order }.thenBy { it.value.lowercase() })
-}
 
 /** When's named periods (World War II, Cold War), which have no pile: the ones not picked, most books first. */
 internal fun libraryFilterNamedPeriods(state: LibraryFilterState, facets: LibraryFilterFacets): List<LibraryFilterPileRow> {
@@ -231,7 +205,6 @@ internal fun libraryFilterReadingStatus(progress: ItemProgressSummary?): Library
 }
 
 internal const val PlaceRowLimit = 6
-internal const val PileMaxSpines = 14
 private const val LibraryChipLimit = 6
 private const val LanguageChipLimit = 5
 private const val AboutChipLimit = 8

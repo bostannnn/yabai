@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import android.content.Context
 import android.net.Uri
 import com.example.unifiedreader.core.model.FormatType
@@ -35,7 +36,7 @@ internal class LocalCoverCache(
         forceRefresh: Boolean,
     ): LocalDocumentRecord {
         val existingCoverFileName = existingCoverFileName(record)
-        val coverFileName = runCatching {
+        val coverFileName = runSuspendCatching {
             when (record.format) {
                 FormatType.CBZ,
                 FormatType.CBR -> cacheComicCover(record, forceRefresh)

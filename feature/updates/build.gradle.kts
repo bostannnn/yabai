@@ -28,9 +28,8 @@ android {
 }
 
 dependencies {
-    implementation(project(":core:ui-theme"))
+    implementation(project(":core:model"))
     implementation(project(":core:ui-components"))
-    implementation(project(":core:network"))
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
@@ -135,7 +136,7 @@ class AppGrimmoryCoordinator @Inject constructor(
         onProgress: (GrimmorySyncProgress) -> Unit = {},
         // The library's refresh (GrimmoryCatalogSyncer.refresh) instead of the full sync.
         refresh: Boolean = false,
-    ): GrimmorySyncExecutionResult = runSuspendCatchingPreservingCancellation {
+    ): GrimmorySyncExecutionResult = runSuspendCatching {
         val result = if (refresh) {
             grimmoryCatalogSyncer.refresh(request = preparation.request, onProgress = onProgress)
         } else {
@@ -208,7 +209,7 @@ class AppGrimmoryCoordinator @Inject constructor(
 
     internal suspend fun executeConnect(
         preparation: GrimmorySyncPreparation.Ready,
-    ): GrimmoryConnectExecutionResult = runSuspendCatchingPreservingCancellation {
+    ): GrimmoryConnectExecutionResult = runSuspendCatching {
         val result = grimmoryCatalogSyncer.connect(preparation.request)
         persistRemoteSession(
             sessionStore = grimmoryCredentialStore,

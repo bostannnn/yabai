@@ -1,5 +1,6 @@
 package com.example.unifiedreader.data.kavita
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
@@ -33,7 +34,7 @@ suspend fun pullKavitaJournalCache(
         .map(KavitaChapterCatalogEntry::item)
         .mapNotNull { item -> item.remoteId?.toIntOrNull()?.let { it to item } }
         .toMap()
-    val reviewLookup = runCatching {
+    val reviewLookup = runSuspendCatching {
         val userId = api.getCurrentUserId(accessToken)
         api.getAllReviews(
             accessToken = accessToken,
@@ -63,7 +64,7 @@ suspend fun pullKavitaJournalCache(
     val failedHistoryLibraryIds = mutableSetOf<String>()
     val history = libraryIdByRemoteId.keys
         .flatMap { libraryId ->
-            runCatching {
+            runSuspendCatching {
                 api.getReadingHistory(
                     accessToken = accessToken,
                     libraryId = libraryId,
@@ -107,7 +108,7 @@ suspend fun pullKavitaJournalCache(
     var ratingFetchFailed = false
     val nativeRatingsByChapterId = likelyRatingChapterIds
         .mapNotNull { chapterId ->
-            runCatching {
+            runSuspendCatching {
                 chapterId to api.getChapterDetailPlus(
                     accessToken = accessToken,
                     chapterId = chapterId,
@@ -174,7 +175,7 @@ suspend fun pushDirtyKavitaJournalEntries(
             repository.markJournalEntrySyncState(entry.itemId, SyncState.CLEAN)
             return@forEach
         }
-        runCatching {
+        runSuspendCatching {
             val chapterId = item.remoteId?.toIntOrNull()
                 ?: error("Kavita journal entry ${entry.itemId} has no numeric chapter id")
             val chapterInfo = api.getChapterInfo(accessToken = accessToken, chapterId = chapterId.toString())

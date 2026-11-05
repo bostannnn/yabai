@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
@@ -53,7 +54,7 @@ internal suspend fun pushDirtyKavitaProgress(
             return@forEach
         }
         val chapterId = item.remoteId ?: return@forEach
-        runCatching {
+        runSuspendCatching {
             tokens.run push@{ token, _ ->
                 val serverCopy = progress.newerServerCopy(
                     remote = api.getProgress(accessToken = token, chapterId = chapterId)

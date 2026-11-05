@@ -13,9 +13,9 @@
   "groups": [],
   "lastChange": {
     "by": "bostannnn",
-    "at": "2026-11-04T21:40:00Z",
+    "at": "2026-11-05T12:00:00Z",
     "via": "Claude Code",
-    "note": "Books look like books: titles in the book face (Noto Serif), covers with a spine side, a shaded spine and a soft shadow, and the reading card without its box"
+    "note": "Kit clean-up: AppOutlinedButton and AppSheet removed (never used); bottom sheets are AppSheetLayout, which AppSideSheet opens as on Compact"
   },
   "layout": "files",
   "libraries": [],

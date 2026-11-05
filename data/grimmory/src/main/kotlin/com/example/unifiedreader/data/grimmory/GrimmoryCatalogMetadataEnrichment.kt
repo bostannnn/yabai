@@ -1,5 +1,6 @@
 package com.example.unifiedreader.data.grimmory
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.core.model.facetMetadata
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -17,7 +18,7 @@ suspend fun enrichGrimmoryJournalCatalogMetadata(
         .toList()
     for (entry in enrichmentCandidates) {
         val bookId = entry.item.remoteId ?: continue
-        val detailEntry = runCatching {
+        val detailEntry = runSuspendCatching {
             api.getBookEntry(
                 accessToken = accessToken,
                 bookId = bookId,

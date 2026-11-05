@@ -35,10 +35,6 @@ internal fun SourceType.displayName(): String = name.displayName()
 
 internal fun String.displayName(): String = lowercase().replaceFirstChar(Char::uppercase)
 
-internal fun formatDate(
-    epochMillis: Long,
-): String = SimpleDateFormat("MMM d, yyyy", Locale.US).format(Date(epochMillis))
-
 internal fun formatShortDate(
     epochMillis: Long,
 ): String = SimpleDateFormat("d MMM", Locale.US).format(Date(epochMillis))

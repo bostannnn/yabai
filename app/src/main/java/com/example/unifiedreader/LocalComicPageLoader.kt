@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import android.content.Context
 import android.database.Cursor
 import android.net.Uri
@@ -716,7 +717,7 @@ internal class LocalComicPageLoader(
         requestGeneration: Int,
         priority: ComicPageLoadPriority,
     ): ComicPageLoadResult {
-        return runCatching {
+        return runSuspendCatching {
             val bytes = loadEntryBytes(
                 itemId = itemId,
                 cacheKey = cacheKey,
@@ -725,7 +726,7 @@ internal class LocalComicPageLoader(
                 codec = codec,
                 entryName = entryName,
                 priority = priority,
-            ) ?: return@runCatching ComicPageLoadResult.Failure("Unable to decode this page.")
+            ) ?: return@runSuspendCatching ComicPageLoadResult.Failure("Unable to decode this page.")
             decodeComicPageMetadata(bytes)?.let { metadata ->
                 if (generationFor(itemId) == requestGeneration) {
                     pageMetadataCache.put(cacheKey, metadata)

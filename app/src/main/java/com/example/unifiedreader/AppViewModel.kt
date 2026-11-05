@@ -42,7 +42,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlin.jvm.JvmSuppressWildcards
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 @HiltViewModel
 class AppViewModel @Inject constructor(
@@ -493,9 +492,9 @@ class AppViewModel @Inject constructor(
     fun onAppStopped() {
         activeRouteStore.save(uiState.toActiveRouteSnapshot())
         flushPendingRemoteProgress()
-        runBlocking {
-            readerSessionStore.flushPendingWrites()
-        }
+        // Writes already run on the store's own scope, which outlives this stop; this only makes sure
+        // they are drained, without holding the main thread on Room I/O.
+        readerSessionStore.requestFlushPendingWrites()
         comicPageSourceCacheController.clearReaderMemoryCaches()
     }
 

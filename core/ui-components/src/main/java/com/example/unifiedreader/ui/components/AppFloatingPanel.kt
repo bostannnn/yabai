@@ -389,7 +389,7 @@ object AppFloatingPanelDefaults {
             alpha = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) scrimAlphaDark else scrimAlphaLight,
         )
 
-    /** Container radius; a bottom sheet rounds only its top corners, like [AppSheet]. */
+    /** Container radius; a bottom sheet rounds only its top corners, like [AppSheetLayout]. */
     @Composable
     fun shape(mode: AppFloatingPanelMode): Shape {
         val radius = UnifiedReaderThemeTokens.presentation.cardCornerRadius

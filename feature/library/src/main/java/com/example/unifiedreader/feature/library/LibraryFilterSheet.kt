@@ -588,42 +588,6 @@ private fun LibraryFilterFacetRow(
     }
 }
 
-@Composable
-internal fun TextFacetRow(
-    value: String,
-    selected: Boolean,
-    available: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val textColor = when {
-        selected || available -> MaterialTheme.colorScheme.onSurface
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(start = 12.dp, end = 20.dp, top = 2.dp, bottom = 2.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        AppCheckbox(
-            checked = selected,
-            onCheckedChange = { onClick() },
-            enabled = available || selected,
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            color = textColor,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
-
 /** The state with one panel's selection removed: a facet page's Clear. */
 internal fun LibraryFilterState.clearing(panel: LibraryFilterPanel): LibraryFilterState = when (panel) {
     LibraryFilterPanel.Format -> copy(formats = emptySet())

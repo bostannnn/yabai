@@ -409,9 +409,6 @@ private val PlaceholderPalettes = listOf(
     LibraryCoverPlaceholderPalette(Color(0xFF085041), Color(0xFFE1F5EE)),
 )
 
-/** The title-cover fills, for things drawn as books without a cover (When's spines in the filters). */
-internal val LibraryTitleCoverFills: List<Color> = PlaceholderPalettes.map(LibraryCoverPlaceholderPalette::container)
-
 // Safe zone as fractions of the cover: clear of the spine on the left, margins elsewhere.
 private const val SafeZoneStart = 0.15f
 private const val SafeZoneEnd = 0.09f

@@ -1,6 +1,5 @@
 package com.example.unifiedreader.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
@@ -14,7 +13,6 @@ import androidx.compose.material3.IconButtonColors
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -44,32 +42,6 @@ fun AppButton(
         enabled = enabled,
         shape = shape ?: rememberAppPressShape(interactionSource),
         colors = colors,
-        contentPadding = contentPadding,
-        interactionSource = interactionSource,
-        content = content,
-    )
-}
-
-/** Secondary action with an outline. */
-@Composable
-fun AppOutlinedButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    shape: Shape? = null,
-    colors: ButtonColors = ButtonDefaults.outlinedButtonColors(),
-    border: BorderStroke? = ButtonDefaults.outlinedButtonBorder(enabled),
-    contentPadding: PaddingValues = ButtonDefaults.ContentPadding,
-    content: @Composable RowScope.() -> Unit,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    OutlinedButton(
-        onClick = onClick,
-        modifier = modifier.appPressScale(interactionSource),
-        enabled = enabled,
-        shape = shape ?: rememberAppPressShape(interactionSource),
-        colors = colors,
-        border = border,
         contentPadding = contentPadding,
         interactionSource = interactionSource,
         content = content,

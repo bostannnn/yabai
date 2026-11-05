@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.updates
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import android.content.Intent
 import java.io.File
 import kotlin.coroutines.cancellation.CancellationException
@@ -401,7 +402,7 @@ class AppUpdateController(
     private fun persist(transform: (AppUpdatePreferences) -> AppUpdatePreferences) {
         preferences = transform(preferences)
         scope.launch(ioDispatcher) {
-            runCatching { preferencesStore.update(transform) }
+            runSuspendCatching { preferencesStore.update(transform) }
         }
     }
 

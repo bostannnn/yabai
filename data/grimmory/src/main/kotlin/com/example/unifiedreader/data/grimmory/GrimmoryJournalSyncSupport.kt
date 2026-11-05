@@ -1,5 +1,6 @@
 package com.example.unifiedreader.data.grimmory
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
@@ -47,7 +48,7 @@ suspend fun pullGrimmoryJournalCache(
         .map(GrimmoryBookCatalogEntry::item)
         .mapNotNull { item -> item.remoteId?.toLongOrNull()?.let { it to item } }
         .toMap()
-    val reviewLookup = runCatching {
+    val reviewLookup = runSuspendCatching {
         api.getNotebookEntriesExport(
             accessToken = accessToken,
             types = listOf("NOTE"),
@@ -155,7 +156,7 @@ private suspend fun pullGrimmoryReadingSessionEvents(
                     sessions = emptyList(),
                     failedItemId = null,
                 )
-                runCatching {
+                runSuspendCatching {
                     val remoteSessions = api.getReadingSessionsForBook(
                         accessToken = accessToken,
                         bookId = bookId,
@@ -243,7 +244,7 @@ suspend fun pushDirtyGrimmoryJournalEntries(
             return@forEach
         }
         var syncedRemoteReviewNoteId = entry.remoteReviewNoteId
-        runCatching {
+        runSuspendCatching {
             val bookId = item.remoteId ?: error("Grimmory journal entry ${entry.itemId} has no remote book id")
             val rating = entry.rating
             if (rating == null) {
@@ -305,7 +306,7 @@ suspend fun pushDirtyGrimmoryJournalEntries(
     if (pushReadingSessions) repository.getDirtyReadingSessionsForSource(SourceType.GRIMMORY)
         .filter { session -> session.itemId in itemById }
         .forEach { session ->
-            runCatching {
+            runSuspendCatching {
                 val item = itemById[session.itemId] ?: error("No Grimmory catalog item for reading session ${session.itemId}")
                 api.createReadingSession(
                     accessToken = accessToken,

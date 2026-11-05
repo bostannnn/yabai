@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.data.stump.StumpApi
@@ -44,7 +45,7 @@ internal suspend fun pushDirtyStumpProgress(
             )
             return@forEach
         }
-        runCatching {
+        runSuspendCatching {
             api.runWithTokenRefresh(
                 initialAccessToken = activeAccessToken,
                 initialRefreshToken = activeRefreshToken,

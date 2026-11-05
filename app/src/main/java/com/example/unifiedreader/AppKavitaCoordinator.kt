@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.SourceType
@@ -150,7 +151,7 @@ class AppKavitaCoordinator @Inject constructor(
         preparation: KavitaSyncPreparation.Ready,
         clearCoverState: suspend () -> Unit,
         onProgress: (KavitaSyncProgress) -> Unit = {},
-    ): KavitaSyncExecutionResult = runSuspendCatchingPreservingCancellation {
+    ): KavitaSyncExecutionResult = runSuspendCatching {
         val result = kavitaCatalogSyncer.sync(
             request = preparation.request,
             onProgress = onProgress,
@@ -202,7 +203,7 @@ class AppKavitaCoordinator @Inject constructor(
         preparation: KavitaSyncPreparation.Ready,
         clearCoverState: suspend () -> Unit,
         onProgress: (KavitaSyncProgress) -> Unit = {},
-    ): KavitaSyncExecutionResult = runSuspendCatchingPreservingCancellation {
+    ): KavitaSyncExecutionResult = runSuspendCatching {
         val result = kavitaCatalogSyncer.fastSync(
             request = preparation.request,
             onProgress = onProgress,
@@ -259,7 +260,7 @@ class AppKavitaCoordinator @Inject constructor(
 
     internal suspend fun executeConnect(
         preparation: KavitaSyncPreparation.Ready,
-    ): KavitaConnectExecutionResult = runSuspendCatchingPreservingCancellation {
+    ): KavitaConnectExecutionResult = runSuspendCatching {
         val result = kavitaCatalogSyncer.connect(
             request = preparation.request,
             onSessionRenewed = kavitaCredentialStore.renewedTokensSaver(preparation),

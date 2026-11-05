@@ -19,7 +19,7 @@
 1 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryEmptyState.kt
 5 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryFilterFacetPage.kt
 2 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryFilterRow.kt
-6 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryFilterSheet.kt
+2 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryFilterSheet.kt
 2 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryGridCoverCard.kt
 1 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryHeader.kt
 4 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryNavigationControls.kt

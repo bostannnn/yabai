@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.SourceType
@@ -109,7 +110,7 @@ class AppCoverPreloadController @Inject constructor(
             )
         }
         val job = scope.launch {
-            runSuspendCatchingPreservingCancellation {
+            runSuspendCatching {
                 remoteCoverController.resetSource(sourceType)
             }.onSuccess {
                 failedTargetsBySource.remove(sourceType)
@@ -157,7 +158,7 @@ class AppCoverPreloadController @Inject constructor(
         }
         activeProgressBySource.remove(sourceType)
         val job = scope.launch {
-            runCatching {
+            runSuspendCatching {
                 val onProgress: (RemoteCoverPreloadProgress) -> Unit = { progress ->
                     activeProgressBySource[sourceType] = progress
                     updatePreloadState(updateState, sourceType) {
