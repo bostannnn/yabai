@@ -33,7 +33,7 @@ The emulator's 800 dp portrait is Medium; the tablet's 914 dp portrait and its l
 |---|---|---|---|---|
 | Panel / settings group | `AppPanel`, `AppSettingsGroup` | the column | a `group-label` above it, flush | 20 |
 | Side sheet (book page, filters, downloads, journal day) | `AppSideSheet` | `sheet-width` 400, `sheet-margin` 12 from the window | `AppPanelHeader` (title 20 SemiBold, optional subtitle, Back and Close in the same places on every sheet) | 20 |
-| Bottom sheet (any sheet under 600) | `AppSheet` | full | the same `AppPanelHeader` under the handle | 20 |
+| Bottom sheet (any sheet under 600) | `AppSideSheet` opens as one on Compact; `AppSheetLayout` for a sheet that is only ever a bottom sheet | full | the same `AppPanelHeader` under the handle | 20 |
 | Search panel | `AppSearchPanel` | up to 680, centred on the bar's field, `gutter` from the window | its field row (64) and a divider | 20 |
 | Dialog | `AppDialogCard`, `AppListDialog` | up to `dialog-width` 380 | the card's title | 24 |
 | Menu | `AppMenu` | content, up to 300 | `AppMenuHeading` per group | 16 |

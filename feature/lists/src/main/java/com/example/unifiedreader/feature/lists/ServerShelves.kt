@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.lists
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.core.database.dao.ServerListDao
 import com.example.unifiedreader.core.database.entity.ServerListEntity
 import com.example.unifiedreader.core.database.entity.ServerListItemEntity
@@ -239,7 +240,7 @@ class RoomServerShelfStore(
         val id = serverListId(sourceType, kind, shelf.remoteId)
         io { dao.upsertList(shelf.toEntity(id, sourceType, kind, kept = null, atEpochMillis = now())) }
         // The server picks the books; a failure reading them leaves the list, which a refresh fills.
-        runCatching { refreshList(id, force = true) }
+        runSuspendCatching { refreshList(id, force = true) }
         return id
     }
 

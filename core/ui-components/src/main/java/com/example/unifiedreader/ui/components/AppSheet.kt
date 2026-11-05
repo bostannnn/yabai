@@ -34,27 +34,11 @@ import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import kotlinx.coroutines.launch
 
 /**
- * The app's modal bottom sheet: 28 dp top corners and the kit's own drag handle, on
- * [containerColor] (the theme's base surface when unspecified, or a cover's first tint). With
- * [skipPartiallyExpanded] a tall sheet opens all the way instead of stopping halfway.
- */
-@Composable
-fun AppSheet(
-    onDismissRequest: () -> Unit,
-    containerColor: Color = Color.Unspecified,
-    skipPartiallyExpanded: Boolean = false,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    AppSheetLayout(
-        onDismissRequest = onDismissRequest,
-        skipPartiallyExpanded = skipPartiallyExpanded,
-        containerColor = containerColor,
-    ) { _ -> content() }
-}
-
-/**
- * [AppSheet], with a `hide` for the content that slides the sheet away before dismissing it: a button
- * that closes the sheet calls it instead of removing the sheet, so it leaves the way it came.
+ * The app's modal bottom sheet: 28 dp top corners and the kit's own drag handle, on [containerColor] (the
+ * theme's base surface when unspecified, or a cover's first tint). With [skipPartiallyExpanded] a tall sheet
+ * opens all the way instead of stopping halfway. The content gets a `hide` that slides the sheet away before
+ * dismissing it: a button that closes the sheet calls it instead of removing the sheet, so it leaves the way
+ * it came. [AppSideSheet] opens as one on Compact windows.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -362,7 +362,7 @@ The one header for every sheet and panel: an optional Back, the title in `panel-
 comp("AppSideSheet", "Surfaces", 1080, """
 # AppSideSheet
 
-The sheet for anything opened over a screen: the book page, filters, downloads, a journal day. 400 wide, 12 from the window, `radius-sheet` 28, on `surface`, shadow 16. Under 600 it becomes `AppSheet` (bottom sheet) with the same header and body.
+The sheet for anything opened over a screen: the book page, filters, downloads, a journal day. 400 wide, 12 from the window, `radius-sheet` 28, on `surface`, shadow 16. Under 600 the same call opens as a bottom sheet (`AppSheetLayout`, opened all the way) with the same header and body.
 
 - Kit: `AppSideSheet(onDismissRequest)`; **one width**, `sheet-width` 400, for every sheet (it takes no width). Corners 28 like dialogs and bottom sheets.
 - Header: `AppPanelHeader`. Body inset 20. Section labels inside: `AppSheetLabel` (`sheet-label`, 13 SemiBold, `on-surface-variant`), 14 above, 8 to their content. A sheet with two levels (downloads: a section over its days) puts `AppGroupLabel` above `AppSheetLabel`.
@@ -442,7 +442,7 @@ comp("AppButton", "Actions", 220, """
 
 Pill buttons, 40 tall, `button` text. Pressed, they shrink a little and their corners move toward square.
 
-- Kit: `AppButton` (filled: `primary`), `AppTonalButton` (`surface-container-highest`), `AppOutlinedButton`, `AppTextButton`, `AppIconButton`, `AppTonalIconButton`; colours from `AppButtonDefaults` only (`ButtonDefaults` is forbidden outside the kit by a test).
+- Kit: `AppButton` (filled: `primary`), `AppTonalButton` (`surface-container-highest`), `AppTextButton`, `AppIconButton`, `AppTonalIconButton`; colours from `AppButtonDefaults` only (`ButtonDefaults` is forbidden outside the kit by a test).
 - At most one filled button per surface: the main action (Continue, Connect, Show 20 books).
 - Destructive actions are text in `error`, or a filled `error` button inside a confirm dialog.
 - A button's spinner is one size (18), from the kit.

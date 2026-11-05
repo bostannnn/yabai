@@ -65,7 +65,6 @@ class LibraryItemCardsTest {
 
         assertEquals("Volume 1", itemSeriesBrowsePrimaryText(item))
         assertEquals("DEAD Tube - Volume 1", itemMixedIssueBrowsePrimaryText(item))
-        assertEquals("Vol. 1", buildComicVolumeIssueLabel(item.comicMetadata))
     }
 
     @Test

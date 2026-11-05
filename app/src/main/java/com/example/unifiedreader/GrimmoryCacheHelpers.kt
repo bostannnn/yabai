@@ -9,8 +9,6 @@ import kotlinx.coroutines.withContext
 
 internal fun String.toSafeFileSegment(): String = replace(Regex("[^A-Za-z0-9._-]"), "_")
 
-internal fun String.toGrimmoryFileSegment(): String = toSafeFileSegment()
-
 internal fun String.toStableCacheHashSegment(): String {
     val digest = MessageDigest.getInstance("SHA-256").digest(toByteArray(Charsets.UTF_8))
     return digest.take(8).joinToString(separator = "") { byte -> "%02x".format(byte) }

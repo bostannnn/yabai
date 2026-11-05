@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.data.kavita.KavitaApi
 import com.example.unifiedreader.data.kavita.KavitaSeriesEntry
 import com.example.unifiedreader.data.kavita.KavitaUnauthorizedException
@@ -25,7 +26,7 @@ internal suspend fun withKavitaSeriesMetadata(
     series.map { entry ->
         async {
             limiter.withPermit {
-                val metadata = runCatching {
+                val metadata = runSuspendCatching {
                     tokens.run { accessToken, _ ->
                         api.getSeriesMetadata(accessToken = accessToken, seriesId = entry.id)
                     }

@@ -22,6 +22,9 @@ Icons artifacts; a unit test enforces this. UI font: bundled Manrope; icons: Mat
   holds, what waits for version 2, and the ownership of each piece.
 - `UI_POLISH_PLAN.md` is the live handoff for the 2026-11-01 polish pass (Lists, Journal, Filters, Pages sort,
   Mark unread): the steps in order, where each problem lives in the code, and the open questions.
+- `CODE_PRACTICES_PLAN.md` is the live handoff for the 2026-11-05 code-practices review: duplication to consolidate,
+  coroutine and build hygiene, moving behaviour out of `app`, and the decisions still open. Its status section says
+  where work stopped.
 - `CURRENT_STATUS.md`, `ROADMAP.md` and the other plan docs are historical (April-July 2026).
 
 ## UI work (design system)
@@ -62,7 +65,7 @@ export ANDROID_HOME=~/Library/Android/sdk_new
 ```
 
 - `testDebugUnitTest` skips `core:model`, `data:grimmory`, `data:kavita` and `data:stump`, which are plain
-  Kotlin modules with a `test` task; run both lines for the full suite (CI runs only the first today).
+  Kotlin modules with a `test` task; run both lines for the full suite (CI runs both).
 
 - `app` tests also compile `app/src/sharedTest` (shared with `androidTest`); the ViewModel
   test factory is `createViewModel()` in `AppViewModelTestSupport.kt`.

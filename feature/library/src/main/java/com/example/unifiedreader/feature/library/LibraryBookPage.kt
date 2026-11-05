@@ -307,13 +307,14 @@ private fun LibraryBookPageTop(
                     ) {
                         Text(
                             text = text.title,
-                            // The book's own title, in the book face.
+                            // The book's own title, in the book face; a comic's in the app's.
                             style = AppBookType.title(
                                 MaterialTheme.typography.headlineSmall.copy(
                                     fontSize = 30.sp,
                                     lineHeight = 34.sp,
                                     fontWeight = FontWeight.Medium,
                                 ),
+                                comic = item.isComic,
                             ),
                             color = tint.content,
                             maxLines = 4,

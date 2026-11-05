@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import android.content.Context
 import android.database.Cursor
 import android.graphics.BitmapFactory
@@ -70,7 +71,7 @@ internal object ZipComicArchiveCodec : ComicArchiveCodec {
     override suspend fun listEntries(
         context: Context,
         uri: Uri,
-    ): List<String> = runCatching {
+    ): List<String> = runSuspendCatching {
         withContext(Dispatchers.IO) {
             val archiveFile = context.ensureReadableArchiveFile(
                 uri = uri,
@@ -95,7 +96,7 @@ internal object ZipComicArchiveCodec : ComicArchiveCodec {
         context: Context,
         uri: Uri,
         entryName: String,
-    ): ByteArray? = runCatching {
+    ): ByteArray? = runSuspendCatching {
         withContext(Dispatchers.IO) {
             val archiveFile = context.ensureReadableArchiveFile(
                 uri = uri,
@@ -130,7 +131,7 @@ internal class RarComicArchiveCodec(
     override suspend fun listEntries(
         context: Context,
         uri: Uri,
-    ): List<String> = runCatching {
+    ): List<String> = runSuspendCatching {
         withContext(Dispatchers.IO) {
             readArchiveHeaders(uri)
                 .map(::archiveEntryName)
@@ -141,7 +142,7 @@ internal class RarComicArchiveCodec(
         context: Context,
         uri: Uri,
         entryName: String,
-    ): ByteArray? = runCatching {
+    ): ByteArray? = runSuspendCatching {
         withContext(Dispatchers.IO) {
             val archiveFile = ensureLocalArchiveFile(uri)
             val archive = Archive(archiveFile)

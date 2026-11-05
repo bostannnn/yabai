@@ -70,7 +70,7 @@ jobs:
           printf '%s' "$ANDROID_SIGNING_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/signing/release.keystore"
 
       - name: Run tests
-        run: ./gradlew testDebugUnitTest
+        run: ./gradlew testDebugUnitTest :core:model:test :data:grimmory:test :data:kavita:test :data:stump:test
 
       - name: Build release APK
         env:

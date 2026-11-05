@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -33,7 +34,7 @@ internal class AccessTokenSessionRequestRunner<Session : AccessTokenStoredSessio
             api = api,
             session = session,
         )
-        return runCatching {
+        return runSuspendCatching {
             block(activeSession)
         }.recoverCatching { throwable ->
             if (!isUnauthorized(throwable)) throw throwable

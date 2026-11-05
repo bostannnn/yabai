@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
 import com.example.unifiedreader.feature.downloads.downloadDataSourceFor
@@ -32,7 +33,7 @@ class RemoteReaderContentPreparer @Inject constructor(
                 ),
             )
         }
-        return runCatching {
+        return runSuspendCatching {
             dataSource.prepareDocumentForReading(item)
                 ?: error("Unable to prepare ${item.title} for reading.")
         }.fold(

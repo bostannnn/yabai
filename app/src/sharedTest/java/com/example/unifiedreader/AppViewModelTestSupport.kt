@@ -1543,6 +1543,7 @@ class FakeReaderSessionStore(
     override val sessionByItemIdFlow: StateFlow<Map<String, com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot>> =
         sessionByItemId
     var flushPendingWritesCalls: Int = 0
+    var requestFlushPendingWritesCalls: Int = 0
         private set
 
     override fun getProgress(item: ReadableItem) = progressByItemId.value[item.id]
@@ -1580,6 +1581,10 @@ class FakeReaderSessionStore(
 
     override suspend fun flushPendingWrites() {
         flushPendingWritesCalls += 1
+    }
+
+    override fun requestFlushPendingWrites() {
+        requestFlushPendingWritesCalls += 1
     }
 
     override suspend fun replaceProgressIfCurrent(

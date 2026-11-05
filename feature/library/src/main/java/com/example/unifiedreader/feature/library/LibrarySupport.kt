@@ -2,16 +2,12 @@ package com.example.unifiedreader.feature.library
 
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.LibraryFileLocation
 import com.example.unifiedreader.core.model.LibraryReadingStatus
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
-import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.comicVolumeLabel
-import com.example.unifiedreader.core.model.comicVolumeNumber
-import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.core.model.isGeneratedComicVolumeTitle
 import com.example.unifiedreader.core.model.libraryAlphabetKey
 import com.example.unifiedreader.core.model.libraryPrimaryText
@@ -95,13 +91,6 @@ internal val LibraryViewMode.label: String
         LibraryViewMode.Grid -> "Grid"
     }
 
-internal fun itemPrimaryMaxLines(
-    item: ReadableItem,
-): Int = when (item.kind) {
-    ReadableItemKind.BOOK -> 2
-    ReadableItemKind.COMIC -> if (item.comicMetadata?.series.isNullOrBlank()) 2 else 1
-}
-
 internal fun itemPrimaryText(
     item: ReadableItem,
 ): String = item.libraryPrimaryText()
@@ -151,35 +140,6 @@ private fun itemIssueBrowsePrimaryText(
 internal fun itemSecondaryText(
     item: ReadableItem,
 ): String? = item.librarySecondaryText()
-
-internal fun itemTertiaryText(
-    item: ReadableItem,
-): String? = when (item.kind) {
-    ReadableItemKind.BOOK -> null
-    ReadableItemKind.COMIC -> buildComicVolumeIssueLabel(item.comicMetadata)
-}
-
-internal fun itemPageCountText(
-    item: ReadableItem,
-    progress: ItemProgressSummary?,
-): String? {
-    val pageCount = item.pageCount ?: progress?.pageCount
-    return pageCount?.takeIf { it > 0 }?.let { count -> "$count pages" }
-}
-
-internal fun buildComicVolumeIssueLabel(
-    metadata: ComicMetadata?,
-): String? {
-    if (metadata == null) return null
-    val volume = metadata.volume?.takeIf(String::isNotBlank) ?: metadata.volumeNumber()
-    val parts = buildList {
-        volume?.let { add("Vol. $it") }
-        // A Kavita volume's number ("v1") is the volume again, not an issue.
-        metadata.issueNumber?.takeIf { number -> number.isNotBlank() && comicVolumeNumber(number) == null }
-            ?.let { add("Issue $it") }
-    }
-    return parts.takeIf(List<String>::isNotEmpty)?.joinToString(" • ")
-}
 
 internal val LibrarySortMode.label: String
     get() = when (this) {

@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.core.database.entity.toEntity
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
@@ -188,7 +189,7 @@ class KavitaCatalogSyncService(
                     ),
                 )
             }
-            runCatching {
+            runSuspendCatching {
                 pullJournalCache(
                     api = api,
                     tokens = tokens,
@@ -306,7 +307,7 @@ class KavitaCatalogSyncService(
                 onProgress = onProgress,
             )
             if (request.pullJournalDuringFastSync) {
-                runCatching {
+                runSuspendCatching {
                     pullJournalCache(
                         api = api,
                         tokens = tokens,
@@ -473,7 +474,7 @@ class KavitaCatalogSyncService(
     private suspend fun fetchRecentlyUpdatedSeries(
         api: KavitaApi,
         tokens: KavitaRunTokens,
-    ): List<KavitaSeriesUpdateEntry> = runCatching {
+    ): List<KavitaSeriesUpdateEntry> = runSuspendCatching {
         tokens.run { accessToken, _ -> api.getRecentlyUpdatedSeries(accessToken) }
     }.getOrElse { error ->
         if (error is CancellationException || error is KavitaUnauthorizedException) {

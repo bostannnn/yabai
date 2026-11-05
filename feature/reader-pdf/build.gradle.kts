@@ -35,7 +35,6 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.activity.compose)
 
     testImplementation(libs.junit4)
 }

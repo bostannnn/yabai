@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import android.net.Uri
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LocatorType
@@ -40,7 +41,7 @@ internal suspend fun pushDirtyGrimmoryProgress(
                 pageCount = readerSessionStore.getSession(item)?.pageCount ?: item.pageCount,
             ) ?: return@forEach
         }
-        runCatching {
+        runSuspendCatching {
             api.runWithTokenRefresh(
                 initialAccessToken = activeAccessToken,
                 initialRefreshToken = activeRefreshToken,

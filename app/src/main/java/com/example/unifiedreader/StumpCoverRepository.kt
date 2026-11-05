@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import android.net.Uri
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
@@ -81,7 +82,7 @@ class StumpCoverRepository @Inject constructor(
                                 )
                             }
                             !item.coverUrl.isNullOrBlank() -> {
-                                runCatching {
+                                runSuspendCatching {
                                     api.downloadUrl(
                                         accessToken = accessToken,
                                         url = requireNotNull(item.coverUrl),

@@ -5,7 +5,6 @@ import java.time.LocalDate
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import kotlin.math.roundToInt
 
 /*
  * The journal's figures that the screen draws, worked out from a period overview. Kept pure so
@@ -262,12 +261,5 @@ internal fun JournalSnapshot.lastReadAtEpochMillis(): Long? = listOfNotNull(
     events.maxOfOrNull(JournalReadingEvent::occurredAtEpochMillis),
     sessions.maxOfOrNull(JournalReadingSession::endedAtEpochMillis),
 ).maxOrNull()
-
-/** One decimal, dropping ".0": "2.5", "2", "12". */
-internal fun formatJournalDecimal(value: Double): String {
-    if (value >= 10.0) return value.roundToInt().toString()
-    val text = String.format(Locale.US, "%.1f", value)
-    return text.removeSuffix(".0")
-}
 
 internal fun Int.counted(noun: String): String = if (this == 1) "1 $noun" else "$this ${noun}s"

@@ -369,7 +369,7 @@ class AppViewModelTest {
         viewModel.onAppStopped()
 
         assertEquals(item.id, activeRouteStore.snapshot?.readerItemId)
-        assertEquals(1, readerSessionStore.flushPendingWritesCalls)
+        assertEquals(1, readerSessionStore.requestFlushPendingWritesCalls)
         assertEquals(1, pageCacheController.clearReaderMemoryCachesCalls)
     }
 

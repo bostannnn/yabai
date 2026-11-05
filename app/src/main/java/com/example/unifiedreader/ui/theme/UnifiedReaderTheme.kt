@@ -622,6 +622,7 @@ private fun ColorScheme.toSemanticColors(isDark: Boolean): UnifiedReaderSemantic
         appBackground = background,
         surfaceBase = surface,
         surfaceRaised = surfaceContainer,
+        surfaceCard = cardStepColor(ground = background, ink = onBackground, faintText = onSurfaceVariant),
         surfaceOverlay = surfaceContainerHigh,
         surfaceSelected = primaryContainer,
         onSurfaceSelected = onPrimaryContainer,

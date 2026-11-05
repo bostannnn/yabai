@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import android.util.Log
 import com.example.unifiedreader.core.common.AppDispatchers
 import com.example.unifiedreader.core.model.ReadableItem
@@ -286,7 +287,7 @@ class RemoteCoverController @Inject constructor(
         if (sourceWarmupJobs[sourceType]?.isActive == true) return
         val dataSource = coverDataSources[sourceType] ?: return
         sourceWarmupJobs[sourceType] = backgroundScope.launch {
-            runCatching { dataSource.warmCacheIndexes() }
+            runSuspendCatching { dataSource.warmCacheIndexes() }
                 .onSuccess {
                     warmedSources += sourceType
                 }

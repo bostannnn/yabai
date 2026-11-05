@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.data.kavita.KavitaUnauthorizedException
@@ -74,7 +75,7 @@ class RemoteSourceConnectivityStartupCoordinator @Inject constructor(
     ): RemoteSourceConnectivityProbeResult {
         remoteSourceConnectivityPolicy.markChecking(healthCheck.sourceType)
         sourceErrors.update { current -> current - healthCheck.sourceType }
-        return runCatching {
+        return runSuspendCatching {
             healthCheck.check()
         }.fold(
             onSuccess = { checked ->

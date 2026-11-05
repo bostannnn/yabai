@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import android.content.Context
 import android.database.Cursor
 import android.net.Uri
@@ -96,7 +97,7 @@ internal class LocalDocumentImportProbe(
             if (codec.matchesFileName(displayName)) 1 else 0
         }
         for (codec in prioritizedCodecs) {
-            val resolvedArchive = runCatching {
+            val resolvedArchive = runSuspendCatching {
                 val entryNames = codec.listEntries(context, uri)
                 val pageEntryNames = entryNames.filter(String::isImageEntryName)
                     .sortedWith(NaturalPageOrderComparator)

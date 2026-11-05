@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.SourceType
@@ -134,7 +135,7 @@ class AppStumpCoordinator @Inject constructor(
         preparation: StumpSyncPreparation.Ready,
         clearCoverState: suspend () -> Unit,
         onProgress: (StumpSyncProgress) -> Unit = {},
-    ): StumpSyncExecutionResult = runSuspendCatchingPreservingCancellation {
+    ): StumpSyncExecutionResult = runSuspendCatching {
         val result = stumpCatalogSyncer.sync(
             request = preparation.request,
             onProgress = onProgress,
@@ -206,7 +207,7 @@ class AppStumpCoordinator @Inject constructor(
 
     internal suspend fun executeConnect(
         preparation: StumpSyncPreparation.Ready,
-    ): StumpConnectExecutionResult = runSuspendCatchingPreservingCancellation {
+    ): StumpConnectExecutionResult = runSuspendCatching {
         val result = stumpCatalogSyncer.connect(preparation.request)
         persistRemoteSession(
             sessionStore = stumpCredentialStore,

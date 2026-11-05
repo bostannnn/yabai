@@ -44,6 +44,7 @@ internal fun LibraryReadingCardText(
     colors: LibraryReadingCardColors,
     tall: Boolean,
     modifier: Modifier = Modifier,
+    comic: Boolean = false,
 ) {
     val clearOfMenu = Modifier.padding(end = LibraryReadingCardDefaults.menuClearance)
     Column(modifier = modifier) {
@@ -62,7 +63,7 @@ internal fun LibraryReadingCardText(
         )
         BasicText(
             text = title,
-            // The book's own title, in the book face.
+            // The book's own title, in the book face; a comic's in the app's.
             style = AppBookType.title(
                 MaterialTheme.typography.titleLarge.copy(
                     color = colors.content,
@@ -70,6 +71,7 @@ internal fun LibraryReadingCardText(
                     lineHeight = 1.15.em,
                     letterSpacing = 0.sp,
                 ),
+                comic = comic,
             ),
             maxLines = if (tall) 4 else 2,
             overflow = TextOverflow.Ellipsis,
