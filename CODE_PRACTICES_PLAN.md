@@ -74,7 +74,11 @@ user's choice. The shared helpers and where they live:
   by choice.
 - **Package name:** not asked; left as `com.example.unifiedreader` (no Play Store plans known).
 
-**Next:** step 2.
+**Where it stands (2026-11-06):** steps 3 and 1 are on main as `ca440f12` and `ed7a460c`, pushed to origin.
+CI runs on the push. Not released, not checked on a device. All 1,863 unit tests passed locally (Android modules plus
+the JVM modules), and the debug build and the journal androidTest sources compile.
+
+**Next:** step 2 (guard rails), then step 4.
 
 ## Step 1. Decisions only the user can make (done, answers above)
 
