@@ -93,6 +93,14 @@ class DeepLTranslationTest {
             withTimeout(5_000) { current.first { it != null && it.phase !is TranslationPhase.Translating }!!.phase }
         }
 
+    /** Waits for a finished card from [provider], skipping any earlier card still current. */
+    private suspend fun TranslationSession.settledBy(provider: TranslationProvider): TranslationPhase.Done =
+        withContext(Dispatchers.Default) {
+            withTimeout(5_000) {
+                current.first { (it?.phase as? TranslationPhase.Done)?.by == provider }!!.phase as TranslationPhase.Done
+            }
+        }
+
     private val word = ReaderTextSelection(text = "reluctant", before = "He was ", after = " to leave.", bookLanguage = "en")
 
     @Test
@@ -148,9 +156,10 @@ class DeepLTranslationTest {
         // The save is queued behind this test's own step: let it run.
         yield()
 
-        val done = setup.session.settled() as TranslationPhase.Done
+        // The DeepL card stays current until the switch reaches the session, which can take more than one step on a
+        // slow machine: wait for the card the tablet finished, not just any finished card.
+        val done = setup.session.settledBy(TranslationProvider.Device)
         assertEquals("tablet:reluctant", done.translation)
-        assertEquals(TranslationProvider.Device, done.by)
     }
 
     @Test
