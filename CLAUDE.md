@@ -60,12 +60,20 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 export ANDROID_HOME=~/Library/Android/sdk_new
 ./gradlew :app:assembleDebug
 ./gradlew testDebugUnitTest                      # the Android modules, ~1125 tests
-./gradlew :core:model:test :data:grimmory:test :data:kavita:test :data:stump:test   # the JVM modules, ~123
+./gradlew :core:model:test :core:network:test :data:grimmory:test :data:kavita:test :data:stump:test   # the JVM modules, ~123
 ./gradlew :feature:library:testDebugUnitTest     # one module
 ```
 
-- `testDebugUnitTest` skips `core:model`, `data:grimmory`, `data:kavita` and `data:stump`, which are plain
-  Kotlin modules with a `test` task; run both lines for the full suite (CI runs both).
+- `testDebugUnitTest` skips `core:model`, `core:network`, `data:grimmory`, `data:kavita` and `data:stump`, which are
+  plain Kotlin modules with a `test` task; run both lines for the full suite (CI runs both).
+- CI also runs `./gradlew detekt lintDebug`. Each module's `detekt-baseline.xml` and `lint-baseline.xml` hold the
+  findings from before they ran (2026-11-06): new code must pass. Regenerate a baseline (`:module:detektBaseline`,
+  `:module:updateLintBaseline`) only after fixing findings, never to hide new ones. Rules: `config/detekt/detekt.yml`.
+- Build settings shared by every module (SDK levels, Java 17 for all, Compose, detekt, lint) live in the convention
+  plugins in `build-logic/convention` (`yabai.android.library`, `yabai.android.compose`, `yabai.jvm.library`,
+  `yabai.android.application`). A module's own build file holds only its namespace and dependencies.
+- Inside suspend code, catch with `runSuspendCatching`, never `runCatching` (it swallows cancellation);
+  `SuspendRunCatchingRuleTest` in `core:model` enforces it.
 
 - `app` tests also compile `app/src/sharedTest` (shared with `androidTest`); the ViewModel
   test factory is `createViewModel()` in `AppViewModelTestSupport.kt`.
@@ -75,8 +83,11 @@ export ANDROID_HOME=~/Library/Android/sdk_new
   that resumes on Main (anything behind a `Dispatchers.IO` hop): the looper can't run and the
   suite hangs with no timeout. Poll while idling the looper instead (`waitForUiState { ... }`).
   If `testDebugUnitTest` stops progressing, `jstack` the Gradle Test Executor JVM.
-- Room schema is v37 (`core/database/.../UnifiedReaderDatabase.kt`), `exportSchema = false`,
-  no destructive fallback: every version bump needs a migration.
+- Room schema is v37 (`core/database/.../UnifiedReaderDatabase.kt`), no destructive fallback: every version bump
+  needs a migration. `exportSchema = true` writes each version to `core/database/schemas/`: commit the new file
+  with the bump (`UnifiedReaderDatabaseSchemaTest` checks every version from 36 has one) and add a
+  `MigrationTestHelper` case for the new migration there. Run the tests twice after a bump: the first build
+  writes the file after the test assets are merged.
 
 ## Release build (signed)
 

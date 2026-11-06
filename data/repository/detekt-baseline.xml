@@ -1,0 +1,35 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>InstanceOfCheckForException:RemoteArtifactSync.kt$FlushPendingRemoteArtifactsUseCase$error is CancellationException</ID>
+    <ID>InstanceOfCheckForException:SourceProgressSyncRegistry.kt$SourceProgressSyncRegistry$throwable is CancellationException</ID>
+    <ID>InvalidPackageDeclaration:RemoteArtifactSync.kt$package com.example.unifiedreader.data.repository</ID>
+    <ID>LongMethod:RemoteCatalogSyncSupportTest.kt$RemoteCatalogSyncSupportTest$@Test fun `finalize remote catalog sync clears stale items applies remote progress and pushes dirty progress`()</ID>
+    <ID>LongMethod:StumpPartialCatalogFetchSupportTest.kt$StumpPartialCatalogFetchSupportTest$@Test fun `partial series detail failures preserve cached entries for affected stump series`()</ID>
+    <ID>LongParameterList:RemoteCatalogSyncSupport.kt$( entries: List&lt;Entry&gt;, progressSyncStore: ProgressSyncStore?, nowEpochMillis: Long, itemOf: (Entry) -&gt; ReadableItem, progressOf: (Entry) -&gt; ReadingProgress?, missingRemoteClearsLocal: (Entry) -&gt; Boolean, remoteClearOverridesLocal: (Entry) -&gt; Boolean, localRefinesRemote: (local: ProgressSyncSnapshot, remote: ReadingProgress?) -&gt; Boolean = { _, _ -&gt; false }, )</ID>
+    <ID>LongParameterList:RemoteCatalogSyncSupport.kt$( sourceLabel: String, series: List&lt;Series&gt;, onProgress: (message: String, fraction: Float) -&gt; Unit, detailRequestConcurrency: Int = DEFAULT_REMOTE_SERIES_DETAIL_REQUEST_CONCURRENCY, progressSteps: Int = DEFAULT_REMOTE_PROGRESS_REPORT_STEPS, fetchEntries: suspend (series: Series) -&gt; List&lt;Entry&gt;, )</ID>
+    <ID>LongParameterList:RemoteCatalogSyncSupport.kt$( sourceType: SourceType, fetch: RemoteCatalogFetch&lt;Entry&gt;, remoteCatalogWriter: RemoteCatalogWriter, progressSyncStore: ProgressSyncStore?, nowEpochMillis: Long, onProgress: (message: String, fraction: Float) -&gt; Unit, savingMessage: String, applyingProgressMessage: String, itemOf: (Entry) -&gt; ReadableItem, progressOf: (Entry) -&gt; ReadingProgress?, missingRemoteClearsLocal: (Entry) -&gt; Boolean = { false }, remoteClearOverridesLocal: (Entry) -&gt; Boolean = { false }, localRefinesRemote: (local: ProgressSyncSnapshot, remote: ReadingProgress?) -&gt; Boolean = { _, _ -&gt; false }, syncGroups: List&lt;RemoteCatalogSyncGroupEntity&gt; = emptyList(), // A library refresh: write only the books that changed (planRemoteCatalogRefresh), not the // whole catalog. Needs a writer that gives its stored rows; the others replace the catalog. writeOnlyChanges: Boolean = false, pushDirtyProgress: suspend (items: List&lt;ReadableItem&gt;) -&gt; RemoteCatalogProgressPushResult&lt;Session&gt;, )</ID>
+    <ID>LongParameterList:RemoteProgressSyncPolicy.kt$( local: ProgressSyncSnapshot?, remote: ReadingProgress?, nowEpochMillis: Long, missingRemoteClearsLocal: Boolean = false, remoteClearOverridesLocal: Boolean = true, localRefinesRemote: (local: ProgressSyncSnapshot, remote: ReadingProgress?) -&gt; Boolean = { _, _ -&gt; false }, )</ID>
+    <ID>LongParameterList:StumpPartialCatalogFetchSupport.kt$( api: StumpApi, accessToken: String, series: List&lt;StumpSeriesEntry&gt;, onProgress: (message: String, fraction: Float) -&gt; Unit, detailRequestConcurrency: Int = DEFAULT_STUMP_SERIES_DETAIL_REQUEST_CONCURRENCY, progressSteps: Int = DEFAULT_STUMP_PROGRESS_REPORT_STEPS, )</ID>
+    <ID>MagicNumber:RemoteCatalogSyncSupport.kt$0.2f</ID>
+    <ID>MagicNumber:RemoteCatalogSyncSupport.kt$0.65f</ID>
+    <ID>MagicNumber:RemoteCatalogSyncSupport.kt$0.85f</ID>
+    <ID>MagicNumber:RemoteCatalogSyncSupport.kt$0.92f</ID>
+    <ID>MagicNumber:RemoteCatalogSyncSupport.kt$0.97f</ID>
+    <ID>MagicNumber:StumpPartialCatalogFetchSupport.kt$0.15f</ID>
+    <ID>MagicNumber:StumpPartialCatalogFetchSupport.kt$0.2f</ID>
+    <ID>MagicNumber:StumpPartialCatalogFetchSupport.kt$0.65f</ID>
+    <ID>MagicNumber:StumpPartialCatalogFetchSupport.kt$0.85f</ID>
+    <ID>MatchingDeclarationName:RemoteProgressSyncPolicy.kt$RemoteProgressSyncDecision</ID>
+    <ID>ReturnCount:ApplyReadStatusChangeUseCaseTest.kt$TestProgressSyncStore$override suspend fun replaceProgressIfCurrent( expected: ProgressSyncSnapshot, replacement: ProgressSyncSnapshot?, ): Boolean</ID>
+    <ID>ReturnCount:RemoteArtifactSync.kt$FlushPendingRemoteArtifactsUseCase$suspend operator fun invoke( request: RemoteArtifactFlushRequest, ): List&lt;SourceProgressSyncFailure&gt;</ID>
+    <ID>ReturnCount:RemoteCatalogSyncSupport.kt$fun shouldReportSeriesProgress( completed: Int, total: Int, reportedSeriesCount: AtomicInteger, progressSteps: Int = DEFAULT_REMOTE_PROGRESS_REPORT_STEPS, ): Boolean</ID>
+    <ID>ReturnCount:RemoteCatalogSyncSupportTest.kt$RecordingProgressSyncStore$override suspend fun replaceProgressIfCurrent( expected: ProgressSyncSnapshot, replacement: ProgressSyncSnapshot?, ): Boolean</ID>
+    <ID>ReturnCount:RemoteProgressSyncPolicy.kt$fun decideRemoteProgressSync( local: ProgressSyncSnapshot?, remote: ReadingProgress?, nowEpochMillis: Long, missingRemoteClearsLocal: Boolean = false, remoteClearOverridesLocal: Boolean = true, localRefinesRemote: (local: ProgressSyncSnapshot, remote: ReadingProgress?) -&gt; Boolean = { _, _ -&gt; false }, ): RemoteProgressSyncDecision</ID>
+    <ID>TooGenericExceptionCaught:RemoteArtifactSync.kt$FlushPendingRemoteArtifactsUseCase$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:SourceProgressSyncRegistry.kt$SourceProgressSyncRegistry$throwable: Throwable</ID>
+    <ID>TooGenericExceptionCaught:StumpPartialCatalogFetchSupport.kt$throwable: Throwable</ID>
+    <ID>UnusedPrivateClass:ApplyReadStatusChangeUseCaseTest.kt$RecordingSourceProgressSync : SourceProgressSync</ID>
+  </CurrentIssues>
+</SmellBaseline>

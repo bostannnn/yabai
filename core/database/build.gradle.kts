@@ -1,29 +1,25 @@
 plugins {
-    alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.yabai.android.library)
     alias(libs.plugins.ksp)
 }
 
 android {
     namespace = "com.example.unifiedreader.core.database"
-    compileSdk = 37
-
-    defaultConfig {
-        minSdk = 28
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
-    }
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
+
+    // Migration tests read the exported schemas as assets. Through the new DSL type, as in
+    // feature:settings: with android.newDsl=false the typed accessor fails the configuration.
+    val testSourceSet = (sourceSets as NamedDomainObjectContainer<*>).getByName("test")
+    (testSourceSet as com.android.build.api.dsl.AndroidSourceSet).assets.srcDir("$projectDir/schemas")
+}
+
+// Room writes each version's schema here (exportSchema = true). Commit every new file: a migration
+// test needs the old version's schema. 36.json was rebuilt from the commit before version 37.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
@@ -36,4 +32,5 @@ dependencies {
     testImplementation(libs.junit4)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.room.testing)
 }

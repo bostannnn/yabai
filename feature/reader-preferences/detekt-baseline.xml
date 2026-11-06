@@ -1,0 +1,11 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>MatchingDeclarationName:ComicReaderModeNormalization.kt$LibraryModeNormalizationPlan</ID>
+    <ID>MatchingDeclarationName:ComicReadingDirectionNormalization.kt$LibraryDirectionNormalizationPlan</ID>
+    <ID>MatchingDeclarationName:ComicReadingDirectionResolver.kt$ComicReadingDirectionPreferences</ID>
+    <ID>TopLevelPropertyNaming:ComicReaderModeResolverTest.kt$private const val readerModeItemSeriesKey = "kavita:library:webtoons::Tower of God"</ID>
+    <ID>TopLevelPropertyNaming:ComicReadingDirectionResolverTest.kt$private const val itemSeriesKey = "kavita:library:comics::Akira"</ID>
+  </CurrentIssues>
+</SmellBaseline>

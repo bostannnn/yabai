@@ -1,0 +1,135 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:ComicPageCurlPagerGesture.kt$!hasCurrentComposite || !hasUnderneathComposite || sheetBounds == null || sheetBounds.isEmpty</ID>
+    <ID>ComplexCondition:ComicPageViewportState.kt$ComicPageViewportState$containerSize.width &lt;= 0 || containerSize.height &lt;= 0 || imageSize.width &lt;= 0 || imageSize.height &lt;= 0</ID>
+    <ID>ComplexCondition:ComicsReaderEntry.kt$!progressHydrated || !progressRestoreCompleted || !preferencesHydrated || !preferencesRestoreCompleted</ID>
+    <ID>ComplexCondition:ComicsReaderEntry.kt$latestProgressHydrated &amp;&amp; latestProgressRestoreCompleted &amp;&amp; latestPreferencesHydrated &amp;&amp; latestPreferencesRestoreCompleted</ID>
+    <ID>ComplexCondition:ComicsReaderSessionAdapter.kt$ComicsReaderSessionAdapter$stored != null &amp;&amp; !stored.isExplicitUnreadReset &amp;&amp; stored.locatorType == LocatorType.PAGE &amp;&amp; stored.page == safePageIndex &amp;&amp; stored.isFinished == isFinished</ID>
+    <ID>ComposableParamOrder:ComicsReaderEntry.kt$ComicsReaderScreen</ID>
+    <ID>ComposableParamOrder:ComicsReaderSpreadLayout.kt$ComicSpreadPager</ID>
+    <ID>ContentSlotReused:ComicPageCurlPagerBox.kt$content</ID>
+    <ID>CyclomaticComplexMethod:ComicPageCurlPagerBox.kt$@Composable internal fun ComicPageCurlPagerBox( item: ReadableItem, spreads: List&lt;ComicPageSpread&gt;, readerState: ComicsReaderState, pageSource: ComicPageSource, pagerState: PagerState, loadedVisiblePageIndexes: Set&lt;Int&gt;, tapTurner: PageCurlTapTurner, modifier: Modifier = Modifier, content: @Composable (userScrollEnabled: Boolean) -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:ComicPageCurlSheetGeometry.kt$internal fun resolvePageCurlTurn( currentLayout: ComicSpreadRasterLayout, targetLayout: ComicSpreadRasterLayout, readingDirection: ComicReadingDirection, target: PageCurlTarget, ): PageCurlTurn?</ID>
+    <ID>CyclomaticComplexMethod:ComicsContinuousReaderSurface.kt$@Composable internal fun ComicsContinuousReaderSurface( item: ReadableItem, pages: List&lt;ComicPageSpec&gt;, pageSource: ComicPageSource, readerState: ComicsReaderState, loadedVisiblePageIndexes: Set&lt;Int&gt;, metadataLoadingEnabled: Boolean, onVisiblePagesLoaded: (Collection&lt;Int&gt;) -&gt; Unit, onToggleOverlay: () -&gt; Unit, onNavigatePastEnd: () -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:ComicsReaderEntry.kt$@Composable fun ComicsReaderScreen( item: ReadableItem, pageSource: ComicPageSource, progressStore: ComicReaderProgressStore, preferencesStore: ComicReaderPreferencesStore, journalReadingSessionRecorder: JournalReadingSessionRecorder? = null, pageNumberPreferences: ReaderPageNumberPreferencesStore = remember { InMemoryReaderPageNumberPreferencesStore() }, onBack: () -&gt; Unit, openMode: ReaderOpenMode = ReaderOpenMode.Default, readerWorkCoordinator: ReaderWorkCoordinator? = null, onNextItemRequested: () -&gt; Unit = {}, )</ID>
+    <ID>CyclomaticComplexMethod:ComicsReaderSessionCodec.kt$fun restoreComicReaderPreferences( preferences: Map&lt;String, String&gt;, ): ComicReaderPreferencesSnapshot?</ID>
+    <ID>CyclomaticComplexMethod:ComicsReaderState.kt$ComicsReaderState.Companion$fun saver(pageCount: Int): Saver&lt;ComicsReaderState, *&gt;</ID>
+    <ID>LambdaParameterEventTrailing:ComicPagePreviewStrip.kt$onPageSelected</ID>
+    <ID>LambdaParameterInRestartableEffect:ComicsReaderEntry.kt$onNextItemRequested</ID>
+    <ID>LambdaParameterInRestartableEffect:ComicsReaderGestureModifierTest.kt$onZoomStateChanged</ID>
+    <ID>LambdaParameterInRestartableEffect:ComicsReaderSpreadLayout.kt$onVisiblePagesLoaded</ID>
+    <ID>LambdaParameterInRestartableEffect:ComicsReaderSpreadLayout.kt$onZoomStateChanged</ID>
+    <ID>LambdaParameterInRestartableEffect:ContinuousComicPageItem.kt$onVisiblePageLoaded</ID>
+    <ID>LongMethod:ComicPageCurlCompositeCache.kt$ComicPageCurlCompositeCache$private suspend fun loadComposite( item: ReadableItem, spread: ComicPageSpread, pageSource: ComicPageSource, canvasSize: IntSize, pageFitMode: ComicPageFitMode, stitchedSpreadOverlapPx: Int, priority: ComicPageLoadPriority, ): ComicPageCurlComposite?</ID>
+    <ID>LongMethod:ComicPageCurlPagerBox.kt$@Composable internal fun ComicPageCurlPagerBox( item: ReadableItem, spreads: List&lt;ComicPageSpread&gt;, readerState: ComicsReaderState, pageSource: ComicPageSource, pagerState: PagerState, loadedVisiblePageIndexes: Set&lt;Int&gt;, tapTurner: PageCurlTapTurner, modifier: Modifier = Modifier, content: @Composable (userScrollEnabled: Boolean) -&gt; Unit, )</ID>
+    <ID>LongMethod:ComicPageCurlSheetGeometry.kt$internal fun resolvePageCurlTurn( currentLayout: ComicSpreadRasterLayout, targetLayout: ComicSpreadRasterLayout, readingDirection: ComicReadingDirection, target: PageCurlTarget, ): PageCurlTurn?</ID>
+    <ID>LongMethod:ComicPagePreviewStrip.kt$@Composable internal fun ComicPagePreviewStrip( item: ReadableItem, pages: List&lt;ComicPageSpec&gt;, currentPage: Int, readingDirection: ComicReadingDirection, spreadMode: ComicSpreadMode, spreadPlanState: ComicSpreadPlanState, pageSource: ComicPageSource, thumbnailHeight: Dp, modifier: Modifier = Modifier, readerWorkCoordinator: ReaderWorkCoordinator? = null, previewLoadingEnabled: Boolean = true, onPageSelected: (Int) -&gt; Unit, )</ID>
+    <ID>LongMethod:ComicPagePreviewStrip.kt$@Composable private fun ComicSpreadPreviewItem( item: ReadableItem, spread: ComicPageSpread, pageSource: ComicPageSource, selected: Boolean, previewHeight: Dp, readerWorkCoordinator: ReaderWorkCoordinator?, previewLoadingEnabled: Boolean, onClick: () -&gt; Unit, )</ID>
+    <ID>LongMethod:ComicPagesPanel.kt$@Composable private fun ComicPagesGridItem( item: ReadableItem, page: ComicPageSpec, selected: Boolean, pageSource: ComicPageSource, readerWorkCoordinator: ReaderWorkCoordinator?, previewLoadingEnabled: Boolean, onClick: () -&gt; Unit, )</ID>
+    <ID>LongMethod:ComicSpreadPlanState.kt$@Composable internal fun rememberComicSpreadPlanState( item: ReadableItem, pages: List&lt;ComicPageSpec&gt;, pageSource: ComicPageSource, currentPage: Int, readingDirection: ComicReadingDirection, spreadMode: ComicSpreadMode, useDoublePageSpreads: Boolean, metadataLoadingEnabled: Boolean = true, readerWorkCoordinator: ReaderWorkCoordinator? = null, ): ComicSpreadPlanState</ID>
+    <ID>LongMethod:ComicSpreadRasterizer.kt$ComicSpreadRasterizer$fun layout( spread: ComicPageSpread, imageSizesByPageId: Map&lt;String, IntSize&gt;, canvasSize: IntSize, pageFitMode: ComicPageFitMode, stitchedSpreadOverlapPx: Int = 0, ): ComicSpreadRasterLayout</ID>
+    <ID>LongMethod:ComicsContinuousReaderSurface.kt$@Composable internal fun ComicsContinuousReaderSurface( item: ReadableItem, pages: List&lt;ComicPageSpec&gt;, pageSource: ComicPageSource, readerState: ComicsReaderState, loadedVisiblePageIndexes: Set&lt;Int&gt;, metadataLoadingEnabled: Boolean, onVisiblePagesLoaded: (Collection&lt;Int&gt;) -&gt; Unit, onToggleOverlay: () -&gt; Unit, onNavigatePastEnd: () -&gt; Unit, )</ID>
+    <ID>LongMethod:ComicsPagedReaderSurface.kt$@Composable internal fun ComicsPagedReaderSurface( item: ReadableItem, pages: List&lt;ComicPageSpec&gt;, spreads: List&lt;ComicPageSpread&gt;, pageSource: ComicPageSource, readerState: ComicsReaderState, loadedVisiblePageIndexes: Set&lt;Int&gt;, onVisiblePagesLoaded: (Collection&lt;Int&gt;) -&gt; Unit, onToggleOverlay: () -&gt; Unit, onNavigatePastEnd: () -&gt; Unit, )</ID>
+    <ID>LongMethod:ComicsReaderChrome.kt$@Composable internal fun ComicsReaderChrome( item: ReadableItem, pages: List&lt;ComicPageSpec&gt;, currentPage: Int, currentPageIndexes: Set&lt;Int&gt;, progress: Float, readerMode: ComicReaderMode, readingDirection: ComicReadingDirection, pageFitMode: ComicPageFitMode, spreadMode: ComicSpreadMode, stripSpreadMode: ComicSpreadMode, spreadPlanState: ComicSpreadPlanState, pageTurnStyle: PageTurnStyle, pageNumbersVisible: Boolean, pageSource: ComicPageSource, readerWorkCoordinator: ReaderWorkCoordinator?, stripLoadingEnabled: Boolean, overlayVisible: Boolean, onBack: () -&gt; Unit, onPageSelected: (Int) -&gt; Unit, onProgressSelected: (Float) -&gt; Unit, onReaderModeChanged: (ComicReaderMode) -&gt; Unit, onReadingDirectionChanged: (ComicReadingDirection) -&gt; Unit, onPageFitModeChanged: (ComicPageFitMode) -&gt; Unit, onSpreadModeChanged: (ComicSpreadMode) -&gt; Unit, onPageTurnStyleChanged: (PageTurnStyle) -&gt; Unit, onPageNumbersVisibleChanged: (Boolean) -&gt; Unit, )</ID>
+    <ID>LongMethod:ComicsReaderEntry.kt$@Composable fun ComicsReaderScreen( item: ReadableItem, pageSource: ComicPageSource, progressStore: ComicReaderProgressStore, preferencesStore: ComicReaderPreferencesStore, journalReadingSessionRecorder: JournalReadingSessionRecorder? = null, pageNumberPreferences: ReaderPageNumberPreferencesStore = remember { InMemoryReaderPageNumberPreferencesStore() }, onBack: () -&gt; Unit, openMode: ReaderOpenMode = ReaderOpenMode.Default, readerWorkCoordinator: ReaderWorkCoordinator? = null, onNextItemRequested: () -&gt; Unit = {}, )</ID>
+    <ID>LongMethod:ComicsReaderGestureModifierTest.kt$@Composable private fun GestureSurfaceHarness( readingDirection: ComicReadingDirection, initialOverlayVisible: Boolean = false, isActivePage: Boolean = true, onZoomStateChanged: (Boolean) -&gt; Unit = {}, )</ID>
+    <ID>LongMethod:ComicsReaderGestures.kt$internal fun Modifier.comicGestureModifier( gestureKey: String, containerSize: IntSize, imageSize: IntSize, viewportState: ComicPageViewportState, readingDirection: ComicReadingDirection, pageFitMode: ComicPageFitMode, animationScope: CoroutineScope, nestedScrollDispatcher: NestedScrollDispatcher, onInteraction: () -&gt; Unit, onToggleOverlay: () -&gt; Unit, onNavigatePrevious: () -&gt; Unit, onNavigateNext: () -&gt; Unit, ): Modifier</ID>
+    <ID>LongMethod:ComicsReaderPreferencesSheet.kt$@Composable internal fun ComicsReaderPreferencesSheet( isOpen: Boolean, slot: ReaderPanelSlot, readerMode: ComicReaderMode, readingDirection: ComicReadingDirection, pageFitMode: ComicPageFitMode, spreadMode: ComicSpreadMode, pageTurnStyle: PageTurnStyle, pageNumbersVisible: Boolean, onDismissRequest: () -&gt; Unit, onReaderModeChanged: (ComicReaderMode) -&gt; Unit, onReadingDirectionChanged: (ComicReadingDirection) -&gt; Unit, onPageFitModeChanged: (ComicPageFitMode) -&gt; Unit, onSpreadModeChanged: (ComicSpreadMode) -&gt; Unit, onPageTurnStyleChanged: (PageTurnStyle) -&gt; Unit, onPageNumbersVisibleChanged: (Boolean) -&gt; Unit, )</ID>
+    <ID>LongMethod:ComicsReaderSpreadLayout.kt$@Composable private fun ComicSpreadSurface( item: ReadableItem, spread: ComicPageSpread, pageSource: ComicPageSource, isActiveSpread: Boolean, readingDirection: ComicReadingDirection, pageFitMode: ComicPageFitMode, onZoomStateChanged: (Boolean) -&gt; Unit, onInteraction: () -&gt; Unit, onToggleOverlay: () -&gt; Unit, onNavigatePrevious: () -&gt; Unit, onNavigateNext: () -&gt; Unit, onVisiblePagesLoaded: (Collection&lt;Int&gt;) -&gt; Unit, )</ID>
+    <ID>LongMethod:ComicsReaderSpreadLayout.kt$@Composable private fun FitSpreadContent( spread: ComicPageSpread, pageLoadResults: Map&lt;String, ComicPageLoadResult?&gt;, loadedImagesByPageId: Map&lt;String, ImageBitmap?&gt;, stitchedOverlap: Dp, )</ID>
+    <ID>LongMethod:ComicsReaderState.kt$ComicsReaderState.Companion$fun saver(pageCount: Int): Saver&lt;ComicsReaderState, *&gt;</ID>
+    <ID>LongMethod:ContinuousComicPageItem.kt$@Composable internal fun ContinuousComicPageItem( item: ReadableItem, page: ComicPageSpec, pageSource: ComicPageSource, shouldLoadImage: Boolean, metadataLoadingEnabled: Boolean, contentWidth: Dp, fallbackPlaceholderHeight: Dp, onVisiblePageLoaded: (Int) -&gt; Unit, onToggleOverlay: () -&gt; Unit, )</ID>
+    <ID>LongParameterList:ComicPageCurlAvailability.kt$( pageTurnStyle: PageTurnStyle, readerMode: ComicReaderMode, sdkInt: Int = Build.VERSION.SDK_INT, isCurrentPageZoomed: Boolean, hasCurrentComposite: Boolean, hasAdjacentComposite: Boolean, containerSize: IntSize? = null, )</ID>
+    <ID>LongParameterList:ComicPageCurlCompositeCache.kt$ComicPageCurlCompositeCache$( item: ReadableItem, spread: ComicPageSpread, pageSource: ComicPageSource, canvasSize: IntSize, pageFitMode: ComicPageFitMode, stitchedSpreadOverlapPx: Int, priority: ComicPageLoadPriority = ComicPageLoadPriority.Prefetch, )</ID>
+    <ID>LongParameterList:ComicPageCurlCompositeCache.kt$ComicPageCurlCompositeCache$( item: ReadableItem, spread: ComicPageSpread, pageSource: ComicPageSource, canvasSize: IntSize, pageFitMode: ComicPageFitMode, stitchedSpreadOverlapPx: Int, priority: ComicPageLoadPriority, )</ID>
+    <ID>LongParameterList:ComicPageCurlCompositeCache.kt$ComicPageCurlCompositeCache$( item: ReadableItem, spreads: List&lt;ComicPageSpread&gt;, settledSpreadIndex: Int, pageSource: ComicPageSource, canvasSize: IntSize, pageFitMode: ComicPageFitMode, stitchedSpreadOverlapPx: Int, )</ID>
+    <ID>LongParameterList:ComicPageCurlPagerGesture.kt$( target: PageCurlTarget, currentSpreadIndex: Int, spreadCount: Int, readingDirection: ComicReadingDirection, currentComposite: ComicPageCurlComposite?, adjacentComposite: ComicPageCurlComposite?, downPosition: Offset?, )</ID>
+    <ID>LongParameterList:ComicPageViewportState.kt$ComicPageViewportState$( centroid: Offset, zoomChange: Float, panChange: Offset, containerSize: IntSize, imageSize: IntSize, fitMode: ComicPageFitMode, )</ID>
+    <ID>LongParameterList:ComicPageViewportState.kt$ComicPageViewportState$( coroutineScope: CoroutineScope, initialVelocity: Offset, density: Density, containerSize: IntSize, imageSize: IntSize, fitMode: ComicPageFitMode, )</ID>
+    <ID>LongParameterList:ComicPageViewportState.kt$ComicPageViewportState$( coroutineScope: CoroutineScope, zoomFactor: Float, focalPoint: Offset, containerSize: IntSize, imageSize: IntSize, fitMode: ComicPageFitMode, )</ID>
+    <ID>LongParameterList:ComicPageViewportState.kt$ComicPageViewportState$( targetScale: Float, focalPoint: Offset, resetOffsetAtMinimum: Boolean, containerSize: IntSize, imageSize: IntSize, fitMode: ComicPageFitMode, )</ID>
+    <ID>LongParameterList:ComicReaderLaunchPolicy.kt$( openMode: ReaderOpenMode, savedPage: Int?, savedResumeAnchorPage: Int?, savedResumeSegment: ComicPageSegment?, savedResumeScrollOffsetRatio: Float?, lastPageIndex: Int, )</ID>
+    <ID>LongParameterList:ComicSpreadPlanning.kt$( pages: List&lt;ComicPageSpec&gt;, requiredIndexes: List&lt;Int&gt;, loadResults: List&lt;Pair&lt;String, ComicPageMetadata?&gt;&gt;, pageMetadataById: Map&lt;String, ComicPageMetadata&gt;, spreadPlanningFailuresById: Map&lt;String, Int&gt;, degradedSpreadPlanningPageIds: Set&lt;String&gt;, maxMetadataRetries: Int, )</ID>
+    <ID>LongParameterList:ComicSpreadRasterizer.kt$ComicSpreadRasterizer$( spread: ComicPageSpread, pageImagesById: Map&lt;String, ImageBitmap&gt;, canvasSize: IntSize, pageFitMode: ComicPageFitMode, backgroundColor: Color, stitchedSpreadOverlapPx: Int = 0, )</ID>
+    <ID>LongParameterList:ComicsReaderGestures.kt$( gestureKey: String, containerSize: IntSize, imageSize: IntSize, viewportState: ComicPageViewportState, readingDirection: ComicReadingDirection, pageFitMode: ComicPageFitMode, animationScope: CoroutineScope, nestedScrollDispatcher: NestedScrollDispatcher, onInteraction: () -&gt; Unit, onToggleOverlay: () -&gt; Unit, onNavigatePrevious: () -&gt; Unit, onNavigateNext: () -&gt; Unit, )</ID>
+    <ID>LongParameterList:ComicsReaderRestoreSmokeTest.kt$( item: ReadableItem, pageSource: ComicPageSource, progressStore: ComicReaderProgressStore, preferencesStore: ComicReaderPreferencesStore, openMode: ReaderOpenMode = ReaderOpenMode.Default, onBeforeClose: () -&gt; Unit = {}, )</ID>
+    <ID>LongParameterList:ComicsReaderSessionCodec.kt$( readerMode: ComicReaderMode? = null, readingDirection: ComicReadingDirection? = null, pageFitMode: ComicPageFitMode? = null, spreadMode: ComicSpreadMode? = null, pageTurnStyle: PageTurnStyle? = null, splitWidePages: Boolean? = null, resumeAnchorPage: Int? = null, resumeSegment: ComicPageSegment? = null, resumeScrollOffsetRatio: Float? = null, )</ID>
+    <ID>LongParameterList:ComicsReaderState.kt$( pageIndex: Int, pageCount: Int, segment: ComicPageSegment?, readingDirection: ComicReadingDirection, readerMode: ComicReaderMode = ComicReaderMode.Paged, scrollOffsetRatio: Float? = null, )</ID>
+    <ID>LongParameterList:ComicsReaderState.kt$ComicsReaderState$( initialPage: Int, pageCount: Int, initialReaderMode: ComicReaderMode, initialReadingDirection: ComicReadingDirection, initialPageFitMode: ComicPageFitMode, initialSpreadMode: ComicSpreadMode, initialPageTurnStyle: PageTurnStyle = PageTurnStyle.Slide, initialSplitWidePages: Boolean, initialResumeAnchorPage: Int?, initialResumeSegment: ComicPageSegment?, initialResumeScrollOffsetRatio: Float?, )</ID>
+    <ID>LongParameterList:ComicsReaderStateTest.kt$( initialPage: Int = 0, pageCount: Int = 6, initialReaderMode: ComicReaderMode = ComicReaderMode.Paged, initialReadingDirection: ComicReadingDirection = ComicReadingDirection.LTR, initialPageFitMode: ComicPageFitMode = ComicPageFitMode.FitPage, initialSpreadMode: ComicSpreadMode = ComicSpreadMode.Auto, initialPageTurnStyle: PageTurnStyle = PageTurnStyle.Slide, initialSplitWidePages: Boolean = false, initialResumeAnchorPage: Int? = null, initialResumeSegment: ComicPageSegment? = null, initialResumeScrollOffsetRatio: Float? = null, )</ID>
+    <ID>LoopWithTooManyJumpStatements:ComicsReaderSpreadLayout.kt$while</ID>
+    <ID>MagicNumber:ComicPageCurlCompositeCache.kt$ComicPageCurlCompositeCache$3</ID>
+    <ID>MagicNumber:ComicPageCurlCompositeCache.kt$ComicPageCurlCompositeCache$4L</ID>
+    <ID>MagicNumber:ComicPageCurlSheetGeometry.kt$0.0001f</ID>
+    <ID>MagicNumber:ComicPagePrefetchWindow.kt$0.68f</ID>
+    <ID>MagicNumber:ComicPagePrefetchWindow.kt$0.85f</ID>
+    <ID>MagicNumber:ComicPagePrefetchWindow.kt$1.4f</ID>
+    <ID>MagicNumber:ComicPagesPanel.kt$100f</ID>
+    <ID>MagicNumber:ComicsContinuousReaderSurface.kt$ContinuousPositionReporter$0.02f</ID>
+    <ID>MagicNumber:ComicsReaderGestures.kt$100f</ID>
+    <ID>MagicNumber:ComicsReaderSpreadLayout.kt$ComicPageSegment.LeftHalf$0.5f</ID>
+    <ID>MagicNumber:ComicsReaderSpreadLayout.kt$ComicPageSegment.RightHalf$0.5f</ID>
+    <ID>MagicNumber:ComicsReaderState.kt$ComicsReaderState.Companion$10</ID>
+    <ID>MagicNumber:ComicsReaderState.kt$ComicsReaderState.Companion$11</ID>
+    <ID>MagicNumber:ComicsReaderState.kt$ComicsReaderState.Companion$12</ID>
+    <ID>MagicNumber:ComicsReaderState.kt$ComicsReaderState.Companion$13</ID>
+    <ID>MagicNumber:ComicsReaderState.kt$ComicsReaderState.Companion$14</ID>
+    <ID>MagicNumber:ComicsReaderState.kt$ComicsReaderState.Companion$15</ID>
+    <ID>MagicNumber:ComicsReaderState.kt$ComicsReaderState.Companion$16</ID>
+    <ID>MagicNumber:ComicsReaderState.kt$ComicsReaderState.Companion$17</ID>
+    <ID>MagicNumber:ComicsReaderState.kt$ComicsReaderState.Companion$18</ID>
+    <ID>MagicNumber:ComicsReaderState.kt$ComicsReaderState.Companion$19</ID>
+    <ID>MagicNumber:ComicsReaderState.kt$ComicsReaderState.Companion$20</ID>
+    <ID>MagicNumber:ComicsReaderState.kt$ComicsReaderState.Companion$6</ID>
+    <ID>MagicNumber:ComicsReaderState.kt$ComicsReaderState.Companion$7</ID>
+    <ID>MagicNumber:ComicsReaderState.kt$ComicsReaderState.Companion$8</ID>
+    <ID>MagicNumber:ComicsReaderState.kt$ComicsReaderState.Companion$9</ID>
+    <ID>MatchingDeclarationName:ComicPageCurlPagerGesture.kt$ComicPageCurlGestureStartPolicy</ID>
+    <ID>MatchingDeclarationName:ComicReaderCompletion.kt$ComicSettledReadingPosition</ID>
+    <ID>MatchingDeclarationName:ComicReaderDisplayTitle.kt$ComicReaderTitles</ID>
+    <ID>MatchingDeclarationName:ComicReaderLaunchPolicy.kt$ComicReaderInitialPosition</ID>
+    <ID>MatchingDeclarationName:ComicSpreadPlanning.kt$ComicSpreadPlanningUpdate</ID>
+    <ID>MatchingDeclarationName:ComicsReaderChrome.kt$ComicsReaderPanel</ID>
+    <ID>MaxLineLength:ComicsReaderStateTest.kt$ComicsReaderStateTest$assertEquals(ReaderOpenStatus.Failed(ReaderOpenFailure.DownloadGone), diagnostic(ComicPagesUnavailableKind.FileGone).openStatus(downloaded))</ID>
+    <ID>MaxLineLength:ComicsReaderStateTest.kt$ComicsReaderStateTest$assertEquals(ReaderOpenStatus.Failed(ReaderOpenFailure.LocalFileGone), diagnostic(ComicPagesUnavailableKind.FileGone).openStatus(local))</ID>
+    <ID>MaxLineLength:ComicsReaderStateTest.kt$ComicsReaderStateTest$assertEquals(ReaderOpenStatus.Failed(ReaderOpenFailure.NoComicPages), diagnostic(ComicPagesUnavailableKind.NoPages).openStatus(downloaded))</ID>
+    <ID>MaxLineLength:ComicsReaderStateTest.kt$ComicsReaderStateTest$assertEquals(ReaderOpenStatus.Opening(ReaderOpeningStep.Opening), diagnostic(ComicPagesUnavailableKind.Loading).openStatus(downloaded))</ID>
+    <ID>ModifierMissing:ComicsReaderEntry.kt$ComicsReaderScreen</ID>
+    <ID>ModifierWithoutDefault:ComicPagePreviewStrip.kt$modifier</ID>
+    <ID>MultipleEmitters:ComicPageCurlPagerBox.kt$ComicPageCurlPagerBox</ID>
+    <ID>MultipleEmitters:ComicsReaderGestureModifierTest.kt$GestureSurfaceHarness</ID>
+    <ID>MutableStateAutoboxing:ComicPagesStateTest.kt$ComicPagesStateTest$mutableStateOf(0)</ID>
+    <ID>ReturnCount:ComicPageCurlCompositeCache.kt$ComicPageCurlCompositeCache$suspend fun getOrLoad( item: ReadableItem, spread: ComicPageSpread, pageSource: ComicPageSource, canvasSize: IntSize, pageFitMode: ComicPageFitMode, stitchedSpreadOverlapPx: Int, priority: ComicPageLoadPriority = ComicPageLoadPriority.Prefetch, ): ComicPageCurlComposite?</ID>
+    <ID>ReturnCount:ComicPageCurlPagerGesture.kt$internal fun resolveComicPageCurlGestureStartPolicy( targetSpreadIndex: Int?, hasCurrentComposite: Boolean, hasUnderneathComposite: Boolean, sheetBounds: IntRect?, transitionPolicy: ComicPageCurlTransitionPolicy = ComicPageCurlTransitionPolicy.UseCurl, ): ComicPageCurlGestureStartPolicy</ID>
+    <ID>ReturnCount:ComicPageCurlSheetGeometry.kt$internal fun resolveComicPageCurlSheetBounds( layout: ComicSpreadRasterLayout, readingDirection: ComicReadingDirection, target: PageCurlTarget, ): ComicPageCurlSheetBounds?</ID>
+    <ID>ReturnCount:ComicPageCurlSheetGeometry.kt$internal fun resolveComicPageCurlTransitionPolicy( currentLayout: ComicSpreadRasterLayout?, targetLayout: ComicSpreadRasterLayout?, readingDirection: ComicReadingDirection, target: PageCurlTarget, ): ComicPageCurlTransitionPolicy</ID>
+    <ID>ReturnCount:ComicPageCurlSheetGeometry.kt$internal fun resolvePageCurlTurn( currentLayout: ComicSpreadRasterLayout, targetLayout: ComicSpreadRasterLayout, readingDirection: ComicReadingDirection, target: PageCurlTarget, ): PageCurlTurn?</ID>
+    <ID>ReturnCount:ComicPageCurlSheetGeometry.kt$private fun List&lt;ComicRasterRect&gt;.unionOrNull(): ComicRasterRect?</ID>
+    <ID>ReturnCount:ComicPageImageDecoders.kt$fun decodeComicPagePreviewBytes( bytes: ByteArray, options: ComicPagePreviewOptions = ComicPagePreviewOptions(), ): ByteArray?</ID>
+    <ID>ReturnCount:ComicPageNumbers.kt$internal fun ComicPageSpread.pageNumbers( pageCount: Int, containerSize: IntSize, pageFitMode: ComicPageFitMode, ): List&lt;ReaderPageNumber&gt;</ID>
+    <ID>ReturnCount:ComicSpreadPlanning.kt$internal suspend fun loadSpreadPlanningMetadata( item: ReadableItem, page: ComicPageSpec, pageSource: ComicPageSource, readerWorkCoordinator: ReaderWorkCoordinator? = null, ): ComicPageMetadata?</ID>
+    <ID>ReturnCount:ComicSpreadPlanning.kt$private fun windowedPageIndexes( pageCount: Int, startInclusive: Int, endInclusive: Int, ): List&lt;Int&gt;</ID>
+    <ID>ReturnCount:ComicStitchedSpreadDetection.kt$internal fun ComicPageSpread.isLikelyStitchedSpread( loadedImagesByPageId: Map&lt;String, ImageBitmap?&gt;, ): Boolean</ID>
+    <ID>ReturnCount:ComicTerminalSwipeNavigation.kt$internal fun isTerminalForwardSwipe( horizontalDrag: Float, verticalDrag: Float, readingDirection: ComicReadingDirection, minDistance: Float, ): Boolean</ID>
+    <ID>ReturnCount:ComicsContinuousReaderSurface.kt$ContinuousPositionReporter$fun onFrame(isScrolling: Boolean, position: ContinuousVisiblePosition?): ContinuousVisiblePosition?</ID>
+    <ID>ReturnCount:ComicsContinuousReaderSurface.kt$internal fun continuousReaderVisiblePosition( visiblePages: List&lt;ContinuousVisiblePage&gt;, pageCount: Int, isScrolledToEnd: Boolean, ): ContinuousVisiblePosition?</ID>
+    <ID>ReturnCount:ComicsReaderSessionCodec.kt$fun clearComicReaderPosition( session: ReaderSessionSnapshot?, ): ReaderSessionSnapshot?</ID>
+    <ID>ReturnCount:ComicsReaderState.kt$ComicsReaderState$fun restoreResumeAnchorIfUnchanged(pageIndex: Int?): Boolean</ID>
+    <ID>ReturnCount:ComicsReaderState.kt$internal fun isComicProgressFinished( pageIndex: Int, pageCount: Int, segment: ComicPageSegment?, readingDirection: ComicReadingDirection, readerMode: ComicReaderMode = ComicReaderMode.Paged, scrollOffsetRatio: Float? = null, ): Boolean</ID>
+    <ID>TooManyFunctions:ComicPageCurlSheetGeometry.kt$com.example.unifiedreader.feature.reader.comics.ComicPageCurlSheetGeometry.kt</ID>
+    <ID>TooManyFunctions:ComicPagePreviewStrip.kt$com.example.unifiedreader.feature.reader.comics.ComicPagePreviewStrip.kt</ID>
+    <ID>TooManyFunctions:ComicPageViewportState.kt$ComicPageViewportState</ID>
+    <ID>TooManyFunctions:ComicsReaderSessionAdapter.kt$ComicsReaderSessionAdapter : ComicReaderProgressStoreComicReaderPreferencesStore</ID>
+    <ID>TooManyFunctions:ComicsReaderSpreadLayout.kt$com.example.unifiedreader.feature.reader.comics.ComicsReaderSpreadLayout.kt</ID>
+    <ID>TooManyFunctions:ComicsReaderState.kt$ComicPageSource</ID>
+    <ID>TooManyFunctions:ComicsReaderState.kt$ComicReaderPreferencesStore</ID>
+    <ID>TooManyFunctions:ComicsReaderState.kt$ComicsReaderState</ID>
+    <ID>UnusedPrivateClass:ComicSpreadPreparationTest.kt$MetadataOnlyPageSource : ComicPageSource</ID>
+    <ID>UnusedPrivateMember:ComicSpreadPreparationTest.kt$private fun samplePreparationItem(): ReadableItem</ID>
+    <ID>UnusedPrivateProperty:ComicsReaderSpreadLayout.kt$private val ComicPageSpread.isSoloCover: Boolean get() = pageIndexes == listOf(0)</ID>
+    <ID>WildcardImport:PageCurlGestureTest.kt$import com.example.unifiedreader.feature.reader.core.curl.*</ID>
+    <ID>WildcardImport:PageCurlGestureTest.kt$import org.junit.Assert.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

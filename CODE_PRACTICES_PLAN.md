@@ -74,11 +74,35 @@ user's choice. The shared helpers and where they live:
   by choice.
 - **Package name:** not asked; left as `com.example.unifiedreader` (no Play Store plans known).
 
-**Where it stands (2026-11-06):** steps 3 and 1 are on main as `ca440f12` and `ed7a460c`, pushed to origin.
-CI runs on the push. Not released, not checked on a device. All 1,863 unit tests passed locally (Android modules plus
-the JVM modules), and the debug build and the journal androidTest sources compile.
+**Where it stands (2026-11-06):** steps 3 and 1 are on main (`ca440f12`, `ed7a460c`), pushed and released in 0.43.0.
 
-**Next:** step 2 (guard rails), then step 4.
+**Step 2 done (2026-11-06)**, not on a device (build-only changes plus the `runCatching` fixes below):
+
+- **Convention plugins** (`build-logic/convention`): `yabai.android.library`, `yabai.android.compose`,
+  `yabai.android.application` and `yabai.jvm.library` hold the SDK levels, the Java version, Compose, detekt and
+  lint. The 26 build files lost about 350 lines; most now hold only a namespace and dependencies.
+- **One JVM target:** every module builds for Java 17 (the plain Kotlin modules built for 21). `runSuspendCatching`
+  is now `inline`. The deprecated `kotlinOptions` are gone, and the two hard-coded test libraries are in the catalog.
+- **detekt 1.23.8 with the Compose rules** on all 26 modules, rules in `config/detekt/detekt.yml` (line length 140,
+  matching the new `.editorconfig`). Baselines hold 1,617 old findings. Two Compose rules are off by choice:
+  `ParameterNaming` (this code names callbacks `onSelected`) and `CompositionLocalAllowlist`.
+- **Android lint** on the 20 Android modules, 152 old findings in baselines. The three checks that ask the network
+  for newer versions are off, so findings don't change without a code change.
+- **CI:** a second job runs `detekt lintDebug`. Both workflows now also run `:core:network:test`, which CI had never
+  run.
+- **The `runCatching` rule:** detekt's `SuspendFunSwallowedCancellation` needs type resolution, which crashes on
+  the Compose modules with detekt 1.23. So `SuspendRunCatchingRuleTest` (`core:model`) reads the source instead:
+  no `runCatching {` inside a `suspend fun` or a coroutine block. It found 22, now `runSuspendCatching`. Real
+  cases among them: translation model downloads and translations, catalog repository reads, the CBL import and
+  the update check. Revisit with detekt 2 once it is stable.
+- **Room schema export:** `exportSchema = true` into `core/database/schemas/`. `36.json` was rebuilt from the
+  commit before version 37. `UnifiedReaderDatabaseSchemaTest` runs 36→37 with `MigrationTestHelper`, opens a 36
+  database through every migration, and checks each version from 36 has a schema file. Removing a column from
+  `MIGRATION_36_37` fails two of its tests.
+- **Checked:** 1,900 unit tests pass (Android plus JVM modules), and detekt, lint, `:app:assembleDebug` and the
+  journal androidTest sources pass too.
+
+**Next:** step 4 (coroutine and threading hygiene).
 
 ## Step 1. Decisions only the user can make (done, answers above)
 
@@ -117,7 +141,7 @@ These block or shape later steps.
     check must change with it.
   - Decide now whether the app will ever be on the Play Store. If not, leave it.
 
-## Step 2. Guard rails (do before the big refactors)
+## Step 2. Guard rails (done, see above)
 
 Cheap, and they keep the later steps from sliding back.
 

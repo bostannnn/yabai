@@ -1,0 +1,12 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:LibraryCoverThumbnailGenerator.kt$LibraryCoverThumbnailGenerator$suspend fun ensureThumbnail( sourceFile: File, destinationFile: File, variant: LibraryCoverVariant, ): File?</ID>
+    <ID>LongMethod:RemoteCoverCacheResolver.kt$RemoteCoverCacheResolver$suspend fun resolveCoverFile( storage: RemoteCoverStorageDirectory, baseFileName: String, variant: LibraryCoverVariant, legacyBaseFileNames: List&lt;String&gt; = emptyList(), downloadOriginal: suspend (File) -&gt; Unit, ): File</ID>
+    <ID>MatchingDeclarationName:RemoteCoverStorageDirectories.kt$RemoteCoverStorageDirectory</ID>
+    <ID>ReturnCount:PersistentRemoteCoverStore.kt$PersistentRemoteCoverStore$fun cachedCoverFile( storageDirectoryName: String, fileName: String, legacyDirectoryName: String? = null, ): CachedRemoteCoverFile?</ID>
+    <ID>ReturnCount:RemoteCoverCacheResolver.kt$RemoteCoverCacheResolver$suspend fun resolveCoverFile( storage: RemoteCoverStorageDirectory, baseFileName: String, variant: LibraryCoverVariant, legacyBaseFileNames: List&lt;String&gt; = emptyList(), downloadOriginal: suspend (File) -&gt; Unit, ): File</ID>
+    <ID>TooManyFunctions:PersistentRemoteCoverStore.kt$PersistentRemoteCoverStore</ID>
+  </CurrentIssues>
+</SmellBaseline>

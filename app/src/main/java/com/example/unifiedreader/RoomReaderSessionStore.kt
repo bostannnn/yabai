@@ -7,6 +7,7 @@ import com.example.unifiedreader.core.database.entity.ReadingProgressEntity
 import com.example.unifiedreader.core.database.entity.ReaderSessionStateEntity
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SyncState
+import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
@@ -74,7 +75,7 @@ class RoomReaderSessionStore(
         val requestedItemIds = itemIds.distinct()
         if (requestedItemIds.isEmpty()) return
         val persistedProgress = withContext(ioDispatcher) {
-            runCatching {
+            runSuspendCatching {
                 requestedItemIds
                     .chunked(SQLITE_BIND_SAFE_CHUNK_SIZE)
                     .flatMap(readingProgressDao::getByItemIds)
@@ -84,7 +85,7 @@ class RoomReaderSessionStore(
             }.getOrDefault(emptyList())
         }
         val persistedSessions = withContext(ioDispatcher) {
-            runCatching {
+            runSuspendCatching {
                 requestedItemIds
                     .chunked(SQLITE_BIND_SAFE_CHUNK_SIZE)
                     .flatMap(readerSessionStateDao::getByItemIds)

@@ -1,0 +1,77 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:LibrarySearchMatches.kt$(char == '.' || char == '!' || char == '?') &amp;&amp; atEnd</ID>
+    <ID>ComplexCondition:LibraryTagKinds.kt$key in NamedSlots || key in NamedPeriods || DecadePattern.matches(key) || CenturyPattern.matches(key)</ID>
+    <ID>CyclomaticComplexMethod:LibraryFilters.kt$fun applyLibraryFilters( items: List&lt;ReadableItem&gt;, filters: LibraryFilterState, downloadedRemoteItemIds: Set&lt;String&gt; = emptySet(), readingStatusProvider: (ReadableItem) -&gt; LibraryReadingStatus? = { null }, pageCountProvider: (ReadableItem) -&gt; Int? = ReadableItem::libraryPageCount, ): List&lt;ReadableItem&gt;</ID>
+    <ID>CyclomaticComplexMethod:ListRules.kt$fun ListRule.pill(valueLabel: (String) -&gt; String = field::valueLabel): String</ID>
+    <ID>CyclomaticComplexMethod:ListRules.kt$fun ListRule.summary(valueLabel: (String) -&gt; String = field::valueLabel): String</ID>
+    <ID>InstanceOfCheckForException:SuspendCatching.kt$throwable is CancellationException</ID>
+    <ID>LongParameterList:JournalModels.kt$JournalRepository$( sourceType: SourceType, events: List&lt;JournalReadingEvent&gt;, entries: List&lt;ItemJournalEntry&gt;, sessions: List&lt;JournalReadingSession&gt; = emptyList(), preserveReviewFieldsWhenIncomingBlank: Boolean = false, preserveRatingWhenIncomingBlank: Boolean = false, preserveReadingEventsWhenIncomingIncomplete: Boolean = false, preserveReadingSessionsWhenIncomingIncomplete: Boolean = false, readingEventReplacementItemIds: Set&lt;String&gt;? = null, readingSessionReplacementItemIds: Set&lt;String&gt;? = null, journalEntryReplacementItemIds: Set&lt;String&gt;? = null, preserveRatingOnlyEntriesWhenIncomingMissing: Boolean = false, ratingOnlyPreservationExcludedItemIds: Set&lt;String&gt;? = null, )</ID>
+    <ID>LongParameterList:LibraryFilters.kt$( items: List&lt;ReadableItem&gt;, filters: LibraryFilterState, downloadedRemoteItemIds: Set&lt;String&gt; = emptySet(), readingStatusProvider: (ReadableItem) -&gt; LibraryReadingStatus? = { null }, pageCountProvider: (ReadableItem) -&gt; Int? = ReadableItem::libraryPageCount, // Where each tag goes (Settings › Tags): places to Set in, times to When, the rest to About. tagKindOf: (String) -&gt; LibraryTagKind = { LibraryTagKind.THEME }, )</ID>
+    <ID>LongParameterList:LibraryFilters.kt$( items: List&lt;ReadableItem&gt;, filters: LibraryFilterState, tagKindOf: (String) -&gt; LibraryTagKind, downloadedRemoteItemIds: Set&lt;String&gt; = emptySet(), readingStatusProvider: (ReadableItem) -&gt; LibraryReadingStatus? = { null }, pageCountProvider: (ReadableItem) -&gt; Int? = ReadableItem::libraryPageCount, )</ID>
+    <ID>LongParameterList:ListRules.kt$ListRuleField$( val label: String, val values: ListRuleValues, val section: ListRuleSection, val hint: String, val canMatchAll: Boolean = false, val onDeviceOnly: Boolean = false, val isPickable: Boolean = true, )</ID>
+    <ID>LongParameterList:ListRulesTest.kt$ListRulesTest$(id: String, tags: List&lt;String&gt;, genres: List&lt;String&gt;, pages: Int?, year: Int?, added: Long?)</ID>
+    <ID>LongParameterList:ProgressSyncStore.kt$ProgressSyncStore$( item: ReadableItem, locator: ProgressSyncLocator, isFinished: Boolean = false, isExplicitUnreadReset: Boolean = false, syncState: SyncState = SyncState.CLEAN, pageCount: Int? = null, updatedAtEpochMillis: Long = System.currentTimeMillis(), )</ID>
+    <ID>MagicNumber:Hashing.kt$0xff</ID>
+    <ID>MagicNumber:Hashing.kt$4</ID>
+    <ID>MagicNumber:JournalModels.kt$10</ID>
+    <ID>MagicNumber:JournalModels.kt$100</ID>
+    <ID>MagicNumber:JournalModels.kt$10_000</ID>
+    <ID>MagicNumber:LibraryFilters.kt$3</ID>
+    <ID>MagicNumber:LibraryFilters.kt$4</ID>
+    <ID>MagicNumber:LibraryTagKinds.kt$100</ID>
+    <ID>MagicNumber:LibraryTagKinds.kt$14</ID>
+    <ID>MagicNumber:LibraryTagKinds.kt$15</ID>
+    <ID>MagicNumber:LibraryTagKinds.kt$19</ID>
+    <ID>MagicNumber:LibraryTagKinds.kt$1900</ID>
+    <ID>MagicNumber:LibraryTagKinds.kt$20</ID>
+    <ID>MagicNumber:LibraryTagKinds.kt$21</ID>
+    <ID>MagicNumber:LibraryTagKinds.kt$5</ID>
+    <ID>MagicNumber:ListRules.kt$5</ID>
+    <ID>MagicNumber:ListRules.kt$6</ID>
+    <ID>MagicNumber:ListRules.kt$ListRuleTimeUnit.Days$1000</ID>
+    <ID>MagicNumber:ListRules.kt$ListRuleTimeUnit.Days$24L</ID>
+    <ID>MagicNumber:ListRules.kt$ListRuleTimeUnit.Days$60</ID>
+    <ID>MagicNumber:ListRules.kt$ListRuleTimeUnit.Months$1000</ID>
+    <ID>MagicNumber:ListRules.kt$ListRuleTimeUnit.Months$24</ID>
+    <ID>MagicNumber:ListRules.kt$ListRuleTimeUnit.Months$30L</ID>
+    <ID>MagicNumber:ListRules.kt$ListRuleTimeUnit.Months$60</ID>
+    <ID>MagicNumber:ListRules.kt$ListRuleTimeUnit.Weeks$1000</ID>
+    <ID>MagicNumber:ListRules.kt$ListRuleTimeUnit.Weeks$24</ID>
+    <ID>MagicNumber:ListRules.kt$ListRuleTimeUnit.Weeks$60</ID>
+    <ID>MagicNumber:ListRules.kt$ListRuleTimeUnit.Weeks$7L</ID>
+    <ID>MagicNumber:PublishedYear.kt$1000</ID>
+    <ID>MagicNumber:PublishedYear.kt$4</ID>
+    <ID>MagicNumber:PublishedYear.kt$9999</ID>
+    <ID>MaxLineLength:LibraryFilterTagSectionsTest.kt$LibraryFilterTagSectionsTest$assertEquals(listOf("5"), applyLibraryFilters(listOf(comic), LibraryFilterState(places = setOf("Gotham City"))).map(ReadableItem::id))</ID>
+    <ID>MaxLineLength:LibrarySearchMatches.kt$val from = (first - SnippetLeadIn).coerceAtLeast(0).let { cut -&gt; if (cut == 0) 0 else indexOf(' ', cut).takeIf { it in 0 until first } ?: cut }</ID>
+    <ID>MaxLineLength:LibrarySearchMatches.kt$val to = (from + SnippetMaxLength).coerceAtMost(length).let { cut -&gt; if (cut == length) cut else lastIndexOf(' ', cut).takeIf { it &gt; first } ?: cut }</ID>
+    <ID>MaxLineLength:LibrarySearchMatchesTest.kt$LibrarySearchMatchesTest$assertEquals(LibrarySearchSnippet("Espionage", listOf(0..5), LibrarySearchMatchSource.TAG), librarySearchSnippet(lustCaution, "espion"))</ID>
+    <ID>MaxLineLength:ListRules.kt$ListRuleOperator$/** What a rule asks of its field. Names: any/all/none of; numbers and years: under/over/between; times: in the last/not in the last; yes or no: is/is not. */</ID>
+    <ID>MaxLineLength:ListRules.kt$ListRuleOperator.Over -&gt; if (field.values == ListRuleValues.Year) "${field.label} after ${low ?: ""}" else "${field.label} over ${low ?: ""}"</ID>
+    <ID>MaxLineLength:ListRules.kt$ListRuleOperator.Under -&gt; if (field.values == ListRuleValues.Year) "${field.label} before ${high ?: ""}" else "${field.label} under ${high ?: ""}"</ID>
+    <ID>MaxLineLength:ListRules.kt$private</ID>
+    <ID>MaxLineLength:ListRulesTest.kt$ListRulesTest$assertEquals("not in the last 3 weeks", ListRule(ListRuleField.LastRead, ListRuleOperator.NotInLast, low = 3, unit = ListRuleTimeUnit.Weeks).summary())</ID>
+    <ID>MaxLineLength:ListRulesTest.kt$ListRulesTest$groups = listOf(ListRuleGroup(matchAll = true, rules = listOf(ListRule(ListRuleField.Published, ListRuleOperator.Between, low = 1850, high = 1900))))</ID>
+    <ID>MaxLineLength:ListRulesTest.kt$ListRulesTest$private val ship = book(id = "ship", tags = listOf("Space"), genres = listOf("Science fiction"), pages = 700, year = 1990, added = now - 90 * day)</ID>
+    <ID>NestedBlockDepth:ListRules.kt$fun decodeListRules(text: String?): ListRules?</ID>
+    <ID>ReturnCount:DomainModels.kt$fun ReadableItem.kavitaCatalogSeriesKey(): String?</ID>
+    <ID>ReturnCount:DomainModels.kt$fun ReadableItem.kavitaSeriesGroupKey(): String?</ID>
+    <ID>ReturnCount:DomainModels.kt$fun ReadableItem.stumpSeriesGroupKey(): String?</ID>
+    <ID>ReturnCount:DomainModels.kt$private fun ReadableItem.kavitaSeriesCoverUrl(): String?</ID>
+    <ID>ReturnCount:JournalReadingPace.kt$fun JournalSnapshot.readingTimeLeftMillis( itemId: String, fraction: Float, ): Long?</ID>
+    <ID>ReturnCount:LibraryFilters.kt$fun applyLibrarySearch( items: List&lt;ReadableItem&gt;, query: String, tieBreaker: Comparator&lt;ReadableItem&gt;? = null, preserveInputOrder: Boolean = false, ): List&lt;ReadableItem&gt;</ID>
+    <ID>ReturnCount:LibraryFilters.kt$private fun String.containsWordPrefixSequence( tokens: List&lt;String&gt;, ): Boolean</ID>
+    <ID>ReturnCount:LibrarySearchMatches.kt$fun librarySearchSnippet(item: ReadableItem, query: String): LibrarySearchSnippet?</ID>
+    <ID>ReturnCount:LibraryTagKinds.kt$fun libraryEraSlot(tag: String): LibraryEraSlot?</ID>
+    <ID>ReturnCount:ListRules.kt$fun decodeListRules(text: String?): ListRules?</ID>
+    <ID>ReturnCount:ListRules.kt$private fun ListRule.matchesTime(at: Long?, now: Long): Boolean</ID>
+    <ID>ReturnCount:ListRules.kt$private fun decodeRuleLine(line: String): ListRule?</ID>
+    <ID>TooManyFunctions:DomainModels.kt$com.example.unifiedreader.core.model.DomainModels.kt</ID>
+    <ID>TooManyFunctions:JournalModels.kt$JournalRepository : JournalEventRecorder</ID>
+    <ID>TooManyFunctions:LibraryFilters.kt$com.example.unifiedreader.core.model.LibraryFilters.kt</ID>
+    <ID>TooManyFunctions:ListRules.kt$com.example.unifiedreader.core.model.ListRules.kt</ID>
+  </CurrentIssues>
+</SmellBaseline>

@@ -1,32 +1,14 @@
 plugins {
-    alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.yabai.android.library)
+    alias(libs.plugins.yabai.android.compose)
 }
 
 android {
     namespace = "com.example.unifiedreader.feature.translation"
-    compileSdk = 37
-
-    defaultConfig {
-        minSdk = 28
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
-    buildFeatures {
-        compose = true
-    }
 }
 
 dependencies {
+    implementation(project(":core:model"))
     implementation(project(":core:ui-components"))
 
     implementation(platform(libs.androidx.compose.bom))

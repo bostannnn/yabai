@@ -1,0 +1,46 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:KavitaJournalSyncSupport.kt$private fun List&lt;KavitaReadingHistoryItemDto&gt;.toJournalSessions( itemByRemoteChapterId: Map&lt;Int, ReadableItem&gt;, ): List&lt;JournalReadingSession&gt;</ID>
+    <ID>CyclomaticComplexMethod:KavitaJournalSyncSupport.kt$suspend fun pushDirtyKavitaJournalEntries( api: KavitaApi, accessToken: String, entries: List&lt;ReadableItem&gt;, journalRepository: JournalRepository?, // True only when `entries` is the whole Kavita catalog (a catalog sync), so a dirty entry // missing from it belongs to a chapter deleted on the server. A pending flush passes a subset. itemsAreWholeCatalog: Boolean, pushJournalEntries: Boolean = true, ): List&lt;Throwable&gt;</ID>
+    <ID>LargeClass:KavitaDtosTest.kt$KavitaDtosTest</ID>
+    <ID>LongMethod:KavitaApiTest.kt$KavitaApiTest$@Test fun `series detail caps supplemental chapter info requests for unresolved titles`()</ID>
+    <ID>LongMethod:KavitaApiTest.kt$KavitaApiTest$@Test fun `series detail uses bounded supplemental chapter info for missing-title production format mapping`()</ID>
+    <ID>LongMethod:KavitaApiTest.kt$KavitaApiTest$@Test fun `series detail uses chapter files for titled production format mapping without supplemental request`()</ID>
+    <ID>LongMethod:KavitaDtosTest.kt$KavitaDtosTest$@Test fun `series detail maps archive chapters into Kavita comic items`()</ID>
+    <ID>LongMethod:KavitaJournalSyncSupport.kt$suspend fun pullKavitaJournalCache( api: KavitaApi, accessToken: String, libraries: List&lt;Library&gt;, entries: List&lt;KavitaChapterCatalogEntry&gt;, journalRepository: JournalRepository?, )</ID>
+    <ID>LongMethod:KavitaJournalSyncSupport.kt$suspend fun pushDirtyKavitaJournalEntries( api: KavitaApi, accessToken: String, entries: List&lt;ReadableItem&gt;, journalRepository: JournalRepository?, // True only when `entries` is the whole Kavita catalog (a catalog sync), so a dirty entry // missing from it belongs to a chapter deleted on the server. A pending flush passes a subset. itemsAreWholeCatalog: Boolean, pushJournalEntries: Boolean = true, ): List&lt;Throwable&gt;</ID>
+    <ID>LongMethod:KavitaJournalSyncSupportTest.kt$KavitaJournalSyncSupportTest$@Test fun `kavita pull maps user scoped reviews and per-library reading history into clean journal cache`()</ID>
+    <ID>LongParameterList:KavitaDtos.kt$( series: KavitaSeriesEntry, volumeName: String?, baseUrl: String?, apiKey: String?, issueTitleOverride: String? = null, formatOverride: FormatType? = null, )</ID>
+    <ID>LongParameterList:KavitaJournalSyncSupport.kt$( api: KavitaApi, accessToken: String, entries: List&lt;ReadableItem&gt;, journalRepository: JournalRepository?, // True only when `entries` is the whole Kavita catalog (a catalog sync), so a dirty entry // missing from it belongs to a chapter deleted on the server. A pending flush passes a subset. itemsAreWholeCatalog: Boolean, pushJournalEntries: Boolean = true, )</ID>
+    <ID>LongParameterList:KavitaJournalSyncSupportTest.kt$FakeKavitaApi$( private val currentUserId: Int? = null, private val reviews: List&lt;KavitaUserReviewDto&gt; = emptyList(), private val reviewFailure: Throwable? = null, private val historyByLibrary: Map&lt;Int, List&lt;KavitaReadingHistoryItemDto&gt;&gt; = emptyMap(), private val historyFailuresByLibrary: Map&lt;Int, Throwable&gt; = emptyMap(), private val chapterInfo: KavitaChapterInfoDto = KavitaChapterInfoDto(), private val chapterInfoFailures: Map&lt;String, Throwable&gt; = emptyMap(), private val chapterDetails: Map&lt;Int, KavitaChapterDetailPlusDto&gt; = emptyMap(), private val chapterDetailFailures: Map&lt;Int, Throwable&gt; = emptyMap(), )</ID>
+    <ID>MagicNumber:KavitaApi.kt$KtorKavitaApi$5f</ID>
+    <ID>MagicNumber:KavitaJournalSyncSupport.kt$10</ID>
+    <ID>MagicNumber:KavitaJournalSyncSupport.kt$1_000L</ID>
+    <ID>MagicNumber:KavitaJournalSyncSupport.kt$5f</ID>
+    <ID>MagicNumber:KavitaSessionRenewal.kt$1_000L</ID>
+    <ID>MaxLineLength:KavitaCollectionsApiTest.kt$KavitaCollectionsApiTest$"""{"tag":{"id":5,"title":"Space operas","summary":"Big ships","coverImageLocked":true,"promoted":true},"seriesIdsToRemove":[7,9]}"""</ID>
+    <ID>MaxLineLength:KavitaCollectionsApiTest.kt$KavitaCollectionsApiTest$KavitaCollection("5", "Space operas", "Big ships", promoted = true, coverImageLocked = false, itemCount = 3, ownerUserName = "admin")</ID>
+    <ID>MaxLineLength:KavitaJournalSyncSupportTest.kt$FakeKavitaApi$override suspend fun downloadPageImage(accessToken: String, chapterId: String, pageIndex: Int, apiKey: String?): ByteArray</ID>
+    <ID>MaxLineLength:KavitaJournalSyncSupportTest.kt$FakeKavitaApi$override suspend fun downloadPageThumbnail(accessToken: String, chapterId: String, pageNumber: Int, apiKey: String?): ByteArray</ID>
+    <ID>MaxLineLength:KavitaListsApiTest.kt$KavitaListsApiTest$"""[{"id":4,"title":"Eclipse War","itemCount":22,"promoted":true,"ownerUserName":"admin","coverImage":"x","startingYear":2019,"endingYear":2020},"""</ID>
+    <ID>MaxLineLength:KavitaListsApiTest.kt$KavitaListsApiTest$respondJson("""{"id":4,"title":"Old","summary":"Story arc","promoted":true,"coverImageLocked":true,"startingYear":2016,"tags":[{"id":1,"title":"Events"}]}""")</ID>
+    <ID>ReturnCount:KavitaApi.kt$private fun String.problemDetailsSummary( status: HttpStatusCode, ): String?</ID>
+    <ID>ReturnCount:KavitaChapterTitleSupport.kt$private fun String?.normalizedKavitaChapterTitle(): String?</ID>
+    <ID>ReturnCount:KavitaChapterTitleSupport.kt$private fun String?.toKavitaArchiveDisplayTitle(): String?</ID>
+    <ID>ReturnCount:KavitaDtos.kt$fun KavitaChapterInfoDto.toProgressUpdate( item: ReadableItem, page: Int, isFinished: Boolean, updatedAtEpochMillis: Long, ): KavitaProgressUpdate?</ID>
+    <ID>ReturnCount:KavitaDtos.kt$fun KavitaProgressDto.toReadingProgress( itemId: String, pageCount: Int?, ): ReadingProgress?</ID>
+    <ID>ReturnCount:KavitaDtos.kt$fun ReadableItem.toKavitaProgressUpdate( page: Int, isFinished: Boolean, updatedAtEpochMillis: Long, ): KavitaProgressUpdate?</ID>
+    <ID>ReturnCount:KavitaDtos.kt$internal fun KavitaSeriesDto.toEntry( baseUrl: String, apiKey: String?, ): KavitaSeriesEntry?</ID>
+    <ID>ReturnCount:KavitaJournalSyncSupport.kt$suspend fun pushDirtyKavitaJournalEntries( api: KavitaApi, accessToken: String, entries: List&lt;ReadableItem&gt;, journalRepository: JournalRepository?, // True only when `entries` is the whole Kavita catalog (a catalog sync), so a dirty entry // missing from it belongs to a chapter deleted on the server. A pending flush passes a subset. itemsAreWholeCatalog: Boolean, pushJournalEntries: Boolean = true, ): List&lt;Throwable&gt;</ID>
+    <ID>ReturnCount:KavitaSessionRenewal.kt$private fun readKavitaTokenLifetime( accessToken: String, ): KavitaTokenLifetime?</ID>
+    <ID>ThrowsCount:KavitaJournalSyncSupport.kt$suspend fun pullKavitaJournalCache( api: KavitaApi, accessToken: String, libraries: List&lt;Library&gt;, entries: List&lt;KavitaChapterCatalogEntry&gt;, journalRepository: JournalRepository?, )</ID>
+    <ID>TooGenericExceptionCaught:KavitaCatalogTitleEnrichment.kt$throwable: Throwable</ID>
+    <ID>TooManyFunctions:KavitaApi.kt$KavitaApi</ID>
+    <ID>TooManyFunctions:KavitaApi.kt$KtorKavitaApi : KavitaApi</ID>
+    <ID>TooManyFunctions:KavitaDtos.kt$com.example.unifiedreader.data.kavita.KavitaDtos.kt</ID>
+    <ID>TooManyFunctions:KavitaJournalSyncSupport.kt$com.example.unifiedreader.data.kavita.KavitaJournalSyncSupport.kt</ID>
+    <ID>TooManyFunctions:KavitaListsApi.kt$KtorKavitaListsApi : KavitaListsApiKavitaCollectionsApi</ID>
+  </CurrentIssues>
+</SmellBaseline>

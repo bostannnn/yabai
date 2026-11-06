@@ -6,6 +6,7 @@ import android.net.Uri
 import com.example.unifiedreader.core.database.dao.ImportedComicArchiveDao
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.libraryDisplayLabel
+import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
@@ -112,7 +113,7 @@ class LocalDocumentRepository private constructor(
     override suspend fun removeById(itemId: String): Boolean {
         return coverMutationMutex.withLock {
             val record = store.remove(itemId) ?: return@withLock false
-            runCatching {
+            runSuspendCatching {
                 context.contentResolver.releasePersistableUriPermission(
                     Uri.parse(record.uri),
                     Intent.FLAG_GRANT_READ_URI_PERMISSION,

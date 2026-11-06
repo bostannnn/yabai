@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.translation
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -105,7 +106,7 @@ class TranslationSession(
 
     private suspend fun translate(selection: ReaderTextSelection, from: String, to: String) {
         mutableCurrent.value = TextSelectionTranslation(selection, from, to, TranslationPhase.Translating)
-        val phase = runCatching {
+        val phase = runSuspendCatching {
             coroutineScope {
                 val sentence = selection.sentence?.takeIf { selection.isShort }
                 val sentenceTranslation = sentence?.let { text -> async { service.translate(text, from, to) } }

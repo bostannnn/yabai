@@ -55,6 +55,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.core.model.primaryAuthor
+import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
 import com.example.unifiedreader.feature.reader.core.ReaderActiveSessionTracker
 import com.example.unifiedreader.feature.reader.core.ReaderDocumentState
@@ -603,7 +604,7 @@ private suspend fun inspectPdfDocument(
     context: Context,
     item: ReadableItem,
     documentUri: Uri,
-): PdfDocumentInfoState = runCatching {
+): PdfDocumentInfoState = runSuspendCatching {
     context.contentResolver.openFileDescriptor(documentUri, "r")?.use { descriptor ->
         PdfRenderer(descriptor).use { renderer ->
             val pageCount = renderer.pageCount

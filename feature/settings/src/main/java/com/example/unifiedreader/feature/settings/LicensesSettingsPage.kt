@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.ui.components.AppDivider
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppPanel
@@ -112,7 +113,7 @@ private fun rememberThirdPartyNotices(): ThirdPartyNotices? {
     var notices by remember { mutableStateOf<ThirdPartyNotices?>(null) }
     LaunchedEffect(Unit) {
         notices = withContext(Dispatchers.IO) {
-            runCatching {
+            runSuspendCatching {
                 context.assets.open(ThirdPartyNoticesAssetName).bufferedReader().use { it.readText() }
             }.map(::parseThirdPartyNotices).getOrElse { ThirdPartyNotices(emptyList(), emptyList()) }
         }

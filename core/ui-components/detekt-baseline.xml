@@ -1,0 +1,63 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ContentSlotReused:AppChip.kt$label</ID>
+    <ID>ContentSlotReused:AppFormRows.kt$control</ID>
+    <ID>ContentSlotReused:AppListCover.kt$cell</ID>
+    <ID>ContentSlotReused:AppSegmented.kt$label</ID>
+    <ID>ContentSlotReused:AppSideSheet.kt$content</ID>
+    <ID>CyclomaticComplexMethod:AppLetterStrip.kt$@Composable fun AppLetterStrip( letters: List&lt;Char&gt;, present: Set&lt;Char&gt;, current: Char?, onLetter: (Char) -&gt; Unit, modifier: Modifier = Modifier, letterHeight: Dp = AppLetterStripDefaults.letterHeight, )</ID>
+    <ID>CyclomaticComplexMethod:AppSettingsList.kt$@Composable fun AppSettingsRow( title: String, modifier: Modifier = Modifier, supporting: String? = null, icon: ImageVector? = null, value: String? = null, onClick: (() -&gt; Unit)? = null, enabled: Boolean = true, selected: Boolean = false, showChevron: Boolean = onClick != null, supportingColor: Color = Color.Unspecified, supportingIcon: ImageVector? = null, // A state's dot before the supporting line, as AppStatusPill draws it: a server's "Synced 09:12". supportingTone: AppStatusTone? = null, // The leading icon's colour when it carries meaning (an error row's icon); `primary` otherwise. iconTint: Color = Color.Unspecified, supportingContent: (@Composable ColumnScope.() -&gt; Unit)? = null, trailing: (@Composable RowScope.() -&gt; Unit)? = null, // The row's side inset; a row inside a dialog card, which is padded already, passes 0. horizontalInset: Dp = AppSettingsDefaults.horizontalPadding, leading: (@Composable RowScope.() -&gt; Unit)? = null, )</ID>
+    <ID>CyclomaticComplexMethod:AppTimeline.kt$@Composable private fun AppTimelineRow(entry: AppTimelineEntry, first: Boolean, last: Boolean, onClick: () -&gt; Unit)</ID>
+    <ID>LongMethod:AppFloatingPanel.kt$@Composable fun AppFloatingPanel( visible: Boolean, placement: AppFloatingPanelPlacement, onDismissRequest: () -&gt; Unit, modifier: Modifier = Modifier, width: Dp = AppFloatingPanelDefaults.width(placement), maxHeight: Dp = Dp.Unspecified, contentPadding: PaddingValues = PaddingValues(AppFloatingPanelDefaults.margin), containerColor: Color = AppFloatingPanelDefaults.containerColor, glass: Boolean = true, scrimColor: Color = AppFloatingPanelDefaults.scrimColor, testTag: String? = null, content: @Composable ColumnScope.() -&gt; Unit, )</ID>
+    <ID>LongMethod:AppLetterStrip.kt$@Composable fun AppLetterStrip( letters: List&lt;Char&gt;, present: Set&lt;Char&gt;, current: Char?, onLetter: (Char) -&gt; Unit, modifier: Modifier = Modifier, letterHeight: Dp = AppLetterStripDefaults.letterHeight, )</ID>
+    <ID>LongMethod:AppListRow.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun AppListRow( name: String, line: String, cover: @Composable (Modifier) -&gt; Unit, onClick: () -&gt; Unit, modifier: Modifier = Modifier, onLongClick: (() -&gt; Unit)? = null, onLongClickLabel: String? = null, progress: Float? = null, pinned: Boolean = false, updatesItself: Boolean = false, selected: Boolean? = null, pressed: Boolean = false, highlight: String? = null, )</ID>
+    <ID>LongMethod:AppNavigationRail.kt$@Composable fun AppNavigationRailItem( label: String, icon: ImageVector, selected: Boolean, onClick: () -&gt; Unit, modifier: Modifier = Modifier, badged: Boolean = false, badgeDescription: String? = null, )</ID>
+    <ID>LongMethod:AppScreenHost.kt$@Composable fun &lt;S, F&gt; AppScreenHost( screen: S, frame: F, modifier: Modifier = Modifier, back: AppScreenBack&lt;S&gt;? = null, contentKey: (S) -&gt; Any? = { it }, transitionFor: (from: S, to: S) -&gt; AppScreenTransition = { _, _ -&gt; AppScreenTransition.FadeThrough }, content: @Composable (screen: S, frame: F) -&gt; Unit, )</ID>
+    <ID>LongMethod:AppSearchField.kt$@Composable fun AppSearchField( query: String, onQueryChange: (String) -&gt; Unit, placeholder: String, modifier: Modifier = Modifier, height: Dp = AppSearchFieldDefaults.height, containerColor: Color = AppSearchFieldDefaults.containerColor, autoFocus: Boolean = false, contentDescription: String = placeholder, trailingContent: (@Composable () -&gt; Unit)? = null, onClick: (() -&gt; Unit)? = null, onSearch: (() -&gt; Unit)? = null, showActiveEdge: Boolean = true, showClear: Boolean = true, )</ID>
+    <ID>LongMethod:AppSearchPanel.kt$@OptIn(ExperimentalLayoutApi::class) @Composable fun AppSearchPanel( query: String, onQueryChange: (String) -&gt; Unit, placeholder: String, onDismissRequest: () -&gt; Unit, modifier: Modifier = Modifier, anchor: Rect? = null, state: AppSearchPanelState = rememberAppSearchPanelState(), listState: LazyListState = rememberLazyListState(), onSearch: (() -&gt; Unit)? = null, footer: (@Composable () -&gt; Unit)? = null, content: LazyListScope.() -&gt; Unit, )</ID>
+    <ID>LongMethod:AppSettingsList.kt$@Composable fun AppSettingsRow( title: String, modifier: Modifier = Modifier, supporting: String? = null, icon: ImageVector? = null, value: String? = null, onClick: (() -&gt; Unit)? = null, enabled: Boolean = true, selected: Boolean = false, showChevron: Boolean = onClick != null, supportingColor: Color = Color.Unspecified, supportingIcon: ImageVector? = null, // A state's dot before the supporting line, as AppStatusPill draws it: a server's "Synced 09:12". supportingTone: AppStatusTone? = null, // The leading icon's colour when it carries meaning (an error row's icon); `primary` otherwise. iconTint: Color = Color.Unspecified, supportingContent: (@Composable ColumnScope.() -&gt; Unit)? = null, trailing: (@Composable RowScope.() -&gt; Unit)? = null, // The row's side inset; a row inside a dialog card, which is padded already, passes 0. horizontalInset: Dp = AppSettingsDefaults.horizontalPadding, leading: (@Composable RowScope.() -&gt; Unit)? = null, )</ID>
+    <ID>LongMethod:AppSheet.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun AppSheetLayout( onDismissRequest: () -&gt; Unit, skipPartiallyExpanded: Boolean = false, containerColor: Color = Color.Unspecified, content: @Composable ColumnScope.(hide: () -&gt; Unit) -&gt; Unit, )</ID>
+    <ID>LongMethod:AppSideSheet.kt$@Composable fun AppSideSheet( onDismissRequest: () -&gt; Unit, modifier: Modifier = Modifier, content: @Composable AppSideSheetScope.() -&gt; Unit, )</ID>
+    <ID>LongMethod:AppTimeline.kt$@Composable private fun AppTimelineRow(entry: AppTimelineEntry, first: Boolean, last: Boolean, onClick: () -&gt; Unit)</ID>
+    <ID>LongMethod:AppToast.kt$@Composable private fun AppToast( message: AppToastMessage, onAction: () -&gt; Unit, onSwipedAway: () -&gt; Unit, onHeldChanged: (Boolean) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:AppTopBar.kt$@Composable fun AppTopBar( modifier: Modifier = Modifier, surfaceVisible: Boolean = true, containerColor: Color? = null, content: @Composable BoxWithConstraintsScope.() -&gt; Unit, )</ID>
+    <ID>LongParameterList:AppEmptyState.kt$( topLeft: Offset, size: Size, corner: CornerRadius, degrees: Float, stroke: Stroke, color: Color, fill: Color, )</ID>
+    <ID>LoopWithTooManyJumpStatements:AppLetterStrip.kt$while</ID>
+    <ID>MagicNumber:AppFloatingPanel.kt$0.5f</ID>
+    <ID>MagicNumber:AppFloatingPanel.kt$3</ID>
+    <ID>MagicNumber:AppGround.kt$16f</ID>
+    <ID>MagicNumber:AppGround.kt$20f</ID>
+    <ID>MagicNumber:AppGround.kt$24f</ID>
+    <ID>MagicNumber:AppGround.kt$4f</ID>
+    <ID>MagicNumber:AppSkeleton.kt$0.5f</ID>
+    <ID>MagicNumber:AppTileGrid.kt$AppTileGridDefaults$3</ID>
+    <ID>MagicNumber:AppTileGrid.kt$AppTileGridDefaults$4</ID>
+    <ID>MaxLineLength:AppCheckRow.kt$Icon(imageVector = AppIcons.Check, contentDescription = null, tint = colors.onPrimary, modifier = Modifier.size(AppCheckRowDefaults.checkSize))</ID>
+    <ID>MaxLineLength:AppCheckRow.kt$style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp, fontWeight = FontWeight.Normal, fontFeatureSettings = "tnum")</ID>
+    <ID>MaxLineLength:AppCoverStack.kt$.</ID>
+    <ID>MaxLineLength:AppCoverStack.kt$style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp, lineHeight = 16.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)</ID>
+    <ID>MaxLineLength:AppCoverStack.kt$style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Normal, fontFeatureSettings = "tnum")</ID>
+    <ID>MaxLineLength:AppListRow.kt$Icon(imageVector = AppIcons.Keep, contentDescription = "Pinned", tint = secondary, modifier = Modifier.size(AppListRowDefaults.markSize))</ID>
+    <ID>MaxLineLength:AppListRow.kt$Icon(imageVector = AppIcons.Tune, contentDescription = "Updates itself", tint = secondary, modifier = Modifier.size(AppListRowDefaults.markSize))</ID>
+    <ID>MaxLineLength:AppSearchPanel.kt$Box</ID>
+    <ID>MaxLineLength:AppSearchPanel.kt$scaleIn(AppMotion.spatial(), initialScale = AppMotion.fadeThroughInitialScale, transformOrigin = TransformOrigin(0.5f, 0f))</ID>
+    <ID>MaxLineLength:AppSearchPanel.kt$scaleOut(AppMotion.spatial(), targetScale = AppMotion.fadeThroughInitialScale, transformOrigin = TransformOrigin(0.5f, 0f))</ID>
+    <ID>MaxLineLength:AppSettingsList.kt$start = if (leading != null) (horizontalInset - AppSettingsDefaults.handleOverhang).coerceAtLeast(0.dp) else horizontalInset</ID>
+    <ID>MaxLineLength:AppTabPill.kt$style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp, fontWeight = FontWeight.Normal, fontFeatureSettings = "tnum")</ID>
+    <ID>MaxLineLength:AppTileGrid.kt$.</ID>
+    <ID>MaxLineLength:AppTileGrid.kt$style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Normal, fontFeatureSettings = "tnum")</ID>
+    <ID>MaxLineLength:AppTimeline.kt$style = MaterialTheme.typography.labelMedium.copy(fontSize = 13.sp, fontWeight = FontWeight.Normal, fontFeatureSettings = "tnum")</ID>
+    <ID>MaxLineLength:AppToast.kt$Text(text = label, style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold), maxLines = 1)</ID>
+    <ID>MaxLineLength:AppTopBar.kt$.</ID>
+    <ID>ModifierMissing:AppDrawerItem.kt$AppDrawerBadge</ID>
+    <ID>ModifierNotUsedAtRoot:AppSearchPanel.kt$modifier = modifier .width(width) .clickable( interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = {}, )</ID>
+    <ID>ModifierNotUsedAtRoot:AppSideSheet.kt$modifier = modifier .width(AppSideSheetDefaults.width) .fillMaxHeight() .graphicsLayer { val progress = backProgress.value translationX = towardEnd * AppMotion.predictiveBackShift.toPx() * progress scaleX = 1f - AppMotion.predictiveBackShrink * progress scaleY = scaleX transformOrigin = TransformOrigin(if (towardEnd &gt; 0) 1f else 0f, 0.5f) } .clickable( interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = {}, )</ID>
+    <ID>ModifierWithoutDefault:AppDialog.kt$modifier</ID>
+    <ID>ModifierWithoutDefault:AppSheetSections.kt$modifier</ID>
+    <ID>ReturnCount:AppLaunchSplashHold.kt$AppLaunchSplashHold$fun shouldKeep(): Boolean</ID>
+    <ID>ReturnCount:AppReorder.kt$AppReorderState$internal fun onDrag(deltaY: Float)</ID>
+    <ID>ReturnCount:AppReorder.kt$internal fun resolveReorderTarget( index: Int, draggedCenter: Float, boundsByIndex: Map&lt;Int, ReorderItemBounds&gt;, ): Int</ID>
+  </CurrentIssues>
+</SmellBaseline>

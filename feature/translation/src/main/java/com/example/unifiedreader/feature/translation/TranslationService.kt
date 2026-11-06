@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.translation
 
 import android.content.Context
+import com.example.unifiedreader.core.model.runSuspendCatching
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -68,7 +69,7 @@ class TranslationService internal constructor(
         if (tag in mutableState.value.downloading || tag in mutableState.value.downloaded) return
         mutableState.update { state -> state.copy(downloading = state.downloading + tag, failed = state.failed - tag) }
         scope.launch {
-            val result = runCatching { engine.download(tag) }
+            val result = runSuspendCatching { engine.download(tag) }
             refreshDownloaded()
             mutableState.update { state ->
                 state.copy(
@@ -82,7 +83,7 @@ class TranslationService internal constructor(
     fun remove(tag: String) {
         if (tag == TranslationLanguages.BUILT_IN) return
         scope.launch {
-            runCatching { engine.delete(tag) }
+            runSuspendCatching { engine.delete(tag) }
             refreshDownloaded()
         }
     }
@@ -105,7 +106,7 @@ class TranslationService internal constructor(
     suspend fun translate(text: String, from: String, to: String): String = engine.translate(text, from, to)
 
     private suspend fun refreshDownloaded() {
-        val downloaded = runCatching { engine.downloadedLanguages() }.getOrNull() ?: return
+        val downloaded = runSuspendCatching { engine.downloadedLanguages() }.getOrNull() ?: return
         mutableState.update { state -> state.copy(loaded = true, downloaded = downloaded) }
     }
 

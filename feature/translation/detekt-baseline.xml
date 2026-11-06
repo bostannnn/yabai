@@ -1,0 +1,16 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>LongMethod:TranslationSettingsContent.kt$@Composable fun ColumnScope.TranslationSettingsContent(service: TranslationService)</ID>
+    <ID>LongParameterList:TranslationPanelContent.kt$TranslationPanelActions$( val onPickFrom: (String?) -&gt; Unit, val onPickTo: (String) -&gt; Unit, val onSwap: () -&gt; Unit, val onDownload: () -&gt; Unit, val onRetry: () -&gt; Unit, val onClose: () -&gt; Unit, val onOpenFull: (() -&gt; Unit)?, )</ID>
+    <ID>MagicNumber:TranslationLanguages.kt$TranslationLanguages$3</ID>
+    <ID>MatchingDeclarationName:TranslationPanelContent.kt$TranslationPanelActions</ID>
+    <ID>ModifierMissing:TranslationSettingsContent.kt$TranslationSettingsContent</ID>
+    <ID>MultipleEmitters:ReaderTranslationOverlay.kt$ReaderTranslationOverlay</ID>
+    <ID>MultipleEmitters:TranslationPanelContent.kt$SelectedText</ID>
+    <ID>MultipleEmitters:TranslationPanelContent.kt$TranslationPhaseBody</ID>
+    <ID>NestedBlockDepth:TranslationPanelContent.kt$@Composable internal fun TranslationPhaseBody( translation: TextSelectionTranslation, asSheet: Boolean, actions: TranslationPanelActions, )</ID>
+    <ID>TooManyFunctions:TranslationPanelContent.kt$com.example.unifiedreader.feature.translation.TranslationPanelContent.kt</ID>
+  </CurrentIssues>
+</SmellBaseline>

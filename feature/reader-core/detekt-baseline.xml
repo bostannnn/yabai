@@ -1,0 +1,40 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComposableParamOrder:ImmersiveReaderOverlay.kt$ImmersiveReaderOverlay</ID>
+    <ID>ContentTrailingLambda:ImmersiveReaderOverlay.kt$content</ID>
+    <ID>CyclomaticComplexMethod:PageCurlDragGesture.kt$fun Modifier.pageCurlDragGesture( enabled: Boolean, rightToLeft: Boolean, state: PageCurlState, gestureScope: CoroutineScope, turner: PageCurlTapTurner, canStartTurn: (PageCurlTarget) -&gt; Boolean = { true }, startTurn: suspend (target: PageCurlTarget, down: Offset) -&gt; PageCurlDrag?, onTurnSettled: suspend (drag: PageCurlDrag, committed: Boolean) -&gt; Unit, onTurnEnded: (drag: PageCurlDrag) -&gt; Unit, yieldToLongPress: Boolean = false, isSelectingText: () -&gt; Boolean = { false }, vararg keys: Any?, ): Modifier</ID>
+    <ID>CyclomaticComplexMethod:ReaderZoomGestures.kt$suspend fun PointerInputScope.detectReaderZoomGestures( viewportCenter: () -&gt; Offset, canPan: (Offset) -&gt; Boolean, onPointerDown: () -&gt; Unit, onTransformStart: () -&gt; Unit, onPan: (Offset) -&gt; Offset, onPanRemainder: ( axis: ReaderPanAxis, consumed: Offset, available: Offset, ) -&gt; Unit = { _, _, _ -&gt; }, onTransform: (centroid: Offset, panChange: Offset, zoomChange: Float) -&gt; Unit, onTransformEnd: (velocity: Offset, panAxis: ReaderPanAxis?) -&gt; Unit, )</ID>
+    <ID>LongMethod:PageCurlDragGesture.kt$fun Modifier.pageCurlDragGesture( enabled: Boolean, rightToLeft: Boolean, state: PageCurlState, gestureScope: CoroutineScope, turner: PageCurlTapTurner, canStartTurn: (PageCurlTarget) -&gt; Boolean = { true }, startTurn: suspend (target: PageCurlTarget, down: Offset) -&gt; PageCurlDrag?, onTurnSettled: suspend (drag: PageCurlDrag, committed: Boolean) -&gt; Unit, onTurnEnded: (drag: PageCurlDrag) -&gt; Unit, yieldToLongPress: Boolean = false, isSelectingText: () -&gt; Boolean = { false }, vararg keys: Any?, ): Modifier</ID>
+    <ID>LongMethod:ReaderChrome.kt$@Composable fun ReaderChromeFrame( panelOpen: Boolean, onDismissPanel: () -&gt; Unit, topBar: @Composable () -&gt; Unit, dock: @Composable () -&gt; Unit, modifier: Modifier = Modifier, panels: @Composable BoxScope.(ReaderPanelSlot) -&gt; Unit, )</ID>
+    <ID>LongMethod:ReaderDockProgress.kt$@Composable fun RowScope.ReaderDockProgress( progress: Float, percentLabel: String, positionLabel: String, readingDirection: ComicReadingDirection = ComicReadingDirection.LTR, chapterMarks: List&lt;Float&gt; = emptyList(), onProgressSelected: ((Float) -&gt; Unit)? = null, )</ID>
+    <ID>LongMethod:ReaderOpeningLayer.kt$@Composable internal fun BoxScope.ReaderOpeningLayer( state: ReaderOpeningState, item: ReadableItem, cover: (@Composable (ReadableItem, Modifier) -&gt; Unit)?, downloadAgain: ReaderDownloadAgain?, onBack: () -&gt; Unit, )</ID>
+    <ID>LongMethod:ReaderOpeningLayer.kt$@Composable private fun ReaderOpeningContent( item: ReadableItem, colors: ReaderPageColors, step: ReaderOpeningStep, cover: (@Composable (ReadableItem, Modifier) -&gt; Unit)?, wordsAtOnce: Boolean, )</ID>
+    <ID>LongMethod:ReaderZoomGestures.kt$suspend fun PointerInputScope.detectReaderZoomGestures( viewportCenter: () -&gt; Offset, canPan: (Offset) -&gt; Boolean, onPointerDown: () -&gt; Unit, onTransformStart: () -&gt; Unit, onPan: (Offset) -&gt; Offset, onPanRemainder: ( axis: ReaderPanAxis, consumed: Offset, available: Offset, ) -&gt; Unit = { _, _, _ -&gt; }, onTransform: (centroid: Offset, panChange: Offset, zoomChange: Float) -&gt; Unit, onTransformEnd: (velocity: Offset, panAxis: ReaderPanAxis?) -&gt; Unit, )</ID>
+    <ID>LongParameterList:PageCurlDragGesture.kt$( enabled: Boolean, rightToLeft: Boolean, state: PageCurlState, gestureScope: CoroutineScope, turner: PageCurlTapTurner, canStartTurn: (PageCurlTarget) -&gt; Boolean = { true }, startTurn: suspend (target: PageCurlTarget, down: Offset) -&gt; PageCurlDrag?, onTurnSettled: suspend (drag: PageCurlDrag, committed: Boolean) -&gt; Unit, onTurnEnded: (drag: PageCurlDrag) -&gt; Unit, yieldToLongPress: Boolean = false, isSelectingText: () -&gt; Boolean = { false }, vararg keys: Any?, )</ID>
+    <ID>LongParameterList:PageCurlTurn.kt$( target: PageCurlTarget, paperBounds: IntRect, bookBounds: IntRect, outward: Float, follow: PageCurlFollow, backIsFacingPage: Boolean, )</ID>
+    <ID>LongParameterList:ReaderSessionStore.kt$ReaderSessionStore$( item: ReadableItem, locator: ReaderLocator, isFinished: Boolean = false, isExplicitUnreadReset: Boolean = false, syncState: SyncState = SyncState.CLEAN, pageCount: Int? = null, updatedAtEpochMillis: Long = System.currentTimeMillis(), )</ID>
+    <ID>LongParameterList:ReaderZoomGestures.kt$( viewportCenter: () -&gt; Offset, canPan: (Offset) -&gt; Boolean, onPointerDown: () -&gt; Unit, onTransformStart: () -&gt; Unit, onPan: (Offset) -&gt; Offset, onPanRemainder: ( axis: ReaderPanAxis, consumed: Offset, available: Offset, ) -&gt; Unit = { _, _, _ -&gt; }, onTransform: (centroid: Offset, panChange: Offset, zoomChange: Float) -&gt; Unit, onTransformEnd: (velocity: Offset, panAxis: ReaderPanAxis?) -&gt; Unit, )</ID>
+    <ID>MagicNumber:PageCurlDragGesture.kt$1.5f</ID>
+    <ID>MatchingDeclarationName:ImmersiveReaderOverlay.kt$ReaderOverlayState</ID>
+    <ID>MatchingDeclarationName:ReaderDocument.kt$ReaderDocumentState</ID>
+    <ID>MatchingDeclarationName:ReaderZoomGestures.kt$ReaderPanAxis</ID>
+    <ID>MaxLineLength:ReaderOpeningLayer.kt$Crossfade</ID>
+    <ID>MaxLineLength:ReaderOpeningLayer.kt$ReaderPageColors(page = scheme.background, text = scheme.onBackground, number = scheme.outline, raised = scheme.surfaceContainerHigh)</ID>
+    <ID>MaxLineLength:ReaderOpeningTest.kt$ReaderOpeningTest$assertEquals(emptyList&lt;ReaderErrorAction&gt;(), readerErrorActions(ReaderOpenFailure.LocalFileGone, canRetry = true, canDownloadAgain = false))</ID>
+    <ID>MaxLineLength:ReaderOpeningTest.kt$ReaderOpeningTest$assertEquals(emptyList&lt;ReaderErrorAction&gt;(), readerErrorActions(ReaderOpenFailure.Unknown, canRetry = false, canDownloadAgain = false))</ID>
+    <ID>MaxLineLength:ReaderOpeningTest.kt$ReaderOpeningTest$assertEquals(emptyList&lt;ReaderErrorAction&gt;(), readerErrorActions(ReaderOpenFailure.Unsupported(FormatType.CBR), canRetry = true, canDownloadAgain = true))</ID>
+    <ID>ModifierComposed:PageCurlDragGesture.kt$pageCurlDragGesture</ID>
+    <ID>ModifierMissing:ReaderDockProgress.kt$ReaderDockProgress</ID>
+    <ID>ModifierMissing:ReaderHost.kt$ReaderHost</ID>
+    <ID>ModifierWithoutDefault:PageCurlSurface.kt$modifier</ID>
+    <ID>ReturnCount:PageCurlTurn.kt$fun buildPageCurlTurn( target: PageCurlTarget, paperBounds: IntRect, bookBounds: IntRect, outward: Float, follow: PageCurlFollow, backIsFacingPage: Boolean, ): PageCurlTurn?</ID>
+    <ID>TooGenericExceptionCaught:ReaderDocument.kt$error: Throwable</ID>
+    <ID>TooManyFunctions:ReaderSessionStore.kt$ReaderSessionStore</ID>
+    <ID>TooManyFunctions:ReaderWorkCoordinator.kt$ReaderWorkCoordinator</ID>
+    <ID>TooManyFunctions:ReaderZoomViewportState.kt$ReaderZoomViewportState</ID>
+    <ID>UnusedParameter:ReaderWorkCoordinator.kt$ReaderWorkCoordinator$itemId: String</ID>
+    <ID>WildcardImport:PageCurlDragSessionTest.kt$import org.junit.Assert.*</ID>
+  </CurrentIssues>
+</SmellBaseline>
