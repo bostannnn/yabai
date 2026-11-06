@@ -18,6 +18,7 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.runtime:runtime-saveable")
     implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.compose.material3)
 
     testImplementation(libs.junit4)

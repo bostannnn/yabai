@@ -7,6 +7,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
 import com.example.unifiedreader.core.model.FormatType
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedInputStream
@@ -15,9 +16,10 @@ import java.util.zip.ZipInputStream
 internal class LocalDocumentImportProbe(
     private val context: Context,
     private val comicArchiveCodecs: List<ComicArchiveCodec>,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     // Validation reads whole archives and parses XML; callers are often on Main.
-    suspend fun probe(uri: Uri): LocalDocumentRecord? = withContext(Dispatchers.IO) {
+    suspend fun probe(uri: Uri): LocalDocumentRecord? = withContext(ioDispatcher) {
         probeOnCurrentThread(uri)
     }
 

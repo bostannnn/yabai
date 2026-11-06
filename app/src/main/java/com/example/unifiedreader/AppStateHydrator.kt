@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.common.AppDispatchers
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -11,8 +12,9 @@ class AppStateHydrator @Inject constructor(
     private val remoteCatalogHydrator: RemoteCatalogHydrator,
     private val localDocumentHydrator: LocalDocumentHydrator,
     private val readerSessionHydrator: ReaderSessionHydrator,
+    private val appDispatchers: AppDispatchers = AppDispatchers(),
 ) {
-    suspend fun hydrate() = withContext(Dispatchers.IO) {
+    suspend fun hydrate() = withContext(appDispatchers.io) {
         appStartupTasks.initialize()
         coroutineScope {
             val remoteCatalog = async { remoteCatalogHydrator.hydrate() }

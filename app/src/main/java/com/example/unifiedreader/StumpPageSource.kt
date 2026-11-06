@@ -7,14 +7,13 @@ import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 
 class StumpPageSource(
     private val stumpApiFactory: StumpApiFactory,
     private val stumpCredentialStore: StumpCredentialStore,
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher),
+    private val scope: CoroutineScope,
     readerWorkCoordinator: ReaderWorkCoordinator = ReaderWorkCoordinator(),
 ) : RemoteComicPageSource<StumpStoredSession>(
     sourceType = com.example.unifiedreader.core.model.SourceType.STUMP,

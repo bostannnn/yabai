@@ -9,9 +9,9 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import java.io.IOException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.withContext
 
 data class SettingsPreferences(
     val themeMode: ThemeMode = ThemeMode.SystemDynamic,
@@ -34,17 +35,20 @@ class DataStoreSettingsPreferencesStore(
     private val appContext: Context,
     private val dataStore: DataStore<Preferences>,
     private val startupPreferences: SharedPreferences,
+    /** The app scope; saves run on it so they outlive the screen. */
+    private val scope: CoroutineScope,
     private val ioRetryDelayMillis: Long = DATASTORE_IO_RETRY_DELAY_MILLIS,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : SettingsPreferencesStore {
     constructor(
         context: Context,
+        scope: CoroutineScope,
     ) : this(
         appContext = context.applicationContext,
         dataStore = context.applicationContext.settingsPreferencesDataStore,
         startupPreferences = context.applicationContext.startupPreferences,
+        scope = scope,
     )
-
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val legacyPreferences = appContext.getSharedPreferences(
         LEGACY_SHARED_PREFERENCES_NAME,
         Context.MODE_PRIVATE,
@@ -89,7 +93,8 @@ class DataStoreSettingsPreferencesStore(
         dataStore.edit { preferences ->
             preferences[Keys.ThemeMode] = themeMode.storageValue
         }
-        writeStartupPreferences(SettingsPreferences(themeMode = themeMode))
+        // A synchronous commit, so the next cold start reads the new theme; off the caller's thread.
+        withContext(ioDispatcher) { writeStartupPreferences(SettingsPreferences(themeMode = themeMode)) }
     }
 
     private fun writeStartupPreferences(

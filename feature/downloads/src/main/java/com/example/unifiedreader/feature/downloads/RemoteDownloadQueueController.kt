@@ -5,6 +5,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.core.model.resolveRemoteDownloadActionItems
 import java.util.UUID
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -32,6 +33,7 @@ class RemoteDownloadQueueController(
     private val scheduler: DownloadWorkScheduler,
     private val remoteDownloadDataSources: List<RemoteItemDownloadDataSource>,
     private val timeProvider: () -> Long = System::currentTimeMillis,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     fun observeEntries() = store.observeEntries()
 
@@ -97,7 +99,7 @@ class RemoteDownloadQueueController(
                 )
             }
             .distinctBy(ReadableItem::id)
-        val actionItems = withContext(Dispatchers.IO) {
+        val actionItems = withContext(ioDispatcher) {
             resolvedActionItems.filter { actionItem ->
                 val dataSource = remoteDownloadDataSources.downloadDataSourceFor(actionItem)
                 dataSource != null && dataSource.storedDocumentUri(actionItem) == null
@@ -242,7 +244,7 @@ class RemoteDownloadQueueController(
     ): ReadableItem? {
         val entry = store.getEntry(entryId) ?: return null
         if (entry.status != DownloadEntryStatus.Completed) return null
-        return withContext(Dispatchers.IO) {
+        return withContext(ioDispatcher) {
             entry.actionItems
                 .asSequence()
                 .filter { actionItem -> actionItem.id in entry.completedItemIds }

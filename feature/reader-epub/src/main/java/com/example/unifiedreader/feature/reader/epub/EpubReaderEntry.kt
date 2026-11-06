@@ -8,7 +8,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -28,6 +27,7 @@ import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
@@ -96,12 +96,12 @@ fun EpubReaderScreen(
         return
     }
 
-    val hydrated by sessionStore.isHydratedFlow.collectAsState()
-    val progressByItemId by sessionStore.progressByItemIdFlow.collectAsState()
-    val sessionByItemId by sessionStore.sessionByItemIdFlow.collectAsState()
+    val hydrated by sessionStore.isHydratedFlow.collectAsStateWithLifecycle()
+    val progressByItemId by sessionStore.progressByItemIdFlow.collectAsStateWithLifecycle()
+    val sessionByItemId by sessionStore.sessionByItemIdFlow.collectAsStateWithLifecycle()
     val progressSnapshot = progressByItemId[item.id]
     val sessionSnapshot = sessionByItemId[item.id]
-    val pageColorPick by displayPreferences.pageColor.pickFlow.collectAsState()
+    val pageColorPick by displayPreferences.pageColor.pickFlow.collectAsStateWithLifecycle()
     if (!hydrated || !pageColorPick.isLoaded) {
         ReportReaderOpening(ReaderOpenStatus.Opening(ReaderOpeningStep.Opening))
         return
@@ -180,7 +180,7 @@ fun EpubReaderScreen(
     var secondSpreadPage by remember(item.id) { mutableStateOf<Int?>(null) }
     // The navigator's page inside its file; 0 is a chapter's first page.
     var resourcePageIndex by remember(item.id) { mutableIntStateOf(-1) }
-    val pageNumbersVisible by displayPreferences.pageNumbers.isVisibleFlow.collectAsState()
+    val pageNumbersVisible by displayPreferences.pageNumbers.isVisibleFlow.collectAsStateWithLifecycle()
     var hasAutoRequestedCompletion by rememberSaveable(item.id) {
         mutableStateOf(false)
     }

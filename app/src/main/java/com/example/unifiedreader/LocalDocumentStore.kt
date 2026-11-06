@@ -2,6 +2,7 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.database.dao.ImportedComicArchiveDao
 import com.example.unifiedreader.core.model.ReadableItem
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,6 +14,7 @@ internal class LocalDocumentStore(
     private val appStartupTasks: AppStartupTasks = AppStartupTasks {},
     private val importedComicArchiveDao: ImportedComicArchiveDao,
     private val persistedCoverUriResolver: (itemId: String, coverFileName: String?) -> String? = { _, _ -> null },
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     private val recordsById = MutableStateFlow<Map<String, LocalDocumentRecord>>(emptyMap())
     private val importedItemsState = MutableStateFlow<List<ReadableItem>>(emptyList())
@@ -23,7 +25,7 @@ internal class LocalDocumentStore(
 
     suspend fun hydrate(): List<LocalDocumentRecord> {
         appStartupTasks.initialize()
-        val persistedRecords = withContext(Dispatchers.IO) {
+        val persistedRecords = withContext(ioDispatcher) {
             importedComicArchiveDao.getAll()
                 .map { entity ->
                     entityToRecord(
@@ -50,7 +52,7 @@ internal class LocalDocumentStore(
 
     suspend fun upsert(record: LocalDocumentRecord) {
         appStartupTasks.initialize()
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             importedComicArchiveDao.insertOrReplace(record.toEntity())
         }
         publishRecords(recordsById.value.values.filterNot { it.id == record.id } + record)
@@ -59,7 +61,7 @@ internal class LocalDocumentStore(
     suspend fun remove(itemId: String): LocalDocumentRecord? {
         val record = recordsById.value[itemId] ?: return null
         appStartupTasks.initialize()
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             importedComicArchiveDao.deleteByItemId(itemId)
         }
         publishRecords(recordsById.value.values.filterNot { it.id == itemId })

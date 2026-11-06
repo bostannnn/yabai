@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.library.covers
 
 import android.content.Context
+import com.example.unifiedreader.core.common.AppDispatchers
 import com.example.unifiedreader.core.model.runSuspendCatching
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -20,6 +21,7 @@ data class CachedRemoteCoverFile(
 @Singleton
 class PersistentRemoteCoverStore @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val appDispatchers: AppDispatchers = AppDispatchers(),
 ) {
     private val storageMutexes = ConcurrentHashMap<String, Mutex>()
     private val indexedPersistentFilesByDirectory =
@@ -107,7 +109,7 @@ class PersistentRemoteCoverStore @Inject constructor(
         legacyDirectoryName: String? = null,
     ) {
         withStorageLock(storageDirectoryName) {
-            withContext(Dispatchers.IO) {
+            withContext(appDispatchers.io) {
                 indexedPersistentFilesByDirectory[storageDirectoryName] =
                     indexFiles(existingStorageDirectory(storageDirectoryName))
                 warmedStorageDirectories += storageDirectoryName
@@ -124,7 +126,7 @@ class PersistentRemoteCoverStore @Inject constructor(
         storageDirectoryName: String,
         fileName: String,
         legacyDirectoryName: String,
-    ): File? = withContext(Dispatchers.IO) {
+    ): File? = withContext(appDispatchers.io) {
         val destination = persistentCoverFile(storageDirectoryName, fileName)
         if (destination.isFile && destination.length() > 0L) {
             recordPersistentCoverFile(
@@ -186,7 +188,7 @@ class PersistentRemoteCoverStore @Inject constructor(
         additionalStorageDirectories: List<String> = emptyList(),
     ) {
         withStorageLock(storageDirectoryName) {
-            withContext(Dispatchers.IO) {
+            withContext(appDispatchers.io) {
                 storageDirectory(storageDirectoryName).deleteRecursively()
                 legacyDirectoryName?.let(::legacyStorageDirectory)?.deleteRecursively()
                 additionalStorageDirectories.forEach { directoryName ->

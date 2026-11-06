@@ -103,6 +103,10 @@ class RemoteDownloadWorkerRunner(
                 resolveStoppedOutcome(entryId)
             }
         } catch (cancellation: CancellationException) {
+            // Not rethrown on purpose. WorkManager cancels the worker when the user cancels a download or the
+            // system stops the job; either way the entry must be settled (Canceled, or back to Queued so it
+            // resumes) before the worker returns, and the returned outcome tells WorkManager what happened.
+            // NonCancellable lets that last write run although this coroutine is already cancelled.
             withContext(NonCancellable) {
                 finalizeStopped(entryId)
             }

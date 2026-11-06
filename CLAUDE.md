@@ -72,6 +72,9 @@ export ANDROID_HOME=~/Library/Android/sdk_new
 - Build settings shared by every module (SDK levels, Java 17 for all, Compose, detekt, lint) live in the convention
   plugins in `build-logic/convention` (`yabai.android.library`, `yabai.android.compose`, `yabai.jvm.library`,
   `yabai.android.application`). A module's own build file holds only its namespace and dependencies.
+- Work that outlives a screen runs on the one `@ApplicationScope` scope (`AppCoroutinesModule`); a class takes a
+  `CoroutineScope` parameter, never builds `CoroutineScope(SupervisorJob() + …)` itself. Tests pass `backgroundScope`
+  (it doesn't run during `advanceUntilIdle`; pass the test's own scope when a test advances and expects the work).
 - Inside suspend code, catch with `runSuspendCatching`, never `runCatching` (it swallows cancellation);
   `SuspendRunCatchingRuleTest` in `core:model` enforces it.
 

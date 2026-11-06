@@ -3,7 +3,9 @@ package com.example.unifiedreader.feature.reader.preferences
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.test.core.app.ApplicationProvider
 import java.io.File
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.plus
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -25,6 +27,7 @@ class ReaderPageNumberPreferencesStoreTest {
         val store = DataStoreReaderPageNumberPreferencesStore(
             context = context,
             dataStore = dataStore,
+            scope = backgroundScope + Dispatchers.IO,
         )
 
         assertTrue(store.isVisibleFlow.value)
@@ -43,10 +46,14 @@ class ReaderPageNumberPreferencesStoreTest {
                 File(context.cacheDir, "reader-page-number-persist-test.preferences_pb").apply { delete() }
             },
         )
-        DataStoreReaderPageNumberPreferencesStore(context = context, dataStore = dataStore)
+        DataStoreReaderPageNumberPreferencesStore(context = context, dataStore = dataStore, scope = backgroundScope + Dispatchers.IO)
             .setVisible(false)
 
-        val reopened = DataStoreReaderPageNumberPreferencesStore(context = context, dataStore = dataStore)
+        val reopened = DataStoreReaderPageNumberPreferencesStore(
+            context = context,
+            dataStore = dataStore,
+            scope = backgroundScope + Dispatchers.IO,
+        )
 
         assertFalse(reopened.isVisibleFlow.first { visible -> !visible })
     }

@@ -10,9 +10,9 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.example.unifiedreader.core.model.SourceType
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.withContext
 
 data class SourceNavigationPreferences(
     val sourceOrder: List<SourceType> = defaultSourceOrder(),
@@ -45,14 +46,17 @@ interface SourceNavigationPreferencesStore {
 class DataStoreSourceNavigationPreferencesStore(
     private val dataStore: DataStore<Preferences>,
     private val startupPreferences: SharedPreferences,
-    scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    scope: CoroutineScope,
     private val ioRetryDelayMillis: Long = SOURCE_NAVIGATION_PREFERENCES_IO_RETRY_DELAY_MILLIS,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : SourceNavigationPreferencesStore {
     constructor(
         context: Context,
+        scope: CoroutineScope,
     ) : this(
         dataStore = context.applicationContext.sourceNavigationPreferencesDataStore,
         startupPreferences = context.applicationContext.sourceNavigationStartupPreferences,
+        scope = scope,
     )
 
     private val startupSnapshot = loadStartupSourceNavigationPreferences(startupPreferences)
@@ -86,7 +90,8 @@ class DataStoreSourceNavigationPreferencesStore(
             sourceOrder = normalizeSourceOrder(sourceOrder),
         )
         latestPreferences.set(updatedPreferences)
-        writeStartupPreferences(updatedPreferences)
+        // A synchronous commit, so the next cold start reads the new order; off the caller's thread.
+        withContext(ioDispatcher) { writeStartupPreferences(updatedPreferences) }
     }
 
     override fun lastConnectedSources(): Set<SourceType>? =

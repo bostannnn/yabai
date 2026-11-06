@@ -21,7 +21,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -35,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
@@ -180,7 +180,7 @@ private fun ComicSpreadPreviewItem(
             pages = spread.pages.map(ComicSpreadPage::spec),
             options = PreviewOptions,
         )
-    }.collectAsState(initial = 0L)
+    }.collectAsStateWithLifecycle(initialValue = 0L)
     val previewResults by produceState<Map<String, ComicPagePreviewResult>>(
         initialValue = emptyMap(),
         key1 = item.id,

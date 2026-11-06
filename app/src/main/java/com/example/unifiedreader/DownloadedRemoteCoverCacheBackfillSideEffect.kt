@@ -7,6 +7,8 @@ import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
+import com.example.unifiedreader.core.common.AppDispatchers
+import com.example.unifiedreader.core.common.ApplicationScope
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
@@ -32,10 +34,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.plus
 import kotlinx.coroutines.withContext
 
 @Singleton
@@ -48,12 +50,14 @@ class DownloadedRemoteCoverCacheBackfiller @Inject constructor(
     private val grimmoryCredentialStore: GrimmoryCredentialStore,
     private val pdfCoverRenderer: DownloadedPdfCoverRenderer,
     private val readerWorkCoordinator: ReaderWorkCoordinator = ReaderWorkCoordinator(),
+    @ApplicationScope applicationScope: CoroutineScope,
+    private val appDispatchers: AppDispatchers = AppDispatchers(),
 ) : DownloadedRemoteCoverBackfiller {
     private val comicArchiveCodecs = listOf(
         ZipComicArchiveCodec,
         RarComicArchiveCodec(context),
     )
-    private val deferredBackfillScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val deferredBackfillScope = applicationScope + appDispatchers.io
     private val deferredBackfillLock = Any()
     private val deferredBackfillJobsByItemId = mutableMapOf<String, Job>()
 
@@ -258,10 +262,11 @@ interface DownloadedPdfCoverRenderer {
 @Singleton
 class AndroidDownloadedPdfCoverRenderer @Inject constructor(
     @param:ApplicationContext private val context: Context,
+    private val appDispatchers: AppDispatchers = AppDispatchers(),
 ) : DownloadedPdfCoverRenderer {
     override suspend fun coverBytes(
         uri: Uri,
-    ): ByteArray? = withContext(Dispatchers.IO) {
+    ): ByteArray? = withContext(appDispatchers.io) {
         var renderedBitmap: Bitmap? = null
         try {
             val bytes = context.contentResolver.openFileDescriptor(uri, "r")?.use { descriptor ->

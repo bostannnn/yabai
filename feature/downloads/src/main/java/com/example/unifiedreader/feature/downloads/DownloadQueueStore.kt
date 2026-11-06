@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.downloads
 
 import com.example.unifiedreader.core.database.dao.DownloadQueueDao
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -53,33 +54,34 @@ interface DownloadQueueStore {
 class RoomDownloadQueueStore(
     private val downloadQueueDao: DownloadQueueDao,
     private val timeProvider: () -> Long = System::currentTimeMillis,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : DownloadQueueStore {
     private val enqueueMutex = Mutex()
 
     override fun observeEntries(): Flow<DownloadEntriesSnapshot> = downloadQueueDao.observeAll()
         .map { entities -> DownloadEntriesSnapshot(entities.map { entity -> entity.toDomain() }) }
 
-    override suspend fun getEntries(): List<DownloadEntry> = withContext(Dispatchers.IO) {
+    override suspend fun getEntries(): List<DownloadEntry> = withContext(ioDispatcher) {
         downloadQueueDao.getAll().map { entity -> entity.toDomain() }
     }
 
     override suspend fun getEntry(
         entryId: String,
-    ): DownloadEntry? = withContext(Dispatchers.IO) {
+    ): DownloadEntry? = withContext(ioDispatcher) {
         downloadQueueDao.getById(entryId)?.toDomain()
     }
 
     override suspend fun putEntry(
         entry: DownloadEntry,
     ) {
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             downloadQueueDao.insertOrReplace(entry.toEntity())
         }
     }
 
     override suspend fun putEntryIfNoActiveTrackedItems(
         entry: DownloadEntry,
-    ): Boolean = withContext(Dispatchers.IO) {
+    ): Boolean = withContext(ioDispatcher) {
         enqueueMutex.withLock {
             val hasOverlap = downloadQueueDao.getAll()
                 .map { entity -> entity.toDomain() }
@@ -98,7 +100,7 @@ class RoomDownloadQueueStore(
 
     override suspend fun retryEntryIfNoOtherActiveTrackedItems(
         entryId: String,
-    ): Boolean = withContext(Dispatchers.IO) {
+    ): Boolean = withContext(ioDispatcher) {
         enqueueMutex.withLock {
             val entries = downloadQueueDao.getAll().map { entity -> entity.toDomain() }
             val entry = entries.firstOrNull { candidate -> candidate.id == entryId } ?: return@withLock false
@@ -132,7 +134,7 @@ class RoomDownloadQueueStore(
         errorMessage: String?,
         completedAtEpochMillis: Long?,
     ) {
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             downloadQueueDao.updateStatus(
                 entryId = entryId,
                 status = status.name,
@@ -153,7 +155,7 @@ class RoomDownloadQueueStore(
         currentItemTitle: String?,
         errorMessage: String?,
         completedAtEpochMillis: Long?,
-    ): Boolean = withContext(Dispatchers.IO) {
+    ): Boolean = withContext(ioDispatcher) {
         downloadQueueDao.updateStatusIfCurrentStatusIn(
             entryId = entryId,
             expectedStatuses = expectedStatuses.map(DownloadEntryStatus::name),
@@ -172,7 +174,7 @@ class RoomDownloadQueueStore(
         currentItemId: String?,
         currentItemTitle: String?,
     ) {
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             downloadQueueDao.updateProgress(
                 entryId = entryId,
                 completedItemIdsEncoded = completedItemIds.toList().encodeStringList(),
@@ -185,7 +187,7 @@ class RoomDownloadQueueStore(
 
     override suspend fun deleteEntry(
         entryId: String,
-    ): Int = withContext(Dispatchers.IO) {
+    ): Int = withContext(ioDispatcher) {
         downloadQueueDao.deleteById(entryId)
     }
 }

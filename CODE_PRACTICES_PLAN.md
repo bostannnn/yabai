@@ -102,7 +102,32 @@ user's choice. The shared helpers and where they live:
 - **Checked:** 1,900 unit tests pass (Android plus JVM modules), and detekt, lint, `:app:assembleDebug` and the
   journal androidTest sources pass too.
 
-**Next:** step 4 (coroutine and threading hygiene).
+**Step 4 done (2026-11-06)**, not on a device:
+
+- **One app scope.** `@ApplicationScope` (`core:common`) is provided once by `AppCoroutinesModule`, a
+  `SupervisorJob` on Default. The 21 classes that built a `CoroutineScope(SupervisorJob() + …)` of their own now
+  take a scope: the page sources, catalog repository, reader session store, journal recorders, cover controller,
+  backfiller, local documents, comics session adapter, the seven preference stores, translation and the updater.
+  Production passes `applicationScope + <dispatcher>`, which shares the one job and keeps each class's old
+  dispatcher. Tests pass `backgroundScope` (plus IO where the class used IO), or `TestScope()` outside `runTest`.
+  The preference-store providers moved from `AppModule` to `AppPreferencesModule`, so `AppModule` shrank.
+- **Dispatchers.** 100 hard-coded `Dispatchers.IO` → 52, of which 23 are parameter defaults. The other 48 uses
+  now go through a parameter. Most classes take an `ioDispatcher` constructor parameter (default
+  `Dispatchers.IO`); `@Inject` classes take the injected `AppDispatchers`, since Hilt ignores Kotlin defaults.
+  29 remain, in Compose screens, top-level functions, and two classes already at detekt's parameter limit
+  (the encrypted sign-in store, the download repository).
+- **Lifecycle-aware collection.** All 17 `collectAsState` in the readers are now `collectAsStateWithLifecycle`,
+  so a reader in the background stops collecting.
+- **Disk writes.** The encrypted sign-in store now encrypts and commits on IO. The theme and the source order
+  write their cold-start copy on IO.
+- **Download worker.** The swallowed cancellation in `RemoteDownloadWorkerRunner` now has a comment saying why
+  (the entry must be settled before WorkManager gets the outcome).
+- **detekt:** `LongParameterList` now ignores `@Provides` and `@Inject`, whose parameters are the dependency graph.
+  Three baseline entries were renamed for constructors whose scope lost its default.
+- **Known and left:** `app`'s androidTest `LibraryTopBarSearchTest` has not compiled since the search redesign
+  (`81bba708`). CI does not build androidTest.
+
+**Next:** step 5 (large consolidations), one per change, each checked on the emulator.
 
 ## Step 1. Decisions only the user can make (done, answers above)
 
@@ -186,7 +211,7 @@ Each is a short, low-risk change. Put JVM-safe helpers in `core:model` (or a new
 | Content-URI archive signature and `Cursor.getLongOrNull` | 2: `ComicArchiveCodecs.kt` ~253 and `LocalComicPageLoader.kt` ~977 | |
 | Format checks | `isComicArchive` (`LocalDocumentSupport.kt`, `LibraryCoverPlaceholder.kt`) duplicates `isComicReaderFormat`; Stump's `toComicFormatType` duplicates `toReadableFormatTypeOrNull` | Use the core ones. |
 
-## Step 4. Coroutine and threading hygiene
+## Step 4. Coroutine and threading hygiene (done, see above)
 
 - **One injected application scope.** Provide an `@ApplicationScope CoroutineScope` from Hilt. It replaces the 16
   classes that create `CoroutineScope(SupervisorJob() + …)` and never cancel it:

@@ -16,7 +16,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,7 +31,7 @@ class RoomReaderSessionStore(
     private val readerSessionStateDao: ReaderSessionStateDao,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val appStartupTasks: AppStartupTasks = AppStartupTasks {},
-    private val writeScope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher),
+    private val writeScope: CoroutineScope,
 ) : ReaderSessionStore, ReaderSessionHydrator, StartupReaderSessionCacheSeeder {
     private val progressWriteMutex = Mutex()
     private val sessionWriteMutex = Mutex()
@@ -165,7 +164,7 @@ class RoomReaderSessionStore(
         if (!matched) return false
         appStartupTasks.initialize()
         progressWriteMutex.withLock {
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 val latest = synchronized(stateMonitor) {
                     progressState.value[expected.itemId]
                 }

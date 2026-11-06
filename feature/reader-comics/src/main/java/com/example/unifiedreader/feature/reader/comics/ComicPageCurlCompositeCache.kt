@@ -7,6 +7,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.IntSize
 import com.example.unifiedreader.core.model.ReadableItem
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -20,6 +21,7 @@ import kotlinx.coroutines.sync.withLock
 @Stable
 internal class ComicPageCurlCompositeCache(
     private val canvasColor: Color,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     private val composites = mutableStateMapOf<ComicPageCurlCompositeKey, ComicPageCurlComposite>()
     private val loads = mutableMapOf<ComicPageCurlCompositeKey, Mutex>()
@@ -140,7 +142,7 @@ internal class ComicPageCurlCompositeCache(
                 .map(ComicSpreadPage::spec)
                 .distinctBy(ComicPageSpec::id)
                 .map { page ->
-                    async(Dispatchers.IO) {
+                    async(ioDispatcher) {
                         val image = try {
                             when (
                                 val result = pageSource.loadPageImage(

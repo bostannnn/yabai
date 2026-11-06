@@ -10,8 +10,9 @@ naming:
 
 complexity:
   LongParameterList:
-    # Composables take many parameters by design.
-    ignoreAnnotated: ['Composable']
+    # Composables take many parameters by design; Hilt providers and @Inject constructors list the
+    # dependency graph, which a parameter object would only hide.
+    ignoreAnnotated: ['Composable', 'Provides', 'Inject']
   TooManyFunctions:
     ignoreAnnotatedFunctions: ['Preview']
 

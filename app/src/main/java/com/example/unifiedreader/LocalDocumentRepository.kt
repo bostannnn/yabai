@@ -18,8 +18,6 @@ import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import com.example.unifiedreader.feature.reader.comics.PersistentComicPagePreviewStore
 import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
@@ -58,7 +56,7 @@ class LocalDocumentRepository private constructor(
         context: Context,
         importedComicArchiveDao: ImportedComicArchiveDao,
         appStartupTasks: AppStartupTasks = AppStartupTasks {},
-        scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+        scope: CoroutineScope,
         onItemImported: (String) -> Unit = {},
         previewStore: PersistentComicPagePreviewStore? = null,
         readerWorkCoordinator: ReaderWorkCoordinator = ReaderWorkCoordinator(),

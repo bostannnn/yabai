@@ -13,8 +13,6 @@ import com.example.unifiedreader.core.model.SourceType
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -69,14 +67,16 @@ interface LibraryBrowsePreferencesStore {
 class DataStoreLibraryBrowsePreferencesStore(
     private val dataStore: DataStore<Preferences>,
     private val startupPreferences: SharedPreferences,
-    scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    scope: CoroutineScope,
     private val ioRetryDelayMillis: Long = LIBRARY_BROWSE_PREFERENCES_IO_RETRY_DELAY_MILLIS,
 ) : LibraryBrowsePreferencesStore {
     constructor(
         context: Context,
+        scope: CoroutineScope,
     ) : this(
         dataStore = context.applicationContext.libraryBrowsePreferencesDataStore,
         startupPreferences = context.applicationContext.libraryBrowseStartupPreferences,
+        scope = scope,
     )
 
     private val startupSnapshot = loadStartupLibraryBrowsePreferences(startupPreferences)

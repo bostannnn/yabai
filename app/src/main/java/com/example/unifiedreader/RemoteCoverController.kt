@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.common.ApplicationScope
 import com.example.unifiedreader.core.model.runSuspendCatching
 import android.util.Log
 import com.example.unifiedreader.core.common.AppDispatchers
@@ -13,12 +14,12 @@ import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.plus
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
@@ -34,6 +35,7 @@ class RemoteCoverController @Inject constructor(
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy = defaultOnlineCoverConnectivityPolicy(),
     private val visibleLibraryCoverRegistry: VisibleLibraryCoverRegistry,
     private val appDispatchers: AppDispatchers = AppDispatchers(),
+    @ApplicationScope applicationScope: CoroutineScope,
 ) {
     private val coverDataSources = listOf<RemoteCoverDataSource>(
         kavitaCoverRepository,
@@ -58,7 +60,7 @@ class RemoteCoverController @Inject constructor(
     private val sourceWarmupJobs = mutableMapOf<SourceType, Job>()
     private var lastErrorMessageBySource = mutableMapOf<SourceType, String>()
     private var nextRequestNonce: Long = 0L
-    private val backgroundScope = CoroutineScope(SupervisorJob() + appDispatchers.io)
+    private val backgroundScope = applicationScope + appDispatchers.io
     private val coverRequestSemaphore = Semaphore(REMOTE_COVER_CACHE_CONCURRENCY)
 
     fun coverImageUrlFor(

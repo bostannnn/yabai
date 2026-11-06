@@ -9,8 +9,6 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStore
 import java.io.IOException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -35,9 +33,10 @@ interface ReaderPageNumberPreferencesStore {
 class DataStoreReaderPageNumberPreferencesStore(
     context: Context,
     private val dataStore: DataStore<Preferences> = context.applicationContext.readerPageNumberPreferencesDataStore,
+    /** The app scope; saves run on it so they outlive the reader. */
+    private val scope: CoroutineScope,
     private val ioRetryDelayMillis: Long = DATASTORE_IO_RETRY_DELAY_MILLIS,
 ) : ReaderPageNumberPreferencesStore {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override val isVisibleFlow: StateFlow<Boolean> = dataStore.data
         .retryWhen { error, _ ->

@@ -23,7 +23,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.plus
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -110,6 +112,7 @@ class SourceNavigationPreferencesStoreTest {
             dataStore = failingDataStore,
             startupPreferences = startupPreferences,
             ioRetryDelayMillis = 0L,
+            scope = TestScope() + Dispatchers.IO,
         )
 
         assertEquals(SourceType.LOCAL, store.preferencesFlow.value.startupSource)
@@ -153,6 +156,7 @@ private fun createTestStoreFixture(): TestStoreFixture {
         store = DataStoreSourceNavigationPreferencesStore(
             dataStore = dataStore,
             startupPreferences = startupPreferences,
+            scope = TestScope() + Dispatchers.IO,
         ),
         startupPreferences = startupPreferences,
     )

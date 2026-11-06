@@ -28,6 +28,11 @@ import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import com.example.unifiedreader.feature.reader.comics.ComicsReaderSessionAdapter
 import com.example.unifiedreader.feature.reader.comics.comicsReaderFactory
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -36,6 +41,14 @@ import org.junit.runner.RunWith
 class UnifiedReaderAppFlowTest {
     @get:Rule
     val composeRule = createAndroidComposeRule<ComponentActivity>()
+
+    /** Stands in for the app scope; cancelled after each test. */
+    private val flowTestScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    @After
+    fun cancelFlowTestScope() {
+        flowTestScope.cancel()
+    }
 
     @Test
     fun import_opens_reader_and_reopens_on_last_page() {
@@ -66,6 +79,7 @@ class UnifiedReaderAppFlowTest {
             readerSessionStore,
             directionPreferencesStore,
             readerModePreferencesStore,
+            scope = flowTestScope,
         )
         val pageSource = FlowTestComicPageSource(pageCount = 3)
         val localDocumentRepository = importedLocalDocumentRepository(
@@ -138,6 +152,7 @@ class UnifiedReaderAppFlowTest {
             readerSessionStore,
             directionPreferencesStore,
             readerModePreferencesStore,
+            scope = flowTestScope,
         )
         val pageSource = FlowTestComicPageSource(pageCount = 3)
         val localDocumentRepository = importedLocalDocumentRepository(
@@ -215,6 +230,7 @@ class UnifiedReaderAppFlowTest {
             readerSessionStore,
             directionPreferencesStore,
             readerModePreferencesStore,
+            scope = flowTestScope,
         )
         val viewModel = createViewModel(
             readableItemRepository = FakeReadableItemRepository(
@@ -275,6 +291,7 @@ class UnifiedReaderAppFlowTest {
             readerSessionStore,
             directionPreferencesStore,
             readerModePreferencesStore,
+            scope = flowTestScope,
         )
         val localDocumentRepository = importedLocalDocumentRepository(
             importedItem = importedItem,
@@ -326,6 +343,7 @@ class UnifiedReaderAppFlowTest {
             readerSessionStore,
             directionPreferencesStore,
             readerModePreferencesStore,
+            scope = flowTestScope,
         )
         val viewModel = createViewModel(
             readableItemRepository = FakeReadableItemRepository(items = listOf(item)),

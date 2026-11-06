@@ -5,12 +5,12 @@ import com.example.unifiedreader.core.model.runSuspendCatching
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.plus
 
 /** What the settings page and the reader show about translation. */
 data class TranslationState(
@@ -111,10 +111,11 @@ class TranslationService internal constructor(
     }
 
     companion object {
-        fun create(context: Context): TranslationService = TranslationService(
+        /** [applicationScope] is the app's scope; state changes run on its main thread. */
+        fun create(context: Context, applicationScope: CoroutineScope): TranslationService = TranslationService(
             engine = MlKitTranslationEngine(),
             preferencesStore = DataStoreTranslationPreferencesStore(context),
-            scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+            scope = applicationScope + Dispatchers.Main.immediate,
         )
     }
 }

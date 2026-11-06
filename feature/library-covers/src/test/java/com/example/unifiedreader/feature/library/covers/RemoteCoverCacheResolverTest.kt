@@ -4,6 +4,7 @@ import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.Color
 import androidx.test.core.app.ApplicationProvider
+import com.example.unifiedreader.core.common.AppDispatchers
 import java.io.ByteArrayOutputStream
 import java.io.File
 import kotlinx.coroutines.test.runTest
@@ -22,7 +23,7 @@ class RemoteCoverCacheResolverTest {
     private val store = PersistentRemoteCoverStore(context)
     private val resolver = RemoteCoverCacheResolver(
         coverStore = store,
-        thumbnailGenerator = LibraryCoverThumbnailGenerator(),
+        thumbnailGenerator = LibraryCoverThumbnailGenerator(AppDispatchers()),
     )
 
     @After

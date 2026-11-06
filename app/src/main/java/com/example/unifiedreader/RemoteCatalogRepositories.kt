@@ -35,7 +35,6 @@ import com.example.unifiedreader.core.model.ReadableItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -161,7 +160,7 @@ interface RemoteLibraryCacheStore {
 class RoomRemoteCatalogRepository(
     private val remoteCatalogDao: RemoteCatalogDao,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher),
+    private val scope: CoroutineScope,
 ) : LibraryRepository,
     ReadableItemRepository,
     RemoteCatalogWriter,
