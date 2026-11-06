@@ -24,6 +24,8 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.navigation.DrawerOrderSettingsGroup
 import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirection
+import com.example.unifiedreader.feature.translation.LocalTranslationService
+import com.example.unifiedreader.feature.translation.TranslationSettingsContent
 import com.example.unifiedreader.feature.updates.AppUpdateActions
 import com.example.unifiedreader.feature.updates.AppUpdateState
 import com.example.unifiedreader.ui.components.AppLayout
@@ -136,6 +138,17 @@ fun SettingsScreen(
                     contentTopInset = contentTopInset,
                     horizontalPadding = horizontalPadding,
                 )
+                SettingsPage.Translation -> {
+                    val translation = LocalTranslationService.current
+                    if (translation != null) {
+                        SettingsPageContainer(
+                            contentTopInset = contentTopInset,
+                            horizontalPadding = horizontalPadding,
+                        ) {
+                            TranslationSettingsContent(translation)
+                        }
+                    }
+                }
                 SettingsPage.Licenses -> LicensesSettingsPage(
                     onOpenNotice = { name -> onPageChanged(SettingsPage.License(name)) },
                     contentTopInset = contentTopInset,

@@ -1,0 +1,103 @@
+package com.example.unifiedreader.feature.translation
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppSettingsGroup
+import com.example.unifiedreader.ui.components.AppSettingsRow
+import com.example.unifiedreader.ui.components.AppSettingsRowDivider
+import com.example.unifiedreader.ui.components.AppTextButton
+import com.example.unifiedreader.ui.components.AppButtonSpinner
+
+/**
+ * Settings › Translation: your language, the languages on this tablet (remove one, add one).
+ * The settings page puts this in its column.
+ */
+@Composable
+fun ColumnScope.TranslationSettingsContent(service: TranslationService) {
+    LaunchedEffect(service) { service.start() }
+    val state by service.state.collectAsStateWithLifecycle()
+
+    AppSettingsGroup(label = TranslationCopy.LanguagesGroup) {
+        var pickingTarget by remember { mutableStateOf(false) }
+        Box {
+            AppSettingsRow(
+                title = TranslationCopy.TranslateInto,
+                supporting = TranslationCopy.YourLanguageSupporting,
+                value = TranslationLanguages.displayName(state.yourLanguage),
+                onClick = { pickingTarget = true },
+                showChevron = false,
+            )
+            TranslationLanguageMenu(
+                expanded = pickingTarget,
+                title = TranslationCopy.TranslateInto,
+                selected = state.yourLanguage,
+                state = state,
+                onPick = { tag ->
+                    pickingTarget = false
+                    service.setTargetLanguage(tag)
+                    service.download(tag)
+                },
+                onDismissRequest = { pickingTarget = false },
+            )
+        }
+        AppSettingsRowDivider(inset = com.example.unifiedreader.ui.components.AppSettingsDefaults.dividerInsetNoIcon)
+        AppSettingsRow(
+            title = TranslationCopy.TranslateFrom,
+            supporting = TranslationCopy.FromSupporting,
+            value = TranslationCopy.TheBooksLanguage,
+        )
+    }
+
+    AppSettingsGroup(label = TranslationCopy.OnThisTablet) {
+        val languages = TranslationLanguages.languages(state.downloaded + state.downloading)
+        languages.forEachIndexed { index, language ->
+            if (index > 0) {
+                AppSettingsRowDivider(inset = com.example.unifiedreader.ui.components.AppSettingsDefaults.dividerInsetNoIcon)
+            }
+            val downloading = language.tag in state.downloading
+            AppSettingsRow(
+                title = language.name,
+                supporting = when {
+                    language.tag == TranslationLanguages.BUILT_IN -> TranslationCopy.BuiltIn
+                    downloading -> TranslationCopy.Downloading
+                    else -> null
+                },
+                trailing = when {
+                    downloading -> { { AppButtonSpinner() } }
+                    language.tag == TranslationLanguages.BUILT_IN -> null
+                    else -> { { AppTextButton(onClick = { service.remove(language.tag) }) { Text(TranslationCopy.Remove) } } }
+                },
+            )
+        }
+        if (languages.isNotEmpty()) AppSettingsRowDivider()
+        var adding by remember { mutableStateOf(false) }
+        Box {
+            AppSettingsRow(
+                title = TranslationCopy.AddLanguage,
+                icon = AppIcons.Add,
+                onClick = { adding = true },
+                showChevron = false,
+            )
+            TranslationLanguageMenu(
+                expanded = adding,
+                title = TranslationCopy.AddLanguage,
+                selected = null,
+                state = state,
+                onPick = { tag ->
+                    adding = false
+                    service.download(tag)
+                },
+                onDismissRequest = { adding = false },
+            )
+        }
+    }
+}

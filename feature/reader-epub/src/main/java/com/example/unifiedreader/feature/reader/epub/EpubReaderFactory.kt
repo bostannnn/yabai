@@ -8,6 +8,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderScreenFactory
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.reader.core.formatReaderFactory
 import com.example.unifiedreader.feature.reader.preferences.ReaderDisplayPreferences
+import com.example.unifiedreader.feature.translation.TranslationService
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 
 fun epubReaderFactory(
@@ -15,6 +16,7 @@ fun epubReaderFactory(
     journalReadingSessionRecorder: JournalReadingSessionRecorder? = null,
     documentUriProvider: suspend (ReadableItem) -> Uri? = { null },
     displayPreferences: ReaderDisplayPreferences = ReaderDisplayPreferences(),
+    translation: TranslationService? = null,
 ): ReaderScreenFactory = formatReaderFactory(
     FormatType.EPUB,
     chrome = ReaderChrome.Immersive,
@@ -27,5 +29,6 @@ fun epubReaderFactory(
             displayPreferences = displayPreferences,
             onBack = onBack,
             onCompletionRequested = navigationActions.onRequestCompletion,
+            translation = translation,
         )
 }

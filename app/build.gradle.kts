@@ -45,6 +45,9 @@ android {
         release {
             isMinifyEnabled = false
             releaseSigningConfig?.let { signingConfig = it }
+            // Translation's native code is ~16 MB per ABI; ship only 64-bit ARM, which every
+            // tablet and phone this app targets runs. Debug builds keep all ABIs for emulators.
+            ndk { abiFilters += "arm64-v8a" }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -97,6 +100,7 @@ dependencies {
     implementation(project(":feature:lists"))
     implementation(project(":feature:navigation"))
     implementation(project(":feature:updates"))
+    implementation(project(":feature:translation"))
 
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)

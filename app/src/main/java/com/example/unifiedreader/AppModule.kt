@@ -58,6 +58,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderScreenFactory
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import com.example.unifiedreader.feature.reader.epub.epubReaderFactory
+import com.example.unifiedreader.feature.translation.TranslationService
 import com.example.unifiedreader.feature.reader.pdf.pdfReaderFactory
 import com.example.unifiedreader.feature.settings.DataStoreSettingsPreferencesStore
 import com.example.unifiedreader.feature.settings.SettingsPreferencesStore
@@ -844,6 +845,7 @@ object AppModule {
         remoteDocumentReadCache: RemoteDocumentReadCache,
         readerDisplay: ReaderDisplayPreferences,
         readerWorkCoordinator: ReaderWorkCoordinator,
+        translationService: TranslationService,
     ): List<@JvmSuppressWildcards ReaderScreenFactory> = listOf(
         comicsReaderFactory(
             pageSource = comicPageSource,
@@ -871,6 +873,7 @@ object AppModule {
                     ?: remoteDocumentReadCache.documentUriForReading(item)
             },
             displayPreferences = readerDisplay,
+            translation = translationService,
         ),
         pdfReaderFactory(
             sessionStore = JournalRecordingReaderSessionStore(

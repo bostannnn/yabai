@@ -1505,4 +1505,80 @@ The screen at the end of a book (`JournalFinishedScreen`, feature:journal; app `
 </div>""", width=1312, page=True, script=TOGGLE_SCRIPT)
 
 
+def tr_pill(name):
+    return (f'<span style="display:inline-flex;align-items:center;gap:4px;height:40px;padding:0 14px 0 18px;border-radius:999px;'
+            f'background:var(--surface-container-highest);font:500 14px/20px var(--font-sans)">{name}{ic("keyboard_arrow_down", 18)}</span>')
+
+
+def tr_row(close=True):
+    x = f'<span style="flex:1"></span>{ic("close")}' if close else ""
+    return f'<div style="display:flex;align-items:center;gap:8px">{tr_pill("English")}{ic("swap_horiz")}{tr_pill("Russian")}{x}</div>'
+
+
+TR_PAGE = "".join(
+    f'<p style="margin:0 0 14px;text-indent:24px">{t}</p>' for t in [
+        "It was the kind of evening that seemed to go on longer than the clocks allowed, the light "
+        '<span style="background:rgb(91 134 196 / .45);border-radius:2px">thinning</span> but never quite giving up.',
+        "The river had been low all summer, and by September the stones on its bed had turned the colour of old bread.",
+        "In the mornings the fog came off the water in long pale sheets, and the town woke slowly underneath it.",
+    ])
+
+TR_FOOT = (f'<div style="display:flex;align-items:center;gap:8px;font:12px/16px var(--font-sans);color:var(--on-surface-variant)">'
+           f'{ic("tablet_android", 16)}<span style="flex:1">Translated on this device</span>'
+           f'<span style="font:600 14px/20px var(--font-sans);color:var(--primary)">Copy</span>'
+           f'<span style="font:600 14px/20px var(--font-sans);color:var(--primary);margin-left:12px">Open full</span></div>')
+
+translation_card = f"""
+<div class="yb-device" style="width:720px;height:560px;background:#000;color:#c9c6bf">
+  <div style="position:absolute;left:72px;right:72px;top:56px;font:400 17px/28px var(--font-book)">{TR_PAGE}</div>
+  <div style="position:absolute;left:120px;top:118px;width:380px;box-sizing:border-box;padding:20px;border-radius:var(--radius-container);background:var(--surface-container-high);color:var(--on-surface);box-shadow:0 8px 24px rgb(0 0 0 / .45);display:flex;flex-direction:column;gap:12px">
+    {tr_row()}
+    <div style="font:14px/20px var(--font-sans);color:var(--on-surface-variant)">thinning</div>
+    <div style="font:600 24px/30px var(--font-sans)">истончение</div>
+    <div class="yb-divider is-full"></div>
+    <div style="font:14px/20px var(--font-sans);color:var(--on-surface-variant)">In this sentence</div>
+    <div style="font:16px/24px var(--font-sans)">Это был вечер, который, казалось, продолжался дольше, чем позволяли часы…</div>
+    {TR_FOOT}
+  </div>
+  <div class="yb-spec">{g(120, "card at the word")}{g(500)}</div>
+</div>"""
+
+translation_sheet = f"""
+<div class="yb-device" style="width:720px;height:560px;background:#000;color:#c9c6bf">
+  <div style="position:absolute;left:40px;width:240px;top:56px;font:400 17px/28px var(--font-book);opacity:.5">{TR_PAGE}</div>
+  <div style="position:absolute;top:12px;right:12px;bottom:12px;width:400px;box-sizing:border-box;border-radius:var(--radius-sheet);background:var(--surface);color:var(--on-surface);display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;padding:16px 12px 8px 20px;font:600 20px/28px var(--font-sans)"><span style="flex:1">Translation</span>{ic("close")}</div>
+    <div style="flex:1;padding:0 20px;display:flex;flex-direction:column;gap:12px">
+      {tr_row(close=False)}
+      <div style="font:14px/20px var(--font-sans);color:var(--on-surface-variant)">Selected<br>river had been low all summer,</div>
+      <div class="yb-divider is-full"></div>
+      <div style="font:14px/20px var(--font-sans);color:var(--on-surface-variant)">Russian</div>
+      <div style="font:16px/24px var(--font-sans)">Река была низкой все лето,</div>
+    </div>
+    <div style="padding:20px;display:flex;gap:8px"><button class="yb-btn is-filled" style="flex:1">Copy translation</button><button class="yb-btn is-tonal" style="flex:1">Open in…</button></div>
+  </div>
+  <div class="yb-spec">{g(308, "sheet-width 400")}</div>
+</div>"""
+
+comp("ReaderTranslation", "Screens", 1300, """
+# Translation in the reader
+
+Select text in an EPUB and the toolbar over it says **Translate** and **Copy** (Readium hands the whole toolbar to the app; `EpubSelectionActionModeCallback`). Translation runs on the device (Google ML Kit, feature:translation); a language is a one-time download of about 30 MB.
+
+- **Selected text** is filled with one see-through blue, `rgb(91 134 196 / .45)`, on every page colour, and keeps its own text colour: 5.4:1 or better on Paper, Sepia, Grey, Dusk and Black (`EpubSelectionHighlightTest`). Readium's own opaque pale blue left Dusk and Black unreadable (1.0:1).
+- **One to three words open the card** (`AppAnchoredCard`) at the words: From and To as tonal pills with a down arrow and the swap between them, ×; the selection in `on-surface-variant`, the translation at 24 SemiBold, then "In this sentence" and the sentence it sits in, translated. Footer: `tablet_android` 16 "Translated on this device", Copy, Open full.
+- **Longer selections, and Open full, open the sheet**: the reader's floating panel at the end edge (glass, like Contents and Settings), "Translation" with ×, the same language row, Selected, a hairline, the language's name and the translation. The footer sits at the bottom: Copy translation (filled) and Open in… (tonal), which hands the text to any app that translates selected text.
+- **From** is the book's language (its details), English when they don't say; **To** is your language from Settings › Translation (the device's by default); a book already in your language goes into the other language you used last. Either pill opens the language menu: a search field, "On this tablet", then "Download · about 30 MB each". A pick is remembered.
+- **States** in the same surface: a language not downloaded asks first (Not now / Download), downloading shows an indeterminate bar and "You can keep reading", translating shows skeleton lines, a failure says what happened with Close / Try again.
+- **Settings › Translation** (hub group Reading): Translate into (a value row that opens the language menu), Translate from (the book's language), then On this tablet: each language with Remove (English is built in), Add a language.
+""", f"""
+<div class="yb" style="padding:16px">
+  {TOGGLE}
+  <div id="screens">
+    <div class="yb-caption" style="margin-bottom:8px">A word: the card at it, on Black</div>{translation_card}
+    <div class="yb-caption" style="margin:24px 0 8px">A passage, or Open full: the sheet</div>{translation_sheet}
+  </div>
+</div>""", width=752, page=True, script=TOGGLE_SCRIPT)
+
+
 print("screens written")

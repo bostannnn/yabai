@@ -41,6 +41,11 @@ sealed interface SettingsPage {
         override val title: String = "Reading progress sync"
     }
 
+    data object Translation : SettingsPage {
+        override val key: String = "translation"
+        override val title: String = "Translation"
+    }
+
     data object Licenses : SettingsPage {
         override val key: String = "licenses"
         override val title: String = "Open-source licenses"
@@ -63,6 +68,7 @@ sealed interface SettingsPage {
             key == Tags.key -> Tags
             key == DrawerOrder.key -> DrawerOrder
             key == SyncStatus.key -> SyncStatus
+            key == Translation.key -> Translation
             key == Licenses.key -> Licenses
             key.startsWith(LicenseKeyPrefix) -> License(key.removePrefix(LicenseKeyPrefix))
             key.startsWith(SourceKeyPrefix) -> SourceType.entries

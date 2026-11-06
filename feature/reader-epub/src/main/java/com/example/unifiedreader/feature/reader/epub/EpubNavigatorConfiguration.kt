@@ -16,10 +16,17 @@ internal fun epubNavigatorFragmentConfiguration(
         shouldApplyInsetsPadding = false,
         selectionActionModeCallback = selectionActionModeCallback,
     ).apply {
+        // Readium's selection fill is opaque pale blue on every page colour; ours lets the page show through.
+        // Readium's own colour type is opaque only, so the value goes in as raw CSS.
+        readiumCssRsProperties = readiumCssRsProperties.copy(
+            overrides = readiumCssRsProperties.overrides + (SelectionBackgroundProperty to EpubSelectionHighlight.css),
+        )
         useReadiumCssFontSize = false
         servedAssets += "fonts/.*"
         addBundledReaderFontDeclarations()
     }
+
+private const val SelectionBackgroundProperty = "--RS__selectionBackgroundColor"
 
 @OptIn(ExperimentalReadiumApi::class)
 private fun EpubNavigatorFragment.Configuration.addBundledReaderFontDeclarations() {

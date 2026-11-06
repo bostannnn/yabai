@@ -45,4 +45,5 @@ include(
     ":feature:navigation",
     ":feature:settings",
     ":feature:updates",
+    ":feature:translation",
 )

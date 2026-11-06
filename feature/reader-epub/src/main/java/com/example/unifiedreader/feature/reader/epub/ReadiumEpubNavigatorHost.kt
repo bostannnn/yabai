@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.reader.epub
 
 import android.content.res.Configuration
+import com.example.unifiedreader.feature.translation.ReaderTextSelection
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
@@ -58,6 +59,7 @@ internal fun ReadiumEpubNavigatorHost(
     onSurfaceTap: () -> Unit,
     onEndNavigationRequested: () -> Unit,
     onFootnoteActivated: (EpubFootnoteContent) -> Unit,
+    onTranslateSelection: ((ReaderTextSelection) -> Unit)?,
     navigationRequest: EpubNavigationRequest?,
     onNavigationRequestConsumed: () -> Unit,
     modifier: Modifier = Modifier,
@@ -70,6 +72,7 @@ internal fun ReadiumEpubNavigatorHost(
     val latestOnEndNavigationRequested = rememberUpdatedState(onEndNavigationRequested)
     val latestOnFootnoteActivated = rememberUpdatedState(onFootnoteActivated)
     val footnoteNavigationScope = rememberCoroutineScope()
+    val latestOnTranslateSelection = rememberUpdatedState(onTranslateSelection)
     val isLandscape = remember(
         configuration.orientation,
         configuration.screenWidthDp,
@@ -289,7 +292,22 @@ internal fun ReadiumEpubNavigatorHost(
                     }
                 }
             },
-            configuration = epubNavigatorFragmentConfiguration(curlHost.selectionActionModeCallback),
+            configuration = epubNavigatorFragmentConfiguration(
+                EpubSelectionActionModeCallback(
+                    delegate = curlHost.selectionActionModeCallback,
+                    canTranslate = { latestOnTranslateSelection.value != null },
+                    onTranslate = {
+                        footnoteNavigationScope.withCurrentSelection(curlHost.navigator, publication.metadata.languages.firstOrNull()) { selection ->
+                            latestOnTranslateSelection.value?.invoke(selection)
+                        }
+                    },
+                    onCopy = {
+                        footnoteNavigationScope.withCurrentSelection(curlHost.navigator, null) { selection ->
+                            activity.copyToClipboard(selection.text)
+                        }
+                    },
+                ),
+            ),
         )
         val fragment = fragmentFactory.instantiate(
             activity.classLoader,

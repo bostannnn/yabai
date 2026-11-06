@@ -9,6 +9,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
@@ -19,6 +22,8 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.feature.navigation.navigationIcon
+import com.example.unifiedreader.feature.translation.LocalTranslationService
+import com.example.unifiedreader.feature.translation.translationHubSummary
 import com.example.unifiedreader.feature.updates.AppUpdateActions
 import com.example.unifiedreader.feature.updates.AppUpdateAutoCheckRow
 import com.example.unifiedreader.feature.updates.AppUpdateState
@@ -118,6 +123,19 @@ internal fun SettingsHub(
                 selected = selectedPage == SettingsPage.DrawerOrder,
                 onClick = { onOpenPage(SettingsPage.DrawerOrder) },
             )
+        }
+        LocalTranslationService.current?.let { translation ->
+            LaunchedEffect(translation) { translation.start() }
+            val translationState by translation.state.collectAsStateWithLifecycle()
+            AppSettingsGroup(label = "Reading") {
+                AppSettingsRow(
+                    title = SettingsPage.Translation.title,
+                    icon = AppIcons.Translate,
+                    supporting = translationHubSummary(translationState),
+                    selected = selectedPage == SettingsPage.Translation,
+                    onClick = { onOpenPage(SettingsPage.Translation) },
+                )
+            }
         }
         AppSettingsGroup(label = "About") {
             AppUpdateVersionRow(

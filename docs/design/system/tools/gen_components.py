@@ -444,6 +444,25 @@ A dropdown anchored to its button: the sort menu, •••, a tile's actions. `
   </div>
 </div>""", width=388)
 
+comp("AppAnchoredCard", "Surfaces", 420, """
+# AppAnchoredCard
+
+A small card that opens at something on the page rather than at an edge: a word you selected in a book (the translation card). `surface-container-high`, the theme's card radius, `inset` 20, a soft shadow; at most 380 wide, never wider than the window less two gutters.
+
+- Kit: `AppAnchoredCard(anchor, onDismissRequest)`; where it goes is the pure `placeAnchoredCard` (tested).
+- **Under the thing, 12 below it**, centred on it; over it when there isn't room below; always inside the gutter. Without an anchor it sits in the middle.
+- **No scrim**: what it points at stays readable. A tap anywhere else or Back closes it.
+- Opens with a fade from 0.96 (`AppMotion.spatial`), closes the same way.
+- For more than a glance (a passage, a long answer) use the side sheet or the reader's floating panel instead; a card is for a few lines.
+""", f"""
+<div class="yb yb-ground" style="padding:24px;width:420px">
+  <div style="font:400 17px/28px var(--font-book);color:var(--on-surface-variant)">allowed, the light <span style="background:rgb(91 134 196 / .45);color:var(--on-surface);border-radius:2px">thinning</span> but never quite giving up.</div>
+  <div class="yb-menu" style="margin-top:12px;width:380px;padding:20px;box-sizing:border-box;border-radius:var(--radius-container);box-shadow:0 8px 24px rgb(0 0 0 / .35)">
+    <div style="font:13px/18px var(--font-sans);color:var(--on-surface-variant)">thinning</div>
+    <div style="margin-top:4px;font:600 24px/30px var(--font-sans)">истончение</div>
+  </div>
+</div>""", width=468)
+
 # ---------------------------------------------------------------- Actions
 comp("AppButton", "Actions", 220, """
 # AppButton

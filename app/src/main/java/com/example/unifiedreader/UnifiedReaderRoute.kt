@@ -58,6 +58,7 @@ import com.example.unifiedreader.ui.theme.AppCoverAccentTheme
 import com.example.unifiedreader.ui.theme.ApplyLaunchSplashTheme
 import com.example.unifiedreader.ui.theme.UnifiedReaderTheme
 import com.example.unifiedreader.ui.theme.applyAndroidThemeMode
+import com.example.unifiedreader.feature.translation.LocalTranslationService
 import kotlinx.coroutines.flow.MutableStateFlow
 
 @Composable
@@ -66,6 +67,7 @@ fun UnifiedReaderRoute() {
     val updates: AppUpdatesViewModel = hiltViewModel()
     val lists: AppListsViewModel = hiltViewModel()
     val tags: AppLibraryTagsViewModel = hiltViewModel()
+    val translation: AppTranslationViewModel = hiltViewModel()
     val context = LocalContext.current
     val localFileImportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
@@ -79,17 +81,19 @@ fun UnifiedReaderRoute() {
         }
     }
 
-    UnifiedReaderAppContent(
-        viewModel = viewModel,
-        onImportLocalFileClick = {
-            localFileImportLauncher.launch(
-                arrayOf("*/*"),
-            )
-        },
-        updateController = updates.controller,
-        listsViewModel = lists,
-        tagsViewModel = tags,
-    )
+    CompositionLocalProvider(LocalTranslationService provides translation.service) {
+        UnifiedReaderAppContent(
+            viewModel = viewModel,
+            onImportLocalFileClick = {
+                localFileImportLauncher.launch(
+                    arrayOf("*/*"),
+                )
+            },
+            updateController = updates.controller,
+            listsViewModel = lists,
+            tagsViewModel = tags,
+        )
+    }
 }
 
 @Composable

@@ -54,6 +54,9 @@ import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import com.example.unifiedreader.ui.components.AppScreenBackHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.example.unifiedreader.feature.translation.ReaderTranslationOverlay
+import com.example.unifiedreader.feature.translation.TranslationService
+import com.example.unifiedreader.feature.translation.rememberTranslationSession
 import org.readium.r2.navigator.preferences.ReadingProgression
 import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Locator
@@ -69,6 +72,7 @@ fun EpubReaderScreen(
     displayPreferences: ReaderDisplayPreferences = remember { ReaderDisplayPreferences() },
     onBack: () -> Unit,
     onCompletionRequested: () -> Unit = {},
+    translation: TranslationService? = null,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -185,6 +189,7 @@ fun EpubReaderScreen(
     var isTocSheetOpen by rememberSaveable(item.id) { mutableStateOf(false) }
     var isPreferencesPaneOpen by rememberSaveable(item.id) { mutableStateOf(false) }
     var footnoteContent by remember(item.id) { mutableStateOf<EpubFootnoteContent?>(null) }
+    val translationSession = translation?.let { service -> rememberTranslationSession(service) }
     var noteReturn by remember(item.id) { mutableStateOf<EpubNoteReturn?>(null) }
     val readerPreferences = EpubReaderPreferences(
         typographyMode = typographyMode,
@@ -508,6 +513,9 @@ fun EpubReaderScreen(
                             navigationRequest = EpubNoteNavigationRequest(id = seekRequestId++, link = link)
                         },
                     )
+                    if (translation != null && translationSession != null) {
+                        ReaderTranslationOverlay(session = translationSession, service = translation)
+                    }
                 },
                 content = {
                     ReadiumEpubNavigatorHost(
@@ -579,6 +587,12 @@ fun EpubReaderScreen(
                         onFootnoteActivated = { footnote ->
                             overlayState.hide()
                             footnoteContent = footnote
+                        },
+                        onTranslateSelection = translationSession?.let { session ->
+                            { selection ->
+                                overlayState.hide()
+                                session.open(selection)
+                            }
                         },
                         navigationRequest = navigationRequest,
                         onNavigationRequestConsumed = {
