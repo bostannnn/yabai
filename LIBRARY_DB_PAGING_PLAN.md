@@ -127,7 +127,7 @@ Series-grouping truth lives once in `core:model` (`LibrarySeriesRoots.kt`:
 `deriveGridRootsWithMembers` / `deriveKavita|StumpSeriesGrouping` / `deriveGridRootItems`), reused by
 both the persisted populator (`RemoteCatalogDao`) and the in-memory `LibrarySourceIndex`.
 
-Paging is gated by `LibraryPagingFeature` (app). `ENABLED = true`. `isPageable(state)` = Kavita root +
+Paging is decided by `LibraryPagingFeature.isPageable(state)` (app); the `ENABLED` switch was removed 2026-11-06, so paging is always on. `isPageable(state)` = Kavita root +
 sort in {LAST_READ, DATE_ADDED} (rail-less) + no filters/search/series/scope. Rail sorts
 (Title/Author/Series), filters, search, series browse, and other sources still use the in-memory path.
 
@@ -312,7 +312,7 @@ Steps:
   `ANDROID_SIGNING_STORE_PASSWORD`, `ANDROID_SIGNING_KEY_ALIAS`, `ANDROID_SIGNING_KEY_PASSWORD`
   pointing at the **same keystore as the installed app** (`cc3c8218`), else installing wipes the
   catalog DB. Then `./gradlew :app:installRelease` preserves data. Without it, the user installs.
-- A/B: `LibraryPagingFeature.ENABLED` (compile-time). Flip → rebuild → install.
+- A/B: no longer a switch (removed 2026-11-06). To compare, make `isPageable` return false in a local build.
 - **Paging/M2 only engage on `LAST_READ`/`DATE_ADDED`** (rail-less). Title/Author/Series keep the
   in-memory path (they render the A–Z alphabet rail, which needs the full ordered set + per-letter
   offsets — incompatible with a windowed PagingSource). To observe any paging effect on device, be on
@@ -325,7 +325,7 @@ Steps:
   whether a felt back-nav delay is a cache **HIT** (→ the cost is covers re-decoding / grid relayout,
   fix = image cache, not the recompute) or a **MISS** (→ which pass dominates). The recompute runs
   async, so it doesn't show as main-thread jank in `gfxinfo` — measure it here, not via frame stats.
-  Flip `ENABLED=false` before shipping.
+  It stays on in release builds by choice (see `ARCHITECTURE_RULES.md`).
 
 ---
 
@@ -348,7 +348,7 @@ Steps:
 
 1. `git checkout perf/library-db-paging` (HEAD = `4f81da41`, M2). Working tree clean.
 2. Read this file + the memory note `stage3-paging-handoff`.
-3. **On-device: measure M2** — A/B `LibraryPagingFeature.ENABLED` (or check the paged Kavita LAST_READ
+3. **On-device: measure M2** — A/B paging (now a local edit of `isPageable`; or check the paged Kavita LAST_READ
    view), read a few items, back out, and compare back-nav GC churn / `dumpsys meminfo` (§8). M2 is
    unverified on device; this is the measurable payoff.
 4. Then continue **Phase 1, slice 5** (by-id props: `selectedItem`, series titles → `ReadableItemLookup`).

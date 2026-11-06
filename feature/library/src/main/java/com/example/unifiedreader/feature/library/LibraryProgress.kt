@@ -18,19 +18,6 @@ internal val ItemProgressSummary.isComplete: Boolean
 internal val ItemProgressSummary.hasStarted: Boolean
     get() = fraction > 0f
 
-internal val ItemProgressSummary.shouldShowCoverProgress: Boolean
-    get() = hasStarted && !isComplete
-
-internal val ItemProgressSummary.shouldShowSummaryProgress: Boolean
-    get() = hasStarted && !isComplete
-
-internal val ItemProgressSummary.progressDetailLabel: String
-    get() = if (isComplete) {
-        label.takeIf { isFinished && it.startsWith("Finished") } ?: "Finished"
-    } else {
-        detailLabel
-    }
-
 /**
  * The reading-progress bar on a cover, in the grid, the shelves, and the shelf browser alike: a
  * 4 dp pill inset 7 dp from the cover's sides and bottom, the accent

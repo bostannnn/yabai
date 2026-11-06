@@ -2,6 +2,7 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
@@ -84,7 +85,7 @@ class StumpPageSourceTest {
 
         pageSource.loadPageImage(item, page, ComicPageLoadPriority.Visible)
 
-        assertEquals(RemoteSourceReachability.Reachable, connectivityPolicy.reachabilityFor(SourceType.STUMP))
+        assertEquals(SourceConnectivityState.Online, connectivityPolicy.reachabilityFor(SourceType.STUMP))
     }
 
     @Test
@@ -106,7 +107,7 @@ class StumpPageSourceTest {
         val result = pageSource.loadPageImage(item, page, ComicPageLoadPriority.Visible)
 
         assertTrue(result is ComicPageLoadResult.Failure)
-        assertEquals(RemoteSourceReachability.Unavailable, connectivityPolicy.reachabilityFor(SourceType.STUMP))
+        assertEquals(SourceConnectivityState.Offline, connectivityPolicy.reachabilityFor(SourceType.STUMP))
     }
 
     @Test

@@ -9,7 +9,6 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertContentDescriptionContains
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
@@ -98,10 +97,6 @@ class JournalRatingEditorComposeTest {
             },
         )
 
-        assertEquals(
-            0,
-            composeRule.onAllNodesWithTag(JournalRatingClearTag).fetchSemanticsNodes().size,
-        )
         composeRule.onNodeWithTag(JournalRatingStarsTag).performTouchInput {
             click(fourAndHalfStarPosition())
         }

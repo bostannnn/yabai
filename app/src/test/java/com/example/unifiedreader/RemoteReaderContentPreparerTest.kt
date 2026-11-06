@@ -3,6 +3,7 @@ package com.example.unifiedreader
 import android.net.Uri
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
@@ -34,7 +35,7 @@ class RemoteReaderContentPreparerTest {
 
         assertTrue(result is RemoteReaderContentPreparationResult.Ready)
         assertEquals(0, dataSource.prepareDocumentForReadingCalls)
-        assertEquals(RemoteSourceReachability.Unavailable, policy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Offline, policy.reachabilityFor(SourceType.KAVITA))
     }
 
     @Test
@@ -55,7 +56,7 @@ class RemoteReaderContentPreparerTest {
         val result = preparer.prepare(remoteItem())
 
         assertTrue(result is RemoteReaderContentPreparationResult.Ready)
-        assertEquals(RemoteSourceReachability.Reachable, policy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Online, policy.reachabilityFor(SourceType.KAVITA))
     }
 
     @Test
@@ -79,7 +80,7 @@ class RemoteReaderContentPreparerTest {
         assertTrue(result is RemoteReaderContentPreparationResult.Failure)
         assertTrue((result as RemoteReaderContentPreparationResult.Failure).failure.throwable is RemoteSourceUnavailableException)
         assertEquals(0, dataSource.prepareDocumentForReadingCalls)
-        assertEquals(RemoteSourceReachability.Unavailable, policy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Offline, policy.reachabilityFor(SourceType.KAVITA))
     }
 }
 

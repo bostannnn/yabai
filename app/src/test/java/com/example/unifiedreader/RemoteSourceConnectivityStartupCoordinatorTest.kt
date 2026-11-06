@@ -44,7 +44,7 @@ class RemoteSourceConnectivityStartupCoordinatorTest {
 
         coordinator.checkConfiguredSources()
 
-        assertEquals(RemoteSourceReachability.Unknown, policy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Unknown, policy.reachabilityFor(SourceType.KAVITA))
         assertEquals(0, healthCheck.callCount)
     }
 
@@ -62,7 +62,7 @@ class RemoteSourceConnectivityStartupCoordinatorTest {
 
         coordinator.checkConfiguredSources()
 
-        assertEquals(RemoteSourceReachability.Reachable, policy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Online, policy.reachabilityFor(SourceType.KAVITA))
         assertEquals(1, healthCheck.callCount)
     }
 
@@ -81,7 +81,7 @@ class RemoteSourceConnectivityStartupCoordinatorTest {
 
         coordinator.checkConfiguredSources()
 
-        assertEquals(RemoteSourceReachability.Unavailable, policy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Offline, policy.reachabilityFor(SourceType.KAVITA))
         assertNull(coordinator.sourceErrorsFlow.value[SourceType.KAVITA])
     }
 
@@ -99,7 +99,7 @@ class RemoteSourceConnectivityStartupCoordinatorTest {
 
         val result = coordinator.retrySource(SourceType.KAVITA)
 
-        assertEquals(RemoteSourceReachability.Unavailable, policy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Offline, policy.reachabilityFor(SourceType.KAVITA))
         val offline = result as RemoteSourceConnectivityProbeResult.Offline
         assertEquals("timeout", offline.throwable.message)
     }
@@ -120,7 +120,7 @@ class RemoteSourceConnectivityStartupCoordinatorTest {
 
         coordinator.checkConfiguredSources()
 
-        assertEquals(RemoteSourceReachability.Unknown, policy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Unknown, policy.reachabilityFor(SourceType.KAVITA))
         assertSame(failure, coordinator.sourceErrorsFlow.value[SourceType.KAVITA])
     }
 

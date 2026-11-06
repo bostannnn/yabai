@@ -628,7 +628,7 @@ class AppViewModelTest {
         assertEquals(remoteComic.id, viewModel.uiState.selectedItemId)
         assertEquals(FormatType.CBZ, viewModel.uiState.activeReader)
         assertNull(viewModel.uiState.progressSyncNotice)
-        assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Offline, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
     }
 
     @Test
@@ -666,7 +666,7 @@ class AppViewModelTest {
             "Couldn't send your progress to Kavita",
             viewModel.uiState.progressSyncNotice?.message,
         )
-        assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Online, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
     }
 
     @Test
@@ -758,13 +758,13 @@ class AppViewModelTest {
         )
         shadowOf(Looper.getMainLooper()).idle()
 
-        assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Offline, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
         assertEquals(0, healthCheck.callCount)
 
         viewModel.retrySelectedSourceConnection()
         shadowOf(Looper.getMainLooper()).idle()
 
-        assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Online, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
         assertEquals(1, healthCheck.callCount)
     }
 
@@ -808,7 +808,7 @@ class AppViewModelTest {
         shadowOf(Looper.getMainLooper()).idle()
         shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
 
-        assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Offline, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
         assertEquals(0, healthCheck.callCount)
         assertEquals(0, progressSync.pushPendingProgressCalls)
 
@@ -816,7 +816,7 @@ class AppViewModelTest {
         shadowOf(Looper.getMainLooper()).idle()
         shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
 
-        assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Online, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
         assertEquals(1, healthCheck.callCount)
         assertEquals(1, progressSync.pushPendingProgressCalls)
     }
@@ -864,7 +864,7 @@ class AppViewModelTest {
         shadowOf(Looper.getMainLooper()).idle()
         shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
 
-        assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Offline, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
         assertEquals(0, healthCheck.callCount)
         assertEquals(1, progressSync.pushPendingProgressCalls)
 
@@ -872,7 +872,7 @@ class AppViewModelTest {
         shadowOf(Looper.getMainLooper()).idle()
         shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
 
-        assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Online, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
         assertEquals(1, healthCheck.callCount)
         assertEquals(2, progressSync.pushPendingProgressCalls)
     }
@@ -917,7 +917,7 @@ class AppViewModelTest {
         shadowOf(Looper.getMainLooper()).idle()
         shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
 
-        assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Offline, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
         assertEquals(0, healthCheck.callCount)
         assertEquals(0, progressSync.pushPendingProgressCalls)
 
@@ -927,7 +927,7 @@ class AppViewModelTest {
         shadowOf(Looper.getMainLooper()).idle()
         shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
 
-        assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Online, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
         assertEquals(1, healthCheck.callCount)
         assertEquals(1, progressSync.pushPendingProgressCalls)
     }
@@ -972,7 +972,7 @@ class AppViewModelTest {
         shadowOf(Looper.getMainLooper()).idle()
         shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
 
-        assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Offline, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
         assertEquals(0, healthCheck.callCount)
         assertEquals(0, progressSync.pushPendingProgressCalls)
 
@@ -981,7 +981,7 @@ class AppViewModelTest {
         shadowOf(Looper.getMainLooper()).idle()
         shadowOf(Looper.getMainLooper()).idleFor(2, TimeUnit.SECONDS)
 
-        assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Online, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
         assertEquals(1, healthCheck.callCount)
         assertEquals(1, progressSync.pushPendingProgressCalls)
     }
@@ -1193,7 +1193,7 @@ class AppViewModelTest {
             "Couldn't send your progress to Grimmory",
             viewModel.uiState.progressSyncNotice?.message,
         )
-        assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.GRIMMORY))
+        assertEquals(SourceConnectivityState.Offline, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.GRIMMORY))
     }
 
     @Test
@@ -1231,7 +1231,7 @@ class AppViewModelTest {
             "Couldn't send your progress to Kavita",
             viewModel.uiState.progressSyncNotice?.message,
         )
-        assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Offline, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
     }
 
     @Test

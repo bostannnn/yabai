@@ -60,19 +60,6 @@ internal data class LibraryFilterPileRow(
     val order: Int,
 )
 
-/** When's named periods (World War II, Cold War), which have no pile: the ones not picked, most books first. */
-internal fun libraryFilterNamedPeriods(state: LibraryFilterState, facets: LibraryFilterFacets): List<LibraryFilterPileRow> {
-    val counts = facets.counts.takeUnless { it.isEmpty }?.times
-    val picked = state.times.map(String::lowercase).toSet()
-    return facets.times
-        .filter { value -> libraryEraPile(value) == null && value.lowercase() !in picked }
-        .distinctBy(String::lowercase)
-        .map { value ->
-            LibraryFilterPileRow(value = value, count = counts?.get(value.lowercase()), selected = false, spines = 0, order = Int.MAX_VALUE)
-        }
-        .sortedWith(compareByDescending<LibraryFilterPileRow> { it.count ?: 0 }.thenBy { it.value.lowercase() })
-}
-
 /**
  * The chips of a top-chips section (Library, Language, Genre, About, Mood): the values with most books,
  * [limit] of them, then any picked one past them, each with its count and its name (a library's title).

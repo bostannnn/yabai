@@ -2,9 +2,6 @@ package com.example.unifiedreader.feature.navigation
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -14,16 +11,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
-import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppReorderHandleIcon
 import com.example.unifiedreader.ui.components.AppSettingsGroup
 import com.example.unifiedreader.ui.components.AppSettingsRow
 import com.example.unifiedreader.ui.components.AppSettingsRowDivider
-import com.example.unifiedreader.ui.components.appReorderHandle
 import com.example.unifiedreader.ui.components.appReorderableItem
 import com.example.unifiedreader.ui.components.movedItem
 import com.example.unifiedreader.ui.components.rememberAppReorderState
@@ -60,18 +54,7 @@ fun DrawerOrderSettingsGroup(
                         title = sourceType.displayName(),
                         icon = sourceType.navigationIcon(),
                         modifier = Modifier.appReorderableItem(reorderState, index),
-                        trailing = {
-                            Icon(
-                                imageVector = AppIcons.DragHandle,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier
-                                    .appReorderHandle(reorderState, index)
-                                    .size(40.dp)
-                                    .padding(8.dp)
-                                    .semantics { contentDescription = "Drag to reorder ${sourceType.displayName()}" },
-                            )
-                        },
+                        trailing = { AppReorderHandleIcon(reorderState, index, sourceType.displayName()) },
                     )
                 }
             }

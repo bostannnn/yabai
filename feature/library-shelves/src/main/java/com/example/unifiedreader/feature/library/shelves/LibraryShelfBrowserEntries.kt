@@ -27,14 +27,6 @@ internal enum class ShelfBrowserSortMode {
     DateAdded,
 }
 
-internal fun LibraryShelfBrowserState.visibleShelfBrowserEntries(
-    nowEpochMillis: Long,
-    searchQuery: String,
-    sortMode: ShelfBrowserSortMode,
-): List<LibraryShelfBrowserEntry> = browserEntries(nowEpochMillis = nowEpochMillis)
-    .searchedBy(searchQuery)
-    .sortedFor(sortMode)
-
 internal fun LibraryShelfBrowserState.browserEntries(
     nowEpochMillis: Long,
 ): List<LibraryShelfBrowserEntry> = when (this) {

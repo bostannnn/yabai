@@ -27,7 +27,6 @@
 2 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryReadingCardText.kt
 3 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryScreen.kt
 5 feature/library/src/main/java/com/example/unifiedreader/feature/library/LibraryTopBarControls.kt
-1 feature/navigation/src/main/java/com/example/unifiedreader/feature/navigation/DrawerOrderSettingsGroup.kt
 10 feature/navigation/src/main/java/com/example/unifiedreader/feature/navigation/SourceNavigationDrawer.kt
 2 feature/reader-comics/src/main/java/com/example/unifiedreader/feature/reader/comics/ComicPagePreviewStrip.kt
 5 feature/reader-comics/src/main/java/com/example/unifiedreader/feature/reader/comics/ComicPagesPanel.kt
@@ -44,7 +43,7 @@
 10 feature/reader-epub/src/main/java/com/example/unifiedreader/feature/reader/epub/EpubTableOfContentsSheet.kt
 3 feature/reader-pdf/src/main/java/com/example/unifiedreader/feature/reader/pdf/PdfReaderChrome.kt
 1 feature/reader-pdf/src/main/java/com/example/unifiedreader/feature/reader/pdf/PdfReaderEntry.kt
-2 feature/settings/src/main/java/com/example/unifiedreader/feature/settings/FilterChipsSettingsPage.kt
+1 feature/settings/src/main/java/com/example/unifiedreader/feature/settings/FilterChipsSettingsPage.kt
 2 feature/settings/src/main/java/com/example/unifiedreader/feature/settings/LicensesSettingsPage.kt
 2 feature/settings/src/main/java/com/example/unifiedreader/feature/settings/ReadingDefaultsGroup.kt
 3 feature/settings/src/main/java/com/example/unifiedreader/feature/settings/ServerConnectionForm.kt

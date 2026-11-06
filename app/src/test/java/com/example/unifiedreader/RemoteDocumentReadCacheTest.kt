@@ -73,7 +73,7 @@ class RemoteDocumentReadCacheTest {
 
         assertNotNull(uri)
         assertEquals(listOf("book-1"), api.downloadedBookIds)
-        assertEquals(RemoteSourceReachability.Reachable, connectivityPolicy.reachabilityFor(SourceType.GRIMMORY))
+        assertEquals(SourceConnectivityState.Online, connectivityPolicy.reachabilityFor(SourceType.GRIMMORY))
     }
 
     @Test
@@ -96,7 +96,7 @@ class RemoteDocumentReadCacheTest {
 
         assertNull(uri)
         assertEquals(emptyList<String>(), api.downloadedBookIds)
-        assertEquals(RemoteSourceReachability.Unavailable, connectivityPolicy.reachabilityFor(SourceType.GRIMMORY))
+        assertEquals(SourceConnectivityState.Offline, connectivityPolicy.reachabilityFor(SourceType.GRIMMORY))
     }
 
     @Test
@@ -121,7 +121,7 @@ class RemoteDocumentReadCacheTest {
         assertNotNull(cache.documentUriForReading(item))
 
         assertEquals(listOf("book-1"), api.downloadedBookIds)
-        assertEquals(RemoteSourceReachability.Unavailable, connectivityPolicy.reachabilityFor(SourceType.GRIMMORY))
+        assertEquals(SourceConnectivityState.Offline, connectivityPolicy.reachabilityFor(SourceType.GRIMMORY))
     }
 
     @Test

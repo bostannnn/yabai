@@ -586,25 +586,6 @@ class KavitaDtosTest {
     }
 
     @Test
-    fun `series detail resolves missing titles from chapter info`() = runBlocking {
-        val overrides = KavitaSeriesDetailDto(
-            chapters = listOf(
-                KavitaChapterDto(
-                    id = 21,
-                    pages = 28,
-                ),
-            ),
-        ).resolveSupplementalIssueTitles { chapterId ->
-            assertEquals("21", chapterId)
-            KavitaChapterInfoDto(
-                title = "One Piece Volume 02.cbz",
-            )
-        }
-
-        assertEquals(mapOf("21" to "One Piece Volume 02"), overrides)
-    }
-
-    @Test
     fun `supplemental chapter info fetches only unique chapters with unresolved titles`() = runBlocking {
         val requestedChapterIds = mutableListOf<String>()
         val supplementalInfo = KavitaSeriesDetailDto(

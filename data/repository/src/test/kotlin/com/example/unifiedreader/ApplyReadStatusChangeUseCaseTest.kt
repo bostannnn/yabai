@@ -147,69 +147,6 @@ class ApplyReadStatusChangeUseCaseTest {
         assertEquals(0.0, snapshot.percent ?: -1.0, 0.0001)
         assertEquals(SyncState.DIRTY, snapshot.syncState)
     }
-
-    @Test
-    fun `startup retry flushes persisted dirty and failed progress`() = runTest {
-        val store = TestProgressSyncStore()
-        val dirtyItem = grimmoryBook(id = "grimmory:item:dirty")
-        val failedItem = grimmoryBook(id = "grimmory:item:failed")
-        val cleanItem = grimmoryBook(id = "grimmory:item:clean")
-        listOf(
-            dirtyItem to SyncState.DIRTY,
-            failedItem to SyncState.FAILED,
-            cleanItem to SyncState.CLEAN,
-        ).forEach { (item, syncState) ->
-            store.saveProgress(
-                item = item,
-                locator = ProgressSyncLocator(
-                    locatorType = com.example.unifiedreader.core.model.LocatorType.PERCENT,
-                    percent = 0.5,
-                ),
-                syncState = syncState,
-            )
-        }
-        val sync = RecordingSourceProgressSync(sourceType = SourceType.GRIMMORY)
-        val useCase = FlushPendingProgressOnStartupUseCase(
-            progressSyncStore = store,
-            flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
-                SourceProgressSyncRegistry(listOf(sync)),
-            ),
-        )
-
-        val failures = useCase(listOf(dirtyItem, failedItem, cleanItem))
-
-        assertTrue(failures.isEmpty())
-        assertEquals(
-            listOf(listOf(dirtyItem.id, failedItem.id)),
-            sync.invocations,
-        )
-    }
-
-    @Test
-    fun `startup retry is a no-op when no pending catalog item can be resolved`() = runTest {
-        val store = TestProgressSyncStore()
-        val pendingItem = grimmoryBook(id = "grimmory:item:missing")
-        store.saveProgress(
-            item = pendingItem,
-            locator = ProgressSyncLocator(
-                locatorType = com.example.unifiedreader.core.model.LocatorType.PERCENT,
-                percent = 0.5,
-            ),
-            syncState = SyncState.DIRTY,
-        )
-        val sync = RecordingSourceProgressSync(sourceType = SourceType.GRIMMORY)
-        val useCase = FlushPendingProgressOnStartupUseCase(
-            progressSyncStore = store,
-            flushPendingSourceProgressUseCase = FlushPendingSourceProgressUseCase(
-                SourceProgressSyncRegistry(listOf(sync)),
-            ),
-        )
-
-        val failures = useCase(emptyList())
-
-        assertTrue(failures.isEmpty())
-        assertTrue(sync.invocations.isEmpty())
-    }
 }
 
 private fun grimmoryBook(

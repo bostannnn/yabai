@@ -2,25 +2,6 @@ package com.example.unifiedreader.data.kavita
 
 import kotlin.coroutines.cancellation.CancellationException
 
-internal suspend fun KavitaSeriesDetailDto.resolveSupplementalIssueTitles(
-    maxRequests: Int = Int.MAX_VALUE,
-    fetchChapterInfo: suspend (chapterId: String) -> KavitaChapterInfoDto,
-): Map<String, String> {
-    return resolveSupplementalChapterInfo(
-        maxRequests = maxRequests,
-        fetchChapterInfo = fetchChapterInfo,
-    )
-        .mapNotNull { (chapterId, info) ->
-            val resolved = resolvedChapters().firstOrNull { chapter ->
-                chapter.chapter.id?.toString() == chapterId
-            } ?: return@mapNotNull null
-            info.preferredKavitaIssueTitleFallback(
-                volumeName = resolved.volumeName,
-            )?.let { title -> chapterId to title }
-        }
-        .toMap()
-}
-
 internal suspend fun KavitaSeriesDetailDto.resolveSupplementalChapterInfo(
     maxRequests: Int = Int.MAX_VALUE,
     fetchChapterInfo: suspend (chapterId: String) -> KavitaChapterInfoDto,

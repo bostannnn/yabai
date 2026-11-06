@@ -5,9 +5,8 @@ import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
 
 /**
- * Flag for the DB-paged library grid. ON so the default Kavita root view pages its grid body from
- * SQL while reusing the in-memory-computed shelves on top; flip to false to force the pure in-memory
- * path.
+ * Which library views page their grid body from SQL (reusing the in-memory-computed shelves on top)
+ * instead of rendering [AppUiState.visibleItems]. Paging is always on; there is no switch.
  *
  * Engaged for the Kavita root view in a rail-less sort (LAST_READ, DATE_ADDED), including
  * **content-filtered** views (format/library/author/series/publisher/genre/tag/language) which page
@@ -16,10 +15,7 @@ import com.example.unifiedreader.core.model.SourceType
  * tables) still render from the in-memory [AppUiState.visibleItems] path.
  */
 internal object LibraryPagingFeature {
-    const val ENABLED = true
-
     fun isPageable(state: AppUiState): Boolean {
-        if (!ENABLED) return false
         if (state.selectedSource != SourceType.KAVITA) return false
         if (state.isSeriesBrowseActive) return false
         if (state.selectedLibrarySearchQuery.isNotBlank()) return false

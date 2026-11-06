@@ -55,11 +55,30 @@ user's choice. The shared helpers and where they live:
 - Format checks: `isComicReaderFormat` and `toReadableFormatTypeOrNull` replace `isComicArchive` (2) and Stump's
   `toComicFormatType`.
 
-**Next:** step 1, then step 2.
+**Step 1 done (2026-11-06)**, the user's answers, all carried out:
 
-## Step 1. Decisions only the user can make
+- **Drag handle: use the kit piece.** Filter chips, the list editor and Source order now use
+  `AppReorderHandleIcon`. The list editor's handle is now named "Drag to reorder …" (it said "Drag to move …")
+  and takes the kit's muted colour.
+- **Test-only code: deleted with its tests**, except where a test used the dead function to check live code:
+  - The grid-roots test now calls `deriveGridRootsWithMembers`, and the shelf-browser test chains
+    `browserEntries`, `searchedBy` and `sortedFor`.
+  - `RemoteSourceReachability` was only an alias: tests use `SourceConnectivityState` directly.
+  - **Kept:** `InMemoryRemoteItemLocalStateCache`. It is a full in-memory implementation that two app tests run
+    against, and it uses the cache's private scope helpers.
+  - `ComicSpreadPreparation.kt` and `RemoteDownloadBatchOutcome.kt` went whole.
+  - `JournalRatingClearTag` was never applied, so the androidTest's check against it proved nothing.
+- **`LibraryPagingFeature.ENABLED`: removed.** Paging is always on. The in-memory path stays, because it is what
+  every view `isPageable` turns down still renders (search, other servers, rail sorts with filters, and so on).
+- **Performance logging: the rule changed.** `ARCHITECTURE_RULES.md` now says the logs stay on in release builds
+  by choice.
+- **Package name:** not asked; left as `com.example.unifiedreader` (no Play Store plans known).
 
-These block or shape later steps. Record each answer here.
+**Next:** step 2.
+
+## Step 1. Decisions only the user can make (done, answers above)
+
+These block or shape later steps.
 
 - **`AppReorderHandleIcon`:** it has no callers, but three screens hand-build the identical handle (24 icon,
   40 grab area, `onSurfaceVariant`, "Drag to reorder …"):

@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.lists
 
+import com.example.unifiedreader.ui.components.AppReorderHandleIcon
 import com.example.unifiedreader.ui.theme.AppMotion
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
@@ -22,7 +23,6 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -53,7 +53,6 @@ import com.example.unifiedreader.ui.components.AppWindowWidth
 import com.example.unifiedreader.ui.components.AppSettingsRow
 import com.example.unifiedreader.ui.components.AppGroupLabel
 import com.example.unifiedreader.ui.components.appGutter
-import com.example.unifiedreader.ui.components.appReorderHandle
 import com.example.unifiedreader.ui.components.appReorderableItem
 import com.example.unifiedreader.ui.components.movedItem
 import com.example.unifiedreader.ui.components.rememberAppReorderState
@@ -177,7 +176,7 @@ fun UserListEditor(
                                 isLast = index == draft.itemIds.lastIndex,
                                 canMove = canReorder,
                                 cover = cover,
-                                handleModifier = Modifier.appReorderHandle(reorderState, index),
+                                handle = { label -> AppReorderHandleIcon(reorderState, index, label) },
                                 onMoveUp = { move(index, index - 1) },
                                 onMoveDown = { move(index, index + 1) },
                                 onMoveToTop = { move(index, 0) },
@@ -260,7 +259,7 @@ private fun EditorBookRow(
     isLast: Boolean,
     canMove: Boolean,
     cover: ListCover,
-    handleModifier: Modifier,
+    handle: @Composable (label: String) -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     onMoveToTop: () -> Unit,
@@ -298,9 +297,7 @@ private fun EditorBookRow(
                     }
                 }
             }
-            Box(modifier = handleModifier.size(40.dp), contentAlignment = Alignment.Center) {
-                Icon(imageVector = AppIcons.DragHandle, contentDescription = "Drag to move $title")
-            }
+            handle(title)
         },
     )
 }

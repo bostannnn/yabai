@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
 import kotlin.coroutines.cancellation.CancellationException
@@ -36,7 +37,7 @@ class AppGrimmoryCoordinatorTest {
         val result = coordinator.executeSync(preparation, clearCoverState = {})
 
         assertTrue(result is GrimmorySyncExecutionResult.Failure)
-        assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.GRIMMORY))
+        assertEquals(SourceConnectivityState.Online, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.GRIMMORY))
     }
 
     @Test

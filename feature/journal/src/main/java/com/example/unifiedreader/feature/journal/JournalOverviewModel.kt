@@ -69,10 +69,6 @@ internal fun JournalReadingRun.rangeLabel(): String {
     }
 }
 
-/** "Thu 22 Oct". */
-internal fun JournalActivityDay.shortLabel(): String =
-    SimpleDateFormat("EEE d MMM", Locale.US).format(Date(startEpochMillis()))
-
 /** "Saturday 17 October". */
 internal fun JournalActivityDay.longLabel(): String =
     SimpleDateFormat("EEEE d MMMM", Locale.US).format(Date(startEpochMillis()))

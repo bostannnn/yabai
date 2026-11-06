@@ -10,7 +10,8 @@ import com.example.unifiedreader.core.model.LibraryContentType
 import com.example.unifiedreader.core.model.LibrarySortMode
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.buildLibraryFilterFacets
-import com.example.unifiedreader.core.model.deriveGridRootItems
+import com.example.unifiedreader.core.model.LibraryGridRoot
+import com.example.unifiedreader.core.model.deriveGridRootsWithMembers
 import com.example.unifiedreader.core.model.deriveKavitaSeriesGrouping
 import com.example.unifiedreader.core.model.librarySortIndexKey
 import org.junit.After
@@ -151,7 +152,7 @@ class RemoteCatalogGridRootsTest {
         // Persisted distinct facet values must equal what the in-memory facet builder derives over
         // the same grid roots, per dimension.
         val projectedItems = dao.getLibraryItemsForSourceType(SourceType.KAVITA.name).map { it.toDomain() }
-        val roots = deriveGridRootItems(SourceType.KAVITA, projectedItems)
+        val roots = deriveGridRootsWithMembers(SourceType.KAVITA, projectedItems).map(LibraryGridRoot::root)
         val expected = buildLibraryFilterFacets(roots)
 
         assertEquals(expected.genres.toSet(), dao.getDistinctFacetValues(SourceType.KAVITA.name, "GENRE").toSet())

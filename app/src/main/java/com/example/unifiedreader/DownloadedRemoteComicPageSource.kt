@@ -461,11 +461,6 @@ class DownloadedRemoteComicPageSource @Inject constructor(
     }
 }
 
-@androidx.annotation.VisibleForTesting(otherwise = androidx.annotation.VisibleForTesting.NONE)
-internal fun downloadedRemoteComicArchiveCodecFormats(
-    context: Context,
-): List<FormatType> = defaultDownloadedRemoteComicArchiveCodecs(context).map(ComicArchiveCodec::format)
-
 private fun defaultDownloadedRemoteComicArchiveCodecs(
     context: Context,
 ): List<ComicArchiveCodec> = listOf(
