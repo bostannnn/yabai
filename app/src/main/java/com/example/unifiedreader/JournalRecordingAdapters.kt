@@ -11,8 +11,6 @@ import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
@@ -25,7 +23,7 @@ class JournalRecordingReaderSessionStore(
     private val delegate: ReaderSessionStore,
     private val journalEventRecorder: JournalEventRecorder,
     private val visitStartedAt: (itemId: String) -> Long? = { null },
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    private val scope: CoroutineScope,
 ) : ReaderSessionStore by delegate {
     override fun saveProgress(
         item: ReadableItem,
@@ -75,7 +73,7 @@ class JournalRecordingComicReaderProgressStore(
     private val delegate: ComicReaderProgressStore,
     private val journalEventRecorder: JournalEventRecorder,
     private val visitStartedAt: (itemId: String) -> Long? = { null },
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    private val scope: CoroutineScope,
 ) : ComicReaderProgressStore by delegate {
     override fun savePage(
         item: ReadableItem,

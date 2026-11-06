@@ -24,6 +24,7 @@ import com.example.unifiedreader.feature.reader.comics.decodeComicPagePreview
 import com.example.unifiedreader.feature.reader.comics.decodeComicPagePreviewBytes
 import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -48,6 +49,7 @@ internal class LocalComicPageLoader(
     private val scope: CoroutineScope,
     private val previewStore: PersistentComicPagePreviewStore? = null,
     private val readerWorkCoordinator: ReaderWorkCoordinator = ReaderWorkCoordinator(),
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     private val pageBitmapCache = object : LruCache<String, ComicPageLoadResult.Success>(
         ComicPageLoaderCacheSizing.bitmapCacheBytes(),
@@ -109,7 +111,7 @@ internal class LocalComicPageLoader(
         val requestGeneration = generationFor(item.id)
         pageMetadataCache[cacheKey]?.let { return it }
         readerWorkCoordinator.awaitReaderBestEffortWorkAllowed()
-        return withContext(Dispatchers.IO) {
+        return withContext(ioDispatcher) {
             metadataLoadSemaphore.withPermit {
                 readerWorkCoordinator.awaitReaderBestEffortWorkAllowed()
                 pageMetadataCache[cacheKey]?.let { return@withPermit it }
@@ -222,7 +224,7 @@ internal class LocalComicPageLoader(
         val requestGeneration = generationFor(item.id)
         pagePreviewCache[previewCacheKey]?.let { return it }
         readerWorkCoordinator.awaitReaderBestEffortWorkAllowed()
-        val loadedResult = withContext(Dispatchers.IO) {
+        val loadedResult = withContext(ioDispatcher) {
             previewLoadSemaphore.withPermit {
                 readerWorkCoordinator.awaitReaderBestEffortWorkAllowed()
                 pagePreviewCache[previewCacheKey]?.let { return@withPermit it }
@@ -502,7 +504,7 @@ internal class LocalComicPageLoader(
         cacheKey: String,
         requestGeneration: Int,
         priority: ComicPageLoadPriority,
-    ): ComicPageLoadResult = withContext(Dispatchers.IO) {
+    ): ComicPageLoadResult = withContext(ioDispatcher) {
         semaphoreFor(priority).withPermit {
             if (priority == ComicPageLoadPriority.Prefetch) {
                 readerWorkCoordinator.awaitReaderBestEffortWorkAllowed()
@@ -805,7 +807,7 @@ internal class LocalComicPageLoader(
             if (existingRequest != null) {
                 return@synchronized existingRequest.deferred
             }
-            scope.async(Dispatchers.IO) {
+            scope.async(ioDispatcher) {
                 readAndCacheEntryBytes()
             }.also { deferred ->
                 inFlightByteRequests[requestKey] = LocalInFlightByteRequest(
@@ -864,7 +866,7 @@ internal class LocalComicPageLoader(
                     return@synchronized existingRequest.deferred
                 }
             }
-            scope.async(Dispatchers.IO) {
+            scope.async(ioDispatcher) {
                 val bytes = loadEntryBytes(
                     itemId = itemId,
                     cacheKey = cacheKey,

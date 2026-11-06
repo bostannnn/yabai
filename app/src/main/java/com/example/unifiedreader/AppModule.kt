@@ -3,6 +3,7 @@ package com.example.unifiedreader
 import android.content.Context
 import androidx.work.WorkManager
 import com.example.unifiedreader.core.common.AppDispatchers
+import com.example.unifiedreader.core.common.ApplicationScope
 import com.example.unifiedreader.core.database.UnifiedReaderDatabase
 import com.example.unifiedreader.core.database.UnifiedReaderDatabaseFactory
 import com.example.unifiedreader.core.database.dao.DownloadQueueDao
@@ -72,14 +73,12 @@ import io.ktor.client.HttpClient
 import java.io.File
 import javax.inject.Singleton
 import kotlin.jvm.JvmSuppressWildcards
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.plus
 
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
-    @Provides
-    @Singleton
-    fun provideAppDispatchers(): AppDispatchers = AppDispatchers()
-
     @Provides
     @Singleton
     fun provideReaderWorkCoordinator(): ReaderWorkCoordinator = ReaderWorkCoordinator()
@@ -104,33 +103,15 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideSourceNavigationPreferencesStore(
-        @ApplicationContext context: Context,
-    ): SourceNavigationPreferencesStore = DataStoreSourceNavigationPreferencesStore(context)
-
-    @Provides
-    @Singleton
     fun provideSourceNavigationStateCoordinator(
         sourceNavigationPreferencesStore: SourceNavigationPreferencesStore,
     ): SourceNavigationStateCoordinator = SourceNavigationStateCoordinator(sourceNavigationPreferencesStore)
 
     @Provides
     @Singleton
-    fun provideSettingsPreferencesStore(
-        @ApplicationContext context: Context,
-    ): SettingsPreferencesStore = DataStoreSettingsPreferencesStore(context)
-
-    @Provides
-    @Singleton
     fun provideSettingsStateCoordinator(
         settingsPreferencesStore: SettingsPreferencesStore,
     ): SettingsStateCoordinator = SettingsStateCoordinator(settingsPreferencesStore)
-
-    @Provides
-    @Singleton
-    fun provideLibraryBrowsePreferencesStore(
-        @ApplicationContext context: Context,
-    ): LibraryBrowsePreferencesStore = DataStoreLibraryBrowsePreferencesStore(context)
 
     @Provides
     @Singleton
@@ -143,18 +124,6 @@ object AppModule {
     fun provideRemoteItemLocalStateCache(
         @ApplicationContext context: Context,
     ): RemoteItemLocalStateCache = SharedPreferencesRemoteItemLocalStateCache(context)
-
-    @Provides
-    @Singleton
-    fun provideComicReadingDirectionPreferencesStore(
-        @ApplicationContext context: Context,
-    ): ComicReadingDirectionPreferencesStore = DataStoreComicReadingDirectionPreferencesStore(context)
-
-    @Provides
-    @Singleton
-    fun provideComicReaderModePreferencesStore(
-        @ApplicationContext context: Context,
-    ): ComicReaderModePreferencesStore = DataStoreComicReaderModePreferencesStore(context)
 
     @Provides
     @Singleton
@@ -382,8 +351,11 @@ object AppModule {
     @Singleton
     fun provideRoomRemoteCatalogRepository(
         database: UnifiedReaderDatabase,
+        @ApplicationScope applicationScope: CoroutineScope,
+        appDispatchers: AppDispatchers,
     ): RoomRemoteCatalogRepository = RoomRemoteCatalogRepository(
         remoteCatalogDao = database.remoteCatalogDao(),
+        scope = applicationScope + appDispatchers.io,
     )
 
     @Provides
@@ -677,11 +649,14 @@ object AppModule {
         readerSessionStore: ReaderSessionStore,
         previewStore: PersistentComicPagePreviewStore,
         readerWorkCoordinator: ReaderWorkCoordinator,
+        @ApplicationScope applicationScope: CoroutineScope,
+        appDispatchers: AppDispatchers,
     ): LocalDocumentRepository {
         return LocalDocumentRepository(
             context = context,
             importedComicArchiveDao = importedComicArchiveDao,
             appStartupTasks = appStartupTasks,
+            scope = applicationScope + appDispatchers.io,
             onItemImported = readerSessionStore::restoreItem,
             previewStore = previewStore,
             readerWorkCoordinator = readerWorkCoordinator,
@@ -719,10 +694,13 @@ object AppModule {
         readingProgressDao: ReadingProgressDao,
         readerSessionStateDao: ReaderSessionStateDao,
         appStartupTasks: AppStartupTasks,
+        @ApplicationScope applicationScope: CoroutineScope,
+        appDispatchers: AppDispatchers,
     ): RoomReaderSessionStore = RoomReaderSessionStore(
         readingProgressDao = readingProgressDao,
         readerSessionStateDao = readerSessionStateDao,
         appStartupTasks = appStartupTasks,
+        writeScope = applicationScope + appDispatchers.io,
     )
 
     @Provides
@@ -762,12 +740,15 @@ object AppModule {
         remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
         previewStore: PersistentComicPagePreviewStore,
         readerWorkCoordinator: ReaderWorkCoordinator,
+        @ApplicationScope applicationScope: CoroutineScope,
+        appDispatchers: AppDispatchers,
     ): KavitaPageSource = KavitaPageSource(
         kavitaApiFactory = kavitaApiFactory,
         kavitaCredentialStore = kavitaCredentialStore,
         remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
         previewStore = previewStore,
         readerWorkCoordinator = readerWorkCoordinator,
+        scope = applicationScope + appDispatchers.io,
     )
 
     @Provides
@@ -777,11 +758,14 @@ object AppModule {
         stumpCredentialStore: StumpCredentialStore,
         remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
         readerWorkCoordinator: ReaderWorkCoordinator,
+        @ApplicationScope applicationScope: CoroutineScope,
+        appDispatchers: AppDispatchers,
     ): StumpPageSource = StumpPageSource(
         stumpApiFactory = stumpApiFactory,
         stumpCredentialStore = stumpCredentialStore,
         remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
         readerWorkCoordinator = readerWorkCoordinator,
+        scope = applicationScope + appDispatchers.io,
     )
 
     @Provides
@@ -816,10 +800,13 @@ object AppModule {
         readerSessionStore: ReaderSessionStore,
         directionPreferencesStore: ComicReadingDirectionPreferencesStore,
         readerModePreferencesStore: ComicReaderModePreferencesStore,
+        @ApplicationScope applicationScope: CoroutineScope,
+        appDispatchers: AppDispatchers,
     ): ComicsReaderSessionAdapter = ComicsReaderSessionAdapter(
         sessionStore = readerSessionStore,
         directionPreferencesStore = directionPreferencesStore,
         readerModePreferencesStore = readerModePreferencesStore,
+        scope = applicationScope + appDispatchers.default,
     )
 
     @Provides
@@ -846,6 +833,8 @@ object AppModule {
         readerDisplay: ReaderDisplayPreferences,
         readerWorkCoordinator: ReaderWorkCoordinator,
         translationService: TranslationService,
+        @ApplicationScope applicationScope: CoroutineScope,
+        appDispatchers: AppDispatchers,
     ): List<@JvmSuppressWildcards ReaderScreenFactory> = listOf(
         comicsReaderFactory(
             pageSource = comicPageSource,
@@ -853,6 +842,7 @@ object AppModule {
                 delegate = adapter,
                 journalEventRecorder = journalEventRecorder,
                 visitStartedAt = readerWorkCoordinator::readerVisitStartedAt,
+                scope = applicationScope + appDispatchers.io,
             ),
             preferencesStore = adapter,
             journalReadingSessionRecorder = journalReadingSessionRecorder,
@@ -863,6 +853,7 @@ object AppModule {
                 delegate = readerSessionStore,
                 journalEventRecorder = journalEventRecorder,
                 visitStartedAt = readerWorkCoordinator::readerVisitStartedAt,
+                scope = applicationScope + appDispatchers.io,
             ),
             journalReadingSessionRecorder = journalReadingSessionRecorder,
             documentUriProvider = { item ->
@@ -880,6 +871,7 @@ object AppModule {
                 delegate = readerSessionStore,
                 journalEventRecorder = journalEventRecorder,
                 visitStartedAt = readerWorkCoordinator::readerVisitStartedAt,
+                scope = applicationScope + appDispatchers.io,
             ),
             journalReadingSessionRecorder = journalReadingSessionRecorder,
             documentUriProvider = { item ->

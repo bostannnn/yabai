@@ -122,6 +122,7 @@ class AppCatalogStateCoordinatorTest {
                 remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
                 visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
                 appDispatchers = appDispatchers,
+                applicationScope = backgroundScope,
             ),
         )
         var state = AppUiState(
@@ -221,6 +222,7 @@ class AppCatalogStateCoordinatorTest {
                 remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
                 visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
                 appDispatchers = appDispatchers,
+                applicationScope = backgroundScope,
             ),
         )
         val recomputeCoordinator = AppLibraryStateRecomputeCoordinator(
@@ -337,6 +339,7 @@ class AppCatalogStateCoordinatorTest {
                 remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
                 visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
                 appDispatchers = appDispatchers,
+                applicationScope = backgroundScope,
             ),
         )
         val recomputeCoordinator = AppLibraryStateRecomputeCoordinator(
@@ -459,6 +462,7 @@ class AppCatalogStateCoordinatorTest {
                 remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
                 visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
                 appDispatchers = appDispatchers,
+                applicationScope = backgroundScope,
             ),
         )
         val recomputeCoordinator = AppLibraryStateRecomputeCoordinator(
@@ -579,6 +583,7 @@ class AppCatalogStateCoordinatorTest {
                 remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
                 visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
                 appDispatchers = appDispatchers,
+                applicationScope = backgroundScope,
             ),
         )
         val recomputeCoordinator = AppLibraryStateRecomputeCoordinator(
@@ -706,6 +711,7 @@ class AppCatalogStateCoordinatorTest {
                 remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
                 visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
                 appDispatchers = appDispatchers,
+                applicationScope = backgroundScope,
             ),
         )
         val recomputeCoordinator = AppLibraryStateRecomputeCoordinator(
@@ -833,6 +839,7 @@ class AppCatalogStateCoordinatorTest {
                 remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
                 visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
                 appDispatchers = appDispatchers,
+                applicationScope = backgroundScope,
             ),
         )
         val recomputeCoordinator = AppLibraryStateRecomputeCoordinator(
@@ -945,6 +952,7 @@ class AppCatalogStateCoordinatorTest {
                 remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
                 visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
                 appDispatchers = appDispatchers,
+                applicationScope = backgroundScope,
             ),
         )
         var latestState = AppUiState(
@@ -1021,6 +1029,7 @@ class AppCatalogStateCoordinatorTest {
                 remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
                 visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
                 appDispatchers = appDispatchers,
+                applicationScope = backgroundScope,
             ),
         )
         val recomputeCoordinator = AppLibraryStateRecomputeCoordinator(
@@ -1123,6 +1132,7 @@ class AppCatalogStateCoordinatorTest {
                 remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
                 visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
                 appDispatchers = appDispatchers,
+                applicationScope = backgroundScope,
             ),
         )
         var state = AppUiState(
@@ -1204,6 +1214,7 @@ class AppCatalogStateCoordinatorTest {
                 remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
                 visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
                 appDispatchers = appDispatchers,
+                applicationScope = backgroundScope,
             ),
         )
         val recomputeCoordinator = AppLibraryStateRecomputeCoordinator(

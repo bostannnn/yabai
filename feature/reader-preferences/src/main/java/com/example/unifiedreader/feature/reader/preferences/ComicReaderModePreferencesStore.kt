@@ -9,8 +9,6 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import java.io.IOException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,9 +42,10 @@ interface ComicReaderModePreferencesStore {
 class DataStoreComicReaderModePreferencesStore(
     context: Context,
     private val dataStore: DataStore<Preferences> = context.applicationContext.comicReaderModePreferencesDataStore,
+    /** The app scope; saves run on it so they outlive the reader. */
+    private val scope: CoroutineScope,
     private val ioRetryDelayMillis: Long = DATASTORE_IO_RETRY_DELAY_MILLIS,
 ) : ComicReaderModePreferencesStore {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val hydrationState = MutableStateFlow(false)
     override val isHydratedFlow: StateFlow<Boolean> = hydrationState
 

@@ -18,8 +18,6 @@ import com.example.unifiedreader.feature.reader.preferences.normalizeComicItemMo
 import com.example.unifiedreader.feature.reader.preferences.resolveComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.resolveComicReadingDirection
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -32,7 +30,7 @@ class ComicsReaderSessionAdapter(
     private val sessionStore: ReaderSessionStore,
     private val directionPreferencesStore: ComicReadingDirectionPreferencesStore,
     private val readerModePreferencesStore: ComicReaderModePreferencesStore,
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    private val scope: CoroutineScope,
 ) : ComicReaderProgressStore, ComicReaderPreferencesStore {
     override val isHydratedFlow: StateFlow<Boolean> = combine(
         sessionStore.isHydratedFlow,

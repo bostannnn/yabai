@@ -15,6 +15,7 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation("androidx.compose.foundation:foundation")
     implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.compose.material3)
 
     testImplementation(libs.junit4)

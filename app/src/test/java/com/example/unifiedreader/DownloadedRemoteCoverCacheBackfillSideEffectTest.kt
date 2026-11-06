@@ -69,6 +69,7 @@ class DownloadedRemoteCoverCacheBackfillSideEffectTest {
             stumpCredentialStore = FakeStumpCredentialStore(),
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
             pdfCoverRenderer = FakeDownloadedPdfCoverRenderer(),
+            applicationScope = backgroundScope,
         )
         val effect = DownloadedRemoteCoverCacheBackfillSideEffect(backfiller)
 
@@ -111,6 +112,7 @@ class DownloadedRemoteCoverCacheBackfillSideEffectTest {
             stumpCredentialStore = FakeStumpCredentialStore(),
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
             pdfCoverRenderer = pdfRenderer,
+            applicationScope = backgroundScope,
         )
         val effect = DownloadedRemoteCoverCacheBackfillSideEffect(backfiller)
 
@@ -161,6 +163,7 @@ class DownloadedRemoteCoverCacheBackfillSideEffectTest {
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
             pdfCoverRenderer = FakeDownloadedPdfCoverRenderer(),
             readerWorkCoordinator = readerWorkCoordinator,
+            applicationScope = backgroundScope,
         )
         val effect = DownloadedRemoteCoverCacheBackfillSideEffect(backfiller)
         val cachedCover = File(

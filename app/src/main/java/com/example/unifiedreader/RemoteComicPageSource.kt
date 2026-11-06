@@ -32,7 +32,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -51,7 +50,7 @@ abstract class RemoteComicPageSource<Session : StoredSourceSession>(
     private val supportedFormats: Set<FormatType>,
     private val missingSessionMessage: String,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher),
+    private val scope: CoroutineScope,
     private val previewStore: PersistentComicPagePreviewStore? = null,
     private val readerWorkCoordinator: ReaderWorkCoordinator = ReaderWorkCoordinator(),
 ) : ComicPageSource {

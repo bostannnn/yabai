@@ -3,6 +3,7 @@ package com.example.unifiedreader.feature.library.covers
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.test.core.app.ApplicationProvider
+import com.example.unifiedreader.core.common.AppDispatchers
 import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -27,7 +28,7 @@ class LibraryCoverThumbnailGeneratorTest {
             bitmap.recycle()
         }
 
-        val output = LibraryCoverThumbnailGenerator().ensureThumbnail(
+        val output = LibraryCoverThumbnailGenerator(AppDispatchers()).ensureThumbnail(
             sourceFile = source,
             destinationFile = destination,
             variant = LibraryCoverVariant.Grid,
@@ -53,7 +54,7 @@ class LibraryCoverThumbnailGeneratorTest {
             bitmap.recycle()
         }
 
-        val output = LibraryCoverThumbnailGenerator().ensureThumbnail(
+        val output = LibraryCoverThumbnailGenerator(AppDispatchers()).ensureThumbnail(
             sourceFile = source,
             destinationFile = destination,
             variant = LibraryCoverVariant.GridLarge,
@@ -79,7 +80,7 @@ class LibraryCoverThumbnailGeneratorTest {
             bitmap.recycle()
         }
 
-        val output = LibraryCoverThumbnailGenerator().ensureThumbnail(
+        val output = LibraryCoverThumbnailGenerator(AppDispatchers()).ensureThumbnail(
             sourceFile = source,
             destinationFile = destination,
             variant = LibraryCoverVariant.GridExtraLarge,
@@ -106,7 +107,7 @@ class LibraryCoverThumbnailGeneratorTest {
             bitmap.recycle()
         }
 
-        val output = LibraryCoverThumbnailGenerator().ensureThumbnail(
+        val output = LibraryCoverThumbnailGenerator(AppDispatchers()).ensureThumbnail(
             sourceFile = source,
             destinationFile = destination,
             variant = LibraryCoverVariant.GridLarge,

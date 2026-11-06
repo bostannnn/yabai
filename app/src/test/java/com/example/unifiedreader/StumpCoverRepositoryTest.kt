@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
+import com.example.unifiedreader.core.common.AppDispatchers
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.covers.LibraryCoverVariant
 import com.example.unifiedreader.feature.library.covers.LibraryCoverThumbnailGenerator
@@ -31,7 +32,7 @@ class StumpCoverRepositoryTest {
     private val store = PersistentRemoteCoverStore(context)
     private val coverCacheResolver = RemoteCoverCacheResolver(
         coverStore = store,
-        thumbnailGenerator = LibraryCoverThumbnailGenerator(),
+        thumbnailGenerator = LibraryCoverThumbnailGenerator(AppDispatchers()),
     )
 
     @After

@@ -6,12 +6,12 @@ import io.ktor.client.HttpClient
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.plus
 
 /** What the settings page and the reader show about translation. */
 data class TranslationState(
@@ -179,14 +179,18 @@ class TranslationService internal constructor(
     }
 
     companion object {
-        /** [httpClient] reaches DeepL, on the internet: give it internet timeouts. */
-        fun create(context: Context, httpClient: HttpClient): TranslationService = TranslationService(
-            engine = MlKitTranslationEngine(),
-            preferencesStore = DataStoreTranslationPreferencesStore(context),
-            scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
-            deepLClient = DeepLClient(httpClient),
-            deepLKeyStore = KeystoreDeepLKeyStore(context),
-        )
+        /**
+         * [applicationScope] is the app's scope; state changes run on its main thread. [httpClient]
+         * reaches DeepL, on the internet: give it internet timeouts.
+         */
+        fun create(context: Context, applicationScope: CoroutineScope, httpClient: HttpClient): TranslationService =
+            TranslationService(
+                engine = MlKitTranslationEngine(),
+                preferencesStore = DataStoreTranslationPreferencesStore(context),
+                scope = applicationScope + Dispatchers.Main.immediate,
+                deepLClient = DeepLClient(httpClient),
+                deepLKeyStore = KeystoreDeepLKeyStore(context),
+            )
     }
 }
 

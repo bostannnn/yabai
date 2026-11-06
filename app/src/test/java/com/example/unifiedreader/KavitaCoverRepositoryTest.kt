@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
+import com.example.unifiedreader.core.common.AppDispatchers
 import com.example.unifiedreader.data.kavita.KavitaApi
 import com.example.unifiedreader.data.kavita.KavitaChapterCatalogEntry
 import com.example.unifiedreader.data.kavita.KavitaChapterInfoDto
@@ -39,7 +40,7 @@ class KavitaCoverRepositoryTest {
     private val store = PersistentRemoteCoverStore(context)
     private val coverCacheResolver = RemoteCoverCacheResolver(
         coverStore = store,
-        thumbnailGenerator = LibraryCoverThumbnailGenerator(),
+        thumbnailGenerator = LibraryCoverThumbnailGenerator(AppDispatchers()),
     )
 
     @After

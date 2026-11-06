@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -20,6 +19,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
@@ -61,11 +61,11 @@ fun ComicsReaderScreen(
         pageSource = pageSource,
         attempt = openAttempt,
     )
-    val progressHydrated by progressStore.isHydratedFlow.collectAsState()
-    val preferencesHydrated by preferencesStore.isHydratedFlow.collectAsState()
-    val savedPagesByItemId by progressStore.savedPagesFlow.collectAsState()
-    val pageNumbersVisible by pageNumberPreferences.isVisibleFlow.collectAsState()
-    val restoredPreferences by preferencesStore.observePreferences(item).collectAsState(initial = null)
+    val progressHydrated by progressStore.isHydratedFlow.collectAsStateWithLifecycle()
+    val preferencesHydrated by preferencesStore.isHydratedFlow.collectAsStateWithLifecycle()
+    val savedPagesByItemId by progressStore.savedPagesFlow.collectAsStateWithLifecycle()
+    val pageNumbersVisible by pageNumberPreferences.isVisibleFlow.collectAsStateWithLifecycle()
+    val restoredPreferences by preferencesStore.observePreferences(item).collectAsStateWithLifecycle(initialValue = null)
 
     if (pages.isEmpty()) {
         val pagesUnavailableDiagnostic = rememberComicPagesUnavailableDiagnostic(

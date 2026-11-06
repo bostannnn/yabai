@@ -19,7 +19,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
@@ -111,9 +111,9 @@ fun PdfReaderScreen(
         key = "pdf-overlay-${item.id}",
         initiallyVisible = true,
     )
-    val sessionHydrated by sessionStore?.isHydratedFlow?.collectAsState()
+    val sessionHydrated by sessionStore?.isHydratedFlow?.collectAsStateWithLifecycle()
         ?: remember { mutableStateOf(true) }
-    val savedProgressByItemId by sessionStore?.progressByItemIdFlow?.collectAsState()
+    val savedProgressByItemId by sessionStore?.progressByItemIdFlow?.collectAsStateWithLifecycle()
         ?: remember { mutableStateOf(emptyMap()) }
     // Try again asks for the file again.
     var openAttempt by remember(item.id) { mutableIntStateOf(0) }
@@ -314,7 +314,7 @@ fun PdfReaderScreen(
     AppScreenBackHandler(onBack = closeReader)
 
     val safePageIndex = currentPageIndex.coerceIn(0, (pageCount - 1).coerceAtLeast(0))
-    val pageNumbersVisible by pageNumberPreferences.isVisibleFlow.collectAsState()
+    val pageNumbersVisible by pageNumberPreferences.isVisibleFlow.collectAsStateWithLifecycle()
     val currentPageProgress = if (pageCount > 0) {
         (safePageIndex + 1).toFloat() / pageCount.toFloat()
     } else {

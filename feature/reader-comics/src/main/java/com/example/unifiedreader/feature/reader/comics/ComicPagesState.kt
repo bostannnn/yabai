@@ -1,11 +1,11 @@
 package com.example.unifiedreader.feature.reader.comics
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.reader.core.ReaderOpenFailure
@@ -26,7 +26,7 @@ internal fun rememberObservedComicPages(
     val pagesFlow = remember(item, pageSource, attempt) {
         pageSource.observePages(item)
     }
-    val pages by pagesFlow.collectAsState(initial = initialPages)
+    val pages by pagesFlow.collectAsStateWithLifecycle(initialValue = initialPages)
     return pages
 }
 
@@ -42,7 +42,7 @@ internal fun rememberComicPagesUnavailableDiagnostic(
     val diagnosticFlow = remember(item, pageSource, attempt) {
         pageSource.observePagesUnavailableDiagnostic(item)
     }
-    val diagnostic by diagnosticFlow.collectAsState(initial = initialDiagnostic)
+    val diagnostic by diagnosticFlow.collectAsStateWithLifecycle(initialValue = initialDiagnostic)
     return diagnostic
 }
 

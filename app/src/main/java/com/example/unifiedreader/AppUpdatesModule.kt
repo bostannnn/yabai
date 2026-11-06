@@ -2,6 +2,7 @@ package com.example.unifiedreader
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
+import com.example.unifiedreader.core.common.ApplicationScope
 import com.example.unifiedreader.core.network.buildHttpClient
 import com.example.unifiedreader.feature.updates.AppUpdateController
 import com.example.unifiedreader.feature.updates.AppUpdates
@@ -13,6 +14,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
 
 /** The in-app updater; kept out of [AppModule], which should not grow. */
 @Module
@@ -22,8 +24,10 @@ object AppUpdatesModule {
     @Singleton
     fun provideAppUpdateController(
         @ApplicationContext context: Context,
+        @ApplicationScope applicationScope: CoroutineScope,
     ): AppUpdateController = AppUpdates.createController(
         context = context,
+        applicationScope = applicationScope,
         // GitHub is on the internet, so this client waits longer than the LAN one.
         httpClient = buildHttpClient(
             connectTimeoutMillis = UPDATE_CONNECT_TIMEOUT_MILLIS,

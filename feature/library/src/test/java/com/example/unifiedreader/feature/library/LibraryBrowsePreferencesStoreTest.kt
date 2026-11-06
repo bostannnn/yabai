@@ -29,7 +29,9 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.plus
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -168,6 +170,7 @@ class LibraryBrowsePreferencesStoreTest {
                 Context.MODE_PRIVATE,
             ),
             ioRetryDelayMillis = 0L,
+            scope = TestScope() + Dispatchers.IO,
         )
 
         dataStore.awaitCollection()
@@ -217,6 +220,7 @@ class LibraryBrowsePreferencesStoreTest {
         val store = DataStoreLibraryBrowsePreferencesStore(
             dataStore = SilentPreferencesDataStore(),
             startupPreferences = startupPreferences,
+            scope = TestScope() + Dispatchers.IO,
         )
 
         assertEquals(seededPreferences, store.preferencesFlow.value)
@@ -253,6 +257,7 @@ private suspend fun readyStore(
     val store = DataStoreLibraryBrowsePreferencesStore(
         dataStore = dataStore,
         startupPreferences = startupPreferences,
+        scope = TestScope() + Dispatchers.IO,
     )
     dataStore.firstRead.await()
     return store

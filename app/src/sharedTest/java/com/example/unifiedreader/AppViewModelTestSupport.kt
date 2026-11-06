@@ -77,6 +77,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.io.IOException
+import kotlinx.coroutines.test.TestScope
 
 internal fun createViewModel(
     sampleItems: List<ReadableItem> = emptyList(),
@@ -159,6 +160,7 @@ internal fun createViewModel(
         remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
         visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
         appDispatchers = appDispatchers,
+        applicationScope = TestScope(),
     )
     val downloadQueueStore = TestDownloadQueueStore()
     val downloadScheduler = ImmediateDownloadWorkScheduler()

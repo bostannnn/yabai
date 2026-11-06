@@ -23,7 +23,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.plus
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -90,6 +92,7 @@ class SettingsPreferencesStoreTest {
             dataStore = failingDataStore,
             startupPreferences = startupPreferences,
             ioRetryDelayMillis = 0L,
+            scope = TestScope() + Dispatchers.IO,
         )
 
         assertEquals(ThemeMode.Dark, store.preferencesFlow.value.themeMode)
@@ -147,6 +150,7 @@ private fun createTestStoreFixture(
             appContext = context,
             dataStore = dataStore,
             startupPreferences = startupPreferences,
+            scope = TestScope() + Dispatchers.IO,
         ),
         startupPreferences = startupPreferences,
         legacyPreferences = legacyPreferences,

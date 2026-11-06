@@ -13,6 +13,7 @@ import com.example.unifiedreader.core.model.sha256Hex
 import com.github.junrar.Archive
 import com.github.junrar.rarfile.FileHeader
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -119,6 +120,7 @@ internal object ZipComicArchiveCodec : ComicArchiveCodec {
 
 internal class RarComicArchiveCodec(
     private val context: Context,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ComicArchiveCodec {
     override val format: FormatType = FormatType.CBR
 
@@ -128,7 +130,7 @@ internal class RarComicArchiveCodec(
         context: Context,
         uri: Uri,
     ): List<String> = runSuspendCatching {
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             readArchiveHeaders(uri)
                 .map(::archiveEntryName)
         }
@@ -139,7 +141,7 @@ internal class RarComicArchiveCodec(
         uri: Uri,
         entryName: String,
     ): ByteArray? = runSuspendCatching {
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             val archiveFile = ensureLocalArchiveFile(uri)
             val archive = Archive(archiveFile)
             try {
@@ -170,7 +172,7 @@ internal class RarComicArchiveCodec(
 
     private suspend fun readArchiveHeaders(
         uri: Uri,
-    ): List<FileHeader> = withContext(Dispatchers.IO) {
+    ): List<FileHeader> = withContext(ioDispatcher) {
         val archiveFile = ensureLocalArchiveFile(uri)
         val archive = Archive(archiveFile)
         try {

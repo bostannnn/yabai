@@ -7,6 +7,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.journal.journalMediaType
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -22,6 +23,7 @@ class RoomJournalRepository(
     private val remoteCatalogDao: RemoteCatalogDao,
     private val stateComputer: JournalStateComputer = JournalStateComputer(),
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : JournalRepository, JournalReadingSessionRecorder {
     private val recordMutex = Mutex()
 
@@ -69,7 +71,7 @@ class RoomJournalRepository(
     override suspend fun recordReaderProgress(
         input: JournalProgressInput,
     ) {
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             recordMutex.withLock {
                 val existingEvents = journalDao.getReadingEventsForItem(input.item.id)
                     .map { entity -> entity.toDomain() }
@@ -90,7 +92,7 @@ class RoomJournalRepository(
     override suspend fun recordReadingSession(
         input: JournalReadingSessionInput,
     ) {
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             val session = buildJournalReadingSession(input) ?: return@withContext
             journalDao.insertReadingSession(session.toEntity())
         }
@@ -101,7 +103,7 @@ class RoomJournalRepository(
         rating: Int?,
         reviewText: String,
     ) {
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             val now = nowEpochMillis()
             val trimmedReview = reviewText.trim()
             val existingEntry = journalDao.getJournalEntry(item.id)?.toDomain()
@@ -126,7 +128,7 @@ class RoomJournalRepository(
         rating: Int?,
         reviewText: String,
     ) {
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             val now = nowEpochMillis()
             val trimmedReview = reviewText.trim()
             val existingEntry = journalDao.getJournalEntry(item.itemId)?.toDomain()
@@ -149,7 +151,7 @@ class RoomJournalRepository(
     override suspend fun deleteItemJournal(
         itemId: String,
     ) {
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             journalDao.deleteReadingEventsForItem(itemId)
             journalDao.deleteReadingSessionsForItem(itemId)
             journalDao.deleteJournalEntry(itemId)
@@ -160,14 +162,14 @@ class RoomJournalRepository(
         itemId: String,
         sinceEpochMillis: Long,
     ) {
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             journalDao.deleteFinishedReadingEventsForItemSince(itemId, sinceEpochMillis)
         }
     }
 
     override suspend fun getReadingSessionsForItem(
         itemId: String,
-    ): List<JournalReadingSession> = withContext(Dispatchers.IO) {
+    ): List<JournalReadingSession> = withContext(ioDispatcher) {
         journalDao.getReadingSessionsForItem(itemId)
             .map { entity -> entity.toDomain() }
     }
@@ -187,7 +189,7 @@ class RoomJournalRepository(
         preserveRatingOnlyEntriesWhenIncomingMissing: Boolean,
         ratingOnlyPreservationExcludedItemIds: Set<String>?,
     ) {
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             journalDao.replaceCleanSourceJournalCache(
                 sourceType = sourceType.name,
                 events = events.map { event -> event.copy(syncState = SyncState.CLEAN).toEntity() },
@@ -208,21 +210,21 @@ class RoomJournalRepository(
 
     override suspend fun getDirtyJournalEntriesForSource(
         sourceType: SourceType,
-    ): List<ItemJournalEntry> = withContext(Dispatchers.IO) {
+    ): List<ItemJournalEntry> = withContext(ioDispatcher) {
         journalDao.getDirtyJournalEntriesForSource(sourceType.name)
             .map { entity -> entity.toDomain() }
     }
 
     override suspend fun getCleanJournalEntriesForSource(
         sourceType: SourceType,
-    ): List<ItemJournalEntry> = withContext(Dispatchers.IO) {
+    ): List<ItemJournalEntry> = withContext(ioDispatcher) {
         journalDao.getCleanJournalEntriesForSource(sourceType.name)
             .map { entity -> entity.toDomain() }
     }
 
     override suspend fun getDirtyReadingSessionsForSource(
         sourceType: SourceType,
-    ): List<JournalReadingSession> = withContext(Dispatchers.IO) {
+    ): List<JournalReadingSession> = withContext(ioDispatcher) {
         journalDao.getDirtyReadingSessionsForSource(sourceType.name)
             .map { entity -> entity.toDomain() }
     }
@@ -231,7 +233,7 @@ class RoomJournalRepository(
         itemId: String,
         syncState: SyncState,
     ) {
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             journalDao.updateJournalEntrySyncState(itemId, syncState.name)
         }
     }
@@ -240,7 +242,7 @@ class RoomJournalRepository(
         itemId: String,
         remoteReviewNoteId: String?,
     ) {
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             journalDao.updateJournalEntryRemoteReviewNoteId(itemId, remoteReviewNoteId)
         }
     }
@@ -249,7 +251,7 @@ class RoomJournalRepository(
         sessionId: String,
         syncState: SyncState,
     ) {
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             journalDao.updateReadingSessionSyncState(sessionId, syncState.name)
         }
     }

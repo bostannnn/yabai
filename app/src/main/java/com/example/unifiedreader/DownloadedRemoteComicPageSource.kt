@@ -2,6 +2,8 @@ package com.example.unifiedreader
 
 import android.content.Context
 import android.net.Uri
+import com.example.unifiedreader.core.common.AppDispatchers
+import com.example.unifiedreader.core.common.ApplicationScope
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.isComicReaderFormat
@@ -24,10 +26,10 @@ import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.plus
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -41,8 +43,10 @@ class DownloadedRemoteComicPageSource @Inject constructor(
     cacheInvalidationDispatcher: DownloadedRemoteComicCacheInvalidationDispatcher,
     previewStore: PersistentComicPagePreviewStore? = null,
     readerWorkCoordinator: ReaderWorkCoordinator = ReaderWorkCoordinator(),
+    @ApplicationScope applicationScope: CoroutineScope,
+    private val appDispatchers: AppDispatchers = AppDispatchers(),
 ) : ComicPageSource {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope = applicationScope + appDispatchers.io
     private val comicArchiveCodecs: List<ComicArchiveCodec> = defaultDownloadedRemoteComicArchiveCodecs(context)
     private val comicPageLoader = LocalComicPageLoader(
         context = context,
@@ -138,7 +142,7 @@ class DownloadedRemoteComicPageSource @Inject constructor(
         if (resolvedPages != initialPages) {
             emit(resolvedPages)
         }
-    }.flowOn(Dispatchers.IO)
+    }.flowOn(appDispatchers.io)
 
     override fun observePagesUnavailableDiagnostic(
         item: ReadableItem,
@@ -147,7 +151,7 @@ class DownloadedRemoteComicPageSource @Inject constructor(
         inspectArchiveForDiagnostics(item)
         archiveEntryNamesFor(item)
         emit(pagesUnavailableDiagnostic(item))
-    }.flowOn(Dispatchers.IO)
+    }.flowOn(appDispatchers.io)
 
     override suspend fun loadPageMetadata(
         item: ReadableItem,
@@ -386,7 +390,7 @@ class DownloadedRemoteComicPageSource @Inject constructor(
     private suspend fun readFirstBytes(
         uri: Uri,
         byteCount: Int,
-    ): ByteArray? = withContext(Dispatchers.IO) {
+    ): ByteArray? = withContext(appDispatchers.io) {
         runSuspendCatching {
             context.contentResolver.openInputStream(uri)?.use { input ->
                 val buffer = ByteArray(byteCount)

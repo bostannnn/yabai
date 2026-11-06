@@ -13,7 +13,6 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 
 class KavitaPageSource(
@@ -21,7 +20,7 @@ class KavitaPageSource(
     private val kavitaCredentialStore: KavitaCredentialStore,
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher),
+    private val scope: CoroutineScope,
     previewStore: PersistentComicPagePreviewStore? = null,
     readerWorkCoordinator: ReaderWorkCoordinator = ReaderWorkCoordinator(),
 ) : RemoteComicPageSource<KavitaStoredSession>(

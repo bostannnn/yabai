@@ -7,6 +7,7 @@ import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.library.LibraryBookDescriptionLoader
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
@@ -31,6 +32,7 @@ class BookDescriptionRepository internal constructor(
     private val details: ItemDetailsStore,
     private val sourceFor: (SourceType) -> RemoteBookDescriptionSource?,
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : LibraryBookDescriptionLoader {
     @Inject constructor(
         database: UnifiedReaderDatabase,
@@ -49,7 +51,7 @@ class BookDescriptionRepository internal constructor(
         },
     )
 
-    override suspend fun description(item: ReadableItem): String? = withContext(Dispatchers.IO) {
+    override suspend fun description(item: ReadableItem): String? = withContext(ioDispatcher) {
         try {
             details.catalogDescription(item.id)?.takeIf(String::isNotBlank)
                 ?: serverDescription(item)

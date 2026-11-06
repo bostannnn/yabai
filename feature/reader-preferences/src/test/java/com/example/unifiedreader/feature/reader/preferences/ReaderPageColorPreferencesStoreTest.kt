@@ -3,7 +3,9 @@ package com.example.unifiedreader.feature.reader.preferences
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.test.core.app.ApplicationProvider
 import java.io.File
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.plus
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -22,7 +24,11 @@ class ReaderPageColorPreferencesStoreTest {
                 File(context.cacheDir, "reader-page-color-default-test.preferences_pb").apply { delete() }
             },
         )
-        val store = DataStoreReaderPageColorPreferencesStore(context = context, dataStore = dataStore)
+        val store = DataStoreReaderPageColorPreferencesStore(
+            context = context,
+            dataStore = dataStore,
+            scope = backgroundScope + Dispatchers.IO,
+        )
 
         assertNull(store.pickFlow.first { pick -> pick.isLoaded }.name)
 
@@ -40,9 +46,17 @@ class ReaderPageColorPreferencesStoreTest {
                 File(context.cacheDir, "reader-page-color-persist-test.preferences_pb").apply { delete() }
             },
         )
-        DataStoreReaderPageColorPreferencesStore(context = context, dataStore = dataStore).setLastPicked("Dusk")
+        DataStoreReaderPageColorPreferencesStore(
+            context = context,
+            dataStore = dataStore,
+            scope = backgroundScope + Dispatchers.IO).setLastPicked("Dusk",
+        )
 
-        val reopened = DataStoreReaderPageColorPreferencesStore(context = context, dataStore = dataStore)
+        val reopened = DataStoreReaderPageColorPreferencesStore(
+            context = context,
+            dataStore = dataStore,
+            scope = backgroundScope + Dispatchers.IO,
+        )
 
         assertEquals("Dusk", reopened.pickFlow.first { pick -> pick.name != null }.name)
     }

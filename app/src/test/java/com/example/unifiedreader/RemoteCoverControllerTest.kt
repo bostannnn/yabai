@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -39,6 +40,7 @@ class RemoteCoverControllerTest {
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
             visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = immediateAppDispatchers(),
+            applicationScope = TestScope(),
         )
         val kavitaItem = remoteItem(
             id = "kavita:item:issue-cached",
@@ -60,6 +62,7 @@ class RemoteCoverControllerTest {
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
             visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = immediateAppDispatchers(),
+            applicationScope = TestScope(),
         )
         val localItem = remoteItem(
             id = "comic-local-1",
@@ -87,6 +90,7 @@ class RemoteCoverControllerTest {
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
             visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = immediateAppDispatchers(),
+            applicationScope = TestScope(),
         )
         val kavitaItem = remoteItem(
             id = "kavita:item:issue-scrolling",
@@ -119,6 +123,7 @@ class RemoteCoverControllerTest {
             remoteSourceConnectivityPolicy = connectivityPolicy,
             visibleLibraryCoverRegistry = registry,
             appDispatchers = immediateAppDispatchers(),
+            applicationScope = TestScope(),
         )
         val stumpItem = remoteItem(
             id = "stump:item:fallback",
@@ -149,6 +154,7 @@ class RemoteCoverControllerTest {
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
             visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = immediateAppDispatchers(),
+            applicationScope = backgroundScope,
         )
         val stumpItem = remoteItem(
             id = "stump:item:issue-cached",
@@ -176,6 +182,7 @@ class RemoteCoverControllerTest {
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
             visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = immediateAppDispatchers(),
+            applicationScope = backgroundScope,
         )
         val stumpItem = remoteItem(
             id = "stump:item:issue-scrolling-completion",
@@ -217,6 +224,7 @@ class RemoteCoverControllerTest {
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
             visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = immediateAppDispatchers(),
+            applicationScope = backgroundScope,
         )
         val stumpItem = remoteItem(
             id = "stump:item:issue-backfill",
@@ -245,6 +253,7 @@ class RemoteCoverControllerTest {
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
             visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = immediateAppDispatchers(),
+            applicationScope = backgroundScope,
         )
         val stumpItem = remoteItem(
             id = "stump:item:issue-1",
@@ -281,6 +290,7 @@ class RemoteCoverControllerTest {
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
             visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = immediateAppDispatchers(),
+            applicationScope = backgroundScope,
         )
         val stumpItem = remoteItem(
             id = "stump:item:issue-2",
@@ -312,6 +322,7 @@ class RemoteCoverControllerTest {
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
             visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = immediateAppDispatchers(),
+            applicationScope = backgroundScope,
         )
         val stumpItem = remoteItem(
             id = "stump:item:issue-3",
@@ -354,6 +365,7 @@ class RemoteCoverControllerTest {
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
             visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = immediateAppDispatchers(),
+            applicationScope = backgroundScope,
         )
 
         assertEquals(0L, controller.coverResetGeneration.value)
@@ -382,6 +394,7 @@ class RemoteCoverControllerTest {
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
             visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = immediateAppDispatchers(),
+            applicationScope = backgroundScope,
         )
         val stumpSeriesItem = ReadableItem(
             id = "stump:series:series-1",
@@ -447,6 +460,7 @@ class RemoteCoverControllerTest {
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
             visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = immediateAppDispatchers(),
+            applicationScope = TestScope(),
         )
 
         assertEquals(firstUri.toString(), controller.coverImageUrlFor(firstItem, LibraryCoverImageVariant.Grid))
@@ -468,6 +482,7 @@ class RemoteCoverControllerTest {
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
             visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = immediateAppDispatchers(),
+            applicationScope = TestScope(),
         )
         val kavitaItem = remoteItem(
             id = "kavita:item:issue-1",
@@ -493,6 +508,7 @@ class RemoteCoverControllerTest {
             grimmoryCredentialStore = FakeGrimmoryCredentialStore(),
             visibleLibraryCoverRegistry = VisibleLibraryCoverRegistry(),
             appDispatchers = immediateAppDispatchers(),
+            applicationScope = TestScope(),
         )
         val grimmoryItem = remoteItem(
             id = "grimmory:item:book-1",
@@ -523,6 +539,8 @@ class RemoteCoverControllerTest {
                 io = StandardTestDispatcher(testScheduler),
                 default = StandardTestDispatcher(testScheduler),
             ),
+            // The test's own scope: advanceUntilIdle runs its work, not backgroundScope's.
+            applicationScope = this,
         )
         val kavitaItem = remoteItem(
             id = "kavita:item:warm-cache",

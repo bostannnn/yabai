@@ -3,8 +3,10 @@ package com.example.unifiedreader
 import android.content.SharedPreferences
 import android.util.Log
 import java.io.IOException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.withContext
 
 internal class EncryptedSourceSessionStore<T>(
     private val preferences: SharedPreferences,
@@ -22,11 +24,14 @@ internal class EncryptedSourceSessionStore<T>(
     suspend fun save(
         session: T,
     ) {
-        val committed = preferences.edit().apply {
-            writeSession(session).forEach { (key, value) ->
-                putString(key, value?.let(cipher::encrypt))
-            }
-        }.commit()
+        // Encrypting and a synchronous commit both touch the disk or the keystore: never on the caller's thread.
+        val committed = withContext(Dispatchers.IO) {
+            preferences.edit().apply {
+                writeSession(session).forEach { (key, value) ->
+                    putString(key, value?.let(cipher::encrypt))
+                }
+            }.commit()
+        }
         if (!committed) {
             throw IOException(saveErrorMessage)
         }
@@ -34,7 +39,7 @@ internal class EncryptedSourceSessionStore<T>(
     }
 
     suspend fun clear() {
-        val committed = preferences.edit().clear().commit()
+        val committed = withContext(Dispatchers.IO) { preferences.edit().clear().commit() }
         if (!committed) {
             throw IOException(clearErrorMessage)
         }

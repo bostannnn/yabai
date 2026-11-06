@@ -6,10 +6,12 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.test.core.app.ApplicationProvider
 import java.io.File
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.plus
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -28,6 +30,7 @@ class ComicReadingDirectionPreferencesStoreTest {
         val store = DataStoreComicReadingDirectionPreferencesStore(
             context = context,
             dataStore = FlowBackedDirectionPreferencesDataStore(data),
+            scope = backgroundScope + Dispatchers.IO,
         )
 
         assertFalse(store.isHydratedFlow.value)
@@ -49,6 +52,7 @@ class ComicReadingDirectionPreferencesStoreTest {
         val store = DataStoreComicReadingDirectionPreferencesStore(
             context = context,
             dataStore = dataStore,
+            scope = backgroundScope + Dispatchers.IO,
         )
 
         store.setLibraryDirection(
@@ -86,6 +90,7 @@ class ComicReadingDirectionPreferencesStoreTest {
         val store = DataStoreComicReadingDirectionPreferencesStore(
             context = context,
             dataStore = dataStore,
+            scope = backgroundScope + Dispatchers.IO,
         )
 
         val seriesKey = "stump:library:manga::Berserk"

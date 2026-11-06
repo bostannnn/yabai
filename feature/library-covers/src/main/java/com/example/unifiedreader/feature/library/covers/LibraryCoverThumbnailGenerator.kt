@@ -2,6 +2,7 @@ package com.example.unifiedreader.feature.library.covers
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import com.example.unifiedreader.core.common.AppDispatchers
 import com.example.unifiedreader.core.model.writeFileAtomically
 import java.io.File
 import javax.inject.Inject
@@ -10,12 +11,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Singleton
-class LibraryCoverThumbnailGenerator @Inject constructor() {
+class LibraryCoverThumbnailGenerator @Inject constructor(
+    private val appDispatchers: AppDispatchers,
+) {
     suspend fun ensureThumbnail(
         sourceFile: File,
         destinationFile: File,
         variant: LibraryCoverVariant,
-    ): File? = withContext(Dispatchers.IO) {
+    ): File? = withContext(appDispatchers.io) {
         if (!sourceFile.isFile || sourceFile.length() <= 0L) return@withContext null
         if (destinationFile.isFile && destinationFile.length() > 0L) return@withContext destinationFile
 

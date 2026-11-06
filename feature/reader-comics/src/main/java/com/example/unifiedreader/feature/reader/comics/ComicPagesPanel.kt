@@ -20,7 +20,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -33,6 +32,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.core.ReaderChromeDefaults
 import com.example.unifiedreader.feature.reader.core.ReaderPanel
@@ -128,7 +128,7 @@ private fun ComicPagesGridItem(
     val pages = remember(page) { listOf(page) }
     val previewVersion by remember(item.id, page.id, pageSource) {
         pageSource.observePagePreviewVersion(item = item, pages = pages, options = PreviewOptions)
-    }.collectAsState(initial = 0L)
+    }.collectAsStateWithLifecycle(initialValue = 0L)
     val preview by produceState<ComicPagePreviewResult>(
         initialValue = ComicPagePreviewResult.Unavailable,
         item.id,

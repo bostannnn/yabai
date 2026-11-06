@@ -23,6 +23,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.TestScope
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -50,6 +51,7 @@ class DownloadedRemoteComicPageSourceTest {
             remoteDownloadDataSources = listOf(TestStoredRemoteItemDownloadDataSource(item.id, archiveFile)),
             archiveEntryCache = DownloadedRemoteComicArchiveEntryCache(),
             cacheInvalidationDispatcher = DownloadedRemoteComicCacheInvalidationDispatcher(),
+            applicationScope = TestScope(),
         )
 
         val emissions = pageSource.observePages(item).toList()
@@ -78,6 +80,7 @@ class DownloadedRemoteComicPageSourceTest {
             remoteDownloadDataSources = listOf(TestStoredRemoteItemDownloadDataSource(item.id, archiveFile)),
             archiveEntryCache = DownloadedRemoteComicArchiveEntryCache(),
             cacheInvalidationDispatcher = DownloadedRemoteComicCacheInvalidationDispatcher(),
+            applicationScope = TestScope(),
         )
 
         val pages = pageSource.observePages(item).toList().last()
@@ -106,6 +109,7 @@ class DownloadedRemoteComicPageSourceTest {
             remoteDownloadDataSources = listOf(TestStoredRemoteItemDownloadDataSource(item.id, archiveFile)),
             archiveEntryCache = DownloadedRemoteComicArchiveEntryCache(),
             cacheInvalidationDispatcher = DownloadedRemoteComicCacheInvalidationDispatcher(),
+            applicationScope = TestScope(),
         )
 
         val pages = pageSource.observePages(item).toList().last()
@@ -134,6 +138,7 @@ class DownloadedRemoteComicPageSourceTest {
             remoteDownloadDataSources = listOf(TestStoredRemoteItemDownloadDataSource(item.id, archiveFile)),
             archiveEntryCache = DownloadedRemoteComicArchiveEntryCache(),
             cacheInvalidationDispatcher = DownloadedRemoteComicCacheInvalidationDispatcher(),
+            applicationScope = TestScope(),
         )
 
         val pages = pageSource.observePages(item).toList().last()
@@ -165,6 +170,7 @@ class DownloadedRemoteComicPageSourceTest {
             remoteDownloadDataSources = listOf(TestStoredRemoteItemDownloadDataSource(item.id, archiveFile)),
             archiveEntryCache = archiveEntryCache,
             cacheInvalidationDispatcher = DownloadedRemoteComicCacheInvalidationDispatcher(),
+            applicationScope = TestScope(),
         )
 
         val emissions = pageSource.observePages(item).toList()
@@ -188,6 +194,7 @@ class DownloadedRemoteComicPageSourceTest {
             remoteDownloadDataSources = listOf(TestStoredRemoteItemDownloadDataSource(item.id, missingArchiveFile)),
             archiveEntryCache = DownloadedRemoteComicArchiveEntryCache(),
             cacheInvalidationDispatcher = DownloadedRemoteComicCacheInvalidationDispatcher(),
+            applicationScope = TestScope(),
         )
 
         val diagnostic = pageSource.pagesUnavailableDiagnostic(item)
@@ -214,6 +221,7 @@ class DownloadedRemoteComicPageSourceTest {
             remoteDownloadDataSources = listOf(TestStoredRemoteItemDownloadDataSource(item.id, archiveFile)),
             archiveEntryCache = DownloadedRemoteComicArchiveEntryCache(),
             cacheInvalidationDispatcher = DownloadedRemoteComicCacheInvalidationDispatcher(),
+            applicationScope = TestScope(),
         )
 
         val diagnostics = pageSource.observePagesUnavailableDiagnostic(item).toList()
@@ -249,6 +257,7 @@ class DownloadedRemoteComicPageSourceTest {
             archiveEntryCache = DownloadedRemoteComicArchiveEntryCache(),
             cacheInvalidationDispatcher = DownloadedRemoteComicCacheInvalidationDispatcher(),
             previewStore = PersistentComicPagePreviewStore(previewDirectory),
+            applicationScope = TestScope(),
         )
 
         val preview = pageSource.loadPagePreview(
@@ -286,6 +295,7 @@ class DownloadedRemoteComicPageSourceTest {
             remoteDownloadDataSources = listOf(TestStoredRemoteItemDownloadDataSource(item.id, archiveFile)),
             archiveEntryCache = DownloadedRemoteComicArchiveEntryCache(),
             cacheInvalidationDispatcher = dispatcher,
+            applicationScope = TestScope(),
         )
 
         dispatcher.invalidate(item.id)
@@ -305,6 +315,7 @@ class DownloadedRemoteComicPageSourceTest {
             remoteDownloadDataSources = emptyList(),
             archiveEntryCache = DownloadedRemoteComicArchiveEntryCache(),
             cacheInvalidationDispatcher = DownloadedRemoteComicCacheInvalidationDispatcher(),
+            applicationScope = TestScope(),
         )
 
         pageSource.trimMemoryCaches(ReaderMemoryTrimRequest.ClearAll)
@@ -325,6 +336,7 @@ class DownloadedRemoteComicPageSourceTest {
             remoteDownloadDataSources = emptyList(),
             archiveEntryCache = DownloadedRemoteComicArchiveEntryCache(),
             cacheInvalidationDispatcher = DownloadedRemoteComicCacheInvalidationDispatcher(),
+            applicationScope = TestScope(),
         )
         try {
             pageSource.trimMemoryCaches(ReaderMemoryTrimRequest.dropPreviewsAndDistantPages(retention = null))
