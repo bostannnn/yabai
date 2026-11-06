@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.translation
 
+import com.example.unifiedreader.core.model.runSuspendCatching
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,17 +52,11 @@ class TranslationSession(
         mutableCurrent.value = null
     }
 
-    fun pickFrom(tag: String) {
+    /** From: [tag], or back to the book's own language when null. */
+    fun pickFrom(tag: String?) {
         val now = mutableCurrent.value ?: return
         pickedFrom = tag
-        if (pickedTo == tag) pickedTo = null
-        show(now.selection)
-    }
-
-    /** Back to the book's own language for From. */
-    fun resetFrom() {
-        val now = mutableCurrent.value ?: return
-        pickedFrom = null
+        if (tag != null && pickedTo == tag) pickedTo = null
         show(now.selection)
     }
 
@@ -128,12 +123,11 @@ class TranslationSession(
 
     private suspend fun translate(selection: ReaderTextSelection, from: String, to: String) {
         mutableCurrent.value = TextSelectionTranslation(selection, from, to, TranslationPhase.Translating)
-        val phase = runCatching {
+        val phase = runSuspendCatching {
             val sentence = selection.sentence?.takeIf { selection.isShort }
             val result = service.translateSelection(selection.text.trim(), sentence, from, to)
             TranslationPhase.Done(result.translation, result.sentence, result.by, result.fallback)
         }.getOrElse { error ->
-            if (error is kotlinx.coroutines.CancellationException) throw error
             TranslationPhase.Failed(if (error is DeepLException) TranslationFailure.DeepL else TranslationFailure.Translate)
         }
         mutableCurrent.value = TextSelectionTranslation(selection, from, to, phase)

@@ -1,31 +1,12 @@
 plugins {
-    alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.yabai.android.library)
+    alias(libs.plugins.yabai.android.compose)
 }
 
 val thirdPartyNoticesDir = layout.buildDirectory.dir("generated/thirdPartyNotices/assets").get().asFile
 
 android {
     namespace = "com.example.unifiedreader.feature.settings"
-    compileSdk = 37
-
-    defaultConfig {
-        minSdk = 28
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
-    buildFeatures {
-        compose = true
-    }
 
     // Through the new DSL type: with android.newDsl=false, AGP 9.2's typed accessor casts the
     // main source set to a class it does not implement and fails the configuration.

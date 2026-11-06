@@ -104,6 +104,64 @@ internal class EpubSelectionActionModeCallback(
 }
 
 /**
+ * Turns the toolbar's signals into the translation card's: Translate opens it, a changed
+ * selection (once a handle rests) updates it, and a selection that is gone, or a card that
+ * closed, clears the other side. Kept out of the navigator host, which is long enough.
+ */
+internal class EpubSelectionFollower(
+    private val scope: CoroutineScope,
+    private val navigator: () -> EpubNavigatorFragment?,
+    private val bookLanguage: String?,
+    private val translation: () -> EpubSelectionTranslation?,
+) {
+    private var followJob: Job? = null
+    private var clearJob: Job? = null
+    private var wasShown = false
+
+    fun translate() {
+        scope.withCurrentSelection(navigator(), bookLanguage) { selection -> translation()?.onTranslate?.invoke(selection) }
+    }
+
+    fun selectionChanged() {
+        clearJob?.cancel()
+        if (translation()?.openOnSelect != true) return
+        // Wait for the handle to rest, so the card doesn't chase every step.
+        followJob?.cancel()
+        followJob = scope.withCurrentSelection(navigator(), bookLanguage, follows = true, delayMillis = FollowDelayMillis) { selection ->
+            translation()?.onFollow?.invoke(selection)
+        }
+    }
+
+    fun selectionCleared() {
+        // Letting go of a handle closes the toolbar and opens it again at once;
+        // only a toolbar that stays closed means the selection went away.
+        clearJob?.cancel()
+        clearJob = scope.launch {
+            delay(GoneDelayMillis)
+            followJob?.cancel()
+            translation()?.onCleared?.invoke()
+        }
+    }
+
+    /** The card or sheet showing or not: when it closes, the words stop being selected too. */
+    fun translationShown(shown: Boolean) {
+        if (wasShown && !shown) {
+            followJob?.cancel()
+            navigator()?.clearSelection()
+        }
+        wasShown = shown
+    }
+
+    private companion object {
+        /** How long a selection rests before the card follows it: long enough to skip a handle's steps. */
+        const val FollowDelayMillis = 300L
+
+        /** How long the toolbar may stay closed before the selection counts as gone. */
+        const val GoneDelayMillis = 250L
+    }
+}
+
+/**
  * Reads what is selected now, with its place on screen in window pixels, then runs [block].
  * [follows]: the card follows this selection, so it stays selected at any length.
  */

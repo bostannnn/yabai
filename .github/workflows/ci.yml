@@ -41,7 +41,7 @@ jobs:
 
       - name: Run unit tests
         # The plain Kotlin modules have a `test` task, not `testDebugUnitTest`.
-        run: ./gradlew testDebugUnitTest :core:model:test :data:grimmory:test :data:kavita:test :data:stump:test --continue
+        run: ./gradlew testDebugUnitTest :core:model:test :core:network:test :data:grimmory:test :data:kavita:test :data:stump:test --continue
 
       - name: Upload test reports
         if: failure()
@@ -51,4 +51,37 @@ jobs:
           path: |
             **/build/reports/tests/testDebugUnitTest/
             **/build/reports/tests/test/
+          if-no-files-found: ignore
+
+  static-checks:
+    name: detekt and lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Each module's detekt-baseline.xml and lint-baseline.xml hold the findings from before these ran;
+      # anything new fails here.
+      - name: Run detekt and lint
+        run: ./gradlew detekt lintDebug --continue
+
+      - name: Upload reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-check-reports
+          path: |
+            **/build/reports/detekt/
+            **/build/reports/lint-results-debug.*
           if-no-files-found: ignore

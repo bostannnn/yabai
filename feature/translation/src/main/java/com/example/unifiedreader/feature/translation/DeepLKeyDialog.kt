@@ -3,6 +3,7 @@ package com.example.unifiedreader.feature.translation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -30,9 +31,10 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun DeepLKeyDialog(
-    service: TranslationService,
+    account: DeepLAccount,
     hasKey: Boolean,
     onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var key by remember { mutableStateOf("") }
     var checking by remember { mutableStateOf(false) }
@@ -43,7 +45,7 @@ fun DeepLKeyDialog(
             checking = true
             problem = null
             scope.launch {
-                val failure = service.saveDeepLKey(key)
+                val failure = account.saveKey(key)
                 checking = false
                 if (failure == null) onDismissRequest() else problem = failure
             }
@@ -51,24 +53,20 @@ fun DeepLKeyDialog(
     }
     AppDialog(
         onDismissRequest = { if (!checking) onDismissRequest() },
+        modifier = modifier,
         title = { Text(TranslationCopy.DeepLDialogTitle) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(TranslationCopy.DeepLDialogBody, style = MaterialTheme.typography.bodyMedium)
-                AppTextField(
-                    value = key,
-                    onValueChange = { value ->
+                DeepLKeyField(
+                    key = key,
+                    onKeyChange = { value ->
                         key = value
                         problem = null
                     },
-                    label = { Text(TranslationCopy.ApiKey) },
-                    singleLine = true,
-                    isError = problem != null,
+                    problem = problem,
                     enabled = !checking,
-                    supportingText = { Text(problem?.let(TranslationCopy::keyProblem) ?: TranslationCopy.DeepLKeyWhere) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done, autoCorrectEnabled = false),
-                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { save() }),
-                    modifier = Modifier.fillMaxWidth(),
+                    onDone = { save() },
                 )
                 Text(
                     TranslationCopy.DeepLPrivacy,
@@ -78,7 +76,7 @@ fun DeepLKeyDialog(
                 if (hasKey) {
                     AppTextButton(
                         onClick = {
-                            service.removeDeepLKey()
+                            account.removeKey()
                             onDismissRequest()
                         },
                         enabled = !checking,
@@ -94,5 +92,32 @@ fun DeepLKeyDialog(
                 AppDialogConfirmButton(TranslationCopy.CheckAndSave, onClick = save, enabled = key.isNotBlank())
             }
         },
+    )
+}
+
+/** The key, with where to find it underneath, or why DeepL refused it. */
+@Composable
+private fun DeepLKeyField(
+    key: String,
+    onKeyChange: (String) -> Unit,
+    problem: DeepLFailure?,
+    enabled: Boolean,
+    onDone: () -> Unit,
+) {
+    AppTextField(
+        value = key,
+        onValueChange = onKeyChange,
+        label = { Text(TranslationCopy.ApiKey) },
+        singleLine = true,
+        isError = problem != null,
+        enabled = enabled,
+        supportingText = { Text(problem?.let(TranslationCopy::keyProblem) ?: TranslationCopy.DeepLKeyWhere) },
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Ascii,
+            imeAction = ImeAction.Done,
+            autoCorrectEnabled = false,
+        ),
+        keyboardActions = KeyboardActions(onDone = { onDone() }),
+        modifier = Modifier.fillMaxWidth(),
     )
 }

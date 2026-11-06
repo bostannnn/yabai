@@ -1,0 +1,11 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>LongMethod:SourceNavigationDrawer.kt$@Composable fun SourceNavigationDrawer( drawerState: DrawerState, sourceOrder: List&lt;SourceType&gt;, selectedDestination: SourceNavigationDestination, onDestinationSelected: (SourceNavigationDestination) -&gt; Unit, /** Shown at the end of the Settings row, such as the version of a waiting update. */ settingsBadge: String? = null, /** "Add a server" under the sources, while a server is not connected. */ showAddSource: Boolean = false, /** False while the rail shows: then nothing opens the drawer, not even a swipe. */ gesturesEnabled: Boolean = true, content: @Composable () -&gt; Unit, )</ID>
+    <ID>MatchingDeclarationName:SourceNavigationDrawer.kt$SourceNavigationDestination</ID>
+    <ID>ModifierMissing:SourceNavigationDrawer.kt$SourceNavigationDrawer</ID>
+    <ID>ModifierMissing:SourceNavigationFrame.kt$SourceNavigationFrame</ID>
+    <ID>ReturnCount:SourceNavigationStateCoordinator.kt$internal fun List&lt;SourceType&gt;.moveSource( sourceType: SourceType, direction: SourceOrderMoveDirection, ): List&lt;SourceType&gt;?</ID>
+  </CurrentIssues>
+</SmellBaseline>

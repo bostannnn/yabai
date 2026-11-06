@@ -24,6 +24,7 @@ import com.example.unifiedreader.core.model.isKavitaSeriesContainer
 import com.example.unifiedreader.core.model.isStumpSeriesContainer
 import com.example.unifiedreader.core.model.kavitaSeriesContainerId
 import com.example.unifiedreader.core.model.kavitaSeriesGroupKey
+import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.core.model.stumpSeriesContainerId
 import com.example.unifiedreader.core.model.stumpSeriesGroupKey
 import com.example.unifiedreader.data.repository.LibraryRepository
@@ -196,7 +197,7 @@ class RoomRemoteCatalogRepository(
         hydrationMutex.withLock {
             if (hydrationState.value) return@withLock
             try {
-                runCatching {
+                runSuspendCatching {
                     remoteCatalogDao.getLibraries()
                         .map(LibraryEntity::toDomain)
                 }.onSuccess { libraries ->
@@ -204,7 +205,7 @@ class RoomRemoteCatalogRepository(
                 }.onFailure { throwable ->
                     logSeedFailure("Unable to seed remote catalog libraries.", throwable)
                 }
-                runCatching {
+                runSuspendCatching {
                     remoteCatalogDao.getLibraryItems()
                         .map(ReadableItemLibraryEntity::toDomain)
                 }.onSuccess { items ->
@@ -223,7 +224,7 @@ class RoomRemoteCatalogRepository(
     ) {
         if (sourceType == SourceType.LOCAL) return
         withContext(ioDispatcher) {
-            runCatching {
+            runSuspendCatching {
                 remoteCatalogDao.getLibraries()
                     .filter { library -> library.sourceType == sourceType.name }
                     .map(LibraryEntity::toDomain)
@@ -236,7 +237,7 @@ class RoomRemoteCatalogRepository(
             }.onFailure { throwable ->
                 logSeedFailure("Unable to seed startup remote catalog libraries.", throwable)
             }
-            runCatching {
+            runSuspendCatching {
                 remoteCatalogDao.getLibraryItemsForSourceType(sourceType.name)
                     .map(ReadableItemLibraryEntity::toDomain)
             }.onSuccess { items ->
@@ -258,7 +259,7 @@ class RoomRemoteCatalogRepository(
         if (sourceType == SourceType.LOCAL || orderedItemIds.isEmpty()) return
         if (hydrationState.value || itemsState.value.any { item -> item.sourceType == sourceType }) return
         withContext(ioDispatcher) {
-            runCatching {
+            runSuspendCatching {
                 remoteCatalogDao.getLibraries()
                     .filter { library -> library.sourceType == sourceType.name }
                     .map(LibraryEntity::toDomain)
@@ -273,7 +274,7 @@ class RoomRemoteCatalogRepository(
             }.onFailure { throwable ->
                 logSeedFailure("Unable to seed cold-start remote catalog libraries.", throwable)
             }
-            runCatching {
+            runSuspendCatching {
                 remoteCatalogDao.getLibraryItemsByIds(orderedItemIds)
                     .map(ReadableItemLibraryEntity::toDomain)
                     .filter { item -> item.sourceType == sourceType }
@@ -371,7 +372,7 @@ class RoomRemoteCatalogRepository(
      * page a populated table before their next catalog sync. A no-op once populated.
      */
     override suspend fun rebuildGridRootsIfEmpty() = withContext(ioDispatcher) {
-        runCatching { remoteCatalogDao.rebuildAllGridRootsIfEmpty() }
+        runSuspendCatching { remoteCatalogDao.rebuildAllGridRootsIfEmpty() }
             .onFailure { throwable -> logSeedFailure("Unable to backfill library grid roots.", throwable) }
         Unit
     }

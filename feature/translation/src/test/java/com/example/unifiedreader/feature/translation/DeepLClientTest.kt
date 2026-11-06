@@ -35,9 +35,12 @@ class DeepLClientTest {
 
     @Test
     fun `a free key goes to the free host with the word's sentence as context`() = runTest {
-        val deepL = client { json("""{"translations":[{"detected_source_language":"EN","text":"неохотный"},{"text":"Ему не хотелось уходить."}]}""") }
+        val deepL = client {
+            json("""{"translations":[{"detected_source_language":"EN","text":"неохотный"},{"text":"Ему не хотелось уходить."}]}""")
+        }
+        val sentence = "He was reluctant to leave."
 
-        val result = deepL.translate("abc:fx", listOf("reluctant", "He was reluctant to leave."), "en", "ru", context = "He was reluctant to leave.")
+        val result = deepL.translate("abc:fx", listOf("reluctant", sentence), "en", "ru", context = sentence)
 
         assertEquals(listOf("неохотный", "Ему не хотелось уходить."), result)
         val (request, body) = requests.single()
@@ -63,7 +66,9 @@ class DeepLClientTest {
     @Test
     fun `DeepL's answers become reasons`() = runTest {
         assertFailure(DeepLFailure.KeyRefused) { client { json("{}", HttpStatusCode.Forbidden) }.usage("k:fx") }
-        assertFailure(DeepLFailure.LimitReached) { client { json("{}", HttpStatusCode(456, "Quota")) }.translate("k", listOf("a"), "en", "ru") }
+        assertFailure(DeepLFailure.LimitReached) {
+            client { json("{}", HttpStatusCode(456, "Quota")) }.translate("k", listOf("a"), "en", "ru")
+        }
         assertFailure(DeepLFailure.Unreachable) { client { throw IOException("offline") }.usage("k") }
         assertFailure(DeepLFailure.Unreachable) { client { json("{}", HttpStatusCode.ServiceUnavailable) }.usage("k") }
     }

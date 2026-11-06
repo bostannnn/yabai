@@ -1,0 +1,19 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:PdfReaderEntry.kt$viewportSize.width &lt;= 0 || viewportSize.height &lt;= 0 || imageSize.width &lt;= 0 || imageSize.height &lt;= 0</ID>
+    <ID>ComposableParamOrder:PdfReaderEntry.kt$PdfPageViewport</ID>
+    <ID>CyclomaticComplexMethod:PdfReaderEntry.kt$@Composable fun PdfReaderScreen( item: ReadableItem, documentUri: Uri? = null, documentUriProvider: (suspend (ReadableItem) -&gt; Uri?)? = null, sessionStore: ReaderSessionStore? = null, journalReadingSessionRecorder: JournalReadingSessionRecorder? = null, pageNumberPreferences: ReaderPageNumberPreferencesStore = remember { InMemoryReaderPageNumberPreferencesStore() }, openMode: ReaderOpenMode = ReaderOpenMode.Default, onBack: () -&gt; Unit = {}, onCompletionRequested: () -&gt; Unit = {}, )</ID>
+    <ID>CyclomaticComplexMethod:PdfReaderEntry.kt$@Composable private fun PdfPageViewport( pageState: PdfPageRenderState, modifier: Modifier = Modifier, onToggleOverlay: () -&gt; Unit, onPrevious: () -&gt; Unit, onNext: () -&gt; Unit, onRenderLongEdgeRequested: (pageIndex: Int, longEdgePx: Int) -&gt; Unit, )</ID>
+    <ID>LambdaParameterEventTrailing:PdfReaderEntry.kt$onRenderLongEdgeRequested</ID>
+    <ID>LambdaParameterInRestartableEffect:PdfReaderEntry.kt$onRenderLongEdgeRequested</ID>
+    <ID>LongMethod:PdfReaderChrome.kt$@Composable private fun PdfPagePreviewItem( context: Context, documentUri: Uri, previewCache: PdfPreviewBitmapCache, pageIndex: Int, selected: Boolean, thumbnailHeight: Dp, onClick: () -&gt; Unit, )</ID>
+    <ID>LongMethod:PdfReaderEntry.kt$@Composable fun PdfReaderScreen( item: ReadableItem, documentUri: Uri? = null, documentUriProvider: (suspend (ReadableItem) -&gt; Uri?)? = null, sessionStore: ReaderSessionStore? = null, journalReadingSessionRecorder: JournalReadingSessionRecorder? = null, pageNumberPreferences: ReaderPageNumberPreferencesStore = remember { InMemoryReaderPageNumberPreferencesStore() }, openMode: ReaderOpenMode = ReaderOpenMode.Default, onBack: () -&gt; Unit = {}, onCompletionRequested: () -&gt; Unit = {}, )</ID>
+    <ID>LongMethod:PdfReaderEntry.kt$@Composable private fun PdfPageViewport( pageState: PdfPageRenderState, modifier: Modifier = Modifier, onToggleOverlay: () -&gt; Unit, onPrevious: () -&gt; Unit, onNext: () -&gt; Unit, onRenderLongEdgeRequested: (pageIndex: Int, longEdgePx: Int) -&gt; Unit, )</ID>
+    <ID>ModifierMissing:PdfReaderEntry.kt$PdfReaderScreen</ID>
+    <ID>NestedBlockDepth:PdfReaderEntry.kt$internal suspend fun renderPdfPage( context: Context, documentUri: Uri, pageIndex: Int, targetLongEdgePx: Int = PDF_RENDER_LONG_EDGE_PX, ): PdfPageRenderState</ID>
+    <ID>TooManyFunctions:PdfReaderEntry.kt$com.example.unifiedreader.feature.reader.pdf.PdfReaderEntry.kt</ID>
+    <ID>UnusedPrivateMember:PdfReaderEntry.kt$private fun pdfProgressLabel( currentPageIndex: Int, pageCount: Int, ): String</ID>
+  </CurrentIssues>
+</SmellBaseline>

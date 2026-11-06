@@ -6,6 +6,7 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.isComicReaderFormat
 import com.example.unifiedreader.core.model.libraryDisplayLabel
+import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.feature.downloads.downloadDataSourceFor
 import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
@@ -386,7 +387,7 @@ class DownloadedRemoteComicPageSource @Inject constructor(
         uri: Uri,
         byteCount: Int,
     ): ByteArray? = withContext(Dispatchers.IO) {
-        runCatching {
+        runSuspendCatching {
             context.contentResolver.openInputStream(uri)?.use { input ->
                 val buffer = ByteArray(byteCount)
                 val bytesRead = input.read(buffer)

@@ -51,7 +51,7 @@ fun ColumnScope.TranslationSettingsContent(service: TranslationService) {
                 state = state,
                 onPick = { tag ->
                     pickingTarget = false
-                    service.setTargetLanguage(tag)
+                    service.updatePreferences { it.copy(targetLanguage = tag) }
                     service.download(tag)
                 },
                 onDismissRequest = { pickingTarget = false },
@@ -62,7 +62,7 @@ fun ColumnScope.TranslationSettingsContent(service: TranslationService) {
         AppSettingsRow(
             title = TranslationCopy.OpenOnSelect,
             supporting = TranslationCopy.OpenOnSelectSupporting,
-            onClick = { service.setOpenOnSelect(!openOnSelect) },
+            onClick = { service.updatePreferences { it.copy(openOnSelect = !openOnSelect) } },
             showChevron = false,
             trailing = { AppSwitch(checked = openOnSelect, onCheckedChange = null) },
         )
@@ -120,9 +120,10 @@ fun ColumnScope.TranslationSettingsContent(service: TranslationService) {
 private fun ColumnScope.TranslateWithGroups(service: TranslationService, state: TranslationState) {
     var editingKey by remember { mutableStateOf(false) }
     val deepL = state.deepL
-    LaunchedEffect(deepL.hasKey) { if (deepL.hasKey) service.refreshDeepLUsage() }
+    LaunchedEffect(deepL.hasKey) { if (deepL.hasKey) service.deepL?.refreshUsage() }
+    val account = service.deepL ?: return
     if (editingKey) {
-        DeepLKeyDialog(service = service, hasKey = deepL.hasKey, onDismissRequest = { editingKey = false })
+        DeepLKeyDialog(account = account, hasKey = deepL.hasKey, onDismissRequest = { editingKey = false })
     }
 
     AppSettingsGroup(label = TranslationCopy.TranslateWith) {
@@ -132,7 +133,7 @@ private fun ColumnScope.TranslateWithGroups(service: TranslationService, state: 
             icon = AppIcons.Public,
             supporting = if (deepL.hasKey) TranslationCopy.DeepLSupporting else TranslationCopy.DeepLNoKeySupporting,
             selected = onDeepL,
-            onClick = { if (deepL.hasKey) service.setProvider(TranslationProvider.DeepL) else editingKey = true },
+            onClick = { if (deepL.hasKey) service.pick(TranslationProvider.DeepL) else editingKey = true },
             showChevron = false,
             trailing = if (onDeepL) { { Icon(AppIcons.Check, contentDescription = null) } } else null,
         )
@@ -142,7 +143,7 @@ private fun ColumnScope.TranslateWithGroups(service: TranslationService, state: 
             icon = AppIcons.TabletAndroid,
             supporting = TranslationCopy.ThisTabletSupporting,
             selected = !onDeepL,
-            onClick = { service.setProvider(TranslationProvider.Device) },
+            onClick = { service.pick(TranslationProvider.Device) },
             showChevron = false,
             trailing = if (!onDeepL) { { Icon(AppIcons.Check, contentDescription = null) } } else null,
         )
@@ -171,3 +172,5 @@ private fun ColumnScope.TranslateWithGroups(service: TranslationService, state: 
         }
     }
 }
+
+private fun TranslationService.pick(provider: TranslationProvider) = updatePreferences { it.copy(provider = provider) }

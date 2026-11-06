@@ -43,16 +43,28 @@ import com.example.unifiedreader.ui.components.appSkeletonPulse
 
 /** What the card and the sheet do with your taps. */
 internal class TranslationPanelActions(
-    val onPickFrom: (String?) -> Unit,
-    val onPickTo: (String) -> Unit,
-    val onSwap: () -> Unit,
-    val onDownload: () -> Unit,
-    val onRetry: () -> Unit,
+    private val session: TranslationSession,
+    private val service: TranslationService,
     val onClose: () -> Unit,
     val onOpenFull: (() -> Unit)?,
-    val onPickProvider: (TranslationProvider) -> Unit,
     val onAddDeepL: () -> Unit,
-)
+) {
+    fun pickFrom(tag: String?) = session.pickFrom(tag)
+
+    fun pickTo(tag: String) = session.pickTo(tag)
+
+    fun swap() = session.swap()
+
+    fun download() = session.download()
+
+    fun retry() = session.retry()
+
+    /** Translate with, from the card's chip; it holds for later cards too. */
+    fun pickProvider(provider: TranslationProvider) = service.updatePreferences { it.copy(provider = provider) }
+
+    /** The sheet is already full: no Open full there. */
+    fun withoutOpenFull() = TranslationPanelActions(session, service, onClose, onOpenFull = null, onAddDeepL)
+}
 
 /** From, the swap, To, and on the card a close button: the row both surfaces start with. */
 @Composable
@@ -68,19 +80,19 @@ internal fun TranslationLanguageRow(
             menuTitle = TranslationCopy.TranslateFrom,
             selected = translation.from,
             state = state,
-            onPick = actions.onPickFrom,
+            onPick = actions::pickFrom,
             extraFirst = { close ->
                 AppMenuChoiceItem(
                     text = TranslationCopy.TheBooksLanguage,
                     selected = false,
                     onClick = {
                         close()
-                        actions.onPickFrom(null)
+                        actions.pickFrom(null)
                     },
                 )
             },
         )
-        AppIconButton(onClick = actions.onSwap, enabled = translation.to != null) {
+        AppIconButton(onClick = actions::swap, enabled = translation.to != null) {
             Icon(AppIcons.SwapHoriz, contentDescription = TranslationCopy.Swap)
         }
         LanguagePill(
@@ -88,7 +100,7 @@ internal fun TranslationLanguageRow(
             menuTitle = TranslationCopy.TranslateInto,
             selected = translation.to,
             state = state,
-            onPick = { tag -> tag?.let(actions.onPickTo) },
+            onPick = { tag -> tag?.let(actions::pickTo) },
             emphasised = translation.to == null,
         )
         Spacer(modifier = Modifier.weight(1f))
@@ -157,7 +169,7 @@ internal fun TranslationPhaseBody(
             BodyText(TranslationCopy.downloadBody(names.size))
             ButtonRow {
                 AppTextButton(onClick = actions.onClose) { Text(TranslationCopy.NotNow) }
-                AppButton(onClick = actions.onDownload) { Text(TranslationCopy.Download) }
+                AppButton(onClick = actions::download) { Text(TranslationCopy.Download) }
             }
         }
 
@@ -175,31 +187,7 @@ internal fun TranslationPhaseBody(
             SkeletonLine(fraction = 0.7f, height = 14)
         }
 
-        is TranslationPhase.Done -> if (asSheet && !selection.isShort) {
-            SelectedText(selection.text)
-            AppDivider()
-            Caption(TranslationLanguages.displayName(checkNotNull(translation.to)))
-            Text(phase.translation, style = MaterialTheme.typography.bodyLarge)
-            FellBack(phase, translation)
-        } else {
-            Caption(selection.text.trim(), maxLines = CardSourceLines)
-            Text(
-                phase.translation,
-                // A passage in the card, picked by dragging the handles, reads as text, not a headword.
-                style = if (selection.isShort) {
-                    MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold)
-                } else {
-                    MaterialTheme.typography.bodyLarge
-                },
-            )
-            FellBack(phase, translation)
-            phase.sentence?.let { sentence ->
-                AppDivider()
-                Caption(TranslationCopy.InThisSentence)
-                if (asSheet) Caption(selection.sentence.orEmpty())
-                Text(sentence, style = MaterialTheme.typography.bodyLarge)
-            }
-        }
+        is TranslationPhase.Done -> DoneBody(translation, phase, asSheet)
 
         is TranslationPhase.Failed -> {
             Title(TranslationCopy.CouldntTranslate)
@@ -212,7 +200,7 @@ internal fun TranslationPhaseBody(
             )
             ButtonRow {
                 AppTextButton(onClick = actions.onClose) { Text(TranslationCopy.Close) }
-                AppButton(onClick = actions.onRetry) { Text(TranslationCopy.TryAgain) }
+                AppButton(onClick = actions::retry) { Text(TranslationCopy.TryAgain) }
             }
         }
     }
@@ -307,7 +295,7 @@ private fun ProviderChip(
                     selected = state.provider == TranslationProvider.DeepL,
                     onClick = {
                         open = false
-                        actions.onPickProvider(TranslationProvider.DeepL)
+                        actions.pickProvider(TranslationProvider.DeepL)
                     },
                 )
             } else {
@@ -326,7 +314,7 @@ private fun ProviderChip(
                 selected = state.provider == TranslationProvider.Device,
                 onClick = {
                     open = false
-                    actions.onPickProvider(TranslationProvider.Device)
+                    actions.pickProvider(TranslationProvider.Device)
                 },
             )
         }
@@ -361,6 +349,40 @@ private fun Caption(text: String, maxLines: Int = Int.MAX_VALUE) {
         maxLines = maxLines,
         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
     )
+}
+
+/** A finished translation: a passage in the sheet as text, a word (or the card) as a headword with its sentence. */
+@Composable
+private fun DoneBody(translation: TextSelectionTranslation, phase: TranslationPhase.Done, asSheet: Boolean) {
+    val selection = translation.selection
+    // One column, spaced as the card's and the sheet's own, so the body emits one piece.
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (asSheet && !selection.isShort) {
+            SelectedText(selection.text)
+            AppDivider()
+            Caption(TranslationLanguages.displayName(checkNotNull(translation.to)))
+            Text(phase.translation, style = MaterialTheme.typography.bodyLarge)
+            FellBack(phase, translation)
+        } else {
+            Caption(selection.text.trim(), maxLines = CardSourceLines)
+            Text(
+                phase.translation,
+                // A passage in the card, picked by dragging the handles, reads as text, not a headword.
+                style = if (selection.isShort) {
+                    MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold)
+                } else {
+                    MaterialTheme.typography.bodyLarge
+                },
+            )
+            FellBack(phase, translation)
+            phase.sentence?.let { sentence ->
+                AppDivider()
+                Caption(TranslationCopy.InThisSentence)
+                if (asSheet) Caption(selection.sentence.orEmpty())
+                Text(sentence, style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+    }
 }
 
 /** The card shows the start of a passage; the sheet shows all of it. */

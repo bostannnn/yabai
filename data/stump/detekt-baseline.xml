@@ -1,0 +1,15 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>LongMethod:StumpApi.kt$KtorStumpApi$override suspend fun getSeriesDetailResult( accessToken: String, series: StumpSeriesEntry, ): StumpSeriesDetailResult</ID>
+    <ID>MagicNumber:StumpDtos.kt$0.999</ID>
+    <ID>MagicNumber:StumpDtos.kt$100.0</ID>
+    <ID>ReturnCount:StumpDtos.kt$internal fun StumpMediaNodeDto.toCatalogEntry( baseUrl: String, series: StumpSeriesEntry, seriesPublishers: List&lt;String&gt;, seriesGenres: List&lt;String&gt;, seriesTags: List&lt;String&gt;, ): StumpMediaCatalogEntry?</ID>
+    <ID>ReturnCount:StumpDtos.kt$internal fun StumpMediaProgressDto.toReadingProgress( itemId: String, pageCount: Int?, ): ReadingProgress?</ID>
+    <ID>ThrowsCount:StumpGraphQlResponseHandling.kt$internal fun StumpGraphQlResponseDto.requireGraphQlData( allowPartialData: Boolean = false, ): StumpGraphQlDecodedResponse</ID>
+    <ID>TooManyFunctions:StumpApi.kt$KtorStumpApi : StumpApi</ID>
+    <ID>TooManyFunctions:StumpApi.kt$StumpApi</ID>
+    <ID>TooManyFunctions:StumpDtos.kt$com.example.unifiedreader.data.stump.StumpDtos.kt</ID>
+  </CurrentIssues>
+</SmellBaseline>

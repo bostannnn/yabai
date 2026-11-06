@@ -144,7 +144,7 @@ class DeepLTranslationTest {
         setup.session.open(word)
         setup.session.settled()
 
-        setup.service.setProvider(TranslationProvider.Device)
+        setup.service.updatePreferences { it.copy(provider = TranslationProvider.Device) }
         // The save is queued behind this test's own step: let it run.
         yield()
 
@@ -167,11 +167,11 @@ class DeepLTranslationTest {
         val setup = setUp(provider = TranslationProvider.Device, key = null)
         setup.service.start()
 
-        assertNull(setup.service.saveDeepLKey("  newkey:fx "))
+        assertNull(setup.service.deepL!!.saveKey("  newkey:fx "))
 
         assertEquals("newkey:fx", setup.keys.key.value)
         assertEquals(TranslationProvider.DeepL, setup.preferences.flow.value.provider)
-        val deepL = setup.service.state.value.deepL
+        val deepL = setup.service.deepL!!.state.value
         assertTrue(deepL.hasKey)
         assertTrue(deepL.isFree)
         assertEquals("••••wkey:fx", deepL.keyHint)
@@ -183,7 +183,7 @@ class DeepLTranslationTest {
         val setup = setUp(provider = TranslationProvider.Device, key = null, client = deepL(status = HttpStatusCode.Forbidden))
         setup.service.start()
 
-        assertEquals(DeepLFailure.KeyRefused, setup.service.saveDeepLKey("bad"))
+        assertEquals(DeepLFailure.KeyRefused, setup.service.deepL!!.saveKey("bad"))
 
         assertNull(setup.keys.key.value)
         assertEquals(TranslationProvider.Device, setup.preferences.flow.value.provider)
@@ -194,7 +194,7 @@ class DeepLTranslationTest {
         val setup = setUp()
         setup.service.start()
 
-        setup.service.removeDeepLKey()
+        setup.service.deepL!!.removeKey()
 
         assertNull(setup.keys.key.value)
         assertFalse(setup.service.state.value.deepL.hasKey)

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 9.2.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.2.1)" variant="all" version="9.2.1">
+
+    <issue
+        id="ConfigurationScreenWidthHeight"
+        message="Using Configuration.screenWidthDp instead of LocalWindowInfo.current.containerSize"
+        errorLine1="fun currentAppWindowWidth(): AppWindowWidth = AppWindowWidth.of(LocalConfiguration.current.screenWidthDp)"
+        errorLine2="                                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/unifiedreader/ui/components/AppWindowSize.kt"
+            line="60"
+            column="65"/>
+    </issue>
+
+    <issue
+        id="ConfigurationScreenWidthHeight"
+        message="Using Configuration.screenHeightDp instead of LocalWindowInfo.current.containerSize"
+        errorLine1="fun currentAppWindowHeight(): AppWindowHeight = AppWindowHeight.of(LocalConfiguration.current.screenHeightDp)"
+        errorLine2="                                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/example/unifiedreader/ui/components/AppWindowSize.kt"
+            line="65"
+            column="68"/>
+    </issue>
+
+</issues>

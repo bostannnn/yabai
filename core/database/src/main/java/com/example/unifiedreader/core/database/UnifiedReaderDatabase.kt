@@ -68,7 +68,7 @@ import com.example.unifiedreader.core.database.entity.UserListEntryEntity
         ListSettingEntity::class,
     ],
     version = 37,
-    exportSchema = false,
+    exportSchema = true,
 )
 abstract class UnifiedReaderDatabase : RoomDatabase() {
     abstract fun importedComicArchiveDao(): ImportedComicArchiveDao
@@ -969,6 +969,8 @@ object UnifiedReaderDatabaseMigrations {
 }
 
 object UnifiedReaderDatabaseFactory {
+    // Once per launch; the copy of a 36-item array costs nothing.
+    @Suppress("SpreadOperator")
     fun create(
         context: Context,
     ): UnifiedReaderDatabase = Room.databaseBuilder(
@@ -976,43 +978,46 @@ object UnifiedReaderDatabaseFactory {
         UnifiedReaderDatabase::class.java,
         "unified-reader.db",
     )
-        .addMigrations(
-            UnifiedReaderDatabaseMigrations.MIGRATION_1_2,
-            UnifiedReaderDatabaseMigrations.MIGRATION_2_3,
-            UnifiedReaderDatabaseMigrations.MIGRATION_3_4,
-            UnifiedReaderDatabaseMigrations.MIGRATION_4_5,
-            UnifiedReaderDatabaseMigrations.MIGRATION_5_6,
-            UnifiedReaderDatabaseMigrations.MIGRATION_6_7,
-            UnifiedReaderDatabaseMigrations.MIGRATION_7_8,
-            UnifiedReaderDatabaseMigrations.MIGRATION_8_9,
-            UnifiedReaderDatabaseMigrations.MIGRATION_9_10,
-            UnifiedReaderDatabaseMigrations.MIGRATION_10_11,
-            UnifiedReaderDatabaseMigrations.MIGRATION_11_12,
-            UnifiedReaderDatabaseMigrations.MIGRATION_12_13,
-            UnifiedReaderDatabaseMigrations.MIGRATION_13_14,
-            UnifiedReaderDatabaseMigrations.MIGRATION_14_15,
-            UnifiedReaderDatabaseMigrations.MIGRATION_15_16,
-            UnifiedReaderDatabaseMigrations.MIGRATION_16_17,
-            UnifiedReaderDatabaseMigrations.MIGRATION_17_18,
-            UnifiedReaderDatabaseMigrations.MIGRATION_18_19,
-            UnifiedReaderDatabaseMigrations.MIGRATION_19_20,
-            UnifiedReaderDatabaseMigrations.MIGRATION_20_21,
-            UnifiedReaderDatabaseMigrations.MIGRATION_21_22,
-            UnifiedReaderDatabaseMigrations.MIGRATION_22_23,
-            UnifiedReaderDatabaseMigrations.MIGRATION_23_24,
-            UnifiedReaderDatabaseMigrations.MIGRATION_24_25,
-            UnifiedReaderDatabaseMigrations.MIGRATION_25_26,
-            UnifiedReaderDatabaseMigrations.MIGRATION_26_27,
-            UnifiedReaderDatabaseMigrations.MIGRATION_27_28,
-            UnifiedReaderDatabaseMigrations.MIGRATION_28_29,
-            MIGRATION_29_30,
-            MIGRATION_30_31,
-            MIGRATION_31_32,
-            MIGRATION_32_33,
-            MIGRATION_33_34,
-            MIGRATION_34_35,
-            MIGRATION_35_36,
-            MIGRATION_36_37,
-        )
+        .addMigrations(*allMigrations)
         .build()
 }
+
+/** Every migration, oldest first. A migration test opens version 36 and runs these to the current version. */
+internal val allMigrations: Array<Migration> = arrayOf(
+    UnifiedReaderDatabaseMigrations.MIGRATION_1_2,
+    UnifiedReaderDatabaseMigrations.MIGRATION_2_3,
+    UnifiedReaderDatabaseMigrations.MIGRATION_3_4,
+    UnifiedReaderDatabaseMigrations.MIGRATION_4_5,
+    UnifiedReaderDatabaseMigrations.MIGRATION_5_6,
+    UnifiedReaderDatabaseMigrations.MIGRATION_6_7,
+    UnifiedReaderDatabaseMigrations.MIGRATION_7_8,
+    UnifiedReaderDatabaseMigrations.MIGRATION_8_9,
+    UnifiedReaderDatabaseMigrations.MIGRATION_9_10,
+    UnifiedReaderDatabaseMigrations.MIGRATION_10_11,
+    UnifiedReaderDatabaseMigrations.MIGRATION_11_12,
+    UnifiedReaderDatabaseMigrations.MIGRATION_12_13,
+    UnifiedReaderDatabaseMigrations.MIGRATION_13_14,
+    UnifiedReaderDatabaseMigrations.MIGRATION_14_15,
+    UnifiedReaderDatabaseMigrations.MIGRATION_15_16,
+    UnifiedReaderDatabaseMigrations.MIGRATION_16_17,
+    UnifiedReaderDatabaseMigrations.MIGRATION_17_18,
+    UnifiedReaderDatabaseMigrations.MIGRATION_18_19,
+    UnifiedReaderDatabaseMigrations.MIGRATION_19_20,
+    UnifiedReaderDatabaseMigrations.MIGRATION_20_21,
+    UnifiedReaderDatabaseMigrations.MIGRATION_21_22,
+    UnifiedReaderDatabaseMigrations.MIGRATION_22_23,
+    UnifiedReaderDatabaseMigrations.MIGRATION_23_24,
+    UnifiedReaderDatabaseMigrations.MIGRATION_24_25,
+    UnifiedReaderDatabaseMigrations.MIGRATION_25_26,
+    UnifiedReaderDatabaseMigrations.MIGRATION_26_27,
+    UnifiedReaderDatabaseMigrations.MIGRATION_27_28,
+    UnifiedReaderDatabaseMigrations.MIGRATION_28_29,
+    MIGRATION_29_30,
+    MIGRATION_30_31,
+    MIGRATION_31_32,
+    MIGRATION_32_33,
+    MIGRATION_33_34,
+    MIGRATION_34_35,
+    MIGRATION_35_36,
+    MIGRATION_36_37,
+)

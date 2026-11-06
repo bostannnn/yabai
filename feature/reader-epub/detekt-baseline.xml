@@ -1,0 +1,82 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComposableParamOrder:EpubReaderEntry.kt$EpubReaderScreen</ID>
+    <ID>CyclomaticComplexMethod:EpubPageCurlLayer.kt$@Composable internal fun EpubPageCurlLayer( host: EpubPageCurlHost, enabled: Boolean, twoPageSpread: Boolean, rightToLeft: Boolean, backTint: Color, tapTurner: PageCurlTapTurner, modifier: Modifier = Modifier, content: @Composable () -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:EpubReaderEntry.kt$@Composable fun EpubReaderScreen( item: ReadableItem, sessionStore: ReaderSessionStore, journalReadingSessionRecorder: JournalReadingSessionRecorder? = null, documentUri: Uri? = null, documentUriProvider: (suspend (ReadableItem) -&gt; Uri?)? = null, displayPreferences: ReaderDisplayPreferences = remember { ReaderDisplayPreferences() }, onBack: () -&gt; Unit, onCompletionRequested: () -&gt; Unit = {}, translation: TranslationService? = null, )</ID>
+    <ID>CyclomaticComplexMethod:EpubReaderPreferencesPane.kt$@Composable internal fun ColumnScope.EpubPreferencesPaneContent( typographyMode: EpubTypographyMode, fontFamily: EpubReaderFontFamily, fontSize: Double, lineHeight: Double, pageMargins: Double, paragraphSpacing: Double, paragraphIndent: Double, textAlign: EpubReaderTextAlign, theme: ReaderPageColor, layoutMode: EpubReaderLayoutMode, useOrientationLayoutDefault: Boolean, pageTurnStyle: PageTurnStyle, pageNumbersVisible: Boolean, selectedTab: EpubPreferencesTab, isFontPickerOpen: Boolean, onDismissRequest: () -&gt; Unit, onSelectedTabChanged: (EpubPreferencesTab) -&gt; Unit, onFontPickerOpenChanged: (Boolean) -&gt; Unit, onTypographyModeChanged: (EpubTypographyMode) -&gt; Unit, onFontFamilyChanged: (EpubReaderFontFamily) -&gt; Unit, onFontSizeChanged: (Double) -&gt; Unit, onLineHeightChanged: (Double) -&gt; Unit, onPageMarginsChanged: (Double) -&gt; Unit, onParagraphSpacingChanged: (Double) -&gt; Unit, onParagraphIndentChanged: (Double) -&gt; Unit, onTextAlignChanged: (EpubReaderTextAlign) -&gt; Unit, onThemeChanged: (ReaderPageColor) -&gt; Unit, onLayoutModeChanged: (EpubReaderLayoutMode) -&gt; Unit, onUseOrientationLayoutDefault: () -&gt; Unit, onPageTurnStyleChanged: (PageTurnStyle) -&gt; Unit, onPageNumbersVisibleChanged: (Boolean) -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:EpubReaderSessionCodec.kt$internal fun restoreEpubPreferences( session: ReaderSessionSnapshot?, ): EpubReaderPreferences</ID>
+    <ID>CyclomaticComplexMethod:ReadiumEpubNavigatorHost.kt$@Composable @OptIn(ExperimentalReadiumApi::class) internal fun ReadiumEpubNavigatorHost( activity: FragmentActivity, item: ReadableItem, publication: Publication, initialLocator: Locator?, preferences: EpubReaderPreferences, // The last argument: whether the reader sees the end of the book (isEpubBookEnd). onLocationChanged: (Locator, EpubResourcePage, Boolean) -&gt; Unit, onSurfaceTap: () -&gt; Unit, onEndNavigationRequested: () -&gt; Unit, onFootnoteActivated: (EpubFootnoteContent) -&gt; Unit, translation: EpubSelectionTranslation?, navigationRequest: EpubNavigationRequest?, onNavigationRequestConsumed: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LambdaParameterInRestartableEffect:EpubNoteReturn.kt$onLeftNote</ID>
+    <ID>LambdaParameterInRestartableEffect:ReadiumEpubNavigatorHost.kt$onNavigationRequestConsumed</ID>
+    <ID>LongMethod:EpubFootnoteSheet.kt$@Composable private fun EpubFootnoteCardBody( note: EpubFootnoteContent, pageColor: ReaderPageColor, type: EpubFootnoteType, onDismissRequest: () -&gt; Unit, onGoToNote: (Link) -&gt; Unit, )</ID>
+    <ID>LongMethod:EpubNavigatorConfiguration.kt$@OptIn(ExperimentalReadiumApi::class) private fun EpubNavigatorFragment.Configuration.addBundledReaderFontDeclarations()</ID>
+    <ID>LongMethod:EpubPageCurlLayer.kt$@Composable internal fun EpubPageCurlLayer( host: EpubPageCurlHost, enabled: Boolean, twoPageSpread: Boolean, rightToLeft: Boolean, backTint: Color, tapTurner: PageCurlTapTurner, modifier: Modifier = Modifier, content: @Composable () -&gt; Unit, )</ID>
+    <ID>LongMethod:EpubReaderEntry.kt$@Composable fun EpubReaderScreen( item: ReadableItem, sessionStore: ReaderSessionStore, journalReadingSessionRecorder: JournalReadingSessionRecorder? = null, documentUri: Uri? = null, documentUriProvider: (suspend (ReadableItem) -&gt; Uri?)? = null, displayPreferences: ReaderDisplayPreferences = remember { ReaderDisplayPreferences() }, onBack: () -&gt; Unit, onCompletionRequested: () -&gt; Unit = {}, translation: TranslationService? = null, )</ID>
+    <ID>LongMethod:EpubReaderPreferencesControls.kt$@Composable internal fun EpubSelectableRow( label: String, selected: Boolean, onClick: () -&gt; Unit, value: String? = null, supportingText: String? = null, trailingIcon: (@Composable () -&gt; Unit)? = null, labelFontFamily: FontFamily? = null, )</ID>
+    <ID>LongMethod:EpubReaderPreferencesPane.kt$@Composable internal fun ColumnScope.EpubPreferencesPaneContent( typographyMode: EpubTypographyMode, fontFamily: EpubReaderFontFamily, fontSize: Double, lineHeight: Double, pageMargins: Double, paragraphSpacing: Double, paragraphIndent: Double, textAlign: EpubReaderTextAlign, theme: ReaderPageColor, layoutMode: EpubReaderLayoutMode, useOrientationLayoutDefault: Boolean, pageTurnStyle: PageTurnStyle, pageNumbersVisible: Boolean, selectedTab: EpubPreferencesTab, isFontPickerOpen: Boolean, onDismissRequest: () -&gt; Unit, onSelectedTabChanged: (EpubPreferencesTab) -&gt; Unit, onFontPickerOpenChanged: (Boolean) -&gt; Unit, onTypographyModeChanged: (EpubTypographyMode) -&gt; Unit, onFontFamilyChanged: (EpubReaderFontFamily) -&gt; Unit, onFontSizeChanged: (Double) -&gt; Unit, onLineHeightChanged: (Double) -&gt; Unit, onPageMarginsChanged: (Double) -&gt; Unit, onParagraphSpacingChanged: (Double) -&gt; Unit, onParagraphIndentChanged: (Double) -&gt; Unit, onTextAlignChanged: (EpubReaderTextAlign) -&gt; Unit, onThemeChanged: (ReaderPageColor) -&gt; Unit, onLayoutModeChanged: (EpubReaderLayoutMode) -&gt; Unit, onUseOrientationLayoutDefault: () -&gt; Unit, onPageTurnStyleChanged: (PageTurnStyle) -&gt; Unit, onPageNumbersVisibleChanged: (Boolean) -&gt; Unit, )</ID>
+    <ID>LongMethod:EpubTableOfContentsSheet.kt$@Composable internal fun EpubTableOfContentsSheet( entries: List&lt;EpubTocEntry&gt;, bookTitle: String, currentHref: String?, currentProgress: Double, isOpen: Boolean, slot: ReaderPanelSlot, onDismissRequest: () -&gt; Unit, onEntrySelected: (EpubTocEntry) -&gt; Unit, )</ID>
+    <ID>LongMethod:EpubTableOfContentsSheet.kt$@Composable private fun EpubTableOfContentsRow( entry: EpubTocEntry, selected: Boolean, finished: Boolean, throughLabel: String?, onClick: () -&gt; Unit, )</ID>
+    <ID>LongMethod:ReadiumEpubNavigatorHost.kt$@Composable @OptIn(ExperimentalReadiumApi::class) internal fun ReadiumEpubNavigatorHost( activity: FragmentActivity, item: ReadableItem, publication: Publication, initialLocator: Locator?, preferences: EpubReaderPreferences, // The last argument: whether the reader sees the end of the book (isEpubBookEnd). onLocationChanged: (Locator, EpubResourcePage, Boolean) -&gt; Unit, onSurfaceTap: () -&gt; Unit, onEndNavigationRequested: () -&gt; Unit, onFootnoteActivated: (EpubFootnoteContent) -&gt; Unit, translation: EpubSelectionTranslation?, navigationRequest: EpubNavigationRequest?, onNavigationRequestConsumed: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongParameterList:EpubTableOfContentsModelTest.kt$EpubTableOfContentsModelTest$( id: String, title: String, href: String, progression: Double?, position: Int? = null, depth: Int = 0, )</ID>
+    <ID>MagicNumber:EpubFootnotes.kt$3</ID>
+    <ID>MagicNumber:EpubNavigatorConfiguration.kt$200</ID>
+    <ID>MagicNumber:EpubNavigatorConfiguration.kt$900</ID>
+    <ID>MagicNumber:EpubNavigatorSurface.kt$0.25f</ID>
+    <ID>MagicNumber:EpubPageNumbers.kt$0.5</ID>
+    <ID>MagicNumber:EpubProgressLabels.kt$100</ID>
+    <ID>MagicNumber:EpubProgressLabels.kt$100.0</ID>
+    <ID>MagicNumber:EpubReaderPreferencesControls.kt$100.0</ID>
+    <ID>MagicNumber:EpubReaderPreferencesModel.kt$10</ID>
+    <ID>MagicNumber:EpubReaderPreferencesModel.kt$10.0</ID>
+    <ID>MagicNumber:EpubReaderSessionCodec.kt$0.8</ID>
+    <ID>MagicNumber:EpubReaderSessionCodec.kt$2.4</ID>
+    <ID>MagicNumber:EpubTableOfContentsSheet.kt$100f</ID>
+    <ID>MagicNumber:EpubTableOfContentsSheet.kt$22</ID>
+    <ID>MatchingDeclarationName:EpubPageColors.kt$EpubResolvedPageColor</ID>
+    <ID>MatchingDeclarationName:EpubPublicationOpener.kt$EpubPublicationState</ID>
+    <ID>MatchingDeclarationName:EpubSelectionMenu.kt$EpubSelectionActionModeCallback : Callback</ID>
+    <ID>MaxLineLength:EpubBookEndTest.kt$EpubBookEndTest$assertFalse(isEpubBookEnd(isLastResource = false, isScrollMode = false, pageIndex = 3, totalPages = 4, scrolledToResourceEnd = null))</ID>
+    <ID>MaxLineLength:EpubBookEndTest.kt$EpubBookEndTest$assertFalse(isEpubBookEnd(isLastResource = true, isScrollMode = false, pageIndex = 0, totalPages = null, scrolledToResourceEnd = null))</ID>
+    <ID>MaxLineLength:EpubPageFrameTest.kt$EpubPageFrameTest$assertEquals(listOf("Chapter 1"), buildEpubPageHeads("The Lantern Keepers", " Chapter 1 ", isSpread = false, isChapterStart = false))</ID>
+    <ID>MaxLineLength:EpubReaderEntry.kt$location = EpubFrameLocation(currentHref, currentProgress, currentPage, pageCount, secondSpreadPage, resourcePageIndex)</ID>
+    <ID>MaxLineLength:EpubReaderEntry.kt$noteReturn = currentLocator?.let { EpubNoteReturn(it, currentPage, currentProgress, link.url().removeFragment().toString()) }</ID>
+    <ID>MaxLineLength:EpubReaderPreferencesPane.kt$EpubStepRow(label = "Paragraph indent", steps = EpubParagraphIndentSteps, value = paragraphIndent, onSelected = onParagraphIndentChanged)</ID>
+    <ID>MaxLineLength:EpubReaderPreferencesPane.kt$EpubStepRow(label = "Paragraph spacing", steps = EpubParagraphSpacingSteps, value = paragraphSpacing, onSelected = onParagraphSpacingChanged)</ID>
+    <ID>MaxLineLength:EpubReaderSessionCodecTest.kt$EpubReaderSessionCodecTest$assertEquals(PageTurnStyle.Slide, restoreEpubPreferences(ReaderSessionSnapshot(itemId = "book", preferences = emptyMap())).pageTurnStyle)</ID>
+    <ID>MaxLineLength:EpubReaderSessionCodecTest.kt$EpubReaderSessionCodecTest$restoreEpubPreferences(ReaderSessionSnapshot(itemId = "book", preferences = mapOf(EpubPageTurnStyleKey to "Fold"))).pageTurnStyle</ID>
+    <ID>MaxLineLength:ReadiumEpubNavigatorHost.kt$footnoteNavigationScope</ID>
+    <ID>MaxLineLength:SampleEpubPublicationSupport.kt$"Persisted settings are restored on reopen, so the reader now has real session behavior instead of placeholder Compose text."</ID>
+    <ID>MaxLineLength:SampleEpubPublicationSupport.kt$"Reader-specific behavior stays inside the EPUB module. The app shell still only knows how to host a reader and display progress summaries."</ID>
+    <ID>MaxLineLength:SampleEpubPublicationSupport.kt$"Readium owns layout and pagination. The module only translates app-level preferences such as font size and line height into navigator preferences."</ID>
+    <ID>MaxLineLength:SampleEpubPublicationSupport.kt$"That boundary matters because real Grimmory or local-file integration can replace this generated package later without another shell refactor."</ID>
+    <ID>MaxLineLength:SampleEpubPublicationSupport.kt$"The important part of this slice is not the prose. It is that the app now opens a publication package with Readium, restores the last locator, and persists the current locator back through the shared session store."</ID>
+    <ID>MaxLineLength:SampleEpubPublicationSupport.kt$"The next step after this is replacing the generated EPUB file with an actual acquisition path from Grimmory or local imports."</ID>
+    <ID>MayBeConst:EpubSelectionHighlight.kt$EpubSelectionHighlight$/** As CSS writes it. */ val css: String = "rgba(91, 134, 196, 0.45)"</ID>
+    <ID>ModifierMissing:EpubReaderEntry.kt$EpubReaderScreen</ID>
+    <ID>ReturnCount:EpubFootnotes.kt$internal suspend fun Publication.extractEpubFootnoteOrNull( link: Link, ): EpubFootnoteContent?</ID>
+    <ID>ReturnCount:EpubFootnotes.kt$private fun Element.findElementById( targetId: String, ): Element?</ID>
+    <ID>ReturnCount:EpubFootnotes.kt$private fun extractNoteTextFromDocument( html: String, targetId: String, ): String?</ID>
+    <ID>ReturnCount:EpubFootnotes.kt$private fun extractUnmarkedNoteHtml( html: String, targetId: String, ): String?</ID>
+    <ID>ReturnCount:EpubPageCurlGeometry.kt$internal fun resolveEpubPageCurlTurn( viewBounds: IntRect, twoPageSpread: Boolean, rightToLeft: Boolean, target: PageCurlTarget, ): PageCurlTurn?</ID>
+    <ID>ReturnCount:EpubPageCurlLayer.kt$EpubPageCurlHost$suspend fun moveAndAwait(target: PageCurlTarget, onMoved: () -&gt; Unit): Boolean</ID>
+    <ID>ReturnCount:EpubPageCurlLayer.kt$fun start( target: PageCurlTarget, touchY: Float?, ): EpubPageCurlSession?</ID>
+    <ID>ReturnCount:EpubPageFrame.kt$internal fun buildEpubPageHeads( bookTitle: String, chapterTitle: String?, isSpread: Boolean, isChapterStart: Boolean, ): List&lt;String&gt;</ID>
+    <ID>ReturnCount:EpubPageNumbers.kt$internal fun buildEpubPageNumbers( currentPage: Int, pageCount: Int, isSpread: Boolean, isRightToLeft: Boolean, secondSpreadPage: Int?, ): List&lt;ReaderPageNumber&gt;</ID>
+    <ID>ReturnCount:EpubPageNumbers.kt$internal fun epubSecondSpreadPage( locator: Locator, resourcePage: EpubResourcePage, resource: EpubResourcePositions?, ): Int?</ID>
+    <ID>ReturnCount:EpubPublicationOpener.kt$internal suspend fun openEpubPublication( context: Context, item: ReadableItem, documentUri: Uri, ): EpubPublicationState</ID>
+    <ID>ReturnCount:EpubReaderEdgeTapSmokeTest.kt$FakeReaderSessionStore$override suspend fun replaceProgressIfCurrent( expected: ReaderProgressSnapshot, replacement: ReaderProgressSnapshot?, ): Boolean</ID>
+    <ID>ReturnCount:EpubReaderEntry.kt$@Composable fun EpubReaderScreen( item: ReadableItem, sessionStore: ReaderSessionStore, journalReadingSessionRecorder: JournalReadingSessionRecorder? = null, documentUri: Uri? = null, documentUriProvider: (suspend (ReadableItem) -&gt; Uri?)? = null, displayPreferences: ReaderDisplayPreferences = remember { ReaderDisplayPreferences() }, onBack: () -&gt; Unit, onCompletionRequested: () -&gt; Unit = {}, translation: TranslationService? = null, )</ID>
+    <ID>ReturnCount:EpubReaderSessionCodec.kt$internal fun ReaderProgressSnapshot.toReadiumLocator(): Locator?</ID>
+    <ID>ReturnCount:EpubRestoredLocator.kt$internal fun ReaderProgressSnapshot.toReadingOrderStartLocator( publication: Publication, ): Locator?</ID>
+    <ID>ReturnCount:EpubTableOfContentsModel.kt$internal fun EpubTocEntry.isEpubTocEntryFinished(activeEntry: EpubTocEntry?): Boolean</ID>
+    <ID>ReturnCount:EpubTableOfContentsModel.kt$internal fun List&lt;EpubTocEntry&gt;.epubTocChapterEntry( activeEntry: EpubTocEntry?, ): EpubTocEntry?</ID>
+    <ID>ReturnCount:EpubTableOfContentsModel.kt$internal fun List&lt;EpubTocEntry&gt;.epubTocChapterPosition( activeEntry: EpubTocEntry?, ): EpubTocChapterPosition?</ID>
+    <ID>ReturnCount:EpubTableOfContentsModel.kt$internal fun List&lt;EpubTocEntry&gt;.epubTocEntryFraction( entry: EpubTocEntry, currentProgress: Double, ): Float?</ID>
+    <ID>ReturnCount:ReadiumEpubNavigatorHost.kt$&lt;no name provided&gt;$override fun shouldFollowInternalLink( link: Link, context: HyperlinkNavigator.LinkContext?, ): Boolean</ID>
+    <ID>TooGenericExceptionCaught:EpubPublicationOpener.kt$error: Throwable</ID>
+    <ID>TooManyFunctions:EpubFootnotes.kt$com.example.unifiedreader.feature.reader.epub.EpubFootnotes.kt</ID>
+    <ID>TooManyFunctions:EpubTableOfContentsModel.kt$com.example.unifiedreader.feature.reader.epub.EpubTableOfContentsModel.kt</ID>
+  </CurrentIssues>
+</SmellBaseline>

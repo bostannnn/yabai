@@ -1,6 +1,7 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.common.AppDispatchers
+import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.feature.library.LibraryDerivedState
 import com.example.unifiedreader.feature.library.shelves.LibraryShelvesState
 import kotlinx.coroutines.CoroutineScope
@@ -71,7 +72,7 @@ internal class AppLibraryPendingRecompute(
             if (pendingJob !== recomputeJob) return@launch
             // Opt-in end-to-end timing (see LibraryPerfLog): `adb logcat -s LibraryPerf`.
             val recomputeMs = (System.nanoTime() - recomputeStart) / 1_000_000.0
-            runCatching {
+            runSuspendCatching {
                 android.util.Log.d(
                     "LibraryPerf",
                     "recompute.async total: %.2f ms (derived=%b shelves=%b)".format(recomputeMs, shouldComputeDerived, shouldComputeShelves),

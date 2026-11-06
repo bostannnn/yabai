@@ -55,25 +55,21 @@ fun ReaderTranslationOverlay(
     val state by service.state.collectAsStateWithLifecycle()
     var expanded by rememberSaveable { mutableStateOf(false) }
     var addingDeepL by remember { mutableStateOf(false) }
-    if (addingDeepL) {
-        DeepLKeyDialog(service = service, hasKey = state.deepL.hasKey, onDismissRequest = { addingDeepL = false })
+    val account = service.deepL
+    if (addingDeepL && account != null) {
+        DeepLKeyDialog(account = account, hasKey = state.deepL.hasKey, onDismissRequest = { addingDeepL = false })
     }
     val translation = current
     // A new selection starts small again; Open full only applies to the one it was pressed on.
     LaunchedEffect(translation?.selection) { expanded = false }
-    val close = {
-        expanded = false
-        session.close()
-    }
     val actions = TranslationPanelActions(
-        onPickFrom = { tag -> if (tag == null) session.resetFrom() else session.pickFrom(tag) },
-        onPickTo = session::pickTo,
-        onSwap = session::swap,
-        onDownload = session::download,
-        onRetry = session::retry,
-        onClose = close,
+        session = session,
+        service = service,
+        onClose = {
+            expanded = false
+            session.close()
+        },
         onOpenFull = { expanded = true },
-        onPickProvider = service::setProvider,
         onAddDeepL = { addingDeepL = true },
     )
     val asCard = translation != null && !expanded &&
@@ -82,31 +78,16 @@ fun ReaderTranslationOverlay(
     var origin by remember { mutableStateOf(Offset.Zero) }
     Box(modifier = Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInWindow() })
     if (translation != null && asCard) {
-        AppAnchoredCard(
-            anchor = translation.selection.bounds?.translate(-origin),
-            onDismissRequest = close,
-            modifier = modifier,
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                TranslationLanguageRow(translation, state, actions, showClose = true)
-                Column(
-                    modifier = Modifier.heightIn(max = CardBodyMaxHeight).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    TranslationPhaseBody(translation, asSheet = false, actions = actions)
-                }
-                TranslationCardFooter(translation, state, actions)
-            }
-        }
+        TranslationCard(translation, state, actions, origin, modifier)
     }
     AppFloatingPanel(
         visible = translation != null && !asCard,
         placement = AppFloatingPanelPlacement.End,
-        onDismissRequest = close,
+        onDismissRequest = actions.onClose,
         modifier = modifier,
     ) {
         val shown = translation ?: return@AppFloatingPanel
-        AppPanelHeader(title = TranslationCopy.Translation, onClose = close)
+        AppPanelHeader(title = TranslationCopy.Translation, onClose = actions.onClose)
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -114,7 +95,7 @@ fun ReaderTranslationOverlay(
                 .padding(horizontal = AppLayout.inset),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            TranslationLanguageRow(shown, state, actions.copyWithoutOpenFull(), showClose = false)
+            TranslationLanguageRow(shown, state, actions.withoutOpenFull(), showClose = false)
             TranslationPhaseBody(shown, asSheet = true, actions = actions)
         }
         Column(modifier = Modifier.fillMaxWidth().padding(AppLayout.inset)) {
@@ -123,17 +104,32 @@ fun ReaderTranslationOverlay(
     }
 }
 
+/** The card at the selected words: languages, the translation (scrolling when long), the footer. */
+@Composable
+private fun TranslationCard(
+    translation: TextSelectionTranslation,
+    state: TranslationState,
+    actions: TranslationPanelActions,
+    origin: Offset,
+    modifier: Modifier = Modifier,
+) {
+    AppAnchoredCard(
+        anchor = translation.selection.bounds?.translate(-origin),
+        onDismissRequest = actions.onClose,
+        modifier = modifier,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            TranslationLanguageRow(translation, state, actions, showClose = true)
+            Column(
+                modifier = Modifier.heightIn(max = CardBodyMaxHeight).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                TranslationPhaseBody(translation, asSheet = false, actions = actions)
+            }
+            TranslationCardFooter(translation, state, actions)
+        }
+    }
+}
+
 /** A passage in the card scrolls past this; Open full shows it in the sheet. */
 private val CardBodyMaxHeight = 320.dp
-
-private fun TranslationPanelActions.copyWithoutOpenFull() = TranslationPanelActions(
-    onPickFrom = onPickFrom,
-    onPickTo = onPickTo,
-    onSwap = onSwap,
-    onDownload = onDownload,
-    onRetry = onRetry,
-    onClose = onClose,
-    onOpenFull = null,
-    onPickProvider = onPickProvider,
-    onAddDeepL = onAddDeepL,
-)

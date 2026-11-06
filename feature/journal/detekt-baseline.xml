@@ -1,0 +1,136 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:JournalStore.kt$latestEvent != null &amp;&amp; latestEvent.eventType != JournalReadingEventType.FINISHED &amp;&amp; latestEvent.occurredAtEpochMillis.localDayKey() == input.occurredAtEpochMillis.localDayKey() &amp;&amp; (input.isFinished || position.isMeaningfullyAfter(latestPosition))</ID>
+    <ID>ComposableParamOrder:JournalFinishedScreen.kt$JournalFinishedScreen</ID>
+    <ID>ComposableParamOrder:JournalScreen.kt$JournalScreen</ID>
+    <ID>ComposableParamOrder:JournalStatsContent.kt$JournalStatsContent</ID>
+    <ID>ContentSlotReused:JournalFinishedLists.kt$cover</ID>
+    <ID>ContentSlotReused:JournalStatsContent.kt$content</ID>
+    <ID>CyclomaticComplexMethod:JournalRatingEditor.kt$@Composable private fun JournalRatingStar( starIndex: Int, displayedRating: Int?, selectedRating: Int?, isPreviewing: Boolean, starSlotSize: Dp, style: RatingStarStyle?, animateIn: Boolean, )</ID>
+    <ID>CyclomaticComplexMethod:JournalRatingEditor.kt$@Composable private fun JournalRatingStars( displayedRating: Int?, selectedRating: Int?, previewRating: Int?, onPreviewRatingChanged: (Int?) -&gt; Unit, onRatingSelected: (Int?) -&gt; Unit, modifier: Modifier = Modifier, starSlotSize: Dp = RatingStarSlotSize, starGap: Dp = RatingStarGap, style: RatingStarStyle? = null, animateIn: Boolean = false, )</ID>
+    <ID>CyclomaticComplexMethod:JournalSheet.kt$@Composable internal fun JournalSheet( pages: List&lt;JournalSheetPage&gt;, overview: JournalPeriodOverview, itemSummaries: List&lt;JournalItemSummary&gt;, coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -&gt; String?, onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -&gt; Unit, onOpenPage: (JournalSheetPage) -&gt; Unit, onBack: () -&gt; Unit, onSaveJournalEntry: (JournalItemRef, Int?, String) -&gt; Unit, onRemoveItem: (String) -&gt; Unit, onOpenInLibrary: ((ReadableItem) -&gt; Unit)?, onDismiss: () -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:JournalStatsCalendars.kt$@Composable private fun HeatCell( dayOfMonth: Int?, minutes: String?, cornerLayout: Boolean, level: Int, future: Boolean, finished: Boolean, today: Boolean, corner: Dp, onClick: (() -&gt; Unit)?, description: String?, modifier: Modifier = Modifier, )</ID>
+    <ID>CyclomaticComplexMethod:JournalStatsContent.kt$@Composable fun JournalStatsContent( snapshot: JournalSnapshot, coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -&gt; String? = { item, _ -&gt; item.coverUrl }, onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -&gt; Unit = { _, _ -&gt; }, onDeleteItemJournal: (String) -&gt; Unit, onSaveJournalEntry: (JournalItemRef, Int?, String) -&gt; Unit, onOpenInLibrary: ((ReadableItem) -&gt; Unit)? = null, contentTopInset: Dp = 0.dp, // Whether anything has scrolled under the bar (it then needs its glass). onScrolledChanged: (Boolean) -&gt; Unit = {}, modifier: Modifier = Modifier, // Lists read to the end; the period's show under its finished books. finishedLists: List&lt;JournalFinishedList&gt; = emptyList(), listCover: JournalListCover? = null, )</ID>
+    <ID>CyclomaticComplexMethod:JournalStore.kt$internal fun buildJournalEvent( input: JournalProgressInput, latestEvent: JournalReadingEvent?, ): JournalReadingEvent?</ID>
+    <ID>CyclomaticComplexMethod:JournalWhatYouRead.kt$@Composable internal fun JournalWhatYouReadPanel( overview: JournalPeriodOverview, loading: Boolean, coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -&gt; String?, onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -&gt; Unit, onOpenItem: (JournalItemSummary) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>ForEachOnRange:JournalReadingModel.kt$1..JournalReadingHoursMax</ID>
+    <ID>ForEachOnRange:JournalSheet.kt$0 until 5</ID>
+    <ID>ForEachOnRange:JournalStatsCalendars.kt$(Calendar.JANUARY..Calendar.DECEMBER).chunked(columns)</ID>
+    <ID>ForEachOnRange:JournalStatsCalendars.kt$1..4</ID>
+    <ID>LambdaParameterInRestartableEffect:JournalSheet.kt$onBack</ID>
+    <ID>LambdaParameterInRestartableEffect:JournalSheet.kt$onDismiss</ID>
+    <ID>LargeClass:JournalStateComputerTest.kt$JournalStateComputerTest</ID>
+    <ID>LongMethod:JournalFinishedScreen.kt$@Composable fun JournalFinishedScreen( item: ReadableItem, title: String, subtitle: String?, colors: AppCoverColors, reviewState: JournalReviewState, coverContent: @Composable (ReadableItem, Modifier) -&gt; Unit, onRatingSelected: (Int?) -&gt; Unit, onBackToLibrary: () -&gt; Unit, // "Back to the list" when the book was opened from one. backLabel: String = "Back to library", onDismiss: () -&gt; Unit, next: JournalFinishedNext? = null, )</ID>
+    <ID>LongMethod:JournalFinishedScreen.kt$@Composable private fun JournalFinishedContent( item: ReadableItem, title: String, subtitle: String?, colors: AppCoverColors, reviewState: JournalReviewState, coverContent: @Composable (ReadableItem, Modifier) -&gt; Unit, onRatingSelected: (Int?) -&gt; Unit, onBackToLibrary: () -&gt; Unit, backLabel: String, onDismiss: () -&gt; Unit, next: JournalFinishedNext?, layout: JournalFinishedLayout, modifier: Modifier, )</ID>
+    <ID>LongMethod:JournalRatingEditor.kt$@Composable private fun JournalRatingStar( starIndex: Int, displayedRating: Int?, selectedRating: Int?, isPreviewing: Boolean, starSlotSize: Dp, style: RatingStarStyle?, animateIn: Boolean, )</ID>
+    <ID>LongMethod:JournalRatingEditor.kt$@Composable private fun JournalRatingStars( displayedRating: Int?, selectedRating: Int?, previewRating: Int?, onPreviewRatingChanged: (Int?) -&gt; Unit, onRatingSelected: (Int?) -&gt; Unit, modifier: Modifier = Modifier, starSlotSize: Dp = RatingStarSlotSize, starGap: Dp = RatingStarGap, style: RatingStarStyle? = null, animateIn: Boolean = false, )</ID>
+    <ID>LongMethod:JournalSheet.kt$@Composable internal fun JournalSheet( pages: List&lt;JournalSheetPage&gt;, overview: JournalPeriodOverview, itemSummaries: List&lt;JournalItemSummary&gt;, coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -&gt; String?, onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -&gt; Unit, onOpenPage: (JournalSheetPage) -&gt; Unit, onBack: () -&gt; Unit, onSaveJournalEntry: (JournalItemRef, Int?, String) -&gt; Unit, onRemoveItem: (String) -&gt; Unit, onOpenInLibrary: ((ReadableItem) -&gt; Unit)?, onDismiss: () -&gt; Unit, )</ID>
+    <ID>LongMethod:JournalSheet.kt$@Composable private fun JournalItemPage( summary: JournalItemSummary, coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -&gt; String?, onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -&gt; Unit, onSaveJournalEntry: (JournalItemRef, Int?, String) -&gt; Unit, onOpenInLibrary: (() -&gt; Unit)?, onRemove: () -&gt; Unit, )</ID>
+    <ID>LongMethod:JournalStatsContent.kt$@Composable fun JournalStatsContent( snapshot: JournalSnapshot, coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -&gt; String? = { item, _ -&gt; item.coverUrl }, onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -&gt; Unit = { _, _ -&gt; }, onDeleteItemJournal: (String) -&gt; Unit, onSaveJournalEntry: (JournalItemRef, Int?, String) -&gt; Unit, onOpenInLibrary: ((ReadableItem) -&gt; Unit)? = null, contentTopInset: Dp = 0.dp, // Whether anything has scrolled under the bar (it then needs its glass). onScrolledChanged: (Boolean) -&gt; Unit = {}, modifier: Modifier = Modifier, // Lists read to the end; the period's show under its finished books. finishedLists: List&lt;JournalFinishedList&gt; = emptyList(), listCover: JournalListCover? = null, )</ID>
+    <ID>LongMethod:JournalStatsContent.kt$@Composable private fun JournalHeader( title: String, scope: JournalStatsScope, onScopeSelected: (JournalStatsScope) -&gt; Unit, canNavigatePrevious: Boolean, canNavigateNext: Boolean, onPrevious: () -&gt; Unit, onNext: () -&gt; Unit, compact: Boolean, )</ID>
+    <ID>LongMethod:JournalStatsSections.kt$@Composable private fun MostReadGroup( group: JournalMostReadGroup, onRowSelected: (JournalFacetRow) -&gt; Unit, onSeeAll: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:JournalWhatYouRead.kt$@Composable private fun ReadItemRow( item: JournalReadItem, longestMillis: Long, compact: Boolean, coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -&gt; String?, onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -&gt; Unit, onOpen: () -&gt; Unit, )</ID>
+    <ID>LongParameterList:JournalFinishesTest.kt$JournalFinishesTest$( id: String = "event", type: JournalReadingEventType, from: Double?, to: Double, page: Int? = null, at: Long, )</ID>
+    <ID>LongParameterList:JournalStateComputer.kt$( events: List&lt;JournalReadingEvent&gt;, sessions: List&lt;JournalReadingSession&gt; = emptyList(), entries: List&lt;ItemJournalEntry&gt; = emptyList(), catalogItemsById: Map&lt;String, ReadableItem&gt; = emptyMap(), periodStart: Long? = null, periodEnd: Long? = null, )</ID>
+    <ID>LongParameterList:JournalStateComputerTest.kt$JournalStateComputerTest$( item: ReadableItem = testItem, id: String = "book-started", page: Int, percent: Double, type: JournalReadingEventType = JournalReadingEventType.STARTED, fromPage: Int? = null, fromPercent: Double? = null, coverUrl: String? = testItem.coverUrl, occurredAtEpochMillis: Long = 123_000L, )</ID>
+    <ID>LongParameterList:JournalStateComputerTest.kt$JournalStateComputerTest$( item: ReadableItem = testItem, startedAtEpochMillis: Long, endedAtEpochMillis: Long, durationMillis: Long = endedAtEpochMillis - startedAtEpochMillis, fromPage: Int? = null, toPage: Int? = null, )</ID>
+    <ID>LoopWithTooManyJumpStatements:JournalRatingEditor.kt$while</ID>
+    <ID>MagicNumber:JournalFinishedLists.kt$60</ID>
+    <ID>MagicNumber:JournalFinishedLists.kt$60L</ID>
+    <ID>MagicNumber:JournalFinishedLists.kt$60_000L</ID>
+    <ID>MagicNumber:JournalFormatting.kt$10</ID>
+    <ID>MagicNumber:JournalFormatting.kt$100</ID>
+    <ID>MagicNumber:JournalFormatting.kt$1000</ID>
+    <ID>MagicNumber:JournalLayout.kt$12</ID>
+    <ID>MagicNumber:JournalLayout.kt$4</ID>
+    <ID>MagicNumber:JournalLayout.kt$5</ID>
+    <ID>MagicNumber:JournalLayout.kt$7</ID>
+    <ID>MagicNumber:JournalLayout.kt$8</ID>
+    <ID>MagicNumber:JournalOverviewModel.kt$0.25f</ID>
+    <ID>MagicNumber:JournalOverviewModel.kt$0.5f</ID>
+    <ID>MagicNumber:JournalOverviewModel.kt$0.75f</ID>
+    <ID>MagicNumber:JournalOverviewModel.kt$10</ID>
+    <ID>MagicNumber:JournalOverviewModel.kt$3</ID>
+    <ID>MagicNumber:JournalOverviewModel.kt$4</ID>
+    <ID>MagicNumber:JournalOverviewModel.kt$5</ID>
+    <ID>MagicNumber:JournalOverviewModel.kt$60L</ID>
+    <ID>MagicNumber:JournalOverviewModel.kt$60_000L</ID>
+    <ID>MagicNumber:JournalPageCounting.kt$60_000.0</ID>
+    <ID>MagicNumber:JournalReadingModel.kt$10L</ID>
+    <ID>MagicNumber:JournalReadingModel.kt$10_000</ID>
+    <ID>MagicNumber:JournalReadingModel.kt$11</ID>
+    <ID>MagicNumber:JournalReadingModel.kt$1_000.0</ID>
+    <ID>MagicNumber:JournalReadingModel.kt$24</ID>
+    <ID>MagicNumber:JournalReadingModel.kt$3</ID>
+    <ID>MagicNumber:JournalReadingModel.kt$3_600_000.0</ID>
+    <ID>MagicNumber:JournalReadingModel.kt$3_600_000L</ID>
+    <ID>MagicNumber:JournalStateComputer.kt$1000</ID>
+    <ID>MagicNumber:JournalStateComputer.kt$11</ID>
+    <ID>MagicNumber:JournalStateComputer.kt$23</ID>
+    <ID>MagicNumber:JournalStateComputer.kt$JournalActivityDayAccumulator$1000</ID>
+    <ID>MagicNumber:JournalStatsCalendars.kt$3</ID>
+    <ID>MagicNumber:JournalStatsCalendars.kt$4</ID>
+    <ID>MagicNumber:JournalStatsCalendars.kt$5</ID>
+    <ID>MagicNumber:JournalStatsCalendars.kt$59_999L</ID>
+    <ID>MagicNumber:JournalStatsCalendars.kt$600L</ID>
+    <ID>MagicNumber:JournalStatsCalendars.kt$60L</ID>
+    <ID>MagicNumber:JournalStatsCalendars.kt$60_000L</ID>
+    <ID>MagicNumber:JournalStatsCalendars.kt$7</ID>
+    <ID>MatchingDeclarationName:JournalFinishedLists.kt$JournalFinishedList</ID>
+    <ID>MatchingDeclarationName:JournalSheet.kt$JournalSheetPage</ID>
+    <ID>MatchingDeclarationName:JournalStore.kt$RoomJournalRepository : JournalRepositoryJournalReadingSessionRecorder</ID>
+    <ID>MaxLineLength:JournalFinishedLists.kt$AppListCover(count = list.books.size.coerceAtMost(4)) { index, cellModifier -&gt; cover(list.books[index], cellModifier) }</ID>
+    <ID>MaxLineLength:JournalFinishedLists.kt$JournalFinishedList$/** A list read to the end, as the journal keeps it; the list itself may be gone. [books] are the ones still in the library, in its order. */</ID>
+    <ID>MaxLineLength:JournalFinishedLists.kt$Text(text = label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)</ID>
+    <ID>MaxLineLength:JournalFinishedScreen.kt$JournalFinishedCover(item = item, coverWidth = JournalFinishedDefaults.bandCoverWidth, coverContent = coverContent)</ID>
+    <ID>MaxLineLength:JournalGridLayouts.kt$SplitRowPolicy$val height = if (constraints.hasBoundedHeight) natural.coerceIn(constraints.minHeight, constraints.maxHeight) else natural.coerceAtLeast(constraints.minHeight)</ID>
+    <ID>MaxLineLength:JournalGridLayouts.kt$StackPolicy$val height = if (constraints.hasBoundedHeight) natural.coerceIn(constraints.minHeight, constraints.maxHeight) else natural.coerceAtLeast(constraints.minHeight)</ID>
+    <ID>MaxLineLength:JournalOverviewModelTest.kt$JournalOverviewModelTest$JournalFacetSection("Book genres", JournalMediaType.BOOK, JournalFacetType.GENRE, listOf(row("Fantasy", "b1"), row("Mystery", "b2")))</ID>
+    <ID>MaxLineLength:JournalOverviewModelTest.kt$JournalOverviewModelTest$val media = mapOf("b1" to JournalMediaType.BOOK, "b2" to JournalMediaType.BOOK, "c1" to JournalMediaType.COMIC, "c2" to JournalMediaType.COMIC)</ID>
+    <ID>MaxLineLength:JournalReadingModel.kt$name = String.format(Locale.US, "%s %d %s", date.dayOfWeek.name.take(3).lowercase().replaceFirstChar(Char::uppercase), day, shortMonthName(date.monthValue - 1))</ID>
+    <ID>MaxLineLength:JournalReadingModelTest.kt$JournalReadingModelTest$JournalTimeBucket(key = month, label = shortMonthName(month), totalMillis = if (month == 5) 99L else month.toLong(), averageMillis = 0L)</ID>
+    <ID>MaxLineLength:JournalReadingModelTest.kt$JournalReadingModelTest$assertEquals("All rated", overview(finished = listOf(rated, rated.copy(item = rated.item.copy(itemId = "other")))).summary(now).finishedLine())</ID>
+    <ID>MaxLineLength:JournalReadingModelTest.kt$JournalReadingModelTest$assertFalse(JournalSnapshot(events = listOf(event("a", now, JournalReadingEventType.STARTED)), itemSummaries = listOf(summary("a"))).booksLoading)</ID>
+    <ID>MaxLineLength:JournalReadingModelTest.kt$JournalReadingModelTest$sessions = listOf(session("kristina", oct(20, 23), 22), session("kristina", oct(21, 23), 10), session("kristina", oct(22, 1), 49))</ID>
+    <ID>MaxLineLength:JournalReadingModelTest.kt$JournalReadingModelTest$val</ID>
+    <ID>MaxLineLength:JournalReadingModelTest.kt$JournalReadingModelTest$val elsewhere = summary("elsewhere", events = listOf(event("elsewhere", oct(18, 9), JournalReadingEventType.CONTINUED, from = 10, to = 30)))</ID>
+    <ID>MaxLineLength:JournalReadingModelTest.kt$JournalReadingModelTest$val scattered = overview(period = JournalPeriod.YEAR, days = listOf(day(3), day(20))).summary(epochMillis(2026, Calendar.OCTOBER, 25, 9))</ID>
+    <ID>MaxLineLength:JournalReadingModelTest.kt$JournalReadingModelTest$val year = overview(period = JournalPeriod.YEAR, days = listOf(day(19).copy(pagesRead = 133), day(3, month = Calendar.APRIL).copy(pagesRead = 7))).pagesBars()</ID>
+    <ID>MaxLineLength:JournalScreen.kt$JournalDeleteTarget.Item$override val body: String = "This removes its rating, review and reading history from this device. Ratings and reviews on your server stay."</ID>
+    <ID>MaxLineLength:JournalSheet.kt$Text(text = line, style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)</ID>
+    <ID>MaxLineLength:JournalSheet.kt$Text(text = title, style = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp, lineHeight = 28.sp), fontWeight = FontWeight.SemiBold)</ID>
+    <ID>MaxLineLength:JournalStateComputerTest.kt$JournalStateComputerTest$startedEvent(item = finishedBefore, id = "before", page = 100, percent = 1.0, type = JournalReadingEventType.FINISHED, occurredAtEpochMillis = sep10)</ID>
+    <ID>MaxLineLength:JournalStateComputerTest.kt$JournalStateComputerTest$startedEvent(item = finishedNow, id = "now", page = 100, percent = 1.0, type = JournalReadingEventType.FINISHED, occurredAtEpochMillis = oct10)</ID>
+    <ID>MaxLineLength:JournalStateComputerTest.kt$JournalStateComputerTest$startedEvent(item = grimmoryPdf, id = "grimmory-finished", page = 100, percent = 1.0, type = JournalReadingEventType.FINISHED)</ID>
+    <ID>MaxLineLength:JournalStateComputerTest.kt$JournalStateComputerTest$startedEvent(item = rereadNow, id = "reread-before", page = 100, percent = 1.0, type = JournalReadingEventType.FINISHED, occurredAtEpochMillis = sep10)</ID>
+    <ID>MaxLineLength:JournalStatsContent.kt$.</ID>
+    <ID>MaxLineLength:JournalStatsContent.kt$JournalFinishedListsPanel(lists = periodLists, periodName = overview.periodName(), cover = cover, modifier = slotModifier)</ID>
+    <ID>MaxLineLength:JournalStatsContent.kt$JournalMonthReadingDaysPanel(overview = overview, nowEpochMillis = now, onDaySelected = openDay, modifier = slotModifier)</ID>
+    <ID>MaxLineLength:JournalStatsContent.kt$JournalSlot.TimeByMonth -&gt; JournalTimeByMonthPanel(buckets = overview.averageReadingTimeBuckets, modifier = slotModifier, stretch = stretch)</ID>
+    <ID>MaxLineLength:JournalStatsContent.kt$JournalSlot.WhenYouRead -&gt; JournalWhenYouReadPanel(buckets = overview.averageReadingTimeBuckets, modifier = slotModifier, stretch = stretch)</ID>
+    <ID>ModifierMissing:JournalFinishedLists.kt$JournalListFinishedDialog</ID>
+    <ID>ModifierMissing:JournalFinishedScreen.kt$JournalFinishedScreen</ID>
+    <ID>ModifierWithoutDefault:JournalFinishedScreen.kt$modifier</ID>
+    <ID>ModifierWithoutDefault:JournalRatingEditor.kt$modifier</ID>
+    <ID>MutableStateAutoboxing:JournalRatingEditorComposeTest.kt$JournalRatingEditorComposeTest$mutableStateOf&lt;Int?&gt;(9)</ID>
+    <ID>ReturnCount:JournalOverviewModel.kt$internal fun journalHeatLevel(value: Int, maxValue: Int): Int</ID>
+    <ID>ReturnCount:JournalPageCounting.kt$private fun knownPageDelta( fromPage: Int?, toPage: Int?, fromPercent: Double?, toPercent: Double?, pageCount: Int?, ): Int</ID>
+    <ID>ReturnCount:JournalReadingModel.kt$internal fun journalReadingHours(buckets: List&lt;JournalTimeBucket&gt;): Pair&lt;Int, Int&gt;?</ID>
+    <ID>ReturnCount:JournalStateComputer.kt$JournalCatalogItemLookup$fun find( itemId: String, events: List&lt;JournalReadingEvent&gt;, sessions: List&lt;JournalReadingSession&gt;, entry: ItemJournalEntry?, ): ReadableItem?</ID>
+    <ID>ReturnCount:JournalStateComputer.kt$internal fun JournalReadingSession.activeDurationWithin( startInclusive: Long?, endExclusive: Long?, ): Long</ID>
+    <ID>ReturnCount:JournalStore.kt$JournalPosition$fun isMeaningfullyAfter( previous: JournalPosition?, ): Boolean</ID>
+    <ID>ReturnCount:JournalStore.kt$internal fun buildJournalEvent( input: JournalProgressInput, latestEvent: JournalReadingEvent?, ): JournalReadingEvent?</ID>
+    <ID>ReturnCount:JournalStore.kt$internal fun takeBackVisitFinish( input: JournalProgressInput, latestEvent: JournalReadingEvent?, hasEarlierEvents: Boolean, ): JournalReadingEvent?</ID>
+    <ID>TooManyFunctions:JournalModels.kt$com.example.unifiedreader.feature.journal.JournalModels.kt</ID>
+    <ID>TooManyFunctions:JournalOverviewModel.kt$com.example.unifiedreader.feature.journal.JournalOverviewModel.kt</ID>
+    <ID>TooManyFunctions:JournalRatingEditor.kt$com.example.unifiedreader.feature.journal.JournalRatingEditor.kt</ID>
+    <ID>TooManyFunctions:JournalReadingModel.kt$com.example.unifiedreader.feature.journal.JournalReadingModel.kt</ID>
+    <ID>TooManyFunctions:JournalSheet.kt$com.example.unifiedreader.feature.journal.JournalSheet.kt</ID>
+    <ID>TooManyFunctions:JournalStateComputer.kt$com.example.unifiedreader.feature.journal.JournalStateComputer.kt</ID>
+    <ID>TooManyFunctions:JournalStatsCalendars.kt$com.example.unifiedreader.feature.journal.JournalStatsCalendars.kt</ID>
+    <ID>TooManyFunctions:JournalStatsDashboard.kt$com.example.unifiedreader.feature.journal.JournalStatsDashboard.kt</ID>
+    <ID>TooManyFunctions:JournalStore.kt$RoomJournalRepository : JournalRepositoryJournalReadingSessionRecorder</ID>
+  </CurrentIssues>
+</SmellBaseline>

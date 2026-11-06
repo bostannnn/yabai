@@ -1,0 +1,35 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComposableParamOrder:DownloadsSheet.kt$DownloadRow</ID>
+    <ID>CyclomaticComplexMethod:RemoteDownloadWorkerRunner.kt$RemoteDownloadWorkerRunner$suspend fun runEntry( entryId: String, ): RemoteDownloadWorkerOutcome</ID>
+    <ID>LongMethod:DownloadsSheet.kt$@Composable fun DownloadsSheet( snapshot: DownloadEntriesSnapshot, itemResolver: (String) -&gt; ReadableItem?, coverImageUrlProvider: (ReadableItem, LibraryCoverImageVariant) -&gt; String?, onCoverVisible: (ReadableItem, LibraryCoverImageVariant) -&gt; Unit, onDismiss: () -&gt; Unit, onCancel: (String) -&gt; Unit, onRemove: (String) -&gt; Unit, onRetry: (String) -&gt; Unit, onClearCompleted: () -&gt; Unit, onReadEntry: (String) -&gt; Unit, onOpenBookPage: (itemId: String, source: SourceType) -&gt; Unit, )</ID>
+    <ID>LongMethod:DownloadsSheet.kt$@Composable private fun DownloadRunningBlock( entry: DownloadEntry, context: DownloadRowContext, onCancel: (String) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:RemoteDownloadQueueController.kt$RemoteDownloadQueueController$private suspend fun enqueueResolvedSelection( selectedItems: List&lt;ReadableItem&gt;, allItems: List&lt;ReadableItem&gt;, selectedItemId: String, selectedItemTitle: String, alreadyAvailableMessage: String, alreadyQueuedMessage: String, canScheduleSource: (SourceType) -&gt; Boolean, ): DownloadQueueActionResult</ID>
+    <ID>LongMethod:RemoteDownloadWorkerRunner.kt$RemoteDownloadWorkerRunner$suspend fun runEntry( entryId: String, ): RemoteDownloadWorkerOutcome</ID>
+    <ID>LongParameterList:DownloadQueueStore.kt$DownloadQueueStore$( entryId: String, expectedStatuses: Set&lt;DownloadEntryStatus&gt;, status: DownloadEntryStatus, currentItemId: String? = null, currentItemTitle: String? = null, errorMessage: String? = null, completedAtEpochMillis: Long? = null, )</ID>
+    <ID>LongParameterList:DownloadQueueStore.kt$DownloadQueueStore$( entryId: String, status: DownloadEntryStatus, currentItemId: String? = null, currentItemTitle: String? = null, errorMessage: String? = null, completedAtEpochMillis: Long? = null, )</ID>
+    <ID>LongParameterList:DownloadsButtonStateTest.kt$DownloadsButtonStateTest$( id: String, status: DownloadEntryStatus, files: Int, done: Int = 0, createdAt: Long = 1L, completedAt: Long? = null, )</ID>
+    <ID>LongParameterList:RemoteDownloadQueueController.kt$RemoteDownloadQueueController$( selectedItems: List&lt;ReadableItem&gt;, allItems: List&lt;ReadableItem&gt;, selectedItemId: String, selectedItemTitle: String, alreadyAvailableMessage: String, alreadyQueuedMessage: String, canScheduleSource: (SourceType) -&gt; Boolean, )</ID>
+    <ID>MagicNumber:DownloadEntryEntityMapper.kt$10</ID>
+    <ID>MagicNumber:DownloadEntryEntityMapper.kt$11</ID>
+    <ID>MagicNumber:DownloadEntryEntityMapper.kt$12</ID>
+    <ID>MagicNumber:DownloadEntryEntityMapper.kt$13</ID>
+    <ID>MagicNumber:DownloadEntryEntityMapper.kt$14</ID>
+    <ID>MagicNumber:DownloadEntryEntityMapper.kt$9</ID>
+    <ID>MaxLineLength:DownloadsSheet.kt$DownloadRow</ID>
+    <ID>MaxLineLength:DownloadsSheet.kt$DownloadRunningBlock(entry = entry, context = rowContext, onCancel = onCancel, modifier = Modifier.downloadRowMotion(this))</ID>
+    <ID>ModifierMissing:DownloadsSheet.kt$DownloadsSheet</ID>
+    <ID>NestedBlockDepth:RemoteDownloadWorkerRunner.kt$RemoteDownloadWorkerRunner$suspend fun runEntry( entryId: String, ): RemoteDownloadWorkerOutcome</ID>
+    <ID>ReturnCount:RemoteDownloadQueueController.kt$RemoteDownloadQueueController$private suspend fun enqueueResolvedSelection( selectedItems: List&lt;ReadableItem&gt;, allItems: List&lt;ReadableItem&gt;, selectedItemId: String, selectedItemTitle: String, alreadyAvailableMessage: String, alreadyQueuedMessage: String, canScheduleSource: (SourceType) -&gt; Boolean, ): DownloadQueueActionResult</ID>
+    <ID>ReturnCount:RemoteDownloadQueueController.kt$RemoteDownloadQueueController$suspend fun enqueueBatch( selectedItems: List&lt;ReadableItem&gt;, allItems: List&lt;ReadableItem&gt;, canScheduleSource: (SourceType) -&gt; Boolean = { true }, ): DownloadQueueActionResult</ID>
+    <ID>ReturnCount:RemoteDownloadQueueController.kt$RemoteDownloadQueueController$suspend fun remove( entryId: String, ): Boolean</ID>
+    <ID>ReturnCount:RemoteDownloadQueueController.kt$RemoteDownloadQueueController$suspend fun resolveOpenItem( entryId: String, ): ReadableItem?</ID>
+    <ID>ReturnCount:RemoteDownloadWorkerRunner.kt$RemoteDownloadWorkerRunner$suspend fun runEntry( entryId: String, ): RemoteDownloadWorkerOutcome</ID>
+    <ID>SwallowedException:RemoteDownloadWorkerRunner.kt$RemoteDownloadWorkerRunner$cancellation: CancellationException</ID>
+    <ID>TooGenericExceptionCaught:RemoteDownloadWorkerRunner.kt$RemoteDownloadWorkerRunner$throwable: Throwable</ID>
+    <ID>TooManyFunctions:DownloadsSheetModel.kt$com.example.unifiedreader.feature.downloads.DownloadsSheetModel.kt</ID>
+    <ID>TooManyFunctions:RemoteDownloadQueueController.kt$RemoteDownloadQueueController</ID>
+  </CurrentIssues>
+</SmellBaseline>

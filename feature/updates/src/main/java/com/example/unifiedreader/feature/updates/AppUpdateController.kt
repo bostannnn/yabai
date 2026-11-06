@@ -72,7 +72,7 @@ class AppUpdateController(
         scope.launch {
             val installed = withContext(ioDispatcher) { packageInspector.installedApp() }
             val stored = withContext(ioDispatcher) {
-                runCatching { downloadDirectory().deleteRecursively() }
+                runSuspendCatching { downloadDirectory().deleteRecursively() }
                 preferencesStore.read()
             }
             installedApp = installed

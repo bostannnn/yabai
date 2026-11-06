@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.library.covers
 
 import android.content.Context
+import com.example.unifiedreader.core.model.runSuspendCatching
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -138,7 +139,7 @@ class PersistentRemoteCoverStore @Inject constructor(
             return@withContext null
         }
         destination.parentFile?.mkdirs()
-        val moved = legacyFile.renameTo(destination) || runCatching {
+        val moved = legacyFile.renameTo(destination) || runSuspendCatching {
             legacyFile.copyTo(destination, overwrite = true)
             legacyFile.delete()
             true

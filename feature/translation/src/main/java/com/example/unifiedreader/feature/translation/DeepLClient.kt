@@ -10,7 +10,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
-import kotlinx.coroutines.CancellationException
+import java.io.IOException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -32,7 +32,11 @@ enum class DeepLFailure {
     Other,
 }
 
-class DeepLException(val failure: DeepLFailure, message: String? = null) : Exception(message ?: failure.name)
+class DeepLException(
+    val failure: DeepLFailure,
+    message: String? = null,
+    cause: Throwable? = null,
+) : Exception(message ?: failure.name, cause)
 
 /** This month's characters on the key's plan. */
 data class DeepLUsage(val used: Long, val limit: Long)
@@ -82,9 +86,7 @@ class DeepLClient(private val httpClient: HttpClient) {
         to: String,
         context: String? = null,
     ): List<String> {
-        if (!DeepLLanguages.supports(from) || !DeepLLanguages.supports(to)) {
-            throw DeepLException(DeepLFailure.LanguageMissing)
-        }
+        requireLanguages(from, to)
         val request = TranslateBody(
             text = texts,
             sourceLang = DeepLLanguages.source(from),
@@ -98,29 +100,36 @@ class DeepLClient(private val httpClient: HttpClient) {
                 setBody(Lenient.encodeToString(TranslateBody.serializer(), request))
             }
         }
-        val body = Lenient.decodeFromString(TranslationsBody.serializer(), response.bodyAsText())
-        if (body.translations.size != texts.size) throw DeepLException(DeepLFailure.Other, "DeepL answered ${body.translations.size} of ${texts.size}")
-        return body.translations.map { it.text }
+        val answers = Lenient.decodeFromString(TranslationsBody.serializer(), response.bodyAsText()).translations
+        return answers.map { it.text }.also { translated ->
+            if (translated.size != texts.size) {
+                throw DeepLException(DeepLFailure.Other, "DeepL answered ${translated.size} of ${texts.size}")
+            }
+        }
+    }
+
+    private fun requireLanguages(from: String, to: String) {
+        if (!DeepLLanguages.supports(from) || !DeepLLanguages.supports(to)) throw DeepLException(DeepLFailure.LanguageMissing)
     }
 
     private suspend fun call(block: suspend () -> HttpResponse): HttpResponse {
+        // No connection, a timeout, a lookup that failed: all of Ktor's and OkHttp's are IOExceptions.
         val response = try {
             block()
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (error: Exception) {
-            throw DeepLException(DeepLFailure.Unreachable, error.message)
+        } catch (error: IOException) {
+            throw DeepLException(DeepLFailure.Unreachable, error.message, error)
         }
-        if (response.status.isSuccess()) return response
-        throw DeepLException(
-            when (response.status.value) {
-                401, 403 -> DeepLFailure.KeyRefused
-                456 -> DeepLFailure.LimitReached
-                429, 500, 502, 503, 504, 529 -> DeepLFailure.Unreachable
-                else -> DeepLFailure.Other
-            },
-            "DeepL answered ${response.status.value}",
-        )
+        if (!response.status.isSuccess()) {
+            throw DeepLException(failureFor(response.status.value), "DeepL answered ${response.status.value}")
+        }
+        return response
+    }
+
+    private fun failureFor(status: Int): DeepLFailure = when (status) {
+        in KeyRefusedStatuses -> DeepLFailure.KeyRefused
+        LimitReachedStatus -> DeepLFailure.LimitReached
+        in BusyStatuses -> DeepLFailure.Unreachable
+        else -> DeepLFailure.Other
     }
 
     private fun io.ktor.client.request.HttpRequestBuilder.auth(key: String) {
@@ -153,6 +162,14 @@ class DeepLClient(private val httpClient: HttpClient) {
 
         internal fun host(key: String): String =
             if (isFreeKey(key)) "https://api-free.deepl.com" else "https://api.deepl.com"
+
+        private val KeyRefusedStatuses = setOf(401, 403)
+
+        /** DeepL's own "quota exceeded". */
+        private const val LimitReachedStatus = 456
+
+        /** Too many requests, or DeepL down or overloaded: try later. */
+        private val BusyStatuses = setOf(429, 500, 502, 503, 504, 529)
 
         private val Lenient = Json {
             ignoreUnknownKeys = true

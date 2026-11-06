@@ -92,11 +92,14 @@ internal fun nextPhase(
     to: String?,
     state: TranslationState,
 ): TranslationPhase? {
-    if (to == null) return TranslationPhase.PickLanguage
     // DeepL needs nothing on the tablet.
-    if (state.usesDeepL(from, to)) return null
-    val missing = listOf(from, to).distinct().filterNot { it in state.downloaded }
+    val missing = if (to == null || state.usesDeepL(from, to)) {
+        emptyList()
+    } else {
+        listOf(from, to).distinct().filterNot { it in state.downloaded }
+    }
     return when {
+        to == null -> TranslationPhase.PickLanguage
         missing.isEmpty() -> null
         missing.any { it in state.downloading } -> TranslationPhase.Downloading(missing)
         missing.any { it in state.failed } -> TranslationPhase.Failed(TranslationFailure.Download)

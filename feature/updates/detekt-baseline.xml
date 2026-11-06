@@ -1,0 +1,33 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:AppUpdateController.kt$AppUpdateController$fun startDownload()</ID>
+    <ID>CyclomaticComplexMethod:AppUpdateController.kt$AppUpdateController$private suspend fun check(manual: Boolean)</ID>
+    <ID>LongMethod:AppUpdateController.kt$AppUpdateController$fun startDownload()</ID>
+    <ID>LongMethod:AppUpdateCopy.kt$internal fun failureCopy(failure: AppUpdateFailure, installedVersion: String): DialogCopy</ID>
+    <ID>LongMethod:AppUpdateDialogs.kt$@Composable private fun UpdateDialog( state: AppUpdateState, actions: AppUpdateActions, )</ID>
+    <ID>LongParameterList:AppUpdateController.kt$AppUpdateController$( private val releaseSource: AppReleaseSource, private val downloader: AppUpdateDownloader, private val packageInspector: AppPackageInspector, private val installer: AppUpdateInstaller, private val preferencesStore: AppUpdatePreferencesStore, private val downloadDirectory: () -&gt; File, private val scope: CoroutineScope, private val ioDispatcher: CoroutineDispatcher, private val clock: () -&gt; Long = System::currentTimeMillis, private val freeSpaceBytes: (File) -&gt; Long = File::getUsableSpace, private val installEvents: Flow&lt;AppUpdateInstallEvent&gt; = AppUpdateInstallEvents.events, )</ID>
+    <ID>MagicNumber:AppUpdateController.kt$AppUpdateController$100</ID>
+    <ID>MagicNumber:AppUpdateCopy.kt$10</ID>
+    <ID>MagicNumber:AppUpdateCopy.kt$10.0</ID>
+    <ID>MagicNumber:AppUpdateCopy.kt$1_000.0</ID>
+    <ID>MagicNumber:AppUpdateCopy.kt$1_000_000.0</ID>
+    <ID>MaxLineLength:AppUpdateControllerTest.kt$AppUpdateControllerTest$assertEquals(AppUpdateStatus.Failed(AppUpdateFailure.Damaged, release("0.13.0", sha256 = "0".repeat(64))), controller.state.value.status)</ID>
+    <ID>ModifierMissing:AppUpdateHost.kt$AppUpdateHost</ID>
+    <ID>MultipleEmitters:AppUpdateDialogs.kt$ReleaseNotes</ID>
+    <ID>NestedBlockDepth:AppUpdateInstaller.kt$PackageInstallerAppUpdateInstaller$override fun install(file: File)</ID>
+    <ID>ReturnCount:AppRelease.kt$AppVersion.Companion$fun parse(raw: String?): AppVersion?</ID>
+    <ID>ReturnCount:AppUpdateController.kt$AppUpdateController$fun install()</ID>
+    <ID>ReturnCount:AppUpdateController.kt$AppUpdateController$fun startDownload()</ID>
+    <ID>ReturnCount:AppUpdateController.kt$AppUpdateController$private fun isAutoCheckDue(): Boolean</ID>
+    <ID>ReturnCount:AppUpdateController.kt$AppUpdateController$private suspend fun check(manual: Boolean)</ID>
+    <ID>ReturnCount:AppUpdatePackageChecks.kt$private fun PackageInfo.signingCertificateDigests(): Set&lt;String&gt;</ID>
+    <ID>ReturnCount:GitHubReleaseSource.kt$internal fun parseGitHubRelease(body: String): AppRelease?</ID>
+    <ID>SwallowedException:AppUpdateController.kt$AppUpdateController$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:AppUpdateController.kt$AppUpdateController$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:AppUpdateInstaller.kt$PackageInstallerAppUpdateInstaller$error: Throwable</ID>
+    <ID>TooManyFunctions:AppUpdateController.kt$AppUpdateController</ID>
+    <ID>TooManyFunctions:AppUpdateDialogs.kt$com.example.unifiedreader.feature.updates.AppUpdateDialogs.kt</ID>
+  </CurrentIssues>
+</SmellBaseline>

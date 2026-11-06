@@ -1,0 +1,8 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>MagicNumber:SameOriginUrls.kt$443</ID>
+    <ID>MagicNumber:SameOriginUrls.kt$80</ID>
+  </CurrentIssues>
+</SmellBaseline>

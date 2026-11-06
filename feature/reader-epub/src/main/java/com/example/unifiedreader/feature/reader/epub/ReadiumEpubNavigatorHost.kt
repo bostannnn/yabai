@@ -9,12 +9,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
@@ -31,7 +28,6 @@ import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
 import com.example.unifiedreader.feature.reader.core.curl.isPageCurlShaderSupported
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.readium.r2.navigator.HyperlinkNavigator
@@ -77,8 +73,6 @@ internal fun ReadiumEpubNavigatorHost(
     val latestOnFootnoteActivated = rememberUpdatedState(onFootnoteActivated)
     val footnoteNavigationScope = rememberCoroutineScope()
     val latestTranslation = rememberUpdatedState(translation)
-    var followSelectionJob by remember { mutableStateOf<Job?>(null) }
-    var clearSelectionJob by remember { mutableStateOf<Job?>(null) }
     val isLandscape = remember(
         configuration.orientation,
         configuration.screenWidthDp,
@@ -99,6 +93,14 @@ internal fun ReadiumEpubNavigatorHost(
     val surfaceBackground = preferences.theme.colors.page
     val resumePoint = remember(publication) { EpubNavigatorResumePoint() }
     val curlHost = remember(publication) { EpubPageCurlHost() }
+    val selectionFollower = remember(publication) {
+        EpubSelectionFollower(
+            scope = footnoteNavigationScope,
+            navigator = { curlHost.navigator },
+            bookLanguage = publication.metadata.languages.firstOrNull(),
+            translation = { latestTranslation.value },
+        )
+    }
     val curlTapTurner = remember(publication) { PageCurlTapTurner() }
     val curlEnabled = preferences.pageTurnStyle == PageTurnStyle.Curl &&
         preferences.layoutMode != EpubReaderLayoutMode.Scroll &&
@@ -302,34 +304,9 @@ internal fun ReadiumEpubNavigatorHost(
                 EpubSelectionActionModeCallback(
                     delegate = curlHost.selectionActionModeCallback,
                     canTranslate = { latestTranslation.value?.openOnSelect == false },
-                    onTranslate = {
-                        footnoteNavigationScope.withCurrentSelection(curlHost.navigator, publication.metadata.languages.firstOrNull()) { selection ->
-                            latestTranslation.value?.onTranslate?.invoke(selection)
-                        }
-                    },
-                    onSelectionChanged = {
-                        clearSelectionJob?.cancel()
-                        if (latestTranslation.value?.openOnSelect == true) {
-                            // Wait for the handle to rest, so the card doesn't chase every step.
-                            followSelectionJob?.cancel()
-                            followSelectionJob = footnoteNavigationScope.withCurrentSelection(
-                                navigator = curlHost.navigator,
-                                bookLanguage = publication.metadata.languages.firstOrNull(),
-                                follows = true,
-                                delayMillis = FollowSelectionDelayMillis,
-                            ) { selection -> latestTranslation.value?.onFollow?.invoke(selection) }
-                        }
-                    },
-                    onSelectionCleared = {
-                        // Letting go of a handle closes the toolbar and opens it again at once;
-                        // only a toolbar that stays closed means the selection went away.
-                        clearSelectionJob?.cancel()
-                        clearSelectionJob = footnoteNavigationScope.launch {
-                            delay(SelectionGoneDelayMillis)
-                            followSelectionJob?.cancel()
-                            latestTranslation.value?.onCleared?.invoke()
-                        }
-                    },
+                    onTranslate = selectionFollower::translate,
+                    onSelectionChanged = selectionFollower::selectionChanged,
+                    onSelectionCleared = selectionFollower::selectionCleared,
                     onCopy = {
                         footnoteNavigationScope.withCurrentSelection(curlHost.navigator, null) { selection ->
                             activity.copyToClipboard(selection.text)
@@ -415,14 +392,7 @@ internal fun ReadiumEpubNavigatorHost(
 
     // When the card or sheet closes, the words stop being selected too.
     val translationOpen = translation?.isOpen == true
-    var translationWasOpen by remember { mutableStateOf(false) }
-    LaunchedEffect(translationOpen) {
-        if (translationWasOpen && !translationOpen) {
-            followSelectionJob?.cancel()
-            (fragmentManager.findFragmentByTag(fragmentTag) as? EpubNavigatorFragment)?.clearSelection()
-        }
-        translationWasOpen = translationOpen
-    }
+    LaunchedEffect(translationOpen) { selectionFollower.translationShown(translationOpen) }
 
     LaunchedEffect(fragmentTag, preferences, viewportSpacing.contentPaddingPx) {
         val navigator = fragmentManager.findFragmentByTag(fragmentTag) as? EpubNavigatorFragment
@@ -468,9 +438,3 @@ internal fun ReadiumEpubNavigatorHost(
         onNavigationRequestConsumed()
     }
 }
-
-/** How long a selection rests before the card follows it: long enough to skip a handle's steps. */
-private const val FollowSelectionDelayMillis = 300L
-
-/** How long the selection toolbar may stay closed before the selection counts as gone. */
-private const val SelectionGoneDelayMillis = 250L

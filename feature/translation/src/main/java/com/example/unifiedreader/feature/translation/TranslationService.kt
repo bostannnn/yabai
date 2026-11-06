@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.translation
 
 import android.content.Context
+import com.example.unifiedreader.core.model.runSuspendCatching
 import io.ktor.client.HttpClient
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
@@ -27,7 +28,10 @@ data class TranslationState(
 ) {
     /** Translate with, as it applies: DeepL only with a key. */
     val provider: TranslationProvider
-        get() = if (preferences.provider == TranslationProvider.DeepL && deepL.hasKey) TranslationProvider.DeepL else TranslationProvider.Device
+        get() = when {
+            preferences.provider == TranslationProvider.DeepL && deepL.hasKey -> TranslationProvider.DeepL
+            else -> TranslationProvider.Device
+        }
 
     /** Whether DeepL translates this pair now: picked, a key saved, both languages known to it. */
     fun usesDeepL(from: String, to: String): Boolean =
@@ -37,16 +41,6 @@ data class TranslationState(
     val yourLanguage: String
         get() = preferences.targetLanguage ?: deviceLanguage ?: TranslationLanguages.BUILT_IN
 }
-
-/** Your DeepL key as Settings shows it: never the key itself. */
-data class DeepLState(
-    val hasKey: Boolean = false,
-    /** The key's last characters: "••••3f2a:fx". */
-    val keyHint: String? = null,
-    val isFree: Boolean = false,
-    /** This month's characters; null until DeepL has been asked. */
-    val usage: DeepLUsage? = null,
-)
 
 /** The selection and its sentence, translated, and who did it. */
 data class SelectionTranslationResult(
@@ -69,7 +63,12 @@ class TranslationService internal constructor(
     private val deepLKeyStore: DeepLKeyStore? = null,
     private val deviceLocale: () -> Locale = { Locale.getDefault() },
 ) {
-    private var deepLKey: String? = null
+    /** Your DeepL key and its use; null in a build without DeepL. */
+    val deepL: DeepLAccount? = if (deepLClient != null && deepLKeyStore != null) {
+        DeepLAccount(deepLClient, deepLKeyStore, scope) { provider -> updatePreferencesNow { it.copy(provider = provider) } }
+    } else {
+        null
+    }
     private val mutableState = MutableStateFlow(TranslationState())
     val state: StateFlow<TranslationState> = mutableState.asStateFlow()
     private var started = false
@@ -87,21 +86,9 @@ class TranslationService internal constructor(
                 mutableState.update { state -> state.copy(preferences = preferences) }
             }
         }
-        deepLKeyStore?.let { store ->
-            scope.launch {
-                store.key.collect { key ->
-                    deepLKey = key
-                    mutableState.update { state ->
-                        state.copy(
-                            deepL = if (key == null) {
-                                DeepLState()
-                            } else {
-                                state.deepL.copy(hasKey = true, keyHint = keyHint(key), isFree = DeepLClient.isFreeKey(key))
-                            },
-                        )
-                    }
-                }
-            }
+        deepL?.let { account ->
+            account.start()
+            scope.launch { account.state.collect { deepL -> mutableState.update { state -> state.copy(deepL = deepL) } } }
         }
     }
 
@@ -126,7 +113,7 @@ class TranslationService internal constructor(
         if (tag in mutableState.value.downloading || tag in mutableState.value.downloaded) return
         mutableState.update { state -> state.copy(downloading = state.downloading + tag, failed = state.failed - tag) }
         scope.launch {
-            val result = runCatching { engine.download(tag) }
+            val result = runSuspendCatching { engine.download(tag) }
             refreshDownloaded()
             mutableState.update { state ->
                 state.copy(
@@ -140,17 +127,14 @@ class TranslationService internal constructor(
     fun remove(tag: String) {
         if (tag == TranslationLanguages.BUILT_IN) return
         scope.launch {
-            runCatching { engine.delete(tag) }
+            runSuspendCatching { engine.delete(tag) }
             refreshDownloaded()
         }
     }
 
-    fun setOpenOnSelect(open: Boolean) {
-        scope.launch { preferencesStore.update { preferences -> preferences.copy(openOnSelect = open) } }
-    }
-
-    fun setTargetLanguage(tag: String) {
-        scope.launch { preferencesStore.update { preferences -> preferences.copy(targetLanguage = tag) } }
+    /** Changes your choices: Translate into, Open when I select text, Translate with. */
+    fun updatePreferences(change: (TranslationPreferences) -> TranslationPreferences) {
+        scope.launch { updatePreferencesNow(change) }
     }
 
     /** Remembers the To you picked on a card, so the next translation uses it. */
@@ -164,69 +148,21 @@ class TranslationService internal constructor(
         }
     }
 
-    fun setProvider(provider: TranslationProvider) {
-        scope.launch { preferencesStore.update { preferences -> preferences.copy(provider = provider) } }
-    }
-
-    /**
-     * Asks DeepL whether [key] works (its usage), and saves it and picks DeepL when it does.
-     * Returns why not otherwise.
-     */
-    suspend fun saveDeepLKey(key: String): DeepLFailure? {
-        val client = deepLClient ?: return DeepLFailure.Other
-        val store = deepLKeyStore ?: return DeepLFailure.Other
-        val trimmed = key.trim()
-        val usage = try {
-            client.usage(trimmed)
-        } catch (error: DeepLException) {
-            return error.failure
-        }
-        store.save(trimmed)
-        deepLKey = trimmed
-        mutableState.update { state ->
-            state.copy(deepL = DeepLState(hasKey = true, keyHint = keyHint(trimmed), isFree = DeepLClient.isFreeKey(trimmed), usage = usage))
-        }
-        preferencesStore.update { preferences -> preferences.copy(provider = TranslationProvider.DeepL) }
-        return null
-    }
-
-    fun removeDeepLKey() {
-        scope.launch {
-            deepLKeyStore?.clear()
-            deepLKey = null
-            mutableState.update { state -> state.copy(deepL = DeepLState()) }
-            preferencesStore.update { preferences -> preferences.copy(provider = TranslationProvider.Device) }
-        }
-    }
-
-    /** This month's characters, for Settings. */
-    fun refreshDeepLUsage() {
-        val key = deepLKey ?: return
-        val client = deepLClient ?: return
-        scope.launch {
-            val usage = runCatching { client.usage(key) }.getOrNull() ?: return@launch
-            mutableState.update { state -> state.copy(deepL = state.deepL.copy(usage = usage)) }
-        }
-    }
-
     /**
      * Translates [text] and, when given, the [sentence] it sits in. DeepL when it is picked and
      * knows both languages (the sentence also tells it which meaning the word has); the tablet
      * otherwise, and whenever DeepL fails and the tablet has both languages.
      */
     suspend fun translateSelection(text: String, sentence: String?, from: String, to: String): SelectionTranslationResult {
-        val state = mutableState.value
-        val key = deepLKey
-        val client = deepLClient
-        var fallback: DeepLFailure? = null
-        if (state.preferences.provider == TranslationProvider.DeepL && key != null && client != null) {
+        val account = deepL?.takeIf { mutableState.value.provider == TranslationProvider.DeepL }
+        val fallback = account?.let {
             try {
-                val translated = client.translate(key, listOfNotNull(text, sentence), from, to, context = sentence)
+                val translated = it.translate(listOfNotNull(text, sentence), from, to, context = sentence)
                 return SelectionTranslationResult(translated[0], translated.getOrNull(1), TranslationProvider.DeepL)
             } catch (error: DeepLException) {
-                fallback = error.failure
                 val onTablet = mutableState.value.downloaded
                 if (from !in onTablet || to !in onTablet) throw error
+                error.failure
             }
         }
         val translation = engine.translate(text, from, to)
@@ -234,8 +170,11 @@ class TranslationService internal constructor(
         return SelectionTranslationResult(translation, sentenceTranslation, TranslationProvider.Device, fallback)
     }
 
+    private suspend fun updatePreferencesNow(change: (TranslationPreferences) -> TranslationPreferences) =
+        preferencesStore.update(change)
+
     private suspend fun refreshDownloaded() {
-        val downloaded = runCatching { engine.downloadedLanguages() }.getOrNull() ?: return
+        val downloaded = runSuspendCatching { engine.downloadedLanguages() }.getOrNull() ?: return
         mutableState.update { state -> state.copy(loaded = true, downloaded = downloaded) }
     }
 
@@ -248,8 +187,6 @@ class TranslationService internal constructor(
             deepLClient = DeepLClient(httpClient),
             deepLKeyStore = KeystoreDeepLKeyStore(context),
         )
-
-        internal fun keyHint(key: String): String = "••••" + key.takeLast(if (DeepLClient.isFreeKey(key)) 7 else 4)
     }
 }
 

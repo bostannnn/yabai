@@ -1,0 +1,109 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:ListsBrowse.kt$fun ListsCatalog.placePage(filter: ListsFilter, choice: ListsPlaceChoice): ListsPlacePage</ID>
+    <ID>CyclomaticComplexMethod:ListsCells.kt$internal fun buildListsCells( catalog: ListsCatalog, filter: ListsFilter, page: ListsPlacePage?, underWay: UserListUnderWay?, query: String, openFold: ListsFold?, columns: Int, rowColumns: Int, ): List&lt;PlacedListsCell&gt;</ID>
+    <ID>CyclomaticComplexMethod:ListsCells.kt$private fun gapBefore(previous: ListsCell?, cell: ListsCell): Dp</ID>
+    <ID>CyclomaticComplexMethod:ListsScreen.kt$@Composable fun ListsScreen( catalog: ListsCatalog, underWay: UserListUnderWay?, itemsById: Map&lt;String, ReadableItem&gt;, searchQuery: String, filter: ListsFilter, choices: ListsChoices, selection: Set&lt;String&gt;?, cellSizeDp: Int, cover: ListCover, actions: ListsScreenActions, contentTopInset: Dp, onScrolledChanged: (Boolean) -&gt; Unit, modifier: Modifier = Modifier, gridState: LazyGridState = rememberLazyGridState(), )</ID>
+    <ID>CyclomaticComplexMethod:SmartListEditor.kt$@Composable fun SmartListEditor( draft: SmartListDraft, onDraftChange: (SmartListDraft) -&gt; Unit, items: Collection&lt;ReadableItem&gt;, progressByItemId: Map&lt;String, ItemProgressSummary&gt;, onDevice: Set&lt;String&gt;, servers: List&lt;SourceType&gt;, canDelete: Boolean, onDelete: () -&gt; Unit, cover: ListCover, contentTopInset: Dp, modifier: Modifier = Modifier, // Grimmory's shelves by name, for the Grimmory shelf rule; empty hides it. shelfNames: List&lt;String&gt; = emptyList(), // Where you sorted each tag, so the Tag rule groups them as Browse does. tagKindOf: (String) -&gt; LibraryTagKind = { LibraryTagKind.THEME }, )</ID>
+    <ID>CyclomaticComplexMethod:SmartListEditorParts.kt$internal fun ListRule.phrase(): String</ID>
+    <ID>CyclomaticComplexMethod:UserListBooks.kt$fun UserList.tileCaption(progressByItemId: Map&lt;String, ItemProgressSummary&gt;): String</ID>
+    <ID>CyclomaticComplexMethod:UserListEditor.kt$@Composable fun UserListEditor( draft: UserListDraft, onDraftChange: (UserListDraft) -&gt; Unit, entriesById: Map&lt;String, UserListEntry&gt;, itemsById: Map&lt;String, ReadableItem&gt;, canDelete: Boolean, cover: ListCover, onDelete: () -&gt; Unit, contentTopInset: Dp, modifier: Modifier = Modifier, orders: List&lt;UserListOrder&gt; = UserListOrder.entries, serverName: String? = null, // Whether its books can be moved: a server's reading list can, a shelf (no order of its own) can't. canReorder: Boolean = serverName == null, // A smart list's books come from its filters: nothing to move or take out. showsBooks: Boolean = true, )</ID>
+    <ID>CyclomaticComplexMethod:UserListPage.kt$@Composable fun UserListPage( list: UserList, books: List&lt;UserListBook&gt;, cover: ListCover, onOpenBook: (UserListBook) -&gt; Unit, onSetOrder: (UserListOrder) -&gt; Unit, onSetHideFinished: (Boolean) -&gt; Unit, onEdit: () -&gt; Unit, contentTopInset: Dp, onScrolledChanged: (Boolean) -&gt; Unit, modifier: Modifier = Modifier, cellSizeDp: Int = UserListPageDefaults.cellSizeDp, // Keep the next 3 downloaded: its line, or null where the list can't keep books downloaded. keepDownloadedLine: String? = null, onSetKeepDownloaded: (Boolean) -&gt; Unit = {}, // Add books in the library; null where books aren't added by hand. onAddBooks: (() -&gt; Unit)? = null, canSelect: Boolean = false, selection: Set&lt;String&gt;? = null, onSelectionChange: (Set&lt;String&gt;?) -&gt; Unit = {}, // For Filters: the libraries' names, and the server books on this device (Location). libraryTitlesById: Map&lt;String, String&gt; = emptyMap(), onDeviceItemIds: Set&lt;String&gt; = emptySet(), // Where each tag goes (Settings › Tags): Set in, When or About. tagKindOf: (String) -&gt; LibraryTagKind = { LibraryTagKind.THEME }, )</ID>
+    <ID>CyclomaticComplexMethod:UserListPage.kt$@Composable private fun UserListHeader( list: UserList, books: List&lt;UserListBook&gt;, next: UserListBook?, cover: ListCover, onOpenBook: (UserListBook) -&gt; Unit, onEdit: () -&gt; Unit, onAddBooks: (() -&gt; Unit)?, modifier: Modifier = Modifier, )</ID>
+    <ID>CyclomaticComplexMethod:UserListPage.kt$@OptIn(ExperimentalFoundationApi::class) @Composable private fun UserListBookTile( book: UserListBook, number: Int?, isNext: Boolean, showSource: Boolean, cover: ListCover, isSeries: Boolean, selected: Boolean?, onClick: () -&gt; Unit, onLongClick: (() -&gt; Unit)?, modifier: Modifier = Modifier, )</ID>
+    <ID>CyclomaticComplexMethod:WhatListsShowsSheet.kt$@Composable fun WhatListsShowsSheet( catalog: ListsCatalog, onShowingChange: (ListsShowing) -&gt; Unit, onShowAgain: (UserList) -&gt; Unit, onDismiss: () -&gt; Unit, )</ID>
+    <ID>LambdaParameterInRestartableEffect:ListsScreen.kt$onScrolledChanged</ID>
+    <ID>LambdaParameterInRestartableEffect:UserListPage.kt$onScrolledChanged</ID>
+    <ID>LongMethod:ListsCells.kt$internal fun buildListsCells( catalog: ListsCatalog, filter: ListsFilter, page: ListsPlacePage?, underWay: UserListUnderWay?, query: String, openFold: ListsFold?, columns: Int, rowColumns: Int, ): List&lt;PlacedListsCell&gt;</ID>
+    <ID>LongMethod:ListsScreen.kt$@Composable fun ListsScreen( catalog: ListsCatalog, underWay: UserListUnderWay?, itemsById: Map&lt;String, ReadableItem&gt;, searchQuery: String, filter: ListsFilter, choices: ListsChoices, selection: Set&lt;String&gt;?, cellSizeDp: Int, cover: ListCover, actions: ListsScreenActions, contentTopInset: Dp, onScrolledChanged: (Boolean) -&gt; Unit, modifier: Modifier = Modifier, gridState: LazyGridState = rememberLazyGridState(), )</ID>
+    <ID>LongMethod:SmartListEditor.kt$@Composable fun SmartListEditor( draft: SmartListDraft, onDraftChange: (SmartListDraft) -&gt; Unit, items: Collection&lt;ReadableItem&gt;, progressByItemId: Map&lt;String, ItemProgressSummary&gt;, onDevice: Set&lt;String&gt;, servers: List&lt;SourceType&gt;, canDelete: Boolean, onDelete: () -&gt; Unit, cover: ListCover, contentTopInset: Dp, modifier: Modifier = Modifier, // Grimmory's shelves by name, for the Grimmory shelf rule; empty hides it. shelfNames: List&lt;String&gt; = emptyList(), // Where you sorted each tag, so the Tag rule groups them as Browse does. tagKindOf: (String) -&gt; LibraryTagKind = { LibraryTagKind.THEME }, )</ID>
+    <ID>LongMethod:SmartListEditorParts.kt$@Composable internal fun SmartListRulesPanel( rules: ListRules, counts: Map&lt;ListRule, Int&gt;, onServer: SourceType?, onRulesChange: (ListRules) -&gt; Unit, onEditRule: (RuleSlot) -&gt; Unit, onAddGroup: () -&gt; Unit, )</ID>
+    <ID>LongMethod:UserListEditor.kt$@Composable fun UserListEditor( draft: UserListDraft, onDraftChange: (UserListDraft) -&gt; Unit, entriesById: Map&lt;String, UserListEntry&gt;, itemsById: Map&lt;String, ReadableItem&gt;, canDelete: Boolean, cover: ListCover, onDelete: () -&gt; Unit, contentTopInset: Dp, modifier: Modifier = Modifier, orders: List&lt;UserListOrder&gt; = UserListOrder.entries, serverName: String? = null, // Whether its books can be moved: a server's reading list can, a shelf (no order of its own) can't. canReorder: Boolean = serverName == null, // A smart list's books come from its filters: nothing to move or take out. showsBooks: Boolean = true, )</ID>
+    <ID>LongMethod:UserListPage.kt$@Composable fun UserListPage( list: UserList, books: List&lt;UserListBook&gt;, cover: ListCover, onOpenBook: (UserListBook) -&gt; Unit, onSetOrder: (UserListOrder) -&gt; Unit, onSetHideFinished: (Boolean) -&gt; Unit, onEdit: () -&gt; Unit, contentTopInset: Dp, onScrolledChanged: (Boolean) -&gt; Unit, modifier: Modifier = Modifier, cellSizeDp: Int = UserListPageDefaults.cellSizeDp, // Keep the next 3 downloaded: its line, or null where the list can't keep books downloaded. keepDownloadedLine: String? = null, onSetKeepDownloaded: (Boolean) -&gt; Unit = {}, // Add books in the library; null where books aren't added by hand. onAddBooks: (() -&gt; Unit)? = null, canSelect: Boolean = false, selection: Set&lt;String&gt;? = null, onSelectionChange: (Set&lt;String&gt;?) -&gt; Unit = {}, // For Filters: the libraries' names, and the server books on this device (Location). libraryTitlesById: Map&lt;String, String&gt; = emptyMap(), onDeviceItemIds: Set&lt;String&gt; = emptySet(), // Where each tag goes (Settings › Tags): Set in, When or About. tagKindOf: (String) -&gt; LibraryTagKind = { LibraryTagKind.THEME }, )</ID>
+    <ID>LongMethod:UserListPage.kt$@Composable private fun UserListHeader( list: UserList, books: List&lt;UserListBook&gt;, next: UserListBook?, cover: ListCover, onOpenBook: (UserListBook) -&gt; Unit, onEdit: () -&gt; Unit, onAddBooks: (() -&gt; Unit)?, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:UserListPage.kt$@OptIn(ExperimentalFoundationApi::class) @Composable private fun UserListBookTile( book: UserListBook, number: Int?, isNext: Boolean, showSource: Boolean, cover: ListCover, isSeries: Boolean, selected: Boolean?, onClick: () -&gt; Unit, onLongClick: (() -&gt; Unit)?, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:WhatListsShowsSheet.kt$@Composable fun WhatListsShowsSheet( catalog: ListsCatalog, onShowingChange: (ListsShowing) -&gt; Unit, onShowAgain: (UserList) -&gt; Unit, onDismiss: () -&gt; Unit, )</ID>
+    <ID>LongParameterList:ListsCells.kt$( catalog: ListsCatalog, filter: ListsFilter, page: ListsPlacePage?, underWay: UserListUnderWay?, query: String, openFold: ListsFold?, columns: Int, rowColumns: Int, )</ID>
+    <ID>LongParameterList:ListsScreen.kt$ListsScreenActions$( val onFilterChange: (ListsFilter) -&gt; Unit, val onPlaceChoiceChange: (ListsFilter, ListsPlaceChoice) -&gt; Unit, val onOpenList: (UserList) -&gt; Unit, val onContinue: (UserListUnderWay) -&gt; Unit, val onOpenBook: (ReadableItem) -&gt; Unit, val onPin: (List&lt;UserList&gt;, Boolean) -&gt; Unit, val onHide: (List&lt;UserList&gt;, Boolean) -&gt; Unit, val onEdit: (UserList) -&gt; Unit, val onSelectionChange: (Set&lt;String&gt;?) -&gt; Unit, val onShowWhatListsShows: () -&gt; Unit, )</ID>
+    <ID>LongParameterList:ServerShelfStoreTest.kt$ServerShelfStoreTest$( remoteId: String, name: String, vararg bookIds: String, sortField: String? = null, icon: String? = null, isPublic: Boolean = false, )</ID>
+    <ID>MagicNumber:ListsParts.kt$3</ID>
+    <ID>MagicNumber:SmartLists.kt$3</ID>
+    <ID>MatchingDeclarationName:FinishedLists.kt$FinishedList</ID>
+    <ID>MatchingDeclarationName:WantToReadMirror.kt$ServerWantToRead</ID>
+    <ID>MaxLineLength:AddToListSheet.kt$.</ID>
+    <ID>MaxLineLength:CblImportTest.kt$CblImportTest$assertEquals(listOf("The Long Eclipse" to "1", "Neon Ronin" to "007", "Harbor Lights" to "3"), list?.books?.map { it.series to it.number })</ID>
+    <ID>MaxLineLength:CollectionSeries.kt$.</ID>
+    <ID>MaxLineLength:FinishedListsTest.kt$FinishedListsTest$val sessions = listOf(session("a", start = 100, millis = 60_000), session("c", start = 50, millis = 30_000), session("x", start = 1, millis = 9))</ID>
+    <ID>MaxLineLength:ListPreferences.kt$fun sources(key: String): Set&lt;SourceType&gt;</ID>
+    <ID>MaxLineLength:ListsBrowse.kt$letters = if (sort == ListsSort.Name &amp;&amp; sorted.size &gt; AppLetterStripDefaults.minimumCount) groups.mapNotNull(ListsGroup::letter).toSet() else null</ID>
+    <ID>MaxLineLength:ListsBrowse.kt$recent = if (sort == ListsSort.Recent) emptyList() else open.filter { openedAt(it) &gt; 0L }.sortedByDescending(::openedAt).take(RecentLimit)</ID>
+    <ID>MaxLineLength:ListsBrowseTest.kt$ListsBrowseTest$assertEquals(ListsPlaceChoice(ListsKind.All, ListsSort.Name, ListsView.Covers), choices.placeChoice(ListsFilter.Server(SourceType.GRIMMORY)))</ID>
+    <ID>MaxLineLength:ListsBrowseTest.kt$ListsBrowseTest$assertEquals(ListsPlaceChoice(ListsKind.ReadingLists, ListsSort.Year, ListsView.Covers), choices.placeChoice(ListsFilter.Server(SourceType.KAVITA)))</ID>
+    <ID>MaxLineLength:ListsBrowseTest.kt$ListsBrowseTest$private val magic = server("grimmory:magic:4", "Short Russian classics", UserListKind.ServerMagicShelf, SourceType.GRIMMORY, entries = 1)</ID>
+    <ID>MaxLineLength:ListsBrowseTest.kt$ListsBrowseTest$val short = catalog().placePage(ListsFilter.Server(SourceType.GRIMMORY), ListsPlaceChoice(ListsKind.Shelves, ListsSort.Recent, ListsView.Rows))</ID>
+    <ID>MaxLineLength:ListsCells.kt$add(ListsCell.Rows(section, line, top = index == 0, bottom = index == lines.lastIndex, nextCount, withKind, withPlace, highlight))</ID>
+    <ID>MaxLineLength:ListsCells.kt$if (asRows) rows(section, lists, withKind) else lists.forEach { add(ListsCell.Tile(section, it, it.tileCaption(progress))) }</ID>
+    <ID>MaxLineLength:ListsParts.kt$Icon(imageVector = AppIcons.Tune, contentDescription = "Updates itself", modifier = Modifier.size(AppListRowDefaults.markSize))</ID>
+    <ID>MaxLineLength:ListsParts.kt$leadingIcon = { Icon(imageVector = AppIcons.SwapVert, contentDescription = null, modifier = Modifier.size(AppListRowDefaults.markSize)) }</ID>
+    <ID>MaxLineLength:ListsScreen.kt$val wanted = if (currentAppWindowWidth() == AppWindowWidth.Compact) AppLetterStripDefaults.letterHeightCompact else AppLetterStripDefaults.letterHeight</ID>
+    <ID>MaxLineLength:RuledServerListStoreTest.kt$RuledServerListStoreTest$private fun book(id: String)</ID>
+    <ID>MaxLineLength:RuledServerListStoreTest.kt$RuledServerListStoreTest.MagicClient$RemoteShelfContents(RemoteShelf(remoteId = "5", name = "Russian", rules = rules.encode(), itemCount = 1), listOf("grimmory:item:1"))</ID>
+    <ID>MaxLineLength:RuledServerListStoreTest.kt$RuledServerListStoreTest.PlainClient$override suspend fun fetchShelves()</ID>
+    <ID>MaxLineLength:ServerShelfStoreTest.kt$ServerShelfStoreTest$orderedClient.shelves = listOf(RemoteShelfContents(RemoteShelf(remoteId = "4", name = "Eclipse War", itemCount = 2), itemIds = null))</ID>
+    <ID>MaxLineLength:ServerShelfStoreTest.kt$ServerShelfStoreTest$orderedClient.shelves = listOf(RemoteShelfContents(RemoteShelf(remoteId = "4", name = "Eclipse War", itemCount = 3), itemIds = null))</ID>
+    <ID>MaxLineLength:ServerShelfStoreTest.kt$ServerShelfStoreTest$orderedClient.shelves = listOf(RemoteShelfContents(RemoteShelf(remoteId = "4", name = "Eclipse War", itemCount = 4), itemIds = null))</ID>
+    <ID>MaxLineLength:ServerShelfStoreTest.kt$ServerShelfStoreTest$val store = RoomServerShelfStore(dao = dao, client = orderedClient, ioDispatcher = StandardTestDispatcher(testScheduler), now = { clock })</ID>
+    <ID>MaxLineLength:SmartListEditor.kt$SmartListMatches(matches = matches, itemsById = itemsById, hasRules = hasRules, emptiedBy = emptiedBy, asGrid = asGrid, cover = cover)</ID>
+    <ID>MaxLineLength:SmartListEditor.kt$fun List&lt;ListRule&gt;.put(index: Int?)</ID>
+    <ID>MaxLineLength:SmartListEditor.kt$if (current.group == null) draft.rules.rules.getOrNull(index) else draft.rules.groups.getOrNull(current.group)?.rules?.getOrNull(index)</ID>
+    <ID>MaxLineLength:SmartListEditor.kt$subtitle</ID>
+    <ID>MaxLineLength:SmartListEditor.kt$text = "A ${server.displayName()} magic shelf: ${server.displayName()} picks its books by these rules, and its web app shows it too."</ID>
+    <ID>MaxLineLength:SmartListEditor.kt$text = "Downloaded and Source work only for lists on this device: take them out to keep this on ${draft.onServer.displayName()}."</ID>
+    <ID>MaxLineLength:SmartListEditorParts.kt$"Without “${rule.field.label}: ${rule.phrase()}”, ${appCount(count)} ${if (count == 1) "book" else "books"} would match."</ID>
+    <ID>MaxLineLength:SmartListEditorParts.kt$fun change(changed: ListRuleGroup)</ID>
+    <ID>MaxLineLength:SmartListEditorParts.kt$shown.size &gt; PhraseValueLimit -&gt; shown.take(PhraseValueLimit - 1).joinToString(", ") + " $word ${shown.size - PhraseValueLimit + 1} more"</ID>
+    <ID>MaxLineLength:SmartListEditorPartsTest.kt$SmartListEditorPartsTest$assertNull(smartListEmptiedBy(ListRules(matchAll = false, rules = listOf(old, ListRule(ListRuleField.Published, ListRuleOperator.Under, high = 1700))), pool, context))</ID>
+    <ID>MaxLineLength:SmartListRuleSheets.kt$LibraryTagKind.entries.map { kind -&gt; kind.label() to shown.filter { tagKindOf(it.first) == kind } }.filter { it.second.isNotEmpty() }</ID>
+    <ID>MaxLineLength:SmartListRuleSheets.kt$text = if (trimmed.isEmpty()) "No book in your library has any ${field.plural()} yet." else "Nothing matches “$trimmed”."</ID>
+    <ID>MaxLineLength:SmartListRuleSheets.kt$val shown = if (trimmed.isEmpty()) values else values.filter { (value, _) -&gt; field.valueLabel(value).contains(trimmed, ignoreCase = true) }</ID>
+    <ID>MaxLineLength:SmartLists.kt$fun &lt;T : Enum&lt;T&gt;&gt; enums(key: String, entries: List&lt;T&gt;): Set&lt;T&gt;</ID>
+    <ID>MaxLineLength:SmartListsTest.kt$SmartListsTest$groups = listOf(ListRuleGroup(matchAll = true, rules = listOf(ListRule(ListRuleField.Tag, ListRuleOperator.AllOf, listOf("Russia", "19th century")))))</ID>
+    <ID>MaxLineLength:UserListBooksTest.kt$UserListBooksTest$val want = list(id = UserListIds.WantToRead, entries = listOf(entry("a", 0))).copy(kind = UserListKind.WantToRead, name = "Want to read")</ID>
+    <ID>MaxLineLength:UserListEditor.kt$isShelf -&gt; "$serverName keeps no order for a $noun, so this one is kept on this device. Read next follows each book's series."</ID>
+    <ID>MaxLineLength:UserListModels.kt$itemIds</ID>
+    <ID>MaxLineLength:UserListPage.kt$Row</ID>
+    <ID>MaxLineLength:UserListPage.kt$appliedCount = libraryAppliedFilterCount(savedPicks.filters, availableLibraryFilterPanels(savedPicks.sourceType))</ID>
+    <ID>MaxLineLength:UserListPage.kt$onAddBooks != null -&gt; "Pick them in the library: they come straight here. Or long-press covers anywhere in the library and choose Add to list."</ID>
+    <ID>MaxLineLength:UserListPage.kt$text = "Its rules ask something the app can't show yet; change them in ${list.server?.sourceType?.displayName()}'s web app."</ID>
+    <ID>MaxLineLength:WantToReadMirrorTest.kt$WantToReadMirrorTest$private fun issue(id: String)</ID>
+    <ID>MaxLineLength:WantToReadMirrorTest.kt$WantToReadMirrorTest$private fun local(id: String)</ID>
+    <ID>MaxLineLength:WantToReadMirrorTest.kt$WantToReadMirrorTest$val change = wantToReadSeriesChange(listOf(issue("a1"), issue("a2"), local("x")), added = true, remaining = emptyList(), seriesIdOf = ::series)</ID>
+    <ID>MaxLineLength:WhatListsShowsSheet.kt$supporting = if (source == SourceType.KAVITA) "$others promoted by someone else" else countLabel(others, "shelf", "shelves")</ID>
+    <ID>ModifierMissing:AddToListSheet.kt$AddToListSheet</ID>
+    <ID>ModifierMissing:NewListDialog.kt$NewListDialog</ID>
+    <ID>ModifierMissing:WhatListsShowsSheet.kt$WhatListsShowsSheet</ID>
+    <ID>ModifierNotUsedAtRoot:ListsScreen.kt$modifier = modifier</ID>
+    <ID>ModifierWithoutDefault:ListsScreen.kt$modifier</ID>
+    <ID>MultipleEmitters:SmartListEditorParts.kt$MatchesStrip</ID>
+    <ID>MultipleEmitters:SmartListRuleSheets.kt$NamesValues</ID>
+    <ID>ReturnCount:HomeReadingOrder.kt$fun homeReadingOrder( lists: List&lt;UserList&gt;, itemsById: Map&lt;String, ReadableItem&gt;, progressByItemId: Map&lt;String, ItemProgressSummary&gt;, sourceType: SourceType, ): HomeReadingOrder?</ID>
+    <ID>ReturnCount:ListDownloads.kt$fun keepDownloadedLine(next: List&lt;ReadableItem&gt;, onDevice: Set&lt;String&gt;, keeping: Boolean): String</ID>
+    <ID>ReturnCount:ListsBrowse.kt$fun UserList.yearsLabel(): String?</ID>
+    <ID>ReturnCount:SmartLists.kt$fun decodeSmartListFilter(text: String?): SmartListFilter?</ID>
+    <ID>ReturnCount:SmartLists.kt$fun smartListEmptiedBy( rules: ListRules, pool: List&lt;ReadableItem&gt;, context: ListRuleContext, ): Pair&lt;ListRule, Int&gt;?</ID>
+    <ID>ReturnCount:UserListPage.kt$private fun UserListBook.rowLine(showSource: Boolean): String</ID>
+    <ID>ReturnCount:UserListStore.kt$private fun UserListEntryEntity.toModel(): UserListEntry?</ID>
+    <ID>TooManyFunctions:ListsBrowse.kt$com.example.unifiedreader.feature.lists.ListsBrowse.kt</ID>
+    <ID>TooManyFunctions:ServerShelves.kt$RoomServerShelfStore : ServerShelfStore</ID>
+    <ID>TooManyFunctions:ServerShelves.kt$ServerShelfStore</ID>
+    <ID>TooManyFunctions:SmartListEditorParts.kt$com.example.unifiedreader.feature.lists.SmartListEditorParts.kt</ID>
+    <ID>TooManyFunctions:SmartListRuleSheets.kt$com.example.unifiedreader.feature.lists.SmartListRuleSheets.kt</ID>
+    <ID>TooManyFunctions:SmartLists.kt$com.example.unifiedreader.feature.lists.SmartLists.kt</ID>
+    <ID>TooManyFunctions:UserListBooks.kt$com.example.unifiedreader.feature.lists.UserListBooks.kt</ID>
+    <ID>TooManyFunctions:UserListPage.kt$com.example.unifiedreader.feature.lists.UserListPage.kt</ID>
+    <ID>TooManyFunctions:UserListStore.kt$RoomUserListStore : UserListStore</ID>
+    <ID>TooManyFunctions:UserListStore.kt$UserListStore</ID>
+  </CurrentIssues>
+</SmellBaseline>

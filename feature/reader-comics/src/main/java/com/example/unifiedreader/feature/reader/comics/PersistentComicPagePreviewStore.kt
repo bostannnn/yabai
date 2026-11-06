@@ -1,6 +1,7 @@
 package com.example.unifiedreader.feature.reader.comics
 
 import com.example.unifiedreader.core.model.moveReplacing
+import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.core.model.sha256Hex
 import java.io.File
 import kotlinx.coroutines.CoroutineDispatcher
@@ -32,7 +33,7 @@ class PersistentComicPagePreviewStore(
         try {
             temporaryFile.writeBytes(bytes)
             if (temporaryFile.length() <= 0L) return@withContext
-            val moved = runCatching { temporaryFile.moveReplacing(destination) }.isSuccess
+            val moved = runSuspendCatching { temporaryFile.moveReplacing(destination) }.isSuccess
             if (moved && destination.isFile && destination.length() > 0L) {
                 trimToMaxBytes()
             }
