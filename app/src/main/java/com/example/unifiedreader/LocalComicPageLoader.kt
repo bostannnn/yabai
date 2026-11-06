@@ -5,7 +5,6 @@ import android.content.Context
 import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
-import android.util.LruCache
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
@@ -16,8 +15,6 @@ import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
 import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
 import com.example.unifiedreader.feature.reader.comics.PersistentComicPagePreviewStore
 import com.example.unifiedreader.feature.reader.comics.candidateIndexes
-import com.example.unifiedreader.feature.reader.comics.comicPageBitmapCacheEntryBytes
-import com.example.unifiedreader.feature.reader.comics.comicPagePreviewCacheEntryBytes
 import com.example.unifiedreader.feature.reader.comics.decodeComicPageImage
 import com.example.unifiedreader.feature.reader.comics.decodeComicPageMetadata
 import com.example.unifiedreader.feature.reader.comics.decodeComicPagePreview
@@ -33,7 +30,6 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
@@ -51,52 +47,13 @@ internal class LocalComicPageLoader(
     private val readerWorkCoordinator: ReaderWorkCoordinator = ReaderWorkCoordinator(),
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
-    private val pageBitmapCache = object : LruCache<String, ComicPageLoadResult.Success>(
-        ComicPageLoaderCacheSizing.bitmapCacheBytes(),
-    ) {
-        override fun sizeOf(
-            key: String,
-            value: ComicPageLoadResult.Success,
-        ): Int = comicPageBitmapCacheEntryBytes(value)
-    }
-    private val pageMetadataCache = LruCache<String, ComicPageMetadata>(
-        ComicPageLoaderCacheSizing.METADATA_CACHE_ENTRIES,
-    )
-    private val pagePreviewCache = object : LruCache<String, ComicPagePreviewResult.Success>(
-        ComicPageLoaderCacheSizing.previewCacheBytes(),
-    ) {
-        override fun sizeOf(
-            key: String,
-            value: ComicPagePreviewResult.Success,
-        ): Int = comicPagePreviewCacheEntryBytes(value)
-    }
-    private val pageBytesCache = object : LruCache<String, ByteArray>(
-        ComicPageLoaderCacheSizing.pageByteCacheBytes(),
-    ) {
-        override fun sizeOf(
-            key: String,
-            value: ByteArray,
-        ): Int = value.size
-    }
-    private val previewBytesCache = object : LruCache<String, ByteArray>(
-        ComicPageLoaderCacheSizing.previewByteCacheBytes(),
-    ) {
-        override fun sizeOf(
-            key: String,
-            value: ByteArray,
-        ): Int = value.size
-    }
+    private val memory = ComicPageMemoryCaches()
     private val cacheGenerationByItemId = mutableMapOf<String, Int>()
     private var baseCacheGeneration = 0
     private val inFlightByteRequests = mutableMapOf<LocalPageByteRequestKey, LocalInFlightByteRequest>()
     private val inFlightPreviewByteRequests = mutableMapOf<LocalPageByteRequestKey, LocalInFlightByteRequest>()
     private val byteRequestLock = Any()
-    private val visibleLoadSemaphore = Semaphore(permits = ComicPageLoaderCacheSizing.VISIBLE_LOAD_CONCURRENCY)
-    private val metadataLoadSemaphore = Semaphore(permits = ComicPageLoaderCacheSizing.METADATA_LOAD_CONCURRENCY)
-    private val prefetchLoadSemaphore = Semaphore(permits = ComicPageLoaderCacheSizing.PREFETCH_LOAD_CONCURRENCY)
-    private val previewLoadSemaphore = Semaphore(permits = ComicPageLoaderCacheSizing.PREVIEW_LOAD_CONCURRENCY)
-    private val previewPrefetchSemaphore = Semaphore(permits = ComicPageLoaderCacheSizing.PREVIEW_PREFETCH_CONCURRENCY)
-    private val prefetchJobs = mutableMapOf<String, Job>()
+    private val prefetchJobs = ComicPagePrefetchJobs(scope)
     private val previewPrefetchJobs = mutableMapOf<String, LocalPreviewPrefetchJob>()
     private val prefetchLock = Any()
     private val previewVersionByCacheKeyFlow = MutableStateFlow<Map<String, Long>>(emptyMap())
@@ -109,12 +66,12 @@ internal class LocalComicPageLoader(
         val codec = comicArchiveCodecs.firstOrNull { it.format == record.format } ?: return null
         val cacheKey = pageCacheKey(item.id, record, entryName)
         val requestGeneration = generationFor(item.id)
-        pageMetadataCache[cacheKey]?.let { return it }
+        memory.pageMetadataCache[cacheKey]?.let { return it }
         readerWorkCoordinator.awaitReaderBestEffortWorkAllowed()
         return withContext(ioDispatcher) {
-            metadataLoadSemaphore.withPermit {
+            memory.metadataLoadSemaphore.withPermit {
                 readerWorkCoordinator.awaitReaderBestEffortWorkAllowed()
-                pageMetadataCache[cacheKey]?.let { return@withPermit it }
+                memory.pageMetadataCache[cacheKey]?.let { return@withPermit it }
                 val bytes = try {
                     loadEntryBytes(
                         itemId = item.id,
@@ -131,7 +88,7 @@ internal class LocalComicPageLoader(
                 } ?: return@withPermit null
                 decodeComicPageMetadata(bytes)?.also { metadata ->
                     if (generationFor(item.id) == requestGeneration) {
-                        pageMetadataCache.put(cacheKey, metadata)
+                        memory.pageMetadataCache.put(cacheKey, metadata)
                     }
                 }
             }
@@ -148,7 +105,7 @@ internal class LocalComicPageLoader(
             ?: return ComicPageLoadResult.Failure("Unsupported archive format.")
         val cacheKey = pageCacheKey(item.id, record, entryName)
         val requestGeneration = generationFor(item.id)
-        pageBitmapCache[cacheKey]?.let { return it }
+        memory.pageBitmapCache[cacheKey]?.let { return it }
         if (priority == ComicPageLoadPriority.Visible) {
             cancelBestEffortWorkForVisibleLoad(itemId = item.id)
         }
@@ -198,7 +155,7 @@ internal class LocalComicPageLoader(
             }
             loadedResult = result
             if (result is ComicPageLoadResult.Success && generationFor(item.id) == requestGeneration) {
-                pageBitmapCache.put(cacheKey, result)
+                memory.pageBitmapCache.put(cacheKey, result)
             }
             return result
         } finally {
@@ -222,12 +179,12 @@ internal class LocalComicPageLoader(
         val cacheKey = pageCacheKey(item.id, record, entryName)
         val previewCacheKey = pagePreviewCacheKey(cacheKey, options)
         val requestGeneration = generationFor(item.id)
-        pagePreviewCache[previewCacheKey]?.let { return it }
+        memory.pagePreviewCache[previewCacheKey]?.let { return it }
         readerWorkCoordinator.awaitReaderBestEffortWorkAllowed()
         val loadedResult = withContext(ioDispatcher) {
-            previewLoadSemaphore.withPermit {
+            memory.previewLoadSemaphore.withPermit {
                 readerWorkCoordinator.awaitReaderBestEffortWorkAllowed()
-                pagePreviewCache[previewCacheKey]?.let { return@withPermit it }
+                memory.pagePreviewCache[previewCacheKey]?.let { return@withPermit it }
                 var previewBytesCancelled = false
                 val previewBytes = try {
                     loadPreviewBytes(
@@ -280,7 +237,7 @@ internal class LocalComicPageLoader(
             }
         }
         if (loadedResult is ComicPagePreviewResult.Success && generationFor(item.id) == requestGeneration) {
-            pagePreviewCache.put(previewCacheKey, loadedResult)
+            memory.pagePreviewCache.put(previewCacheKey, loadedResult)
         }
         return loadedResult
     }
@@ -295,7 +252,7 @@ internal class LocalComicPageLoader(
         if (bytes == null) return null
         decodeComicPageMetadata(bytes)?.let { metadata ->
             if (generationFor(itemId) == requestGeneration) {
-                pageMetadataCache.put(cacheKey, metadata)
+                memory.pageMetadataCache.put(cacheKey, metadata)
             }
         }
         return decodeComicPagePreview(bytes, options)
@@ -305,7 +262,7 @@ internal class LocalComicPageLoader(
         item: ReadableItem,
         record: LocalDocumentRecord,
         entryName: String,
-    ): ComicPageMetadata? = pageMetadataCache[pageCacheKey(item.id, record, entryName)]
+    ): ComicPageMetadata? = memory.pageMetadataCache[pageCacheKey(item.id, record, entryName)]
 
     fun observePagePreviewVersion(
         previewCacheKeys: Set<String>,
@@ -375,8 +332,8 @@ internal class LocalComicPageLoader(
                                     val entryName = entryNames[pageIndex]
                                     val cacheKey = pageCacheKey(item.id, record, entryName)
                                     val previewCacheKey = pagePreviewCacheKey(cacheKey, options)
-                                    if (previewBytesCache[previewCacheKey] == null) {
-                                        previewPrefetchSemaphore.withPermit {
+                                    if (memory.previewBytesCache[previewCacheKey] == null) {
+                                        memory.previewPrefetchSemaphore.withPermit {
                                             readerWorkCoordinator.awaitReaderBestEffortWorkAllowed()
                                             warmPreviewBytes(
                                                 itemId = item.id,
@@ -442,58 +399,20 @@ internal class LocalComicPageLoader(
             settledPageIndex = settledPageIndex,
             pageCount = minOf(pageCount, record.pageEntryNames.size),
         )
-        val targetKeys = candidateIndexes.associateWith { pageIndex ->
-            pageCacheKey(item.id, record, record.pageEntryNames[pageIndex])
-        }
-
-        synchronized(prefetchLock) {
-            prefetchJobs.entries
-                .filter { (_, job) -> job.isCancelled || job.isCompleted }
-                .map(Map.Entry<String, Job>::key)
-                .forEach(prefetchJobs::remove)
-            prefetchJobs.entries
-                .filter { (cacheKey, _) -> cacheKey !in targetKeys.values }
-                .toList()
-                .forEach { (cacheKey, job) ->
-                    job.cancel()
-                    prefetchJobs.remove(cacheKey)
+        prefetchJobs.retarget(
+            targets = candidateIndexes.map { pageIndex ->
+                val entryName = record.pageEntryNames[pageIndex]
+                pageCacheKey(item.id, record, entryName) to suspend {
+                    loadPageImage(
+                        item = item,
+                        record = record,
+                        entryName = entryName,
+                        priority = ComicPageLoadPriority.Prefetch,
+                    )
                 }
-        }
-
-        candidateIndexes.forEach { pageIndex ->
-            val entryName = record.pageEntryNames[pageIndex]
-            val cacheKey = targetKeys.getValue(pageIndex)
-            if (pageBitmapCache.get(cacheKey) != null) {
-                return@forEach
-            }
-            val shouldLaunch = synchronized(prefetchLock) {
-                if (prefetchJobs.containsKey(cacheKey)) {
-                    false
-                } else {
-                    val job = scope.launch {
-                        try {
-                            loadPageImage(
-                                item = item,
-                                record = record,
-                                entryName = entryName,
-                                priority = ComicPageLoadPriority.Prefetch,
-                            )
-                        } catch (_: CancellationException) {
-                            // Prefetch is best effort and should stop immediately when the plan changes.
-                        } finally {
-                            synchronized(prefetchLock) {
-                                prefetchJobs.remove(cacheKey)
-                            }
-                        }
-                    }
-                    prefetchJobs[cacheKey] = job
-                    true
-                }
-            }
-            if (!shouldLaunch) {
-                return@forEach
-            }
-        }
+            },
+            isCached = { cacheKey -> memory.pageBitmapCache.get(cacheKey) != null },
+        )
     }
 
     private suspend fun loadPageImageWithPriority(
@@ -505,11 +424,11 @@ internal class LocalComicPageLoader(
         requestGeneration: Int,
         priority: ComicPageLoadPriority,
     ): ComicPageLoadResult = withContext(ioDispatcher) {
-        semaphoreFor(priority).withPermit {
+        memory.semaphoreFor(priority).withPermit {
             if (priority == ComicPageLoadPriority.Prefetch) {
                 readerWorkCoordinator.awaitReaderBestEffortWorkAllowed()
             }
-            pageBitmapCache[cacheKey]?.let { return@withPermit it }
+            memory.pageBitmapCache[cacheKey]?.let { return@withPermit it }
             decodePageImage(
                 itemId = itemId,
                 record = record,
@@ -547,14 +466,12 @@ internal class LocalComicPageLoader(
                 }
         }
         byteRequestsToCancel.forEach { request -> request.cancel() }
+        cancelPrefetchesFor(itemId)
+    }
+
+    private fun cancelPrefetchesFor(itemId: String) {
+        prefetchJobs.cancelWhere { cacheKey -> cacheKey.startsWith("$itemId::") }
         synchronized(prefetchLock) {
-            prefetchJobs.entries
-                .filter { (cacheKey, _) -> cacheKey.startsWith("$itemId::") }
-                .toList()
-                .forEach { (cacheKey, job) ->
-                    job.cancel()
-                    prefetchJobs.remove(cacheKey)
-                }
             previewPrefetchJobs.entries
                 .filter { (cacheKey, _) -> cacheKey.startsWith("$itemId::") }
                 .toList()
@@ -562,6 +479,16 @@ internal class LocalComicPageLoader(
                     prefetchJob.job.cancel()
                     previewPrefetchJobs.remove(cacheKey)
                 }
+        }
+    }
+
+    private fun cancelAllPrefetches() {
+        prefetchJobs.cancelAll()
+        synchronized(prefetchLock) {
+            previewPrefetchJobs.values.forEach { prefetchJob ->
+                prefetchJob.job.cancel()
+            }
+            previewPrefetchJobs.clear()
         }
     }
 
@@ -585,37 +512,8 @@ internal class LocalComicPageLoader(
                 }
         }
         byteRequestsToCancel.forEach { request -> request.cancel() }
-        pageBitmapCache.snapshot().keys
-            .filter { it.startsWith("$itemId::") }
-            .forEach(pageBitmapCache::remove)
-        pageMetadataCache.snapshot().keys
-            .filter { it.startsWith("$itemId::") }
-            .forEach(pageMetadataCache::remove)
-        pagePreviewCache.snapshot().keys
-            .filter { it.startsWith("$itemId::") }
-            .forEach(pagePreviewCache::remove)
-        pageBytesCache.snapshot().keys
-            .filter { it.startsWith("$itemId::") }
-            .forEach(pageBytesCache::remove)
-        previewBytesCache.snapshot().keys
-            .filter { it.startsWith("$itemId::") }
-            .forEach(previewBytesCache::remove)
-        synchronized(prefetchLock) {
-            prefetchJobs.entries
-                .filter { (cacheKey, _) -> cacheKey.startsWith("$itemId::") }
-                .toList()
-                .forEach { (cacheKey, job) ->
-                    job.cancel()
-                    prefetchJobs.remove(cacheKey)
-                }
-            previewPrefetchJobs.entries
-                .filter { (cacheKey, _) -> cacheKey.startsWith("$itemId::") }
-                .toList()
-                .forEach { (cacheKey, prefetchJob) ->
-                    prefetchJob.job.cancel()
-                    previewPrefetchJobs.remove(cacheKey)
-                }
-        }
+        memory.evictKeys { cacheKey -> cacheKey.startsWith("$itemId::") }
+        cancelPrefetchesFor(itemId)
     }
 
     fun clearAll() {
@@ -628,19 +526,8 @@ internal class LocalComicPageLoader(
             inFlightPreviewByteRequests.clear()
         }
         byteRequestsToCancel.forEach { request -> request.cancel() }
-        pageBitmapCache.evictAll()
-        pageMetadataCache.evictAll()
-        pagePreviewCache.evictAll()
-        pageBytesCache.evictAll()
-        previewBytesCache.evictAll()
-        synchronized(prefetchLock) {
-            prefetchJobs.values.forEach(Job::cancel)
-            prefetchJobs.clear()
-            previewPrefetchJobs.values.forEach { prefetchJob ->
-                prefetchJob.job.cancel()
-            }
-            previewPrefetchJobs.clear()
-        }
+        memory.evictAll()
+        cancelAllPrefetches()
     }
 
     fun trimMemoryCaches(
@@ -654,10 +541,10 @@ internal class LocalComicPageLoader(
             advanceAllCacheGenerationsLocked()
         }
         cancelBestEffortWorkForMemoryTrim()
-        pagePreviewCache.evictAll()
-        previewBytesCache.evictAll()
-        pageBytesCache.evictAll()
-        trimPageBitmapCache(request.retention)
+        val retention = request.retention
+        memory.trimForMemory(
+            retainPage = retention?.let { { cacheKey -> it.shouldRetainLocalPageCacheKey(cacheKey) } },
+        )
     }
 
     private fun cancelBestEffortWorkForMemoryTrim() {
@@ -679,26 +566,7 @@ internal class LocalComicPageLoader(
                 }
         }
         byteRequestsToCancel.forEach { request -> request.cancel() }
-        synchronized(prefetchLock) {
-            prefetchJobs.values.forEach(Job::cancel)
-            prefetchJobs.clear()
-            previewPrefetchJobs.values.forEach { prefetchJob ->
-                prefetchJob.job.cancel()
-            }
-            previewPrefetchJobs.clear()
-        }
-    }
-
-    private fun trimPageBitmapCache(
-        retention: ReaderPageCacheRetention?,
-    ) {
-        if (retention == null) {
-            pageBitmapCache.evictAll()
-            return
-        }
-        pageBitmapCache.snapshot().keys
-            .filterNot { cacheKey -> retention.shouldRetainLocalPageCacheKey(cacheKey) }
-            .forEach(pageBitmapCache::remove)
+        cancelAllPrefetches()
     }
 
     private fun ReaderPageCacheRetention.shouldRetainLocalPageCacheKey(
@@ -728,7 +596,7 @@ internal class LocalComicPageLoader(
             ) ?: return@runSuspendCatching ComicPageLoadResult.Failure("Unable to decode this page.")
             decodeComicPageMetadata(bytes)?.let { metadata ->
                 if (generationFor(itemId) == requestGeneration) {
-                    pageMetadataCache.put(cacheKey, metadata)
+                    memory.pageMetadataCache.put(cacheKey, metadata)
                 }
             }
             decodeComicPageImage(bytes) ?: ComicPageLoadResult.Failure("Unable to decode this page.")
@@ -737,13 +605,6 @@ internal class LocalComicPageLoader(
             Log.w(LOG_TAG, "Failed to decode page $entryName for ${record.displayName}", throwable)
             ComicPageLoadResult.Failure("Unable to decode this page.")
         }
-    }
-
-    private fun semaphoreFor(
-        priority: ComicPageLoadPriority,
-    ): Semaphore = when (priority) {
-        ComicPageLoadPriority.Visible -> visibleLoadSemaphore
-        ComicPageLoadPriority.Prefetch -> prefetchLoadSemaphore
     }
 
     private suspend fun loadEntryBytes(
@@ -755,7 +616,7 @@ internal class LocalComicPageLoader(
         entryName: String,
         priority: ComicPageLoadPriority,
     ): ByteArray? {
-        pageBytesCache[cacheKey]?.let { return it }
+        memory.pageBytesCache[cacheKey]?.let { return it }
         val requestKey = LocalPageByteRequestKey(
             cacheKey = cacheKey,
             generation = requestGeneration,
@@ -770,7 +631,7 @@ internal class LocalComicPageLoader(
             if (bytes != null && generationFor(itemId) == requestGeneration) {
                 synchronized(byteRequestLock) {
                     if (generationFor(itemId) == requestGeneration) {
-                        pageBytesCache.put(cacheKey, bytes)
+                        memory.pageBytesCache.put(cacheKey, bytes)
                     }
                 }
             }
@@ -781,7 +642,7 @@ internal class LocalComicPageLoader(
             var cancelledBestEffortRequest: Deferred<ByteArray?>? = null
             var requestToAwait: Deferred<ByteArray?>? = null
             synchronized(byteRequestLock) {
-                pageBytesCache[cacheKey]?.let { cachedBytes ->
+                memory.pageBytesCache[cacheKey]?.let { cachedBytes ->
                     return cachedBytes
                 }
                 val existingRequest = inFlightByteRequests[requestKey]
@@ -800,7 +661,7 @@ internal class LocalComicPageLoader(
         }
 
         val request = synchronized(byteRequestLock) {
-            pageBytesCache[cacheKey]?.let { cachedBytes ->
+            memory.pageBytesCache[cacheKey]?.let { cachedBytes ->
                 return cachedBytes
             }
             val existingRequest = inFlightByteRequests[requestKey]
@@ -837,13 +698,13 @@ internal class LocalComicPageLoader(
         options: ComicPagePreviewOptions,
         priority: ComicPageLoadPriority,
     ): ByteArray? {
-        previewBytesCache[previewCacheKey]?.let { return it }
+        memory.previewBytesCache[previewCacheKey]?.let { return it }
         previewStore?.readBytes(previewCacheKey)
             ?.takeIf { cachedBytes ->
                 cachedBytes.hasJpegSignature() && decodeComicPageMetadata(cachedBytes) != null
             }
             ?.let { cachedBytes ->
-                previewBytesCache.put(previewCacheKey, cachedBytes)
+                memory.previewBytesCache.put(previewCacheKey, cachedBytes)
                 return cachedBytes
             }
         val requestKey = LocalPageByteRequestKey(
@@ -852,7 +713,7 @@ internal class LocalComicPageLoader(
         )
         var cancelledBestEffortRequest: Deferred<ByteArray?>? = null
         val request = synchronized(byteRequestLock) {
-            previewBytesCache[previewCacheKey]?.let { cachedBytes ->
+            memory.previewBytesCache[previewCacheKey]?.let { cachedBytes ->
                 return cachedBytes
             }
             val existingRequest = inFlightPreviewByteRequests[requestKey]
@@ -883,7 +744,7 @@ internal class LocalComicPageLoader(
                 if (bytes != null && generationFor(itemId) == requestGeneration) {
                     synchronized(byteRequestLock) {
                         if (generationFor(itemId) == requestGeneration) {
-                            previewBytesCache.put(previewCacheKey, bytes)
+                            memory.previewBytesCache.put(previewCacheKey, bytes)
                         }
                     }
                     previewStore?.writeBytes(previewCacheKey, bytes)

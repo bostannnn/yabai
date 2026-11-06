@@ -127,7 +127,23 @@ user's choice. The shared helpers and where they live:
 - **Known and left:** `app`'s androidTest `LibraryTopBarSearchTest` has not compiled since the search redesign
   (`81bba708`). CI does not build androidTest.
 
-**Next:** step 5 (large consolidations), one per change, each checked on the emulator.
+**Step 5.1 built (2026-11-07), comic page cache and prefetch.**
+- `ComicPageMemoryCaches` (app) holds the five caches (decoded pages, metadata, previews, page bytes, preview
+  bytes), the five load limits, `semaphoreFor`, and the evict and memory-trim steps.
+- `ComicPagePrefetchJobs` (app) holds the page-prefetch jobs: `retarget` cancels jobs outside the new window and
+  starts the missing ones in window order. It has its own test.
+- `LocalComicPageLoader` (1,020 → 885 lines) and `RemoteComicPageSource` (1,076 → 960) use both.
+- Left in each: the in-flight byte requests (they change under the same lock as each loader's cache
+  generations), the preview prefetch jobs, and the key and fetch code, which really differ.
+- 1,903 tests, detekt, lint and the debug build pass.
+
+- **Emulator (2026-11-07, debug build over another session's):** a local comic (Star Courier #1) opened with
+  its page strip, paged forward to 6–7 and back to 2–3 after backgrounding and a forced memory trim
+  (`am send-trim-memory … RUNNING_CRITICAL` then `COMPLETE`); no crash in the log. **Not checked on a device:** a
+  Kavita or Stump comic, the only users of `RemoteComicPageSource`. The emulator has no such server, so only the
+  39 page-source tests cover that path.
+
+**Next:** 5.2 (archive-backed page sources).
 
 ## Step 1. Decisions only the user can make (done, answers above)
 
