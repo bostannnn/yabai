@@ -65,7 +65,6 @@ private const val StarEntranceDelayMillis = 220L
 private const val StarEntranceStaggerMillis = 50L
 
 internal const val JournalRatingStarsTag = "journal-rating-stars"
-internal const val JournalRatingClearTag = "journal-rating-clear"
 
 /**
  * Where [JournalRatingEditor] puts things: the journal's stars centred under their label; the

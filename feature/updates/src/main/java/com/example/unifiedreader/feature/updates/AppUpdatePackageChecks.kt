@@ -5,8 +5,9 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.pm.Signature
+import com.example.unifiedreader.core.model.sha256
+import com.example.unifiedreader.core.model.toLowerHex
 import java.io.File
-import java.security.MessageDigest
 
 /** What the running app is, for comparing a downloaded APK against it. */
 data class InstalledAppInfo(
@@ -73,7 +74,7 @@ private fun PackageInfo.signingCertificateDigests(): Set<String> {
         signingInfo.signingCertificateHistory
     } ?: return emptySet()
     return signatures.mapTo(mutableSetOf()) { signature ->
-        MessageDigest.getInstance("SHA-256").digest(signature.toByteArray()).toHex()
+        signature.toByteArray().sha256().toLowerHex()
     }
 }
 

@@ -49,8 +49,7 @@ class JournalOverviewModelTest {
     }
 
     @Test
-    fun `day labels name the weekday`() {
-        assertEquals("Sat 17 Oct", day(17).shortLabel())
+    fun `a day label names the weekday`() {
         assertEquals("Saturday 17 October", day(17).longLabel())
     }
 

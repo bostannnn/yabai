@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,7 +31,7 @@ import com.example.unifiedreader.core.model.availableLibraryFilterPanels
 import com.example.unifiedreader.core.model.defaultVisibleLibraryFilterPanels
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
-import com.example.unifiedreader.ui.components.AppIcons
+import com.example.unifiedreader.ui.components.AppReorderHandleIcon
 import com.example.unifiedreader.ui.components.AppSegment
 import com.example.unifiedreader.ui.components.AppSegmentedRow
 import com.example.unifiedreader.ui.components.AppSettingsDefaults
@@ -40,7 +39,6 @@ import com.example.unifiedreader.ui.components.AppSettingsGroup
 import com.example.unifiedreader.ui.components.AppSettingsRowDivider
 import com.example.unifiedreader.ui.components.AppSwitch
 import com.example.unifiedreader.ui.components.AppTextButton
-import com.example.unifiedreader.ui.components.appReorderHandle
 import com.example.unifiedreader.ui.components.appReorderableItem
 import com.example.unifiedreader.ui.components.movedItem
 import com.example.unifiedreader.ui.components.rememberAppReorderState
@@ -117,7 +115,7 @@ internal fun FilterChipsSettingsPage(
                                 canHide = order.size > 1,
                                 onVisibilityChanged = { onFilterPanelsChanged(selectedSource, order - panel) },
                                 modifier = Modifier.appReorderableItem(reorderState, index),
-                                handleModifier = Modifier.appReorderHandle(reorderState, index),
+                                handle = { AppReorderHandleIcon(reorderState, index, panel.label) },
                             )
                         }
                     }
@@ -145,7 +143,7 @@ private fun FilterPanelRow(
     canHide: Boolean,
     onVisibilityChanged: () -> Unit,
     modifier: Modifier = Modifier,
-    handleModifier: Modifier? = null,
+    handle: (@Composable () -> Unit)? = null,
 ) {
     // The handle first and the switch at the end; a hidden filter stays in place, dimmed.
     Row(
@@ -156,18 +154,10 @@ private fun FilterPanelRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (handleModifier != null) {
-            Icon(
-                imageVector = AppIcons.DragHandle,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = handleModifier
-                    .size(40.dp)
-                    .padding(8.dp)
-                    .semantics { contentDescription = "Drag to reorder ${panel.label}" },
-            )
+        if (handle != null) {
+            handle()
         } else {
-            Spacer(modifier = Modifier.size(40.dp))
+            Spacer(modifier = Modifier.size(AppSettingsDefaults.iconSize + AppSettingsDefaults.handleOverhang * 2))
         }
         Text(
             text = panel.label,

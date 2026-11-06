@@ -3,10 +3,9 @@ package com.example.unifiedreader.feature.library.shelves
 import android.text.format.DateUtils
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.librarySecondaryText
+import com.example.unifiedreader.core.model.shortDayLabel
 import java.time.Instant
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 internal fun continueReadingSupportingText(
     item: ReadableItem,
@@ -44,6 +43,5 @@ internal fun RecentlyFinishedShelfItem.tileMetaText(
     }
     val finished = Instant.ofEpochMilli(finishedAt).atZone(zone).toLocalDate()
     val today = Instant.ofEpochMilli(nowEpochMillis).atZone(zone).toLocalDate()
-    val pattern = if (finished.year == today.year) "d MMM" else "d MMM yyyy"
-    return finished.format(DateTimeFormatter.ofPattern(pattern, Locale.getDefault()))
+    return shortDayLabel(finished, today)
 }

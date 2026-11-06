@@ -11,7 +11,7 @@ import com.example.unifiedreader.core.model.publishedYearOf
 import com.example.unifiedreader.core.model.readableFormatFromTypeOrExtension
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
-import java.time.Instant
+import com.example.unifiedreader.core.model.toServerEpochMillisOrNull
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -340,7 +340,7 @@ internal fun GrimmoryBookDto.toCatalogEntry(
             coverUpdatedOn = metadata?.coverUpdatedOn,
         ),
         description = metadata?.description,
-        addedAtEpochMillis = addedOn?.toEpochMillisOrNull(),
+        addedAtEpochMillis = addedOn?.toServerEpochMillisOrNull(),
         publishedYear = publishedYearOf(metadata?.publishedDate),
         bookMetadata = BookMetadata(
             author = metadata?.authors?.firstOrNull(String::isNotBlank),
@@ -388,7 +388,7 @@ internal fun grimmoryBookCoverUrl(
     append("/api/v1/media/book/")
     append(bookId)
     append("/cover")
-    coverUpdatedOn?.toEpochMillisOrNull()?.let { version ->
+    coverUpdatedOn?.toServerEpochMillisOrNull()?.let { version ->
         append("?v=")
         append(version)
     }
@@ -408,7 +408,3 @@ private fun FormatType.defaultGrimmoryItemKind(): ReadableItemKind = when (this)
     FormatType.EPUB,
     FormatType.PDF -> ReadableItemKind.BOOK
 }
-
-internal fun String.toEpochMillisOrNull(): Long? = runCatching {
-    Instant.parse(this).toEpochMilli()
-}.getOrNull()

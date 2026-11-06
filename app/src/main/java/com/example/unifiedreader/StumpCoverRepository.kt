@@ -5,13 +5,13 @@ import android.net.Uri
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.isStumpSeriesContainer
+import com.example.unifiedreader.core.model.writeFileAtomically
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.covers.CachedCoverAsset
 import com.example.unifiedreader.feature.library.covers.RemoteCoverCacheResolver
 import com.example.unifiedreader.feature.library.covers.RemoteCoverStorageDirectory
 import com.example.unifiedreader.feature.library.covers.STUMP_COVER_DIRECTORY_NAME
 import com.example.unifiedreader.feature.library.covers.STUMP_LEGACY_COVER_DIRECTORY_NAME
-import com.example.unifiedreader.feature.library.covers.writeCoverCacheFile
 import javax.inject.Inject
 
 interface StumpCoverDataSource : RemoteCoverDataSource
@@ -68,7 +68,7 @@ class StumpCoverRepository @Inject constructor(
                     api = api,
                     session = activeSession,
                 ) { accessToken ->
-                    writeCoverCacheFile(
+                    writeFileAtomically(
                         destination = destination,
                         targetDescription = "cached Stump cover for ${item.title}",
                     ) { temporaryFile ->

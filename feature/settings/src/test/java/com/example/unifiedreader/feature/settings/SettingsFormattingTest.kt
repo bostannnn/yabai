@@ -14,7 +14,6 @@ class SettingsFormattingTest {
         assertEquals("yesterday at 21:10", formatSettingsMoment(at(2026, Calendar.OCTOBER, 22, 21, 10), now))
         assertEquals("20 Oct at 09:14", formatSettingsMoment(at(2026, Calendar.OCTOBER, 20, 9, 14), now))
         assertEquals("20 Oct 2025", formatSettingsMoment(at(2025, Calendar.OCTOBER, 20, 9, 14), now))
-        assertEquals("20 Oct", formatSettingsDay(at(2026, Calendar.OCTOBER, 20, 9, 14), now))
     }
 
     @Test

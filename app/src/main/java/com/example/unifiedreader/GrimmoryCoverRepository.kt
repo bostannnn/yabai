@@ -3,6 +3,7 @@ package com.example.unifiedreader
 import android.net.Uri
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.writeFileAtomically
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.covers.CachedCoverAsset
 import com.example.unifiedreader.feature.library.covers.GRIMMORY_COVER_DIRECTORY_NAME
@@ -107,7 +108,7 @@ class GrimmoryCoverRepository @Inject constructor(
         accessToken: String,
         item: ReadableItem,
         destination: java.io.File,
-    ) = writeGrimmoryCacheFile(
+    ) = writeFileAtomically(
         destination = destination,
         targetDescription = "cached Grimmory cover for ${item.title}",
     ) { temporaryFile ->

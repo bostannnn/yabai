@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
@@ -34,7 +35,7 @@ class AppKavitaCoordinatorTest {
         val result = coordinator.executeSync(preparation, clearCoverState = {})
 
         assertTrue(result is KavitaSyncExecutionResult.Failure)
-        assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Online, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
     }
 
     @Test

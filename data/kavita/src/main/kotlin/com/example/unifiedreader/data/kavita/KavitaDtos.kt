@@ -13,10 +13,7 @@ import com.example.unifiedreader.core.model.readableFormatFromTypeOrExtension
 import com.example.unifiedreader.core.model.toReadableFormatTypeOrNull
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
-import java.time.Instant
-import java.time.LocalDateTime
-import java.time.OffsetDateTime
-import java.time.ZoneOffset
+import com.example.unifiedreader.core.model.toServerEpochMillisOrNull
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -309,8 +306,8 @@ internal fun KavitaSeriesDto.toEntry(
         title = name?.takeIf(String::isNotBlank) ?: "Series $seriesId",
         format = format,
         pages = pages?.coerceAtLeast(0),
-        addedAtEpochMillis = created.toEpochMillisOrNull(),
-        lastChapterAddedAtEpochMillis = lastChapterAddedUtc.toEpochMillisOrNull(),
+        addedAtEpochMillis = created.toServerEpochMillisOrNull(),
+        lastChapterAddedAtEpochMillis = lastChapterAddedUtc.toServerEpochMillisOrNull(),
         coverUrl = buildKavitaSeriesCoverUrl(
             baseUrl = baseUrl,
             seriesId = seriesId,
@@ -332,7 +329,7 @@ internal fun KavitaGroupedSeriesDto.toUpdateEntry(): KavitaSeriesUpdateEntry? {
     return KavitaSeriesUpdateEntry(
         seriesId = remoteSeriesId,
         libraryId = libraryId?.toString(),
-        createdAtEpochMillis = created.toEpochMillisOrNull(),
+        createdAtEpochMillis = created.toServerEpochMillisOrNull(),
         chapterId = chapterId?.toString(),
         volumeId = volumeId?.toString(),
         count = count?.coerceAtLeast(0),
@@ -458,7 +455,7 @@ fun KavitaProgressDto.toReadingProgress(
             else -> (localPage.toDouble() / safePageCount.toDouble()).coerceIn(0.0, 1.0)
         },
         isFinished = isFinished,
-        updatedAtEpochMillis = lastModifiedUtc.toEpochMillisOrNull(),
+        updatedAtEpochMillis = lastModifiedUtc.toServerEpochMillisOrNull(),
     )
 }
 
@@ -630,17 +627,6 @@ private fun buildKavitaChapterCoverUrl(
         append("&apiKey=")
         append(key)
     }
-}
-
-private fun String?.toEpochMillisOrNull(): Long? {
-    val value = this?.takeIf(String::isNotBlank) ?: return null
-    return runCatching {
-        Instant.parse(value).toEpochMilli()
-    }.recoverCatching {
-        OffsetDateTime.parse(value).toInstant().toEpochMilli()
-    }.recoverCatching {
-        LocalDateTime.parse(value).toInstant(ZoneOffset.UTC).toEpochMilli()
-    }.getOrNull()
 }
 
 private fun KavitaChapterDto.chapterPublishers(

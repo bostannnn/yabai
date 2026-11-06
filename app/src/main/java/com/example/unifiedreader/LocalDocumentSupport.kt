@@ -6,6 +6,7 @@ import com.example.unifiedreader.core.model.ComicMetadata
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.isComicReaderFormat
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
 import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
 import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
@@ -173,7 +174,7 @@ internal fun recordToReadableItem(
         coverUrl = record.coverUri,
         addedAtEpochMillis = record.addedAtEpochMillis,
         // For an EPUB `author` is its creator; for a comic archive it is ComicInfo's Writer list.
-        bookMetadata = record.author?.takeUnless { record.format.isComicArchive }?.let(::BookMetadata),
+        bookMetadata = record.author?.takeUnless { record.format.isComicReaderFormat() }?.let(::BookMetadata),
         comicMetadata = record.comicWriters().let { writers ->
             if (
                 record.series != null ||
@@ -196,11 +197,8 @@ internal fun recordToReadableItem(
     )
 }
 
-private val FormatType.isComicArchive: Boolean
-    get() = this == FormatType.CBZ || this == FormatType.CBR
-
 private fun LocalDocumentRecord.comicWriters(): List<String> =
-    if (format.isComicArchive) {
+    if (format.isComicReaderFormat()) {
         author.orEmpty().split(',').map(String::trim).filter(String::isNotEmpty)
     } else {
         emptyList()

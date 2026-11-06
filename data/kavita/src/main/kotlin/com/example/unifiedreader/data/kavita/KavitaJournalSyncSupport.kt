@@ -5,6 +5,8 @@ import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
+import com.example.unifiedreader.core.model.toServerEpochMillisOrNull
+import com.example.unifiedreader.core.network.LenientJson
 import com.example.unifiedreader.core.network.isRetryableNetworkFailure
 import com.example.unifiedreader.journal.ItemJournalEntry
 import com.example.unifiedreader.journal.JournalReadingEvent
@@ -12,12 +14,8 @@ import com.example.unifiedreader.journal.JournalReadingEventType
 import com.example.unifiedreader.journal.JournalReadingSession
 import com.example.unifiedreader.journal.JournalRepository
 import com.example.unifiedreader.journal.journalMediaType
-import java.time.Instant
-import java.time.LocalDateTime
-import java.time.ZoneOffset
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.roundToInt
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -283,10 +281,10 @@ private fun List<KavitaUserReviewDto>.toJournalEntries(
         format = item.format,
         rating = parsedReview.rating ?: review.rating?.toInternalRating(),
         reviewText = parsedReview.reviewText,
-        reviewedAtEpochMillis = review.createdUtc?.toEpochMillisOrNull(),
-        updatedAtEpochMillis = review.createdUtc?.toEpochMillisOrNull() ?: System.currentTimeMillis(),
+        reviewedAtEpochMillis = review.createdUtc?.toServerEpochMillisOrNull(),
+        updatedAtEpochMillis = review.createdUtc?.toServerEpochMillisOrNull() ?: System.currentTimeMillis(),
         remoteEntryId = review.id?.toString(),
-        remoteUpdatedAtEpochMillis = review.createdUtc?.toEpochMillisOrNull(),
+        remoteUpdatedAtEpochMillis = review.createdUtc?.toServerEpochMillisOrNull(),
         syncState = SyncState.CLEAN,
     )
 }
@@ -319,10 +317,10 @@ private fun List<KavitaReadingHistoryItemDto>.toJournalEvents(
     session.chapters.orEmpty().mapNotNull { chapter ->
         val chapterId = chapter.chapterId ?: return@mapNotNull null
         val item = itemByRemoteChapterId[chapterId] ?: return@mapNotNull null
-        val occurredAt = chapter.endTimeUtc?.toEpochMillisOrNull()
-            ?: chapter.startTimeUtc?.toEpochMillisOrNull()
-            ?: session.endTimeUtc?.toEpochMillisOrNull()
-            ?: session.startTimeUtc?.toEpochMillisOrNull()
+        val occurredAt = chapter.endTimeUtc?.toServerEpochMillisOrNull()
+            ?: chapter.startTimeUtc?.toServerEpochMillisOrNull()
+            ?: session.endTimeUtc?.toServerEpochMillisOrNull()
+            ?: session.startTimeUtc?.toServerEpochMillisOrNull()
             ?: return@mapNotNull null
         JournalReadingEvent(
             id = "kavita:${session.sessionId ?: 0}:$chapterId:$occurredAt",
@@ -353,16 +351,16 @@ private fun List<KavitaReadingHistoryItemDto>.toJournalSessions(
     session.chapters.orEmpty().mapNotNull { chapter ->
         val chapterId = chapter.chapterId ?: return@mapNotNull null
         val item = itemByRemoteChapterId[chapterId] ?: return@mapNotNull null
-        val startedAt = chapter.startTimeUtc?.toEpochMillisOrNull()
-            ?: session.startTimeUtc?.toEpochMillisOrNull()
+        val startedAt = chapter.startTimeUtc?.toServerEpochMillisOrNull()
+            ?: session.startTimeUtc?.toServerEpochMillisOrNull()
             ?: return@mapNotNull null
         val durationMillis = (chapter.durationSeconds ?: session.durationSeconds)
             ?.takeIf { seconds -> seconds > 0 }
             ?.toLong()
             ?.times(1_000L)
-        val endedAt = chapter.endTimeUtc?.toEpochMillisOrNull()
+        val endedAt = chapter.endTimeUtc?.toServerEpochMillisOrNull()
             ?: durationMillis?.let { duration -> startedAt + duration }
-            ?: session.endTimeUtc?.toEpochMillisOrNull()
+            ?: session.endTimeUtc?.toServerEpochMillisOrNull()
             ?: return@mapNotNull null
         val safeStartedAt = minOf(startedAt, endedAt)
         val safeEndedAt = maxOf(startedAt, endedAt)
@@ -464,26 +462,11 @@ private fun String.parseYabaiJournalReviewBody(): ParsedKavitaReviewBody {
 }
 
 private fun String.parseYabaiJournalRating(): Int? = runCatching {
-    val metadata = yabaiJournalJson.decodeFromString(JsonObject.serializer(), this)
+    val metadata = LenientJson.decodeFromString(JsonObject.serializer(), this)
     metadata["rating"]
         ?.jsonPrimitive
         ?.intOrNull
         ?.coerceIn(1, 10)
 }.getOrNull()
 
-private fun String.toEpochMillisOrNull(): Long? = runCatching {
-    Instant.parse(this).toEpochMilli()
-}.getOrElse {
-    runCatching {
-        LocalDateTime.parse(this)
-            .toInstant(ZoneOffset.UTC)
-            .toEpochMilli()
-    }.getOrNull()
-}
-
 private val YABAI_JOURNAL_MARKER_REGEX = Regex("""(?m)^\s*YABAI_JOURNAL:(\{[^\r\n]*\})\s*$""")
-
-private val yabaiJournalJson = Json {
-    ignoreUnknownKeys = true
-    explicitNulls = false
-}

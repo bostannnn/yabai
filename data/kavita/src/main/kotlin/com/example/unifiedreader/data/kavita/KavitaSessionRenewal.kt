@@ -1,8 +1,8 @@
 package com.example.unifiedreader.data.kavita
 
+import com.example.unifiedreader.core.network.LenientJson
 import java.util.Base64
 import java.util.concurrent.atomic.AtomicReference
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
@@ -83,7 +83,7 @@ private fun readKavitaTokenLifetime(
 ): KavitaTokenLifetime? {
     val payload = accessToken.split('.').getOrNull(1) ?: return null
     return try {
-        val claims = TokenClaimsJson.parseToJsonElement(
+        val claims = LenientJson.parseToJsonElement(
             String(Base64.getUrlDecoder().decode(payload), Charsets.UTF_8),
         ).jsonObject
         val expiresAt = claims["exp"]?.jsonPrimitive?.longOrNull ?: return null
@@ -96,7 +96,5 @@ private fun readKavitaTokenLifetime(
         null
     }
 }
-
-private val TokenClaimsJson = Json { ignoreUnknownKeys = true }
 
 private const val SECONDS_PER_DAY = 24 * 60 * 60L

@@ -2,6 +2,7 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
@@ -97,7 +98,7 @@ class KavitaPageSourceTest {
 
         pageSource.loadPageImage(item, page, ComicPageLoadPriority.Visible)
 
-        assertEquals(RemoteSourceReachability.Reachable, connectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Online, connectivityPolicy.reachabilityFor(SourceType.KAVITA))
     }
 
     @Test
@@ -119,7 +120,7 @@ class KavitaPageSourceTest {
         val result = pageSource.loadPageImage(item, page, ComicPageLoadPriority.Visible)
 
         assertTrue(result is ComicPageLoadResult.Failure)
-        assertEquals(RemoteSourceReachability.Unavailable, connectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Offline, connectivityPolicy.reachabilityFor(SourceType.KAVITA))
     }
 
     @Test

@@ -32,15 +32,6 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class DownloadedRemoteComicPageSourceTest {
     @Test
-    fun `downloaded remote comic source resolves both zip and rar archive codecs`() {
-        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-
-        val formats = downloadedRemoteComicArchiveCodecFormats(context)
-
-        assertEquals(listOf(FormatType.CBZ, FormatType.CBR), formats)
-    }
-
-    @Test
     fun `observe pages replaces catalog fallback with downloaded archive entries`() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val item = testDownloadedComic(

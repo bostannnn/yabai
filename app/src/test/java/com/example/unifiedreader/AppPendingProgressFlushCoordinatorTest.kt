@@ -257,7 +257,7 @@ class AppPendingProgressFlushCoordinatorTest {
 
         assertTrue(sync.invocations.isEmpty())
         assertTrue(reportedFailures.isEmpty())
-        assertEquals(RemoteSourceReachability.Unknown, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Unknown, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
 
         remoteSourceConnectivityPolicy.markReachable(SourceType.KAVITA)
         advanceTimeBy(1600)
@@ -265,7 +265,7 @@ class AppPendingProgressFlushCoordinatorTest {
 
         assertEquals(listOf(listOf(item.id)), sync.invocations)
         assertEquals(listOf(emptyList<SourceProgressSyncFailure>()), reportedFailures)
-        assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Online, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
     }
 
     @Test
@@ -871,7 +871,7 @@ class AppPendingProgressFlushCoordinatorTest {
 
         runCurrent()
 
-        assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Online, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
         assertEquals("Progress rejected", reportedFailures.single().single().throwable.message)
     }
 
@@ -1026,7 +1026,7 @@ class AppPendingProgressFlushCoordinatorTest {
 
         runCurrent()
 
-        assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Offline, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
         assertEquals(listOf(emptyList<SourceProgressSyncFailure>()), reportedFailures)
     }
 
@@ -1085,7 +1085,7 @@ class AppPendingProgressFlushCoordinatorTest {
         runCurrent()
 
         assertEquals(listOf(listOf(pendingItem.id)), sync.invocations)
-        assertEquals(RemoteSourceReachability.Unavailable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
+        assertEquals(SourceConnectivityState.Offline, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
         assertEquals(listOf(emptyList<SourceProgressSyncFailure>()), reportedFailures)
     }
 }

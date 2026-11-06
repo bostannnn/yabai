@@ -176,12 +176,6 @@ class RemoteSourceConnectivityPolicy @Inject constructor() {
     }
 }
 
-object RemoteSourceReachability {
-    val Unknown: SourceConnectivityState = SourceConnectivityState.Unknown
-    val Reachable: SourceConnectivityState = SourceConnectivityState.Online
-    val Unavailable: SourceConnectivityState = SourceConnectivityState.Offline
-}
-
 class RemoteSourceUnavailableException(
     sourceType: SourceType,
 ) : RuntimeException(

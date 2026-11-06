@@ -110,14 +110,12 @@ class AppViewModel @Inject constructor(
         observeAppState()
         coldStartLibraryViewCoordinator.startCapture(viewModelScope, snapshotFlow { uiState })
         viewModelScope.launch { initialUiStateFactory.hydrateAfterInitialState() }
-        if (LibraryPagingFeature.ENABLED) {
-            viewModelScope.launch { libraryGridPager.rebuildGridRootsIfEmpty() }
-        }
+        viewModelScope.launch { libraryGridPager.rebuildGridRootsIfEmpty() }
     }
 
     private val libraryGridPagingCache = LibraryGridPagingCache(viewModelScope, libraryGridPager)
 
-    /** Paged library grid for [source] in [sortMode]; only consumed while [LibraryPagingFeature] is enabled. */
+    /** Paged library grid for [source] in [sortMode]; consumed while [LibraryPagingFeature.isPageable] holds. */
     fun libraryGridPagingData(
         source: SourceType,
         sortMode: LibrarySortMode,

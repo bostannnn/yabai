@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.settings
 
+import com.example.unifiedreader.core.model.shortDayLabel
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -18,8 +19,8 @@ fun formatSettingsMoment(
     return when {
         sameYear && dayDifference == 0 -> "today at $time"
         sameYear && dayDifference == 1 -> "yesterday at $time"
-        sameYear -> "${SimpleDateFormat("d MMM", Locale.US).format(Date(epochMillis))} at $time"
-        else -> SimpleDateFormat("d MMM yyyy", Locale.US).format(Date(epochMillis))
+        sameYear -> "${shortDayLabel(epochMillis, nowEpochMillis)} at $time"
+        else -> shortDayLabel(epochMillis, nowEpochMillis)
     }
 }
 
@@ -35,19 +36,8 @@ fun formatSettingsShortMoment(
     return when {
         sameYear && dayDifference == 0 -> SimpleDateFormat("HH:mm", Locale.US).format(Date(epochMillis))
         sameYear && dayDifference == 1 -> "yesterday"
-        else -> formatSettingsDay(epochMillis, nowEpochMillis)
+        else -> shortDayLabel(epochMillis, nowEpochMillis)
     }
-}
-
-/** "20 Oct", or "20 Oct 2025" in another year. */
-fun formatSettingsDay(
-    epochMillis: Long,
-    nowEpochMillis: Long = System.currentTimeMillis(),
-): String {
-    val then = Calendar.getInstance(Locale.US).apply { timeInMillis = epochMillis }
-    val now = Calendar.getInstance(Locale.US).apply { timeInMillis = nowEpochMillis }
-    val pattern = if (then.get(Calendar.YEAR) == now.get(Calendar.YEAR)) "d MMM" else "d MMM yyyy"
-    return SimpleDateFormat(pattern, Locale.US).format(Date(epochMillis))
 }
 
 /** A server address without its scheme or trailing slash: "192.168.50.60:5000". */

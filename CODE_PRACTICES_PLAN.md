@@ -33,11 +33,56 @@ existed.
 - **CI runs the JVM modules' tests.** `ci.yml` and `release-apk.yml` now also run
   `:core:model:test :data:grimmory:test :data:kavita:test :data:stump:test`.
 
-**Next:** step 1.
+**Step 3 done (2026-11-06, branch `claude/component-refactoring-reuse-b71e0f`)**, ahead of steps 1 and 2 by the
+user's choice. The shared helpers and where they live:
 
-## Step 1. Decisions only the user can make
+- `String?.toServerEpochMillisOrNull()` (`core:model` `ServerTimestamps.kt`, tested): the 5 server-time parsers.
+  It takes an instant, an offset time and a zone-less local time (read as UTC) everywhere, so Grimmory's catalog
+  and progress times and Stump's times now also accept offsets and local times.
+- `sha256Hex`, `sha256`, `toLowerHex` (`core:model` `Hashing.kt`, output pinned by a test so cache names stay put).
+- `writeFileAtomically` and `File.moveReplacing` (`core:model` `AtomicFiles.kt`): replace `writeCachedFile`,
+  `writeGrimmoryCacheFile` and `writeCoverCacheFile` (`CoverFileWriters.kt` is gone); the preview store, the local
+  cover cache and the archive codecs move through `moveReplacing`. The move now replaces in one step instead of
+  delete-then-rename.
+- `LenientJson` (`core:network`): the HTTP client, Kavita (3), Grimmory and Stump. The two in `feature/updates`
+  stay: that module doesn't use `core:network`, and one of them reads stored preferences.
+- `String.resolveSameOriginUrl` (`core:network`, tested): Kavita's and Stump's cover/asset downloads. Not done: an
+  `HttpResponse.throwIfError`, because the three servers' error messages are built differently.
+- `shortDayLabel` (`core:model`, tested): settings, the book page, downloads and shelves. **Decision taken:**
+  English month names (`Locale.US`) everywhere, since the rest of the text is English; the book page and shelves
+  used the device language before. The journal's `formatShortDate` never shows a year, so it stays.
+- `ContentResolver.queryArchiveSignature` and `Cursor.getLongOrNull` (app `ContentArchiveSignature.kt`).
+- Format checks: `isComicReaderFormat` and `toReadableFormatTypeOrNull` replace `isComicArchive` (2) and Stump's
+  `toComicFormatType`.
 
-These block or shape later steps. Record each answer here.
+**Step 1 done (2026-11-06)**, the user's answers, all carried out:
+
+- **Drag handle: use the kit piece.** Filter chips, the list editor and Source order now use
+  `AppReorderHandleIcon`. The list editor's handle is now named "Drag to reorder …" (it said "Drag to move …")
+  and takes the kit's muted colour.
+- **Test-only code: deleted with its tests**, except where a test used the dead function to check live code:
+  - The grid-roots test now calls `deriveGridRootsWithMembers`, and the shelf-browser test chains
+    `browserEntries`, `searchedBy` and `sortedFor`.
+  - `RemoteSourceReachability` was only an alias: tests use `SourceConnectivityState` directly.
+  - **Kept:** `InMemoryRemoteItemLocalStateCache`. It is a full in-memory implementation that two app tests run
+    against, and it uses the cache's private scope helpers.
+  - `ComicSpreadPreparation.kt` and `RemoteDownloadBatchOutcome.kt` went whole.
+  - `JournalRatingClearTag` was never applied, so the androidTest's check against it proved nothing.
+- **`LibraryPagingFeature.ENABLED`: removed.** Paging is always on. The in-memory path stays, because it is what
+  every view `isPageable` turns down still renders (search, other servers, rail sorts with filters, and so on).
+- **Performance logging: the rule changed.** `ARCHITECTURE_RULES.md` now says the logs stay on in release builds
+  by choice.
+- **Package name:** not asked; left as `com.example.unifiedreader` (no Play Store plans known).
+
+**Where it stands (2026-11-06):** steps 3 and 1 are on main as `ca440f12` and `ed7a460c`, pushed to origin.
+CI runs on the push. Not released, not checked on a device. All 1,863 unit tests passed locally (Android modules plus
+the JVM modules), and the debug build and the journal androidTest sources compile.
+
+**Next:** step 2 (guard rails), then step 4.
+
+## Step 1. Decisions only the user can make (done, answers above)
+
+These block or shape later steps.
 
 - **`AppReorderHandleIcon`:** it has no callers, but three screens hand-build the identical handle (24 icon,
   40 grab area, `onSurfaceVariant`, "Drag to reorder …"):

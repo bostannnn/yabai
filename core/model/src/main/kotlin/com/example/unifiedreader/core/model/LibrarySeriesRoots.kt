@@ -42,12 +42,6 @@ fun deriveGridRootsWithMembers(
     SourceType.LOCAL -> sourceItems.map { item -> LibraryGridRoot(item, listOf(item.id)) }
 }
 
-/** Roots only (drops membership); kept for callers that don't need the member mapping. */
-fun deriveGridRootItems(
-    sourceType: SourceType,
-    sourceItems: List<ReadableItem>,
-): List<ReadableItem> = deriveGridRootsWithMembers(sourceType, sourceItems).map(LibraryGridRoot::root)
-
 private fun LibrarySeriesGrouping.toGridRoots(): List<LibraryGridRoot> = rootItems.map { root ->
     val seriesKey = root.remoteId?.takeIf {
         root.isKavitaSeriesContainer() || root.isStumpSeriesContainer()

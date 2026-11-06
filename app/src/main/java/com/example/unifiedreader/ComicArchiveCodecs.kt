@@ -1,16 +1,15 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.moveReplacing
 import com.example.unifiedreader.core.model.runSuspendCatching
 import android.content.Context
-import android.database.Cursor
 import android.graphics.BitmapFactory
 import android.net.Uri
-import android.provider.DocumentsContract
-import android.provider.OpenableColumns
 import androidx.annotation.VisibleForTesting
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import com.example.unifiedreader.core.model.FormatType
+import com.example.unifiedreader.core.model.sha256Hex
 import com.github.junrar.Archive
 import com.github.junrar.rarfile.FileHeader
 import kotlinx.coroutines.CancellationException
@@ -18,9 +17,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
-import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
 import java.util.zip.ZipFile
@@ -245,31 +241,7 @@ internal fun solidArchiveEntryBytes(
     }
 }
 
-private fun String.sha256Hex(): String = MessageDigest.getInstance("SHA-256")
-    .digest(toByteArray(Charsets.UTF_8))
-    .toLowerHexString()
-
 private val archiveCacheLocks = ConcurrentHashMap<String, ReentrantLock>()
-
-private fun android.content.ContentResolver.queryArchiveSignature(
-    uri: Uri,
-): String {
-    val projection = arrayOf(
-        OpenableColumns.SIZE,
-        DocumentsContract.Document.COLUMN_LAST_MODIFIED,
-    )
-    return runCatching {
-        query(uri, projection, null, null, null)?.use { cursor ->
-            if (!cursor.moveToFirst()) return@use UNKNOWN_ARCHIVE_SIGNATURE
-            val size = cursor.getLongOrNull(OpenableColumns.SIZE) ?: -1L
-            val lastModified = cursor.getLongOrNull(DocumentsContract.Document.COLUMN_LAST_MODIFIED) ?: -1L
-            if (size < 0L && lastModified < 0L) {
-                return@use UNKNOWN_ARCHIVE_SIGNATURE
-            }
-            "$size:$lastModified"
-        } ?: UNKNOWN_ARCHIVE_SIGNATURE
-    }.getOrDefault(UNKNOWN_ARCHIVE_SIGNATURE)
-}
 
 private suspend fun Context.ensureReadableArchiveFile(
     uri: Uri,
@@ -391,19 +363,7 @@ private fun Uri.directFileOrNull(): File? {
         ?.takeIf(File::isFile)
 }
 
-private fun Uri.archiveCacheKey(): String {
-    val digest = MessageDigest.getInstance("SHA-256")
-        .digest(toString().toByteArray(Charsets.UTF_8))
-    return digest.toLowerHexString()
-}
-
-private fun ByteArray.toLowerHexString(): String = buildString(size * 2) {
-    this@toLowerHexString.forEach { byte ->
-        val value = byte.toInt() and 0xff
-        append(HEX_DIGITS[value ushr 4])
-        append(HEX_DIGITS[value and 0x0f])
-    }
-}
+private fun Uri.archiveCacheKey(): String = toString().sha256Hex()
 
 private fun File.hasReadableContent(): Boolean = exists() && length() > 0L
 
@@ -419,32 +379,6 @@ private fun File.writeTextAtomically(
     } finally {
         tempFile.delete()
     }
-}
-
-private fun File.moveReplacing(
-    targetFile: File,
-) {
-    try {
-        Files.move(
-            toPath(),
-            targetFile.toPath(),
-            StandardCopyOption.REPLACE_EXISTING,
-            StandardCopyOption.ATOMIC_MOVE,
-        )
-    } catch (_: Exception) {
-        Files.move(
-            toPath(),
-            targetFile.toPath(),
-            StandardCopyOption.REPLACE_EXISTING,
-        )
-    }
-}
-
-private fun Cursor.getLongOrNull(
-    columnName: String,
-): Long? {
-    val index = getColumnIndex(columnName)
-    return if (index >= 0 && !isNull(index)) getLong(index) else null
 }
 
 private fun shouldRefreshArchiveCache(
@@ -463,14 +397,12 @@ private fun shouldRefreshArchiveCache(
         currentSignature != cachedSignature
 }
 
-private const val UNKNOWN_ARCHIVE_SIGNATURE = "unknown"
 private const val UNKNOWN_SIGNATURE_CACHE_TTL_MS = 60_000L
 private const val ZIP_ARCHIVE_CACHE_DIRECTORY = "comic-zip-archives"
 private const val RAR_ARCHIVE_CACHE_DIRECTORY = "comic-archives"
 private const val RAR_SOLID_EXTRACTION_CACHE_DIRECTORY = "comic-archives-solid"
 private const val SOLID_EXTRACTION_COMPLETE_MARKER = ".complete"
 private const val KEPT_SOLID_EXTRACTIONS = 2
-private const val HEX_DIGITS = "0123456789abcdef"
 
 @VisibleForTesting(otherwise = VisibleForTesting.NONE)
 internal object ComicArchiveCodecsTestAccess {

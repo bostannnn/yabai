@@ -24,8 +24,8 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
-import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.isComicReaderFormat
 import com.example.unifiedreader.core.model.primaryAuthor
 import kotlin.math.floor
 import kotlin.math.max
@@ -69,7 +69,7 @@ internal fun libraryCoverPlaceholderSpec(
     val series = comic?.series?.coverDisplayText()
     val issueNumber = issueNumberLabel(comic?.issueNumber)
     val volumeNumber = volumeNumberLabel(comic?.volume)
-    val isComicArchive = item.format == FormatType.CBZ || item.format == FormatType.CBR
+    val isComicArchive = item.format.isComicReaderFormat()
     if (isComicArchive && series != null && (issueNumber != null || volumeNumber != null)) {
         return LibraryCoverPlaceholderSpec(
             style = LibraryCoverPlaceholderStyle.SeriesNumber,

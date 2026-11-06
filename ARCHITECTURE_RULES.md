@@ -124,7 +124,7 @@ Performance-sensitive work must name the owner module and the metric that proves
 
 - The grid renders from the paging flow; do not block it on the in-memory `LibraryDerivedStateComputer` recompute, which runs async off the presentation path.
 - Shelves and any **per-item derived state the paged cards display** — read/progress badge, download availability/status — should be sourced from bounded SQL / reader-session state (like the shelves cold-start seed and `LibraryShelvesInputResolver`) so they commit *with* the grid, not pop in a second later once the full-catalog recompute finishes. A status that appears after the grid has presented is a presentation-coherence violation (below).
-- Measure recompute cost with the opt-in `LibraryPerf` logging (`LibraryPerfLog` / `LibraryShelvesPerfLog`; `adb logcat -s LibraryPerf`): it reports each `compute` HIT/MISS with a per-pass breakdown. Keep it in the tree but flip `ENABLED` to `false` for shipping builds.
+- Measure recompute cost with the opt-in `LibraryPerf` logging (`LibraryPerfLog` / `LibraryShelvesPerfLog`; `adb logcat -s LibraryPerf`): it reports each `compute` HIT/MISS with a per-pass breakdown. It stays on in release builds too, by choice (2026-11-06): the timings are read on the tablet, which runs release builds. The same goes for `PAGED_WINDOW_BADGE_PERF_ENABLED`. Keep the logging cheap: one line per pass, never per item or per frame.
 
 ### Library presentation state
 

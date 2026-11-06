@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.updates
 
+import com.example.unifiedreader.core.model.toLowerHex
 import io.ktor.client.HttpClient
 import io.ktor.client.request.header
 import io.ktor.client.request.prepareGet
@@ -60,10 +61,8 @@ class KtorAppUpdateDownloader(
         if (totalBytes > 0 && downloadedBytes < totalBytes) {
             throw IOException("The download stopped at $downloadedBytes of $totalBytes bytes")
         }
-        digest.digest().toHex()
+        digest.digest().toLowerHex()
     }
 }
-
-internal fun ByteArray.toHex(): String = joinToString(separator = "") { byte -> "%02x".format(byte) }
 
 private const val DOWNLOAD_BUFFER_SIZE = 64 * 1024

@@ -96,11 +96,10 @@ class LibraryShelfItemsBrowserEntriesTest {
 private fun LibraryShelfBrowserState.visibleItemRemoteIds(
     searchQuery: String = "",
     sortMode: ShelfBrowserSortMode,
-): List<String?> = visibleShelfBrowserEntries(
-    nowEpochMillis = 1_000L,
-    searchQuery = searchQuery,
-    sortMode = sortMode,
-).map { entry -> entry.item.remoteId }
+): List<String?> = browserEntries(nowEpochMillis = 1_000L)
+    .searchedBy(searchQuery)
+    .sortedFor(sortMode)
+    .map { entry -> entry.item.remoteId }
 
 private fun continueReadingState(): LibraryShelfBrowserState.ContinueReading = LibraryShelfBrowserState.ContinueReading(
     items = listOf(

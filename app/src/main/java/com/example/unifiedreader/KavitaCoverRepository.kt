@@ -3,13 +3,13 @@ package com.example.unifiedreader
 import android.net.Uri
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.writeFileAtomically
 import com.example.unifiedreader.feature.library.LibraryCoverImageVariant
 import com.example.unifiedreader.feature.library.covers.CachedCoverAsset
 import com.example.unifiedreader.feature.library.covers.KAVITA_COVER_DIRECTORY_NAME
 import com.example.unifiedreader.feature.library.covers.KAVITA_LEGACY_COVER_DIRECTORY_NAME
 import com.example.unifiedreader.feature.library.covers.RemoteCoverCacheResolver
 import com.example.unifiedreader.feature.library.covers.RemoteCoverStorageDirectory
-import com.example.unifiedreader.feature.library.covers.writeCoverCacheFile
 import javax.inject.Inject
 
 interface KavitaCoverDataSource : RemoteCoverDataSource {
@@ -75,7 +75,7 @@ class KavitaCoverRepository @Inject constructor(
                         session = activeSession,
                     )?.takeIf(String::isNotBlank)
                         ?: error("Unable to resolve Kavita cover URL.")
-                    writeCoverCacheFile(
+                    writeFileAtomically(
                         destination = destination,
                         targetDescription = "cached Kavita cover for ${item.title}",
                     ) { temporaryFile ->

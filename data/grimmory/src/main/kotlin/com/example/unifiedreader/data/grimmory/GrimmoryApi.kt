@@ -2,6 +2,7 @@ package com.example.unifiedreader.data.grimmory
 
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.network.LenientJson
 import com.example.unifiedreader.core.network.writeBodyTo
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -649,11 +650,6 @@ class KtorGrimmoryApi(
     }.buildString()
 }
 
-private val grimmoryJson = Json {
-    ignoreUnknownKeys = true
-    explicitNulls = false
-}
-
 private const val GRIMMORY_READING_SESSION_MAX_PAGES = 1_000
 private const val GRIMMORY_READING_SESSION_FALLBACK_MAX_PAGES = 10
 
@@ -688,15 +684,15 @@ private fun List<GrimmoryReadingSessionDto>.fingerprint(): String = joinToString
 }
 
 private fun String.decodeGrimmoryReadingSessionPage(): DecodedGrimmoryReadingSessionPage {
-    val element = grimmoryJson.decodeFromString<JsonElement>(this)
+    val element = LenientJson.decodeFromString<JsonElement>(this)
     if (element is JsonArray) {
         return DecodedGrimmoryReadingSessionPage(
-            content = grimmoryJson.decodeFromJsonElement(element),
+            content = LenientJson.decodeFromJsonElement(element),
             totalPages = null,
             last = true,
         )
     }
-    val page = grimmoryJson.decodeFromJsonElement<GrimmoryReadingSessionPageDto>(element)
+    val page = LenientJson.decodeFromJsonElement<GrimmoryReadingSessionPageDto>(element)
     return DecodedGrimmoryReadingSessionPage(
         content = page.content.orEmpty(),
         totalPages = page.totalPages,
@@ -722,7 +718,7 @@ private fun GrimmoryReadingSessionRequest.toRequestDto(): GrimmoryReadingSession
 private fun String.toGrimmoryErrorMessage(
     statusDescription: String,
 ): String = runCatching {
-    grimmoryJson.decodeFromString<GrimmoryApiErrorDto>(this).toUserMessage(statusDescription)
+    LenientJson.decodeFromString<GrimmoryApiErrorDto>(this).toUserMessage(statusDescription)
 }.getOrElse {
     takeIf(String::isNotBlank) ?: statusDescription
 }

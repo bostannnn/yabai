@@ -3,8 +3,8 @@ package com.example.unifiedreader
 import android.content.Context
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.sha256Hex
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import org.json.JSONArray
@@ -161,9 +161,7 @@ private fun RemoteItemLocalStateCacheScope.matchesSourceLibraryScope(
 private fun RemoteItemLocalStateCacheScope.preferenceKey(): String =
     "$REMOTE_ITEM_LOCAL_STATE_CACHE_ENTRY_PREFIX${key()}"
 
-private fun RemoteItemLocalStateCacheScope.key(): String = sha256(
-    sourceLibraryScopeId,
-)
+private fun RemoteItemLocalStateCacheScope.key(): String = sourceLibraryScopeId.sha256Hex()
 
 private fun RemoteItemLocalStateCacheEntry.toJson(): JSONObject = JSONObject()
     .put("version", REMOTE_ITEM_LOCAL_STATE_CACHE_VERSION)
@@ -219,12 +217,6 @@ private fun JSONArray.toStringSet(): Set<String> = buildSet {
         add(getString(index))
     }
 }
-
-private fun sha256(
-    value: String,
-): String = MessageDigest.getInstance("SHA-256")
-    .digest(value.toByteArray(Charsets.UTF_8))
-    .joinToString(separator = "") { byte -> "%02x".format(byte) }
 
 private const val REMOTE_ITEM_LOCAL_STATE_CACHE_PREFERENCES_NAME =
     "remote_item_local_state_cache"

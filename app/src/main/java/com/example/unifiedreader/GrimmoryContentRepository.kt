@@ -4,6 +4,7 @@ import android.content.Context
 import com.example.unifiedreader.core.model.AppReadableFormats
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.writeFileAtomically
 import java.io.File
 
 interface GrimmoryContentDataSource : com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
@@ -28,7 +29,7 @@ class GrimmoryContentRepository(
         item: ReadableItem,
         remoteItemId: String,
         destination: File,
-    ) = writeGrimmoryCacheFile(
+    ) = writeFileAtomically(
         destination = destination,
         targetDescription = "downloaded Grimmory file for ${item.title}",
     ) { temporaryFile ->

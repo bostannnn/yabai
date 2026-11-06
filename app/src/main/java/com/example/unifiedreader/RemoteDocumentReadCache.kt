@@ -5,6 +5,7 @@ import android.net.Uri
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.isBookReaderFormat
+import com.example.unifiedreader.core.model.writeFileAtomically
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
@@ -38,7 +39,7 @@ class RemoteDocumentReadCache @Inject constructor(
         readCacheMutex.withLock {
             if (file.hasReadableContent()) return@withLock
             try {
-                writeGrimmoryCacheFile(
+                writeFileAtomically(
                     destination = file,
                     targetDescription = "reader cache for ${item.title}",
                 ) { temporaryFile ->

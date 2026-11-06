@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.settings.StumpConnectionUiState
 import kotlin.coroutines.cancellation.CancellationException
@@ -33,7 +34,7 @@ class AppStumpCoordinatorTest {
         val result = coordinator.executeSync(preparation, clearCoverState = {})
 
         assertTrue(result is StumpSyncExecutionResult.Failure)
-        assertEquals(RemoteSourceReachability.Reachable, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.STUMP))
+        assertEquals(SourceConnectivityState.Online, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.STUMP))
     }
 
     @Test

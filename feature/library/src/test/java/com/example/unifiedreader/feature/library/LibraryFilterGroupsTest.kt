@@ -66,16 +66,4 @@ class LibraryFilterGroupsTest {
 
         assertEquals(listOf("Comics", "Books"), chips.map { it.label })
     }
-
-    @Test
-    fun `named periods are the times without a pile, most books first, picked ones left to the piles`() {
-        val facets = LibraryFilterFacets(
-            times = listOf("1800s", "Cold War", "World War II", "Belle Époque"),
-            counts = LibraryFilterFacetCounts(times = mapOf("1800s" to 9, "cold war" to 2, "world war ii" to 5, "belle époque" to 1)),
-        )
-
-        val periods = libraryFilterNamedPeriods(LibraryFilterState(times = setOf("Cold War")), facets)
-
-        assertEquals(listOf("World War II", "Belle Époque"), periods.map { it.value })
-    }
 }

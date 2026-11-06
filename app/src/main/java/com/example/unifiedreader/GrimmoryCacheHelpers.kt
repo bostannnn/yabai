@@ -1,18 +1,14 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.core.model.sha256
+import com.example.unifiedreader.core.model.toLowerHex
 import java.io.File
 import java.net.URI
-import java.security.MessageDigest
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 internal fun String.toSafeFileSegment(): String = replace(Regex("[^A-Za-z0-9._-]"), "_")
 
-internal fun String.toStableCacheHashSegment(): String {
-    val digest = MessageDigest.getInstance("SHA-256").digest(toByteArray(Charsets.UTF_8))
-    return digest.take(8).joinToString(separator = "") { byte -> "%02x".format(byte) }
-}
+internal fun String.toStableCacheHashSegment(): String = toByteArray(Charsets.UTF_8).sha256().copyOf(8).toLowerHex()
 
 internal fun ReadableItem.coverIdentityFileSegment(): String? = coverIdentityFileSegment(coverUrl)
 
@@ -94,35 +90,3 @@ internal fun ReadableItem.grimmoryLegacyCacheFileNames(
         ).joinToString(separator = "-").plus(".$extension"),
     )
 }
-
-internal suspend fun writeCachedFile(
-    destination: File,
-    targetDescription: String,
-    writeTemporaryFile: suspend (File) -> Unit,
-) = withContext(Dispatchers.IO) {
-    destination.parentFile?.mkdirs()
-    val temporaryFile = File(destination.parentFile, "${destination.name}.tmp")
-    temporaryFile.delete()
-    try {
-        writeTemporaryFile(temporaryFile)
-        if (destination.exists() && !destination.delete()) {
-            error("Unable to replace $targetDescription.")
-        }
-        if (!temporaryFile.renameTo(destination)) {
-            error("Unable to finalize $targetDescription.")
-        }
-    } catch (throwable: Throwable) {
-        temporaryFile.delete()
-        throw throwable
-    }
-}
-
-internal suspend fun writeGrimmoryCacheFile(
-    destination: File,
-    targetDescription: String,
-    writeTemporaryFile: suspend (File) -> Unit,
-) = writeCachedFile(
-    destination = destination,
-    targetDescription = targetDescription,
-    writeTemporaryFile = writeTemporaryFile,
-)
