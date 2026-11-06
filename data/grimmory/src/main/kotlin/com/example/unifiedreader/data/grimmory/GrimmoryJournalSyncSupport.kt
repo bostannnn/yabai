@@ -4,6 +4,7 @@ import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.SyncState
+import com.example.unifiedreader.core.model.toServerEpochMillisOrNull
 import com.example.unifiedreader.core.network.isRetryableNetworkFailure
 import com.example.unifiedreader.journal.ItemJournalEntry
 import com.example.unifiedreader.journal.JournalReadingEvent
@@ -12,8 +13,6 @@ import com.example.unifiedreader.journal.JournalReadingSession
 import com.example.unifiedreader.journal.JournalRepository
 import com.example.unifiedreader.journal.journalMediaType
 import java.time.Instant
-import java.time.LocalDateTime
-import java.time.ZoneOffset
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -407,10 +406,10 @@ private fun List<GrimmoryNotebookEntryDto>.toReviewJournalEntries(
     .mapNotNull { (bookId, notes) ->
         val item = bookId?.let(itemByRemoteBookId::get) ?: return@mapNotNull null
         val note = notes.maxByOrNull { entry ->
-            entry.updatedAt.toEpochMillisOrNull() ?: entry.createdAt.toEpochMillisOrNull() ?: 0L
+            entry.updatedAt.toServerEpochMillisOrNull() ?: entry.createdAt.toServerEpochMillisOrNull() ?: 0L
         } ?: return@mapNotNull null
-        val updatedAt = note.updatedAt.toEpochMillisOrNull()
-            ?: note.createdAt.toEpochMillisOrNull()
+        val updatedAt = note.updatedAt.toServerEpochMillisOrNull()
+            ?: note.createdAt.toServerEpochMillisOrNull()
             ?: System.currentTimeMillis()
         ItemJournalEntry(
             itemId = item.id,
@@ -447,9 +446,9 @@ private fun GrimmoryBookCatalogEntry.toFinishedProgressJournalEvent(): JournalRe
         dateFinished != null ||
         readStatus.isFinishedReadStatus()
     if (!isFinished) return null
-    val occurredAt = dateFinished?.toEpochMillisOrNull()
+    val occurredAt = dateFinished?.toServerEpochMillisOrNull()
         ?: progress?.updatedAtEpochMillis
-        ?: lastReadTime?.toEpochMillisOrNull()
+        ?: lastReadTime?.toServerEpochMillisOrNull()
         ?: System.currentTimeMillis()
     return JournalReadingEvent(
         id = "grimmory:progress:${item.id}:$occurredAt",
@@ -481,16 +480,16 @@ internal fun GrimmoryBookCatalogEntry.shouldFetchReadingSessions(): Boolean =
 
 /** When the book was last read or finished on the server: its journal entry keeps this as its remote time. */
 internal fun GrimmoryBookCatalogEntry.lastReadOrFinishedAtEpochMillis(): Long? = listOfNotNull(
-    dateFinished?.toEpochMillisOrNull(),
-    lastReadTime?.toEpochMillisOrNull(),
+    dateFinished?.toServerEpochMillisOrNull(),
+    lastReadTime?.toServerEpochMillisOrNull(),
 ).maxOrNull()
 
 private fun List<GrimmoryReadingSessionDto>.toJournalEvents(
     item: ReadableItem,
 ): List<JournalReadingEvent> = mapNotNull { session ->
-    val occurredAt = session.sessionEndTime.toEpochMillisOrNull()
-        ?: session.sessionStartTime.toEpochMillisOrNull()
-        ?: session.sessionCreatedAt.toEpochMillisOrNull()
+    val occurredAt = session.sessionEndTime.toServerEpochMillisOrNull()
+        ?: session.sessionStartTime.toServerEpochMillisOrNull()
+        ?: session.sessionCreatedAt.toServerEpochMillisOrNull()
         ?: return@mapNotNull null
     val fromPercent = session.sessionStartProgress.toJournalPercent()
     val toPercent = session.sessionEndProgress.toJournalPercent()
@@ -523,10 +522,10 @@ private fun List<GrimmoryReadingSessionDto>.toJournalEvents(
 private fun List<GrimmoryReadingSessionDto>.toJournalSessions(
     item: ReadableItem,
 ): List<JournalReadingSession> = mapNotNull { session ->
-    val startedAt = session.sessionStartTime.toEpochMillisOrNull()
-        ?: session.sessionCreatedAt.toEpochMillisOrNull()
+    val startedAt = session.sessionStartTime.toServerEpochMillisOrNull()
+        ?: session.sessionCreatedAt.toServerEpochMillisOrNull()
         ?: return@mapNotNull null
-    val explicitEnd = session.sessionEndTime.toEpochMillisOrNull()
+    val explicitEnd = session.sessionEndTime.toServerEpochMillisOrNull()
     val durationMillis = session.sessionDurationMillis
     val endedAt = explicitEnd
         ?: durationMillis?.let { duration -> startedAt + duration }
@@ -601,18 +600,7 @@ private fun List<GrimmoryNotebookEntryDto>.firstReservedReviewNoteForBook(
         entry.type.equals("NOTE", ignoreCase = true) &&
         (entry.text == GRIMMORY_UNIFIED_READER_REVIEW_TITLE || entry.chapterTitle == GRIMMORY_UNIFIED_READER_REVIEW_TITLE)
 }.maxByOrNull { entry ->
-    entry.updatedAt.toEpochMillisOrNull() ?: entry.createdAt.toEpochMillisOrNull() ?: 0L
-}
-
-private fun String?.toEpochMillisOrNull(): Long? {
-    val value = this ?: return null
-    return runCatching {
-        Instant.parse(value).toEpochMilli()
-    }.getOrElse {
-        runCatching {
-            LocalDateTime.parse(value).toInstant(ZoneOffset.UTC).toEpochMilli()
-        }.getOrNull()
-    }
+    entry.updatedAt.toServerEpochMillisOrNull() ?: entry.createdAt.toServerEpochMillisOrNull() ?: 0L
 }
 
 private const val GRIMMORY_READING_SESSION_FETCH_CONCURRENCY = 4

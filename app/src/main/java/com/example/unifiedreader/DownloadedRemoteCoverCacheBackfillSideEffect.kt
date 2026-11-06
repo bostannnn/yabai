@@ -10,6 +10,7 @@ import android.util.Log
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.writeFileAtomically
 import com.example.unifiedreader.feature.downloads.DownloadCompletionSideEffect
 import com.example.unifiedreader.feature.downloads.RemoteItemDownloadDataSource
 import com.example.unifiedreader.feature.downloads.downloadDataSourceFor
@@ -21,7 +22,6 @@ import com.example.unifiedreader.feature.library.covers.PersistentRemoteCoverSto
 import com.example.unifiedreader.feature.library.covers.RemoteCoverStorageDirectory
 import com.example.unifiedreader.feature.library.covers.STUMP_COVER_DIRECTORY_NAME
 import com.example.unifiedreader.feature.library.covers.STUMP_LEGACY_COVER_DIRECTORY_NAME
-import com.example.unifiedreader.feature.library.covers.writeCoverCacheFile
 import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.ByteArrayOutputStream
@@ -130,7 +130,7 @@ class DownloadedRemoteCoverCacheBackfiller @Inject constructor(
                 storageDirectoryName = target.storage.storageDirectoryName,
                 fileName = target.baseFileName,
             )
-            writeCoverCacheFile(
+            writeFileAtomically(
                 destination = destination,
                 targetDescription = "downloaded cover for ${item.title}",
             ) { temporaryFile ->

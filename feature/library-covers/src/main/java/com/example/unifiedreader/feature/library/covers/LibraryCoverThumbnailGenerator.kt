@@ -2,6 +2,7 @@ package com.example.unifiedreader.feature.library.covers
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import com.example.unifiedreader.core.model.writeFileAtomically
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -53,7 +54,7 @@ class LibraryCoverThumbnailGenerator @Inject constructor() {
         }
 
         try {
-            writeCoverCacheFile(
+            writeFileAtomically(
                 destination = destinationFile,
                 targetDescription = "library ${variant.fileKey} thumbnail",
             ) { temporaryFile ->

@@ -4,6 +4,7 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadingProgress
+import com.example.unifiedreader.core.model.toServerEpochMillisOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
@@ -14,9 +15,9 @@ import kotlinx.serialization.json.jsonPrimitive
 internal fun GrimmoryBookDto.toReadingProgress(
     item: ReadableItem,
 ): ReadingProgress? {
-    val updatedAtEpochMillis = lastReadTime?.toEpochMillisOrNull()
+    val updatedAtEpochMillis = lastReadTime?.toServerEpochMillisOrNull()
     val place = placeIn(item, updatedAtEpochMillis)
-    val finishedAtEpochMillis = (dateFinished ?: dateFinishedSnake)?.toEpochMillisOrNull()
+    val finishedAtEpochMillis = (dateFinished ?: dateFinishedSnake)?.toServerEpochMillisOrNull()
     // Grimmory keeps the finish date when the place goes back (a book read again, or its end
     // reached and left), and only its status says Reading then: that place is the one to keep.
     if (finishedAtEpochMillis != null && (place == null || isRead())) {

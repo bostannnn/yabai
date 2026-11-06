@@ -33,7 +33,29 @@ existed.
 - **CI runs the JVM modules' tests.** `ci.yml` and `release-apk.yml` now also run
   `:core:model:test :data:grimmory:test :data:kavita:test :data:stump:test`.
 
-**Next:** step 1.
+**Step 3 done (2026-11-06, branch `claude/component-refactoring-reuse-b71e0f`)**, ahead of steps 1 and 2 by the
+user's choice. The shared helpers and where they live:
+
+- `String?.toServerEpochMillisOrNull()` (`core:model` `ServerTimestamps.kt`, tested): the 5 server-time parsers.
+  It takes an instant, an offset time and a zone-less local time (read as UTC) everywhere, so Grimmory's catalog
+  and progress times and Stump's times now also accept offsets and local times.
+- `sha256Hex`, `sha256`, `toLowerHex` (`core:model` `Hashing.kt`, output pinned by a test so cache names stay put).
+- `writeFileAtomically` and `File.moveReplacing` (`core:model` `AtomicFiles.kt`): replace `writeCachedFile`,
+  `writeGrimmoryCacheFile` and `writeCoverCacheFile` (`CoverFileWriters.kt` is gone); the preview store, the local
+  cover cache and the archive codecs move through `moveReplacing`. The move now replaces in one step instead of
+  delete-then-rename.
+- `LenientJson` (`core:network`): the HTTP client, Kavita (3), Grimmory and Stump. The two in `feature/updates`
+  stay: that module doesn't use `core:network`, and one of them reads stored preferences.
+- `String.resolveSameOriginUrl` (`core:network`, tested): Kavita's and Stump's cover/asset downloads. Not done: an
+  `HttpResponse.throwIfError`, because the three servers' error messages are built differently.
+- `shortDayLabel` (`core:model`, tested): settings, the book page, downloads and shelves. **Decision taken:**
+  English month names (`Locale.US`) everywhere, since the rest of the text is English; the book page and shelves
+  used the device language before. The journal's `formatShortDate` never shows a year, so it stays.
+- `ContentResolver.queryArchiveSignature` and `Cursor.getLongOrNull` (app `ContentArchiveSignature.kt`).
+- Format checks: `isComicReaderFormat` and `toReadableFormatTypeOrNull` replace `isComicArchive` (2) and Stump's
+  `toComicFormatType`.
+
+**Next:** step 1, then step 2.
 
 ## Step 1. Decisions only the user can make
 

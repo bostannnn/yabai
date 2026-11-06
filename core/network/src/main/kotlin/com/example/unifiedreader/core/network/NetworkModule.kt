@@ -5,7 +5,6 @@ import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
-import kotlinx.serialization.json.Json
 
 /**
  * The shared client. Its short default timeouts suit the home servers on the LAN; a client for
@@ -21,12 +20,7 @@ fun buildHttpClient(
             this.socketTimeoutMillis = socketTimeoutMillis
         }
         install(ContentNegotiation) {
-            json(
-                Json {
-                    ignoreUnknownKeys = true
-                    explicitNulls = false
-                },
-            )
+            json(LenientJson)
         }
     }
 

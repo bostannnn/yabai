@@ -1,5 +1,6 @@
 package com.example.unifiedreader
 
+import com.example.unifiedreader.core.model.moveReplacing
 import com.example.unifiedreader.core.model.runSuspendCatching
 import android.content.Context
 import android.net.Uri
@@ -118,11 +119,7 @@ internal class LocalCoverCache(
             tempFile.delete()
             return@runCatching null
         }
-        val moved = tempFile.renameTo(coverFile) || runCatching {
-            tempFile.copyTo(coverFile, overwrite = false)
-            tempFile.delete()
-            true
-        }.getOrDefault(false)
+        val moved = runCatching { tempFile.moveReplacing(coverFile) }.isSuccess
         if (!moved || coverFile.length() <= 0L) {
             tempFile.delete()
             return@runCatching null

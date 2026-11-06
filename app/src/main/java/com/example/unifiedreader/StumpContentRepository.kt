@@ -4,6 +4,7 @@ import android.content.Context
 import com.example.unifiedreader.core.model.ComicReaderFormats
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.writeFileAtomically
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
@@ -28,7 +29,7 @@ class StumpContentRepository @Inject constructor(
         item: ReadableItem,
         remoteItemId: String,
         destination: File,
-    ) = writeCachedFile(
+    ) = writeFileAtomically(
         destination = destination,
         targetDescription = "downloaded Stump file for ${item.title}",
     ) { temporaryFile ->

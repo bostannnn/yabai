@@ -4,6 +4,7 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.librarySecondaryText
+import com.example.unifiedreader.core.model.shortDayLabel
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -77,12 +78,11 @@ internal fun downloadFinishedTimeLabel(
 ): String {
     val then = Instant.ofEpochMilli(epochMillis).atZone(zone)
     val today = localDateOf(nowEpochMillis, zone)
-    val pattern = when {
-        !then.toLocalDate().isBefore(today.minusDays(1)) -> "HH:mm"
-        then.year == today.year -> "d MMM"
-        else -> "d MMM yyyy"
+    return if (!then.toLocalDate().isBefore(today.minusDays(1))) {
+        then.format(DateTimeFormatter.ofPattern("HH:mm", Locale.US))
+    } else {
+        shortDayLabel(then.toLocalDate(), today)
     }
-    return then.format(DateTimeFormatter.ofPattern(pattern, Locale.US))
 }
 
 /** "24 files" for a download of several files; null for one. */

@@ -25,6 +25,7 @@ android {
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation("androidx.compose.runtime:runtime")
+    implementation(project(":core:model"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.javax.inject)
     implementation(libs.hilt.android)

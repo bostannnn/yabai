@@ -1,6 +1,8 @@
 package com.example.unifiedreader.data.kavita
 
 import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.core.network.LenientJson
+import com.example.unifiedreader.core.network.resolveSameOriginUrl
 import com.example.unifiedreader.core.network.writeBodyTo
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -21,7 +23,6 @@ import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.http.takeFrom
 import java.io.File
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -651,8 +652,7 @@ class KtorKavitaApi(
         coverUrl: String,
         apiKey: String?,
     ): ByteArray = authenticatedRequest {
-        val sameOriginUrl = coverUrl.resolveAgainst(normalizedBaseUrl)
-            .takeIf { candidate -> candidate.isSameOriginAs(normalizedBaseUrl) }
+        val sameOriginUrl = coverUrl.resolveSameOriginUrl(normalizedBaseUrl)
             ?: error("Refusing to send Kavita credentials to a different host.")
         val response = httpClient.get(sameOriginUrl) {
             bearerAuth(accessToken)
@@ -734,7 +734,7 @@ private fun String.problemDetailsSummary(
 ): String? {
     if (isBlank()) return null
     val parsed = runCatching {
-        KavitaErrorBodyJson.parseToJsonElement(this).jsonObject
+        LenientJson.parseToJsonElement(this).jsonObject
     }.getOrNull() ?: return trim().takeUnless { body ->
         body.equals(status.description, ignoreCase = true)
     }
@@ -748,39 +748,4 @@ private fun String.problemDetailsSummary(
         .distinct()
         .joinToString(separator = " - ")
         .takeIf(String::isNotBlank)
-}
-
-private val KavitaErrorBodyJson = Json {
-    ignoreUnknownKeys = true
-}
-
-private fun String.resolveAgainst(
-    baseUrl: String,
-): String = runCatching {
-    val baseUri = java.net.URI.create(baseUrl.trimEnd('/') + "/")
-    val candidateUri = java.net.URI.create(this)
-    if (candidateUri.isAbsolute) {
-        candidateUri.toString()
-    } else {
-        baseUri.resolve(candidateUri).toString()
-    }
-}.getOrElse {
-    error("Unable to resolve the Kavita asset URL.")
-}
-
-private fun String.isSameOriginAs(
-    baseUrl: String,
-): Boolean = runCatching {
-    val candidate = java.net.URI.create(this)
-    val base = java.net.URI.create(baseUrl)
-    candidate.scheme?.equals(base.scheme, ignoreCase = true) == true &&
-        candidate.host?.equals(base.host, ignoreCase = true) == true &&
-        candidate.effectivePort() == base.effectivePort()
-}.getOrDefault(false)
-
-private fun java.net.URI.effectivePort(): Int = when {
-    port != -1 -> port
-    scheme.equals("https", ignoreCase = true) -> 443
-    scheme.equals("http", ignoreCase = true) -> 80
-    else -> -1
 }

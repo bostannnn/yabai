@@ -1,7 +1,8 @@
 package com.example.unifiedreader.feature.reader.comics
 
+import com.example.unifiedreader.core.model.moveReplacing
+import com.example.unifiedreader.core.model.sha256Hex
 import java.io.File
-import java.security.MessageDigest
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -31,12 +32,7 @@ class PersistentComicPagePreviewStore(
         try {
             temporaryFile.writeBytes(bytes)
             if (temporaryFile.length() <= 0L) return@withContext
-            if (destination.exists() && !destination.delete()) return@withContext
-            val moved = temporaryFile.renameTo(destination) || runCatching {
-                temporaryFile.copyTo(destination, overwrite = true)
-                temporaryFile.delete()
-                true
-            }.getOrDefault(false)
+            val moved = runCatching { temporaryFile.moveReplacing(destination) }.isSuccess
             if (moved && destination.isFile && destination.length() > 0L) {
                 trimToMaxBytes()
             }
@@ -68,11 +64,6 @@ class PersistentComicPagePreviewStore(
             }
         }
     }
-}
-
-private fun String.sha256Hex(): String {
-    val digest = MessageDigest.getInstance("SHA-256").digest(toByteArray())
-    return digest.joinToString(separator = "") { byte -> "%02x".format(byte) }
 }
 
 private const val MAX_PREVIEW_STORE_BYTES = 256L * 1024L * 1024L

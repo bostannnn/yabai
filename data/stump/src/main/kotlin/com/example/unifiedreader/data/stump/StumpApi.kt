@@ -1,6 +1,8 @@
 package com.example.unifiedreader.data.stump
 
 import com.example.unifiedreader.core.model.Library
+import com.example.unifiedreader.core.network.LenientJson
+import com.example.unifiedreader.core.network.resolveSameOriginUrl
 import com.example.unifiedreader.core.network.writeBodyTo
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -18,10 +20,8 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.http.takeFrom
-import java.net.URI
 import java.io.File
 import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
@@ -142,9 +142,6 @@ class KtorStumpApi(
     private val normalizedBaseUrl = baseUrl.trimEnd('/').removeTrailingStumpApiPath()
     private val restBaseUrl = "$normalizedBaseUrl/api/v2"
     private val graphQlUrl = "$normalizedBaseUrl/api/graphql"
-    private val json = Json {
-        ignoreUnknownKeys = true
-    }
 
     override suspend fun login(
         username: String,
@@ -193,7 +190,7 @@ class KtorStumpApi(
                 }
             """.trimIndent(),
         )
-        return json.decodeFromJsonElement(StumpLibrariesQueryData.serializer(), response.data)
+        return LenientJson.decodeFromJsonElement(StumpLibrariesQueryData.serializer(), response.data)
             .libraries
             ?.nodes
             .orEmpty()
@@ -226,7 +223,7 @@ class KtorStumpApi(
                 put("libraryId", libraryId)
             },
         )
-        return json.decodeFromJsonElement(StumpSeriesQueryData.serializer(), response.data)
+        return LenientJson.decodeFromJsonElement(StumpSeriesQueryData.serializer(), response.data)
             .series
             ?.nodes
             .orEmpty()
@@ -303,7 +300,7 @@ class KtorStumpApi(
             },
             allowPartialData = true,
         )
-        val entries = json.decodeFromJsonElement(StumpSeriesDetailQueryData.serializer(), response.data)
+        val entries = LenientJson.decodeFromJsonElement(StumpSeriesDetailQueryData.serializer(), response.data)
             .seriesById
             ?.toCatalogEntries(
                 baseUrl = normalizedBaseUrl,
@@ -344,7 +341,7 @@ class KtorStumpApi(
                 put("id", mediaId)
             },
         )
-        return json.decodeFromJsonElement(StumpMediaProgressQueryData.serializer(), response.data)
+        return LenientJson.decodeFromJsonElement(StumpMediaProgressQueryData.serializer(), response.data)
             .mediaById
             ?.toReadingProgress(
                 itemId = itemId,
@@ -444,8 +441,7 @@ class KtorStumpApi(
         accessToken: String,
         url: String,
     ): ByteArray {
-        val sameOriginUrl = url.resolveAgainst(normalizedBaseUrl)
-            .takeIf { candidate -> candidate.isSameOriginAs(normalizedBaseUrl) }
+        val sameOriginUrl = url.resolveSameOriginUrl(normalizedBaseUrl)
             ?: error("Refusing to send Stump credentials to a different host.")
         val response = httpClient.get(sameOriginUrl) {
             bearerAuth(accessToken)
@@ -506,34 +502,3 @@ private fun String.removeTrailingStumpApiPath(): String = replace(
     Regex("/api(?:/v\\d+)?$"),
     "",
 )
-
-private fun String.resolveAgainst(
-    baseUrl: String,
-): String = runCatching {
-    val baseUri = URI.create(baseUrl.trimEnd('/') + "/")
-    val candidateUri = URI.create(this)
-    if (candidateUri.isAbsolute) {
-        candidateUri.toString()
-    } else {
-        baseUri.resolve(candidateUri).toString()
-    }
-}.getOrElse {
-    error("Unable to resolve the Stump asset URL.")
-}
-
-private fun String.isSameOriginAs(
-    baseUrl: String,
-): Boolean = runCatching {
-    val candidate = URI.create(this)
-    val base = URI.create(baseUrl)
-    candidate.scheme?.equals(base.scheme, ignoreCase = true) == true &&
-        candidate.host?.equals(base.host, ignoreCase = true) == true &&
-        candidate.effectivePort() == base.effectivePort()
-}.getOrDefault(false)
-
-private fun URI.effectivePort(): Int = when {
-    port != -1 -> port
-    scheme.equals("https", ignoreCase = true) -> 443
-    scheme.equals("http", ignoreCase = true) -> 80
-    else -> -1
-}

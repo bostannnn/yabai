@@ -37,6 +37,7 @@ import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.displayName
 import com.example.unifiedreader.core.model.resolveLibraryFilterPanels
+import com.example.unifiedreader.core.model.shortDayLabel
 import com.example.unifiedreader.data.repository.RemoteSyncArtifact
 import com.example.unifiedreader.feature.lists.ListLibraryMode
 import com.example.unifiedreader.feature.downloads.DownloadsSheet
@@ -72,7 +73,6 @@ import com.example.unifiedreader.feature.settings.SyncSettingsSourceGroup
 import com.example.unifiedreader.feature.settings.SyncSettingsUiState
 import com.example.unifiedreader.feature.settings.direction.ReadingDirectionLibraryUiState
 import com.example.unifiedreader.feature.settings.direction.buildComicReadingDirectionLibraryRows
-import com.example.unifiedreader.feature.settings.formatSettingsDay
 import com.example.unifiedreader.feature.settings.formatSettingsMoment
 import com.example.unifiedreader.feature.settings.mode.ReaderModeLibraryUiState
 import com.example.unifiedreader.feature.settings.mode.buildComicReaderModeLibraryRows
@@ -862,7 +862,7 @@ private fun AppPendingRemoteSyncSummary.toSyncSettingsUiState(): SyncSettingsUiS
     pendingCount = totalCount,
     queuedCount = queuedCount,
     failedCount = failedCount,
-    waitingSinceLabel = groups.flatMap { it.items }.mapNotNull { it.updatedAtEpochMillis }.minOrNull()?.let { formatSettingsDay(it) },
+    waitingSinceLabel = groups.flatMap { it.items }.mapNotNull { it.updatedAtEpochMillis }.minOrNull()?.let { shortDayLabel(it) },
     lastAttemptLabel = groups.mapNotNull { it.lastAttempt?.attemptedAtEpochMillis }.maxOrNull()?.let { formatSettingsMoment(it) },
     sourceGroups = groups.map { group ->
         SyncSettingsSourceGroup(
@@ -880,7 +880,7 @@ private fun AppPendingRemoteSyncSummary.toSyncSettingsUiState(): SyncSettingsUiS
                     subtitle = item.itemSubtitle,
                     artifactLabel = item.artifact.settingsLabel(),
                     stateLabel = item.state.settingsLabel(),
-                    updatedAtLabel = item.updatedAtEpochMillis?.let { updatedAt -> "since ${formatSettingsDay(updatedAt)}" },
+                    updatedAtLabel = item.updatedAtEpochMillis?.let { updatedAt -> "since ${shortDayLabel(updatedAt)}" },
                 )
             },
         )

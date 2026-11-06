@@ -9,10 +9,12 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.ReadableItemKind
 import com.example.unifiedreader.core.model.ReadingProgress
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.core.model.isComicReaderFormat
 import com.example.unifiedreader.core.model.isPlausiblePublishedYear
 import com.example.unifiedreader.core.model.remoteItemId
 import com.example.unifiedreader.core.model.remoteLibraryId
-import java.time.Instant
+import com.example.unifiedreader.core.model.toReadableFormatTypeOrNull
+import com.example.unifiedreader.core.model.toServerEpochMillisOrNull
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -230,11 +232,11 @@ internal fun StumpMediaProgressDto.toReadingProgress(
 ): ReadingProgress? {
     val completedAtEpochMillis = readHistory.orEmpty()
         .mapNotNull(StumpFinishedReadingSessionDto::completedAt)
-        .mapNotNull(String::toEpochMillisOrNull)
+        .mapNotNull { value -> value.toServerEpochMillisOrNull() }
         .maxOrNull()
     val activeProgress = readProgress
     if (activeProgress != null) {
-        val activeUpdatedAtEpochMillis = activeProgress.updatedAt.toEpochMillisOrNull()
+        val activeUpdatedAtEpochMillis = activeProgress.updatedAt.toServerEpochMillisOrNull()
         if (completedAtEpochMillis != null && activeUpdatedAtEpochMillis?.let { it > completedAtEpochMillis } != true) {
             return finishedStumpProgress(
                 itemId = itemId,
@@ -291,7 +293,7 @@ internal fun StumpMediaNodeDto.toCatalogEntry(
     seriesTags: List<String>,
 ): StumpMediaCatalogEntry? {
     val mediaId = id?.takeIf(String::isNotBlank) ?: return null
-    val format = extension.toComicFormatType() ?: return null
+    val format = extension.toReadableFormatTypeOrNull()?.takeIf(FormatType::isComicReaderFormat) ?: return null
     val issueTitle = metadata?.title?.takeIf(String::isNotBlank)
         ?: resolvedName?.takeIf(String::isNotBlank)
         ?: series.title
@@ -348,16 +350,6 @@ private fun String?.toAbsoluteStumpUrl(
         else -> baseUrl.trimEnd('/') + "/" + resolved
     }
 }
-
-private fun String?.toComicFormatType(): FormatType? = when (this?.lowercase()) {
-    "cbz" -> FormatType.CBZ
-    "cbr" -> FormatType.CBR
-    else -> null
-}
-
-private fun String?.toEpochMillisOrNull(): Long? = runCatching {
-    this?.takeIf(String::isNotBlank)?.let(Instant::parse)?.toEpochMilli()
-}.getOrNull()
 
 private fun String?.toFacetNames(): List<String> = listOfNotNull(
     this?.trim()?.takeIf(String::isNotBlank),

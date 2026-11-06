@@ -11,12 +11,11 @@ import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.core.model.libraryPrimaryText
 import com.example.unifiedreader.core.model.normalizedAuthors
 import com.example.unifiedreader.core.model.ownIssueTitle
+import com.example.unifiedreader.core.model.shortDayLabel
 import com.example.unifiedreader.core.model.supportsManualReadStatusAction
 import com.example.unifiedreader.core.model.volumeNumber
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 
@@ -250,7 +249,7 @@ internal fun libraryLastReadDay(
         days <= 0L -> LibraryReadDay("today")
         days == 1L -> LibraryReadDay("yesterday")
         days < 7L -> LibraryReadDay("$days days ago")
-        else -> LibraryReadDay(read.format(dateFormatter(read, today)), isDate = true)
+        else -> LibraryReadDay(shortDayLabel(read, today), isDate = true)
     }
 }
 
@@ -262,15 +261,8 @@ internal fun libraryAddedLabel(
 ): String? {
     val added = addedAtEpochMillis?.takeIf { it > 0L }?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDate() } ?: return null
     val today = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
-    return added.format(dateFormatter(added, today))
+    return shortDayLabel(added, today)
 }
-
-private fun dateFormatter(read: LocalDate, today: LocalDate): DateTimeFormatter =
-    if (read.year == today.year) {
-        DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())
-    } else {
-        DateTimeFormatter.ofPattern("d MMM yyyy", Locale.getDefault())
-    }
 
 /**
  * A language as people read it: "en" is "English", "pt-BR" "Portuguese (Brazil)", in [locale]'s

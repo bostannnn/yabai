@@ -2,11 +2,8 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.runSuspendCatching
 import android.content.Context
-import android.database.Cursor
 import android.net.Uri
 import android.os.SystemClock
-import android.provider.DocumentsContract
-import android.provider.OpenableColumns
 import android.util.Log
 import android.util.LruCache
 import com.example.unifiedreader.core.model.ReadableItem
@@ -972,36 +969,7 @@ private fun LocalDocumentRecord.cacheIdentity(
             return "${uri}::${file.length()}::${file.lastModified()}"
         }
     }
-    return "${uri}::${context.archiveSignature(uri)}::${pageCount}::${pageEntryNames.size}"
-}
-
-private fun Context.archiveSignature(
-    uri: Uri,
-): String {
-    if (uri.scheme != "content") return "unknown"
-    val projection = arrayOf(
-        OpenableColumns.SIZE,
-        DocumentsContract.Document.COLUMN_LAST_MODIFIED,
-    )
-    return runCatching {
-        contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
-            if (!cursor.moveToFirst()) return@use "unknown"
-            val size = cursor.getLongOrNull(OpenableColumns.SIZE) ?: -1L
-            val lastModified = cursor.getLongOrNull(DocumentsContract.Document.COLUMN_LAST_MODIFIED) ?: -1L
-            if (size < 0L && lastModified < 0L) {
-                "unknown"
-            } else {
-                "$size:$lastModified"
-            }
-        } ?: "unknown"
-    }.getOrDefault("unknown")
-}
-
-private fun Cursor.getLongOrNull(
-    columnName: String,
-): Long? {
-    val index = getColumnIndex(columnName)
-    return if (index >= 0 && !isNull(index)) getLong(index) else null
+    return "${uri}::${context.contentResolver.queryArchiveSignature(uri)}::${pageCount}::${pageEntryNames.size}"
 }
 
 private fun ByteArray.hasJpegSignature(): Boolean {
