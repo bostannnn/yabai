@@ -52,6 +52,7 @@ object AppIcons {
     val NavigateNext: ImageVector @Composable get() = icon(R.drawable.ic_navigate_next)
     val OpenInNew: ImageVector @Composable get() = icon(R.drawable.ic_open_in_new)
     val Palette: ImageVector @Composable get() = icon(R.drawable.ic_palette)
+    val Public: ImageVector @Composable get() = icon(R.drawable.ic_public)
     val Refresh: ImageVector @Composable get() = icon(R.drawable.ic_refresh)
     val Remove: ImageVector @Composable get() = icon(R.drawable.ic_remove)
     val Search: ImageVector @Composable get() = icon(R.drawable.ic_search)

@@ -59,7 +59,7 @@ internal fun ReadiumEpubNavigatorHost(
     onSurfaceTap: () -> Unit,
     onEndNavigationRequested: () -> Unit,
     onFootnoteActivated: (EpubFootnoteContent) -> Unit,
-    onTranslateSelection: ((ReaderTextSelection) -> Unit)?,
+    translation: EpubSelectionTranslation?,
     navigationRequest: EpubNavigationRequest?,
     onNavigationRequestConsumed: () -> Unit,
     modifier: Modifier = Modifier,
@@ -72,7 +72,7 @@ internal fun ReadiumEpubNavigatorHost(
     val latestOnEndNavigationRequested = rememberUpdatedState(onEndNavigationRequested)
     val latestOnFootnoteActivated = rememberUpdatedState(onFootnoteActivated)
     val footnoteNavigationScope = rememberCoroutineScope()
-    val latestOnTranslateSelection = rememberUpdatedState(onTranslateSelection)
+    val latestTranslation = rememberUpdatedState(translation)
     val isLandscape = remember(
         configuration.orientation,
         configuration.screenWidthDp,
@@ -93,6 +93,14 @@ internal fun ReadiumEpubNavigatorHost(
     val surfaceBackground = preferences.theme.colors.page
     val resumePoint = remember(publication) { EpubNavigatorResumePoint() }
     val curlHost = remember(publication) { EpubPageCurlHost() }
+    val selectionFollower = remember(publication) {
+        EpubSelectionFollower(
+            scope = footnoteNavigationScope,
+            navigator = { curlHost.navigator },
+            bookLanguage = publication.metadata.languages.firstOrNull(),
+            translation = { latestTranslation.value },
+        )
+    }
     val curlTapTurner = remember(publication) { PageCurlTapTurner() }
     val curlEnabled = preferences.pageTurnStyle == PageTurnStyle.Curl &&
         preferences.layoutMode != EpubReaderLayoutMode.Scroll &&
@@ -295,12 +303,10 @@ internal fun ReadiumEpubNavigatorHost(
             configuration = epubNavigatorFragmentConfiguration(
                 EpubSelectionActionModeCallback(
                     delegate = curlHost.selectionActionModeCallback,
-                    canTranslate = { latestOnTranslateSelection.value != null },
-                    onTranslate = {
-                        footnoteNavigationScope.withCurrentSelection(curlHost.navigator, publication.metadata.languages.firstOrNull()) { selection ->
-                            latestOnTranslateSelection.value?.invoke(selection)
-                        }
-                    },
+                    canTranslate = { latestTranslation.value?.openOnSelect == false },
+                    onTranslate = selectionFollower::translate,
+                    onSelectionChanged = selectionFollower::selectionChanged,
+                    onSelectionCleared = selectionFollower::selectionCleared,
                     onCopy = {
                         footnoteNavigationScope.withCurrentSelection(curlHost.navigator, null) { selection ->
                             activity.copyToClipboard(selection.text)
@@ -383,6 +389,10 @@ internal fun ReadiumEpubNavigatorHost(
             }
         }
     }
+
+    // When the card or sheet closes, the words stop being selected too.
+    val translationOpen = translation?.isOpen == true
+    LaunchedEffect(translationOpen) { selectionFollower.translationShown(translationOpen) }
 
     LaunchedEffect(fragmentTag, preferences, viewportSpacing.contentPaddingPx) {
         val navigator = fragmentManager.findFragmentByTag(fragmentTag) as? EpubNavigatorFragment

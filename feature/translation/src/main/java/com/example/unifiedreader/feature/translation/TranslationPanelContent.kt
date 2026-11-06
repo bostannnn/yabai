@@ -23,7 +23,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
@@ -34,7 +33,9 @@ import com.example.unifiedreader.ui.components.AppButtonDefaults
 import com.example.unifiedreader.ui.components.AppIconButton
 import com.example.unifiedreader.ui.components.AppIcons
 import com.example.unifiedreader.ui.components.AppLinearProgress
+import com.example.unifiedreader.ui.components.AppMenu
 import com.example.unifiedreader.ui.components.AppMenuChoiceItem
+import com.example.unifiedreader.ui.components.AppMenuHeading
 import com.example.unifiedreader.ui.components.AppDivider
 import com.example.unifiedreader.ui.components.AppTextButton
 import com.example.unifiedreader.ui.components.AppTonalButton
@@ -42,14 +43,28 @@ import com.example.unifiedreader.ui.components.appSkeletonPulse
 
 /** What the card and the sheet do with your taps. */
 internal class TranslationPanelActions(
-    val onPickFrom: (String?) -> Unit,
-    val onPickTo: (String) -> Unit,
-    val onSwap: () -> Unit,
-    val onDownload: () -> Unit,
-    val onRetry: () -> Unit,
+    private val session: TranslationSession,
+    private val service: TranslationService,
     val onClose: () -> Unit,
     val onOpenFull: (() -> Unit)?,
-)
+    val onAddDeepL: () -> Unit,
+) {
+    fun pickFrom(tag: String?) = session.pickFrom(tag)
+
+    fun pickTo(tag: String) = session.pickTo(tag)
+
+    fun swap() = session.swap()
+
+    fun download() = session.download()
+
+    fun retry() = session.retry()
+
+    /** Translate with, from the card's chip; it holds for later cards too. */
+    fun pickProvider(provider: TranslationProvider) = service.updatePreferences { it.copy(provider = provider) }
+
+    /** The sheet is already full: no Open full there. */
+    fun withoutOpenFull() = TranslationPanelActions(session, service, onClose, onOpenFull = null, onAddDeepL)
+}
 
 /** From, the swap, To, and on the card a close button: the row both surfaces start with. */
 @Composable
@@ -65,19 +80,19 @@ internal fun TranslationLanguageRow(
             menuTitle = TranslationCopy.TranslateFrom,
             selected = translation.from,
             state = state,
-            onPick = actions.onPickFrom,
+            onPick = actions::pickFrom,
             extraFirst = { close ->
                 AppMenuChoiceItem(
                     text = TranslationCopy.TheBooksLanguage,
                     selected = false,
                     onClick = {
                         close()
-                        actions.onPickFrom(null)
+                        actions.pickFrom(null)
                     },
                 )
             },
         )
-        AppIconButton(onClick = actions.onSwap, enabled = translation.to != null) {
+        AppIconButton(onClick = actions::swap, enabled = translation.to != null) {
             Icon(AppIcons.SwapHoriz, contentDescription = TranslationCopy.Swap)
         }
         LanguagePill(
@@ -85,7 +100,7 @@ internal fun TranslationLanguageRow(
             menuTitle = TranslationCopy.TranslateInto,
             selected = translation.to,
             state = state,
-            onPick = { tag -> tag?.let(actions.onPickTo) },
+            onPick = { tag -> tag?.let(actions::pickTo) },
             emphasised = translation.to == null,
         )
         Spacer(modifier = Modifier.weight(1f))
@@ -154,7 +169,7 @@ internal fun TranslationPhaseBody(
             BodyText(TranslationCopy.downloadBody(names.size))
             ButtonRow {
                 AppTextButton(onClick = actions.onClose) { Text(TranslationCopy.NotNow) }
-                AppButton(onClick = actions.onDownload) { Text(TranslationCopy.Download) }
+                AppButton(onClick = actions::download) { Text(TranslationCopy.Download) }
             }
         }
 
@@ -166,39 +181,26 @@ internal fun TranslationPhaseBody(
         }
 
         TranslationPhase.Translating -> {
-            if (asSheet) SelectedText(selection.text) else Caption(selection.text.trim())
+            if (asSheet) SelectedText(selection.text) else Caption(selection.text.trim(), maxLines = CardSourceLines)
             SkeletonLine(fraction = 0.6f, height = 26)
             SkeletonLine(fraction = 0.9f, height = 14)
             SkeletonLine(fraction = 0.7f, height = 14)
         }
 
-        is TranslationPhase.Done -> if (asSheet && !selection.isShort) {
-            SelectedText(selection.text)
-            AppDivider()
-            Caption(TranslationLanguages.displayName(checkNotNull(translation.to)))
-            Text(phase.translation, style = MaterialTheme.typography.bodyLarge)
-        } else {
-            Caption(selection.text.trim())
-            Text(
-                phase.translation,
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
-            )
-            phase.sentence?.let { sentence ->
-                AppDivider()
-                Caption(TranslationCopy.InThisSentence)
-                if (asSheet) Caption(selection.sentence.orEmpty())
-                Text(sentence, style = MaterialTheme.typography.bodyLarge)
-            }
-        }
+        is TranslationPhase.Done -> DoneBody(translation, phase, asSheet)
 
         is TranslationPhase.Failed -> {
             Title(TranslationCopy.CouldntTranslate)
             BodyText(
-                if (phase.reason == TranslationFailure.Download) TranslationCopy.DownloadFailed else TranslationCopy.TranslateFailed,
+                when (phase.reason) {
+                    TranslationFailure.Download -> TranslationCopy.DownloadFailed
+                    TranslationFailure.Translate -> TranslationCopy.TranslateFailed
+                    TranslationFailure.DeepL -> TranslationCopy.DeepLFailedTranslate
+                },
             )
             ButtonRow {
                 AppTextButton(onClick = actions.onClose) { Text(TranslationCopy.Close) }
-                AppButton(onClick = actions.onRetry) { Text(TranslationCopy.TryAgain) }
+                AppButton(onClick = actions::retry) { Text(TranslationCopy.TryAgain) }
             }
         }
     }
@@ -206,23 +208,35 @@ internal fun TranslationPhaseBody(
 
 /** "Translated on this device" with Copy and, on the card, Open full. */
 @Composable
-internal fun TranslationCardFooter(translation: TextSelectionTranslation, actions: TranslationPanelActions) {
-    val done = translation.phase as? TranslationPhase.Done ?: return
+internal fun TranslationCardFooter(
+    translation: TextSelectionTranslation,
+    state: TranslationState,
+    actions: TranslationPanelActions,
+) {
+    val done = translation.phase as? TranslationPhase.Done
     val clipboard = LocalClipboardManager.current
+    // The chip shows on a failure too: switching to the tablet is the way out of DeepL's.
+    if (done == null && translation.phase !is TranslationPhase.Failed) return
     Row(verticalAlignment = Alignment.CenterVertically) {
-        OnThisDevice(modifier = Modifier.weight(1f))
+        ProviderChip(translation, state, actions)
+        Spacer(modifier = Modifier.weight(1f))
+        if (done == null) return@Row
         AppTextButton(onClick = { clipboard.setText(AnnotatedString(done.translation)) }) { Text(TranslationCopy.Copy) }
         actions.onOpenFull?.let { open -> AppTextButton(onClick = open) { Text(TranslationCopy.OpenFull) } }
     }
 }
 
 @Composable
-internal fun TranslationSheetFooter(translation: TextSelectionTranslation) {
+internal fun TranslationSheetFooter(
+    translation: TextSelectionTranslation,
+    state: TranslationState,
+    actions: TranslationPanelActions,
+) {
     val done = translation.phase as? TranslationPhase.Done
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        OnThisDevice()
+        ProviderChip(translation, state, actions)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AppButton(
                 onClick = { done?.let { clipboard.setText(AnnotatedString(it.translation)) } },
@@ -246,23 +260,75 @@ internal fun Context.openInAnotherApp(text: String) {
     runCatching { startActivity(Intent.createChooser(intent, TranslationCopy.OpenIn).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }
 
+/**
+ * Who translated, as a chip: DeepL or This tablet. Its menu is Settings' Translate with, so a
+ * pick holds for later cards; before a DeepL key it offers Add DeepL… instead.
+ */
 @Composable
-private fun OnThisDevice(modifier: Modifier = Modifier) {
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        IconSmall(AppIcons.TabletAndroid)
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            TranslationCopy.OnThisDevice,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+private fun ProviderChip(
+    translation: TextSelectionTranslation,
+    state: TranslationState,
+    actions: TranslationPanelActions,
+) {
+    var open by remember { mutableStateOf(false) }
+    val shown = (translation.phase as? TranslationPhase.Done)?.by ?: state.provider
+    Box {
+        AppTonalButton(onClick = { open = true }) {
+            Icon(
+                if (shown == TranslationProvider.DeepL) AppIcons.Public else AppIcons.TabletAndroid,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                if (shown == TranslationProvider.DeepL) TranslationCopy.DeepL else TranslationCopy.ThisTablet,
+                style = MaterialTheme.typography.labelMedium,
+            )
+            Spacer(modifier = Modifier.width(2.dp))
+            Icon(AppIcons.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(16.dp))
+        }
+        AppMenu(expanded = open, onDismissRequest = { open = false }) {
+            AppMenuHeading(TranslationCopy.TranslateWith)
+            if (state.deepL.hasKey) {
+                AppMenuChoiceItem(
+                    text = TranslationCopy.DeepL,
+                    selected = state.provider == TranslationProvider.DeepL,
+                    onClick = {
+                        open = false
+                        actions.pickProvider(TranslationProvider.DeepL)
+                    },
+                )
+            } else {
+                // A choice row, unticked, so it lines up with This tablet under it.
+                AppMenuChoiceItem(
+                    text = TranslationCopy.AddDeepL,
+                    selected = false,
+                    onClick = {
+                        open = false
+                        actions.onAddDeepL()
+                    },
+                )
+            }
+            AppMenuChoiceItem(
+                text = TranslationCopy.ThisTablet,
+                selected = state.provider == TranslationProvider.Device,
+                onClick = {
+                    open = false
+                    actions.pickProvider(TranslationProvider.Device)
+                },
+            )
+        }
     }
 }
 
+/** Under a translation the tablet made because DeepL couldn't: why. */
 @Composable
-private fun IconSmall(icon: ImageVector) {
-    Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun FellBack(phase: TranslationPhase.Done, translation: TextSelectionTranslation) {
+    val failure = phase.fallback ?: return
+    val to = translation.to ?: return
+    Caption(TranslationCopy.fellBack(failure, translation.from, to))
 }
+
 
 @Composable
 private fun Title(text: String) {
@@ -275,9 +341,52 @@ private fun BodyText(text: String) {
 }
 
 @Composable
-private fun Caption(text: String) {
-    Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun Caption(text: String, maxLines: Int = Int.MAX_VALUE) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = maxLines,
+        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+    )
 }
+
+/** A finished translation: a passage in the sheet as text, a word (or the card) as a headword with its sentence. */
+@Composable
+private fun DoneBody(translation: TextSelectionTranslation, phase: TranslationPhase.Done, asSheet: Boolean) {
+    val selection = translation.selection
+    // One column, spaced as the card's and the sheet's own, so the body emits one piece.
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (asSheet && !selection.isShort) {
+            SelectedText(selection.text)
+            AppDivider()
+            Caption(TranslationLanguages.displayName(checkNotNull(translation.to)))
+            Text(phase.translation, style = MaterialTheme.typography.bodyLarge)
+            FellBack(phase, translation)
+        } else {
+            Caption(selection.text.trim(), maxLines = CardSourceLines)
+            Text(
+                phase.translation,
+                // A passage in the card, picked by dragging the handles, reads as text, not a headword.
+                style = if (selection.isShort) {
+                    MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold)
+                } else {
+                    MaterialTheme.typography.bodyLarge
+                },
+            )
+            FellBack(phase, translation)
+            phase.sentence?.let { sentence ->
+                AppDivider()
+                Caption(TranslationCopy.InThisSentence)
+                if (asSheet) Caption(selection.sentence.orEmpty())
+                Text(sentence, style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+    }
+}
+
+/** The card shows the start of a passage; the sheet shows all of it. */
+private const val CardSourceLines = 2
 
 @Composable
 private fun SelectedText(text: String) {

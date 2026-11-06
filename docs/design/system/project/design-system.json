@@ -13,9 +13,9 @@
   "groups": [],
   "lastChange": {
     "by": "bostannnn",
-    "at": "2026-11-06T15:30:00Z",
+    "at": "2026-11-06T23:10:00Z",
     "via": "Claude Code",
-    "note": "Translation in the reader: AppAnchoredCard (a card at a word), the ReaderTranslation screen (card for a few words, sheet for passages, Settings \u203a Translation), and selected text as one see-through blue on every page colour"
+    "note": "ReaderTranslation: DeepL with your own key \u2014 the card's chip names who translates (picked B), Settings \u203a Translation gets Translate with and a DeepL group, and the key dialog"
   },
   "layout": "files",
   "libraries": [],

@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.yabai.android.library)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.yabai.android.compose)
 }
 
@@ -21,7 +22,10 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.mlkit.translate)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.ktor.client.core)
 
     testImplementation(libs.junit4)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.ktor.client.mock)
 }
