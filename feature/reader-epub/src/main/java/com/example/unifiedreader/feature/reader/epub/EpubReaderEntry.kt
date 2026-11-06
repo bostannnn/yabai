@@ -28,6 +28,7 @@ import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
@@ -190,6 +191,8 @@ fun EpubReaderScreen(
     var isPreferencesPaneOpen by rememberSaveable(item.id) { mutableStateOf(false) }
     var footnoteContent by remember(item.id) { mutableStateOf<EpubFootnoteContent?>(null) }
     val translationSession = translation?.let { service -> rememberTranslationSession(service) }
+    val translationState = translation?.state?.collectAsStateWithLifecycle()?.value
+    val translationShown = translationSession?.current?.collectAsStateWithLifecycle()?.value != null
     var noteReturn by remember(item.id) { mutableStateOf<EpubNoteReturn?>(null) }
     val readerPreferences = EpubReaderPreferences(
         typographyMode = typographyMode,
@@ -588,11 +591,8 @@ fun EpubReaderScreen(
                             overlayState.hide()
                             footnoteContent = footnote
                         },
-                        onTranslateSelection = translationSession?.let { session ->
-                            { selection ->
-                                overlayState.hide()
-                                session.open(selection)
-                            }
+                        translation = translationSession?.let { session ->
+                            epubSelectionTranslation(session, translationState, translationShown, overlayState::hide)
                         },
                         navigationRequest = navigationRequest,
                         onNavigationRequestConsumed = {

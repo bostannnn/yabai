@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -34,6 +35,7 @@ import com.example.unifiedreader.ui.components.AppPanelHeader
 fun rememberTranslationSession(service: TranslationService): TranslationSession {
     val scope = rememberCoroutineScope()
     val session = remember(service) { TranslationSession(service, scope) }
+    LaunchedEffect(service) { service.startPreferences() }
     DisposableEffect(session) { onDispose(session::close) }
     return session
 }
@@ -52,6 +54,10 @@ fun ReaderTranslationOverlay(
     val current by session.current.collectAsStateWithLifecycle()
     val state by service.state.collectAsStateWithLifecycle()
     var expanded by rememberSaveable { mutableStateOf(false) }
+    var addingDeepL by remember { mutableStateOf(false) }
+    if (addingDeepL) {
+        DeepLKeyDialog(service = service, hasKey = state.deepL.hasKey, onDismissRequest = { addingDeepL = false })
+    }
     val translation = current
     // A new selection starts small again; Open full only applies to the one it was pressed on.
     LaunchedEffect(translation?.selection) { expanded = false }
@@ -67,8 +73,11 @@ fun ReaderTranslationOverlay(
         onRetry = session::retry,
         onClose = close,
         onOpenFull = { expanded = true },
+        onPickProvider = service::setProvider,
+        onAddDeepL = { addingDeepL = true },
     )
-    val asCard = translation != null && translation.selection.isShort && !expanded
+    val asCard = translation != null && !expanded &&
+        (translation.selection.isShort || translation.selection.followsSelection)
     // The selection's bounds come in window pixels; the card is placed in this slot's.
     var origin by remember { mutableStateOf(Offset.Zero) }
     Box(modifier = Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInWindow() })
@@ -80,8 +89,13 @@ fun ReaderTranslationOverlay(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 TranslationLanguageRow(translation, state, actions, showClose = true)
-                TranslationPhaseBody(translation, asSheet = false, actions = actions)
-                TranslationCardFooter(translation, actions)
+                Column(
+                    modifier = Modifier.heightIn(max = CardBodyMaxHeight).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    TranslationPhaseBody(translation, asSheet = false, actions = actions)
+                }
+                TranslationCardFooter(translation, state, actions)
             }
         }
     }
@@ -104,10 +118,13 @@ fun ReaderTranslationOverlay(
             TranslationPhaseBody(shown, asSheet = true, actions = actions)
         }
         Column(modifier = Modifier.fillMaxWidth().padding(AppLayout.inset)) {
-            TranslationSheetFooter(shown)
+            TranslationSheetFooter(shown, state, actions)
         }
     }
 }
+
+/** A passage in the card scrolls past this; Open full shows it in the sheet. */
+private val CardBodyMaxHeight = 320.dp
 
 private fun TranslationPanelActions.copyWithoutOpenFull() = TranslationPanelActions(
     onPickFrom = onPickFrom,
@@ -117,4 +134,6 @@ private fun TranslationPanelActions.copyWithoutOpenFull() = TranslationPanelActi
     onRetry = onRetry,
     onClose = onClose,
     onOpenFull = null,
+    onPickProvider = onPickProvider,
+    onAddDeepL = onAddDeepL,
 )

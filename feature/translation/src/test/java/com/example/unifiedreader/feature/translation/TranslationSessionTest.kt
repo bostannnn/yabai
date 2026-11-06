@@ -108,4 +108,46 @@ class TranslationSessionTest {
 
         assertEquals(TranslationPhase.Failed(TranslationFailure.Download), session.current.value?.phase)
     }
+
+    @Test
+    fun `a card that follows the selection keeps your languages as the selection grows`() = runTest(UnconfinedTestDispatcher()) {
+        val engine = FakeEngine().apply { onTablet += setOf("ru", "de") }
+        val (_, session) = setUp(engine, TranslationPreferences(targetLanguage = "ru"))
+        val followed = word.copy(followsSelection = true)
+
+        session.follow(followed)
+        session.pickTo("de")
+        val longer = followed.copy(text = "reluctant to leave the house at night")
+        session.follow(longer)
+
+        val now = session.current.value!!
+        assertEquals(longer, now.selection)
+        assertEquals("de", now.to)
+        assertEquals("[de] reluctant to leave the house at night", (now.phase as TranslationPhase.Done).translation)
+    }
+
+    @Test
+    fun `following after Translate opened the card starts afresh`() = runTest(UnconfinedTestDispatcher()) {
+        val engine = FakeEngine().apply { onTablet += setOf("ru", "de") }
+        val (_, session) = setUp(engine, TranslationPreferences(targetLanguage = "ru"))
+
+        session.open(word)
+        session.pickFrom("de")
+        session.follow(word.copy(followsSelection = true))
+
+        assertEquals("en", session.current.value?.from)
+        assertTrue(session.current.value!!.selection.followsSelection)
+    }
+
+    @Test
+    fun `the same selection again translates once`() = runTest(UnconfinedTestDispatcher()) {
+        val engine = FakeEngine().apply { onTablet += "ru" }
+        val (_, session) = setUp(engine, TranslationPreferences(targetLanguage = "ru"))
+        val followed = word.copy(followsSelection = true)
+
+        session.follow(followed)
+        session.follow(followed)
+
+        assertEquals(listOf("reluctant"), engine.translated.filter { it == "reluctant" })
+    }
 }

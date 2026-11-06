@@ -2,8 +2,6 @@ package com.example.unifiedreader.feature.translation
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,11 +22,28 @@ class TranslationSession(
     private var pickedTo: String? = null
     private var work: Job? = null
 
+    /** What the card last translated, so a state change that doesn't touch it doesn't translate again. */
+    private data class Request(val selection: ReaderTextSelection, val from: String, val to: String?, val provider: TranslationProvider)
+    private var lastRequest: Request? = null
+
     fun open(selection: ReaderTextSelection) {
         service.start()
         pickedFrom = null
         pickedTo = null
         show(selection)
+    }
+
+    /**
+     * The selection changed while the card follows it (a handle was dragged): the languages you
+     * picked stay, the text and its place update.
+     */
+    fun follow(selection: ReaderTextSelection) {
+        val now = mutableCurrent.value
+        if (now == null || !now.selection.followsSelection) {
+            open(selection)
+        } else if (now.selection != selection) {
+            show(selection)
+        }
     }
 
     fun close() {
@@ -74,6 +89,7 @@ class TranslationSession(
 
     fun retry() {
         val now = mutableCurrent.value ?: return
+        lastRequest = null
         val failed = listOf(now.from, now.to).filterNotNull().filter { it in service.state.value.failed }
         failed.forEach(service::download)
         show(now.selection)
@@ -92,12 +108,19 @@ class TranslationSession(
                     deviceLanguage = state.deviceLanguage,
                 ).let { (from, to) -> from to (pickedTo?.takeIf { it != from } ?: to) }
                 val waiting = nextPhase(from, to, state)
+                val request = Request(selection, from, to, state.provider)
                 val shown = mutableCurrent.value
-                val alreadyDone = shown != null && shown.selection == selection && shown.from == from &&
-                    shown.to == to && (shown.phase is TranslationPhase.Done || shown.phase is TranslationPhase.Translating)
+                val alreadyDone = request == lastRequest &&
+                    (shown?.phase is TranslationPhase.Done || shown?.phase is TranslationPhase.Translating)
                 when {
-                    waiting != null -> mutableCurrent.value = TextSelectionTranslation(selection, from, to, waiting)
-                    !alreadyDone -> translate(selection, from, checkNotNull(to))
+                    waiting != null -> {
+                        lastRequest = null
+                        mutableCurrent.value = TextSelectionTranslation(selection, from, to, waiting)
+                    }
+                    !alreadyDone -> {
+                        lastRequest = request
+                        translate(selection, from, checkNotNull(to))
+                    }
                 }
             }
         }
@@ -106,15 +129,12 @@ class TranslationSession(
     private suspend fun translate(selection: ReaderTextSelection, from: String, to: String) {
         mutableCurrent.value = TextSelectionTranslation(selection, from, to, TranslationPhase.Translating)
         val phase = runCatching {
-            coroutineScope {
-                val sentence = selection.sentence?.takeIf { selection.isShort }
-                val sentenceTranslation = sentence?.let { text -> async { service.translate(text, from, to) } }
-                val translation = service.translate(selection.text.trim(), from, to)
-                TranslationPhase.Done(translation = translation, sentence = sentenceTranslation?.await())
-            }
+            val sentence = selection.sentence?.takeIf { selection.isShort }
+            val result = service.translateSelection(selection.text.trim(), sentence, from, to)
+            TranslationPhase.Done(result.translation, result.sentence, result.by, result.fallback)
         }.getOrElse { error ->
             if (error is kotlinx.coroutines.CancellationException) throw error
-            TranslationPhase.Failed(TranslationFailure.Translate)
+            TranslationPhase.Failed(if (error is DeepLException) TranslationFailure.DeepL else TranslationFailure.Translate)
         }
         mutableCurrent.value = TextSelectionTranslation(selection, from, to, phase)
     }

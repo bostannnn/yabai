@@ -12,6 +12,11 @@ data class ReaderTextSelection(
     val after: String = "",
     val bookLanguage: String? = null,
     val bounds: Rect? = null,
+    /**
+     * Opened by selecting, not by Translate: the card follows the selection while you drag its
+     * handles, so it stays a card at any length (Open full opens the sheet).
+     */
+    val followsSelection: Boolean = false,
 ) {
     val words: Int get() = text.trim().split(WhitespaceRegex).count { it.isNotEmpty() }
 
@@ -48,7 +53,16 @@ sealed interface TranslationPhase {
 
     data object Translating : TranslationPhase
 
-    data class Done(val translation: String, val sentence: String?) : TranslationPhase
+    /**
+     * [by] is who translated. [fallback]: DeepL was asked for and couldn't, so the tablet did;
+     * the card says why.
+     */
+    data class Done(
+        val translation: String,
+        val sentence: String?,
+        val by: TranslationProvider = TranslationProvider.Device,
+        val fallback: DeepLFailure? = null,
+    ) : TranslationPhase
 
     data class Failed(val reason: TranslationFailure) : TranslationPhase
 }
@@ -59,6 +73,9 @@ enum class TranslationFailure {
 
     /** The engine couldn't translate. */
     Translate,
+
+    /** DeepL couldn't, and the languages aren't on the tablet to fall back on. */
+    DeepL,
 }
 
 /** What the card or sheet needs from the moment: the selection, the pair and the phase. */
@@ -76,6 +93,8 @@ internal fun nextPhase(
     state: TranslationState,
 ): TranslationPhase? {
     if (to == null) return TranslationPhase.PickLanguage
+    // DeepL needs nothing on the tablet.
+    if (state.usesDeepL(from, to)) return null
     val missing = listOf(from, to).distinct().filterNot { it in state.downloaded }
     return when {
         missing.isEmpty() -> null
