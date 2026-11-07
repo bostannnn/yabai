@@ -8,6 +8,7 @@ import com.example.unifiedreader.core.model.toServerEpochMillisOrNull
 import com.example.unifiedreader.core.network.isRetryableNetworkFailure
 import com.example.unifiedreader.journal.ItemJournalEntry
 import com.example.unifiedreader.journal.JournalReadingEvent
+import com.example.unifiedreader.journal.finishedProgressJournalEvent
 import com.example.unifiedreader.journal.JournalReadingEventType
 import com.example.unifiedreader.journal.JournalReadingSession
 import com.example.unifiedreader.journal.JournalRepository
@@ -450,25 +451,11 @@ private fun GrimmoryBookCatalogEntry.toFinishedProgressJournalEvent(): JournalRe
         ?: progress?.updatedAtEpochMillis
         ?: lastReadTime?.toServerEpochMillisOrNull()
         ?: System.currentTimeMillis()
-    return JournalReadingEvent(
-        id = "grimmory:progress:${item.id}:$occurredAt",
-        itemId = item.id,
-        sourceType = item.sourceType,
-        libraryId = item.libraryId,
-        itemTitle = item.title,
-        coverUrl = item.coverUrl,
-        itemKind = item.kind,
-        format = item.format,
-        eventType = JournalReadingEventType.FINISHED,
-        fromPercent = 0.0,
-        toPercent = (progress?.percent ?: 1.0).coerceIn(0.0, 1.0),
-        fromPage = null,
-        toPage = progress?.page,
-        pageCount = item.pageCount,
+    return item.finishedProgressJournalEvent(
+        sourceKey = "grimmory",
         occurredAtEpochMillis = occurredAt,
-        remoteEventId = item.remoteId,
-        remoteUpdatedAtEpochMillis = occurredAt,
-        syncState = SyncState.CLEAN,
+        toPercent = progress?.percent ?: 1.0,
+        toPage = progress?.page,
     )
 }
 

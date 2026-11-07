@@ -245,7 +245,16 @@ user's choice. The shared helpers and where they live:
   page), and closed with Back. Each position was saved (Star Courier p. 6 of 8, The Salt Orchard chapter 2, Field-Notes
   p. 3 of 12) and the journal recorded all three reading sessions.
 
-**Next:** 5.9 (finished-progress journal event).
+**Step 5.9 built (2026-11-07), finished-progress journal event.**
+- `ReadableItem.finishedProgressJournalEvent(sourceKey, occurredAtEpochMillis, toPercent, toPage)` (core:model,
+  `journal/FinishedProgressJournalEvent.kt`) builds the journal's "finished" entry for a book a server marks as read.
+  It lives in core:model, not data:repository as planned: data:kavita and data:grimmory can't depend on
+  data:repository (it depends on them), and the journal model is already in core:model.
+- Kavita and Grimmory keep their own rules for when a book counts as finished, when, and how far; the event's ids
+  are unchanged (`kavita:progress:…`, `grimmory:progress:…`), so nothing already in the journal is duplicated.
+- All 1,923 tests, detekt, lint and the debug build pass.
+
+**Step 5 is done.** **Next:** step 6 (move behaviour out of `app`).
 
 ## Step 1. Decisions only the user can make (done, answers above)
 

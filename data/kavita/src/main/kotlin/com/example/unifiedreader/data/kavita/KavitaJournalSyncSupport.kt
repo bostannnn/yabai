@@ -10,6 +10,7 @@ import com.example.unifiedreader.core.network.LenientJson
 import com.example.unifiedreader.core.network.isRetryableNetworkFailure
 import com.example.unifiedreader.journal.ItemJournalEntry
 import com.example.unifiedreader.journal.JournalReadingEvent
+import com.example.unifiedreader.journal.finishedProgressJournalEvent
 import com.example.unifiedreader.journal.JournalReadingEventType
 import com.example.unifiedreader.journal.JournalReadingSession
 import com.example.unifiedreader.journal.JournalRepository
@@ -399,25 +400,11 @@ private fun KavitaChapterCatalogEntry.toFinishedProgressJournalEvent(): JournalR
     val toPercent = progress.percent
         ?: progress.page?.let { page -> itemPageCount?.let { count -> page.toDouble() / count.toDouble() } }
         ?: 1.0
-    return JournalReadingEvent(
-        id = "kavita:progress:${item.id}:$occurredAt",
-        itemId = item.id,
-        sourceType = item.sourceType,
-        libraryId = item.libraryId,
-        itemTitle = item.title,
-        coverUrl = item.coverUrl,
-        itemKind = item.kind,
-        format = item.format,
-        eventType = JournalReadingEventType.FINISHED,
-        fromPercent = 0.0,
-        toPercent = toPercent.coerceIn(0.0, 1.0),
-        fromPage = null,
-        toPage = progress.page,
-        pageCount = item.pageCount,
+    return item.finishedProgressJournalEvent(
+        sourceKey = "kavita",
         occurredAtEpochMillis = occurredAt,
-        remoteEventId = item.remoteId,
-        remoteUpdatedAtEpochMillis = occurredAt,
-        syncState = SyncState.CLEAN,
+        toPercent = toPercent,
+        toPage = progress.page,
     )
 }
 
