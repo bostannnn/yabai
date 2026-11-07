@@ -182,7 +182,22 @@ user's choice. The shared helpers and where they live:
   (`10.0.2.2:9`, test values) showed "Connecting", then the failure, and re-enabled Connect; no crash.
   **Not checked:** a real sign-in or sync against any server.
 
-**Next:** 5.4 (progress push loop and token refresh).
+**Step 5.4 built (2026-11-07), progress push loop and token refresh.**
+- `pushDirtyProgress` (`ProgressPushPlan.kt`) is the one loop. It takes the unsent and failed positions oldest first
+  and asks the server's `planFor` what to do with each: `Leave` it, `SettleLocally`, or `Push` (check the server's copy,
+  then send). Settling, marking failures and stopping on an unreachable address are shared.
+- Kavita, Stump and Grimmory each keep only their plan: Kavita's prefix filter and removed-chapter rule, Stump's
+  local unread reset and diagnostics, Grimmory's position building.
+- `TokenRefreshResult<T, Session>`, `runWithTokenRefresh` and `TokenRenewal` (`TokenRefresh.kt`) replace the two
+  copies in `StumpAuthHelpers.kt` and `GrimmoryAuthHelpers.kt`. `StumpTokenRefreshResult`/`GrimmoryTokenRefreshResult`
+  are typealiases, and `RefreshingTokens` carries the tokens from one request to the next within a run.
+- About as many lines added as removed (250 each): the gain is one copy of the loop and of the token renewal instead of three and two. Nothing a reader sees changes.
+- All tests (Kavita 13, Stump 6, Grimmory 11 progress tests and the catalog sync tests), detekt, lint and the debug
+  build pass. Not checked on the emulator: pushing progress needs a server.
+- **Seen, not part of this step:** lint warns twice (`UseKtx`) on `EncryptedSourceSessionStore.kt` from `8d2b885d`;
+  warnings don't fail the build.
+
+**Next:** 5.5 (cover repositories).
 
 ## Step 1. Decisions only the user can make (done, answers above)
 

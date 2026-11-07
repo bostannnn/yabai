@@ -4,35 +4,20 @@ import com.example.unifiedreader.data.stump.StumpApi
 import com.example.unifiedreader.data.stump.StumpSession
 import com.example.unifiedreader.data.stump.StumpUnauthorizedException
 
-internal data class StumpTokenRefreshResult<T>(
-    val value: T,
-    val accessToken: String,
-    val refreshToken: String?,
-    val refreshedSession: StumpSession?,
-)
+internal typealias StumpTokenRefreshResult<T> = TokenRefreshResult<T, StumpSession>
+
+internal val StumpApi.tokenRenewal: TokenRenewal<StumpSession>
+    get() = TokenRenewal(
+        isUnauthorized = { throwable -> throwable is StumpUnauthorizedException },
+        refreshSession = ::refreshSession,
+        tokensOf = { session -> session.accessToken to session.refreshToken },
+    )
 
 internal suspend fun <T> StumpApi.runWithTokenRefresh(
     initialAccessToken: String,
     initialRefreshToken: String?,
     block: suspend (accessToken: String) -> T,
-): StumpTokenRefreshResult<T> = try {
-    StumpTokenRefreshResult(
-        value = block(initialAccessToken),
-        accessToken = initialAccessToken,
-        refreshToken = initialRefreshToken,
-        refreshedSession = null,
-    )
-} catch (exception: StumpUnauthorizedException) {
-    val refreshToken = initialRefreshToken?.takeIf(String::isNotBlank)
-        ?: throw exception
-    val refreshedSession = refreshSession(refreshToken)
-    StumpTokenRefreshResult(
-        value = block(refreshedSession.accessToken),
-        accessToken = refreshedSession.accessToken,
-        refreshToken = refreshedSession.refreshToken,
-        refreshedSession = refreshedSession,
-    )
-}
+): StumpTokenRefreshResult<T> = tokenRenewal.run(initialAccessToken, initialRefreshToken, block)
 
 internal class StumpStoredSessionRequestRunner(
     private val credentialStore: SourceSessionStore<StumpStoredSession>,

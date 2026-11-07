@@ -4,35 +4,20 @@ import com.example.unifiedreader.data.grimmory.GrimmoryApi
 import com.example.unifiedreader.data.grimmory.GrimmorySession
 import com.example.unifiedreader.data.grimmory.GrimmoryUnauthorizedException
 
-internal data class GrimmoryTokenRefreshResult<T>(
-    val value: T,
-    val accessToken: String,
-    val refreshToken: String?,
-    val refreshedSession: GrimmorySession?,
-)
+internal typealias GrimmoryTokenRefreshResult<T> = TokenRefreshResult<T, GrimmorySession>
+
+internal val GrimmoryApi.tokenRenewal: TokenRenewal<GrimmorySession>
+    get() = TokenRenewal(
+        isUnauthorized = { throwable -> throwable is GrimmoryUnauthorizedException },
+        refreshSession = ::refreshSession,
+        tokensOf = { session -> session.accessToken to session.refreshToken },
+    )
 
 internal suspend fun <T> GrimmoryApi.runWithTokenRefresh(
     initialAccessToken: String,
     initialRefreshToken: String?,
     block: suspend (accessToken: String) -> T,
-): GrimmoryTokenRefreshResult<T> = try {
-    GrimmoryTokenRefreshResult(
-        value = block(initialAccessToken),
-        accessToken = initialAccessToken,
-        refreshToken = initialRefreshToken,
-        refreshedSession = null,
-    )
-} catch (exception: GrimmoryUnauthorizedException) {
-    val refreshToken = initialRefreshToken?.takeIf(String::isNotBlank)
-        ?: throw exception
-    val refreshedSession = refreshSession(refreshToken)
-    GrimmoryTokenRefreshResult(
-        value = block(refreshedSession.accessToken),
-        accessToken = refreshedSession.accessToken,
-        refreshToken = refreshedSession.refreshToken,
-        refreshedSession = refreshedSession,
-    )
-}
+): GrimmoryTokenRefreshResult<T> = tokenRenewal.run(initialAccessToken, initialRefreshToken, block)
 
 internal class GrimmoryStoredSessionRequestRunner(
     private val credentialStore: SourceSessionStore<GrimmoryStoredSession>,

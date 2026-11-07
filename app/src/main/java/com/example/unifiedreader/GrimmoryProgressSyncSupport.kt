@@ -1,19 +1,15 @@
 package com.example.unifiedreader
 
-import com.example.unifiedreader.core.model.runSuspendCatching
 import android.net.Uri
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.data.grimmory.GrimmoryApi
 import com.example.unifiedreader.data.grimmory.GrimmoryProgressUpdate
-import com.example.unifiedreader.data.grimmory.GrimmorySession
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import org.json.JSONObject
-import kotlin.coroutines.cancellation.CancellationException
 
 internal suspend fun pushDirtyGrimmoryProgress(
     api: GrimmoryApi,
@@ -22,70 +18,37 @@ internal suspend fun pushDirtyGrimmoryProgress(
     items: List<ReadableItem>,
     readerSessionStore: ReaderSessionStore,
 ): GrimmoryTokenRefreshResult<List<Throwable>> {
+    val tokens = RefreshingTokens(initialAccessToken, initialRefreshToken, api.tokenRenewal)
     val itemsById = items.associateBy(ReadableItem::id)
-    var activeAccessToken = initialAccessToken
-    var activeRefreshToken = initialRefreshToken
-    var latestSession: GrimmorySession? = null
-    val failures = mutableListOf<Throwable>()
-    readerSessionStore.progressByItemIdFlow.value.values
-        .sortedBy(ReaderProgressSnapshot::updatedAtEpochMillis)
-        .forEach { progress ->
-        val item = itemsById[progress.itemId] ?: return@forEach
-        if (progress.syncState != SyncState.DIRTY && progress.syncState != SyncState.FAILED) return@forEach
-        val remoteItemId = item.remoteId ?: return@forEach
+    val failures = pushDirtyProgress(readerSessionStore) { progress ->
+        val item = itemsById[progress.itemId] ?: return@pushDirtyProgress ProgressPushPlan.Leave
+        val remoteItemId = item.remoteId ?: return@pushDirtyProgress ProgressPushPlan.Leave
         val update = if (progress.isExplicitUnreadReset) {
             null
         } else {
             progress.toGrimmoryProgressUpdate(
                 item = item,
                 pageCount = readerSessionStore.getSession(item)?.pageCount ?: item.pageCount,
-            ) ?: return@forEach
+            ) ?: return@pushDirtyProgress ProgressPushPlan.Leave
         }
-        runSuspendCatching {
-            api.runWithTokenRefresh(
-                initialAccessToken = activeAccessToken,
-                initialRefreshToken = activeRefreshToken,
-            ) { token ->
-                val serverCopy = progress.newerServerCopy(
-                    remote = api.getBookEntry(accessToken = token, bookId = remoteItemId)?.progress,
-                )
-                if (serverCopy != null) return@runWithTokenRefresh PendingProgressPush.ServerNewer(serverCopy)
-                if (progress.isExplicitUnreadReset) {
-                    api.resetBookProgress(
-                        accessToken = token,
-                        bookId = remoteItemId,
+        ProgressPushPlan.Push(
+            push = {
+                tokens.run { token ->
+                    val serverCopy = progress.newerServerCopy(
+                        remote = api.getBookEntry(accessToken = token, bookId = remoteItemId)?.progress,
                     )
-                } else {
-                    api.updateProgress(
-                        accessToken = token,
-                        progress = checkNotNull(update),
-                    )
+                    if (serverCopy != null) return@run PendingProgressPush.ServerNewer(serverCopy)
+                    if (update == null) {
+                        api.resetBookProgress(accessToken = token, bookId = remoteItemId)
+                    } else {
+                        api.updateProgress(accessToken = token, progress = update)
+                    }
+                    PendingProgressPush.Pushed
                 }
-                PendingProgressPush.Pushed
-            }
-        }.onSuccess {
-            activeAccessToken = it.accessToken
-            activeRefreshToken = it.refreshToken
-            latestSession = it.refreshedSession ?: latestSession
-            readerSessionStore.settlePendingProgress(progress, it.value)
-        }.onFailure { throwable ->
-            if (throwable is CancellationException) {
-                throw throwable
-            }
-            throwable.rethrowIfServerAddressUnreachable()
-            failures += throwable
-            readerSessionStore.replaceProgressIfCurrent(
-                expected = progress,
-                replacement = progress.copy(syncState = SyncState.FAILED),
-            )
-        }
+            },
+        )
     }
-    return GrimmoryTokenRefreshResult(
-        value = failures.toList(),
-        accessToken = activeAccessToken,
-        refreshToken = activeRefreshToken,
-        refreshedSession = latestSession,
-    )
+    return tokens.result(failures)
 }
 
 internal fun ReaderProgressSnapshot.toReaderLocator(): ReaderLocator = ReaderLocator(

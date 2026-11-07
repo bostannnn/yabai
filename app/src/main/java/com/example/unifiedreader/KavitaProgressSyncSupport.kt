@@ -1,6 +1,5 @@
 package com.example.unifiedreader
 
-import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
@@ -16,88 +15,62 @@ import com.example.unifiedreader.data.kavita.toReadingProgress
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
 import com.example.unifiedreader.feature.reader.epub.epubReadingOrderIndexOf
-import kotlin.coroutines.cancellation.CancellationException
 
 internal suspend fun pushDirtyKavitaProgress(
     api: KavitaApi,
     tokens: KavitaRunTokens,
-    items: List<com.example.unifiedreader.core.model.ReadableItem>,
+    items: List<ReadableItem>,
     readerSessionStore: ReaderSessionStore,
     // True only when `items` is the whole Kavita catalog (a catalog sync), so a dirty snapshot
     // missing from it was deleted on the server. A pending flush passes a subset.
     itemsAreWholeCatalog: Boolean,
 ): List<Throwable> {
-    val failures = mutableListOf<Throwable>()
-    val itemById = items.associateBy(com.example.unifiedreader.core.model.ReadableItem::id)
-    // The store holds every source's progress; the others push their own.
-    val dirtyProgress = readerSessionStore.progressByItemIdFlow.value.values
-        .filter { progress -> progress.itemId.startsWith(KavitaItemIdPrefix) }
-        .filter { progress ->
-            progress.syncState == SyncState.DIRTY || progress.syncState == SyncState.FAILED
-        }
-        .sortedBy(ReaderProgressSnapshot::updatedAtEpochMillis)
-
-    dirtyProgress.forEach { progress ->
+    val itemById = items.associateBy(ReadableItem::id)
+    return pushDirtyProgress(readerSessionStore) { progress ->
+        // The store holds every source's progress; the others push their own.
+        if (!progress.itemId.startsWith(KavitaItemIdPrefix)) return@pushDirtyProgress ProgressPushPlan.Leave
         val item = itemById[progress.itemId]
-        if (item == null) {
-            // Outside this batch: leave it for a later push.
-            if (!itemsAreWholeCatalog) return@forEach
-            // A Kavita chapter missing from the catalog was removed on the server; stop retrying it.
-            readerSessionStore.replaceProgressIfCurrent(
-                expected = progress,
-                replacement = if (progress.isExplicitUnreadReset) {
-                    null
-                } else {
-                    progress.copy(syncState = SyncState.CLEAN)
-                },
-            )
-            return@forEach
-        }
-        val chapterId = item.remoteId ?: return@forEach
-        runSuspendCatching {
-            tokens.run push@{ token, _ ->
-                val serverCopy = progress.newerServerCopy(
-                    remote = api.getProgress(accessToken = token, chapterId = chapterId)
-                        .toReadingProgress(itemId = item.id, pageCount = item.pageCount),
-                    localRefinesRemote = ::kavitaLocalRefinesRemote,
-                )
-                if (serverCopy != null) return@push PendingProgressPush.ServerNewer(serverCopy)
-                val progressPage = if (progress.isExplicitUnreadReset) 0 else progress.kavitaPageNum(item)
-                val update = item.toKavitaProgressUpdate(
-                    page = progressPage,
-                    isFinished = progress.isFinished,
-                    updatedAtEpochMillis = progress.updatedAtEpochMillis,
-                ) ?: api.getChapterInfo(
-                    accessToken = token,
-                    chapterId = chapterId,
-                ).toProgressUpdate(
-                    item = item,
-                    page = progressPage,
-                    isFinished = progress.isFinished,
-                    updatedAtEpochMillis = progress.updatedAtEpochMillis,
-                ) ?: return@push PendingProgressPush.Skipped
-                api.updateProgress(
-                    accessToken = token,
-                    progress = update,
-                )
-                PendingProgressPush.Pushed
-            }
-        }.onSuccess { uploadResult ->
-            readerSessionStore.settlePendingProgress(progress, uploadResult)
-        }.onFailure { throwable ->
-            if (throwable is CancellationException) {
-                throw throwable
-            }
-            throwable.rethrowIfServerAddressUnreachable()
-            failures += throwable
-            readerSessionStore.replaceProgressIfCurrent(
-                expected = progress,
-                replacement = progress.copy(syncState = SyncState.FAILED),
-            )
-        }
+            ?: return@pushDirtyProgress progress.planForChapterNotInBatch(itemsAreWholeCatalog)
+        val chapterId = item.remoteId ?: return@pushDirtyProgress ProgressPushPlan.Leave
+        ProgressPushPlan.Push(
+            push = {
+                tokens.run push@{ token, _ ->
+                    val serverCopy = progress.newerServerCopy(
+                        remote = api.getProgress(accessToken = token, chapterId = chapterId)
+                            .toReadingProgress(itemId = item.id, pageCount = item.pageCount),
+                        localRefinesRemote = ::kavitaLocalRefinesRemote,
+                    )
+                    if (serverCopy != null) return@push PendingProgressPush.ServerNewer(serverCopy)
+                    val progressPage = if (progress.isExplicitUnreadReset) 0 else progress.kavitaPageNum(item)
+                    val update = item.toKavitaProgressUpdate(
+                        page = progressPage,
+                        isFinished = progress.isFinished,
+                        updatedAtEpochMillis = progress.updatedAtEpochMillis,
+                    ) ?: api.getChapterInfo(
+                        accessToken = token,
+                        chapterId = chapterId,
+                    ).toProgressUpdate(
+                        item = item,
+                        page = progressPage,
+                        isFinished = progress.isFinished,
+                        updatedAtEpochMillis = progress.updatedAtEpochMillis,
+                    ) ?: return@push PendingProgressPush.Skipped
+                    api.updateProgress(accessToken = token, progress = update)
+                    PendingProgressPush.Pushed
+                }
+            },
+        )
     }
+}
 
-    return failures.toList()
+/**
+ * A chapter outside this batch is left for a later push; one missing from the whole catalog was removed on the
+ * server, so it stops being retried.
+ */
+private fun ReaderProgressSnapshot.planForChapterNotInBatch(itemsAreWholeCatalog: Boolean): ProgressPushPlan = when {
+    !itemsAreWholeCatalog -> ProgressPushPlan.Leave
+    isExplicitUnreadReset -> ProgressPushPlan.SettleLocally(replacement = null)
+    else -> ProgressPushPlan.SettleLocally(replacement = copy(syncState = SyncState.CLEAN))
 }
 
 private val KavitaItemIdPrefix = SourceType.KAVITA.remoteItemId(remoteId = "")

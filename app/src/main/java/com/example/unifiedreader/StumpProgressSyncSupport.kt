@@ -1,12 +1,9 @@
 package com.example.unifiedreader
 
-import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.data.stump.StumpApi
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
-import kotlin.coroutines.cancellation.CancellationException
 
 internal suspend fun pushDirtyStumpProgress(
     api: StumpApi,
@@ -16,82 +13,39 @@ internal suspend fun pushDirtyStumpProgress(
     readerSessionStore: ReaderSessionStore,
     diagnostics: StumpProgressSyncDiagnostics = NoOpStumpProgressSyncDiagnostics,
 ): StumpTokenRefreshResult<List<Throwable>> {
-    var activeAccessToken = initialAccessToken
-    var activeRefreshToken = initialRefreshToken
-    var latestSession: com.example.unifiedreader.data.stump.StumpSession? = null
-    val failures = mutableListOf<Throwable>()
+    val tokens = RefreshingTokens(initialAccessToken, initialRefreshToken, api.tokenRenewal)
     val itemById = items.associateBy(ReadableItem::id)
-    val dirtyProgress = readerSessionStore.progressByItemIdFlow.value.values
-        .filter { progress ->
-            progress.syncState == SyncState.DIRTY || progress.syncState == SyncState.FAILED
-        }
-        .sortedBy(ReaderProgressSnapshot::updatedAtEpochMillis)
-
-    dirtyProgress.forEach { progress ->
-        val item = itemById[progress.itemId] ?: return@forEach
-        val mediaId = item.remoteId ?: return@forEach
+    val failures = pushDirtyProgress(readerSessionStore) { progress ->
+        val item = itemById[progress.itemId] ?: return@pushDirtyProgress ProgressPushPlan.Leave
+        val mediaId = item.remoteId ?: return@pushDirtyProgress ProgressPushPlan.Leave
         val operation = progress.toStumpProgressPushOperation(item)
-        val event = progress.toStumpProgressSyncDiagnosticEvent(
-            item = item,
-            mediaId = mediaId,
-            operation = operation,
-        )
+        val event = progress.toStumpProgressSyncDiagnosticEvent(item = item, mediaId = mediaId, operation = operation)
         diagnostics.onAttempt(event)
         if (operation.operation == StumpProgressSyncOperation.LocalUnreadReset) {
             diagnostics.onSuccess(event)
-            readerSessionStore.replaceProgressIfCurrent(
-                expected = progress,
-                replacement = null,
-            )
-            return@forEach
+            return@pushDirtyProgress ProgressPushPlan.SettleLocally(replacement = null)
         }
-        runSuspendCatching {
-            api.runWithTokenRefresh(
-                initialAccessToken = activeAccessToken,
-                initialRefreshToken = activeRefreshToken,
-            ) { token ->
-                val serverCopy = progress.newerServerCopy(
-                    remote = api.getProgress(
-                        accessToken = token,
-                        mediaId = mediaId,
-                        itemId = item.id,
-                        pageCount = item.pageCount,
-                    ),
-                )
-                if (serverCopy != null) return@runWithTokenRefresh PendingProgressPush.ServerNewer(serverCopy)
-                api.pushStumpProgressOperation(
-                    accessToken = token,
-                    mediaId = mediaId,
-                    operation = operation,
-                )
-                PendingProgressPush.Pushed
-            }
-        }.onSuccess { uploadResult ->
-            diagnostics.onSuccess(event)
-            activeAccessToken = uploadResult.accessToken
-            activeRefreshToken = uploadResult.refreshToken
-            latestSession = uploadResult.refreshedSession ?: latestSession
-            readerSessionStore.settlePendingProgress(progress, uploadResult.value)
-        }.onFailure { throwable ->
-            if (throwable is CancellationException) {
-                throw throwable
-            }
-            diagnostics.onFailure(event, throwable)
-            throwable.rethrowIfServerAddressUnreachable()
-            failures += throwable
-            readerSessionStore.replaceProgressIfCurrent(
-                expected = progress,
-                replacement = progress.copy(syncState = SyncState.FAILED),
-            )
-        }
+        ProgressPushPlan.Push(
+            push = {
+                tokens.run { token ->
+                    val serverCopy = progress.newerServerCopy(
+                        remote = api.getProgress(
+                            accessToken = token,
+                            mediaId = mediaId,
+                            itemId = item.id,
+                            pageCount = item.pageCount,
+                        ),
+                    )
+                    if (serverCopy != null) return@run PendingProgressPush.ServerNewer(serverCopy)
+                    api.pushStumpProgressOperation(accessToken = token, mediaId = mediaId, operation = operation)
+                    PendingProgressPush.Pushed
+                }
+            },
+            onSent = { diagnostics.onSuccess(event) },
+            onFailed = { throwable -> diagnostics.onFailure(event, throwable) },
+        )
     }
-
-    return StumpTokenRefreshResult(
-        value = failures.toList(),
-        accessToken = activeAccessToken,
-        refreshToken = activeRefreshToken,
-        refreshedSession = latestSession,
-    )
+    return tokens.result(failures)
 }
 
 private data class StumpProgressPushOperation(
