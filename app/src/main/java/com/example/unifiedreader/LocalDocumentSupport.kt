@@ -7,16 +7,7 @@ import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.core.model.isComicReaderFormat
-import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
-import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
-import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
-import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewOptions
-import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
-import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
-import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.flowOf
 import org.json.JSONArray
 
 interface LocalDocumentDataSource {
@@ -37,81 +28,6 @@ interface LocalDocumentDataSource {
 
 interface LocalDocumentHydrator {
     suspend fun hydrate()
-}
-
-interface LocalComicDocumentDataSource {
-    fun getPages(item: ReadableItem): List<ComicPageSpec>
-
-    suspend fun loadPageMetadata(
-        item: ReadableItem,
-        page: ComicPageSpec,
-    ): ComicPageMetadata?
-
-    suspend fun loadPageImage(
-        item: ReadableItem,
-        page: ComicPageSpec,
-        priority: ComicPageLoadPriority,
-    ): ComicPageLoadResult
-
-    suspend fun loadPagePreview(
-        item: ReadableItem,
-        page: ComicPageSpec,
-        options: ComicPagePreviewOptions,
-    ): ComicPagePreviewResult = ComicPagePreviewResult.Unavailable
-
-    suspend fun loadPagePreviewMetadata(
-        item: ReadableItem,
-        page: ComicPageSpec,
-        options: ComicPagePreviewOptions,
-    ): ComicPageMetadata? = null
-
-    suspend fun loadCachedPagePreviewMetadata(
-        item: ReadableItem,
-        page: ComicPageSpec,
-        options: ComicPagePreviewOptions,
-    ): ComicPageMetadata? = null
-
-    fun observePagePreviewVersion(
-        item: ReadableItem,
-        pages: List<ComicPageSpec>,
-        options: ComicPagePreviewOptions,
-    ): Flow<Long> = flowOf(0L)
-
-    fun prefetchPagePreviews(
-        item: ReadableItem,
-        pages: List<ComicPageSpec>,
-        options: ComicPagePreviewOptions = ComicPagePreviewOptions(),
-        priorityPageIndex: Int? = null,
-    ) = Unit
-
-    fun prefetchAround(
-        item: ReadableItem,
-        settledPageIndex: Int,
-        pageCount: Int,
-    )
-
-    fun prefetchAround(
-        item: ReadableItem,
-        settledPageIndex: Int,
-        pageCount: Int,
-        window: ComicPagePrefetchWindow,
-    ) {
-        prefetchAround(
-            item = item,
-            settledPageIndex = settledPageIndex,
-            pageCount = pageCount,
-        )
-    }
-
-    fun clearReaderMemoryCaches() = Unit
-
-    fun trimReaderMemoryCaches(
-        request: ReaderMemoryTrimRequest,
-    ) {
-        if (request.mode == ReaderMemoryTrimMode.ClearAll) {
-            clearReaderMemoryCaches()
-        }
-    }
 }
 
 internal const val LOCAL_LIBRARY_ID = "local-imports"

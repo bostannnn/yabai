@@ -143,7 +143,23 @@ user's choice. The shared helpers and where they live:
   Kavita or Stump comic, the only users of `RemoteComicPageSource`. The emulator has no such server, so only the
   39 page-source tests cover that path.
 
-**Next:** 5.2 (archive-backed page sources).
+**Step 5.2 built (2026-11-07), archive-backed page sources.**
+- `ArchiveComicPageSource` (app) is the comic pages of an archive on this device. It owns the `LocalComicPageLoader`,
+  the nine page methods, and the clear and trim steps. A subclass gives `recordFor` (may read the archive),
+  `knownRecordFor` (what is already known) and `entryNameFor`.
+- `LocalComicPageSource` (imported comics, entry = `page.id`) and `DownloadedRemoteComicPageSource` (entry by page
+  index) extend it. `LocalDocumentRepository` exposes its pages as `comicPages`; the `LocalComicDocumentDataSource`
+  interface and the forwarding `ImportedComicArchivePageSource.kt` are gone. About 590 lines removed, 250 added.
+- One small change: imported comics now prefetch previews by entry name (`page.id`), as their other calls did,
+  instead of by index. `getPages` makes both the same.
+- detekt: the two `TooManyFunctions` entries moved to the new class names (the 13-method `ComicPageSource`
+  interface is the cause); stale entries for the removed methods were dropped.
+- All tests, detekt, lint and the debug build pass. **Emulator:** a local comic (Star Courier #1) paged to 8 with
+  every page-strip preview loading, then after a forced memory trim paged back to 4–5; no crash in the log.
+  **Not checked:** a downloaded Kavita, Stump or Grimmory comic (the emulator has none); its 10 page-source tests
+  pass.
+
+**Next:** 5.3 (source connection controllers and UI state).
 
 ## Step 1. Decisions only the user can make (done, answers above)
 

@@ -220,7 +220,6 @@
     <ID>MagicNumber:UnifiedReaderTheme.kt$0xFFFF5CA8</ID>
     <ID>MatchingDeclarationName:AppLaunchSplashTheme.kt$AppLaunchSplash</ID>
     <ID>MatchingDeclarationName:ImportedComicArchiveBootstrapper.kt$LocalDocumentBootstrapper</ID>
-    <ID>MatchingDeclarationName:ImportedComicArchivePageSource.kt$LocalComicPageSource : ComicPageSource</ID>
     <ID>MatchingDeclarationName:KavitaCredentialStore.kt$SharedPreferencesKavitaCredentialStore : KavitaCredentialStore</ID>
     <ID>MatchingDeclarationName:LibrarySearchPanelHost.kt$LibrarySearchPanelController</ID>
     <ID>MatchingDeclarationName:RemoteServerAddressFailover.kt$RemoteServerAddressResult&lt;T&gt;</ID>
@@ -301,15 +300,6 @@
     <ID>ReturnCount:BookDescriptionRepository.kt$BookDescriptionRepository$private suspend fun serverDescription(item: ReadableItem): String?</ID>
     <ID>ReturnCount:BootstrapperTest.kt$BootstrapDownloadQueueStore$override suspend fun retryEntryIfNoOtherActiveTrackedItems(entryId: String): Boolean</ID>
     <ID>ReturnCount:ComicArchiveCodecs.kt$private fun Context.refreshArchiveCacheFile( uri: Uri, localFile: File, signatureFile: File, currentSignature: String, )</ID>
-    <ID>ReturnCount:DownloadedRemoteComicPageSource.kt$DownloadedRemoteComicPageSource$override fun observePagePreviewVersion( item: ReadableItem, pages: List&lt;ComicPageSpec&gt;, options: ComicPagePreviewOptions, ): kotlinx.coroutines.flow.Flow&lt;Long&gt;</ID>
-    <ID>ReturnCount:DownloadedRemoteComicPageSource.kt$DownloadedRemoteComicPageSource$override fun prefetchAround( item: ReadableItem, settledPageIndex: Int, pageCount: Int, )</ID>
-    <ID>ReturnCount:DownloadedRemoteComicPageSource.kt$DownloadedRemoteComicPageSource$override fun prefetchAround( item: ReadableItem, settledPageIndex: Int, pageCount: Int, window: ComicPagePrefetchWindow, )</ID>
-    <ID>ReturnCount:DownloadedRemoteComicPageSource.kt$DownloadedRemoteComicPageSource$override fun prefetchPagePreviews( item: ReadableItem, pages: List&lt;ComicPageSpec&gt;, options: ComicPagePreviewOptions, priorityPageIndex: Int?, )</ID>
-    <ID>ReturnCount:DownloadedRemoteComicPageSource.kt$DownloadedRemoteComicPageSource$override suspend fun loadCachedPagePreviewMetadata( item: ReadableItem, page: ComicPageSpec, options: ComicPagePreviewOptions, ): ComicPageMetadata?</ID>
-    <ID>ReturnCount:DownloadedRemoteComicPageSource.kt$DownloadedRemoteComicPageSource$override suspend fun loadPageImage( item: ReadableItem, page: ComicPageSpec, priority: ComicPageLoadPriority, ): ComicPageLoadResult</ID>
-    <ID>ReturnCount:DownloadedRemoteComicPageSource.kt$DownloadedRemoteComicPageSource$override suspend fun loadPageMetadata( item: ReadableItem, page: ComicPageSpec, ): ComicPageMetadata?</ID>
-    <ID>ReturnCount:DownloadedRemoteComicPageSource.kt$DownloadedRemoteComicPageSource$override suspend fun loadPagePreview( item: ReadableItem, page: ComicPageSpec, options: ComicPagePreviewOptions, ): ComicPagePreviewResult</ID>
-    <ID>ReturnCount:DownloadedRemoteComicPageSource.kt$DownloadedRemoteComicPageSource$override suspend fun loadPagePreviewMetadata( item: ReadableItem, page: ComicPageSpec, options: ComicPagePreviewOptions, ): ComicPageMetadata?</ID>
     <ID>ReturnCount:DownloadedRemoteComicPageSource.kt$DownloadedRemoteComicPageSource$private fun localRecordForCachedEntries( item: ReadableItem, entryNames: List&lt;String&gt;, ): LocalDocumentRecord?</ID>
     <ID>ReturnCount:DownloadedRemoteCoverCacheBackfillSideEffect.kt$DownloadedRemoteCoverCacheBackfiller$override suspend fun backfillOriginalCoverFromStoredDocument( item: ReadableItem, ): Boolean</ID>
     <ID>ReturnCount:GrimmoryBookDescriptionSource.kt$GrimmoryBookDescriptionSource$override suspend fun fetch(item: ReadableItem): FetchedDescription?</ID>
@@ -347,7 +337,6 @@
     <ID>ReturnCount:LocalCoverCache.kt$LocalCoverCache$private suspend fun cacheEpubCover( record: LocalDocumentRecord, forceRefresh: Boolean, ): String?</ID>
     <ID>ReturnCount:LocalDocumentArchiveParsing.kt$internal suspend fun extractEpubMetadata( context: Context, uri: Uri, ): ImportedEpubMetadata?</ID>
     <ID>ReturnCount:LocalDocumentImportProbe.kt$LocalDocumentImportProbe$private suspend fun resolveImportedRecord( displayName: String, contentType: String?, uri: Uri, persistedUri: String, ): LocalDocumentRecord?</ID>
-    <ID>ReturnCount:LocalDocumentRepository.kt$LocalDocumentRepository$override fun prefetchPagePreviews( item: ReadableItem, pages: List&lt;ComicPageSpec&gt;, options: ComicPagePreviewOptions, priorityPageIndex: Int?, )</ID>
     <ID>ReturnCount:LocalDocumentSupport.kt$internal fun String.isImageEntryName(): Boolean</ID>
     <ID>ReturnCount:ReadableAccessResolver.kt$ReadableAccessResolver$fun resolve( item: ReadableItem, ): ReadableAccessDecision</ID>
     <ID>ReturnCount:ReaderMemoryTrim.kt$fun readerPageCacheRetentionFor( item: ReadableItem, pages: List&lt;ComicPageSpec&gt;, currentPageIndex: Int?, radius: Int = ReaderMemoryRetainedPageRadius, ): ReaderPageCacheRetention?</ID>
@@ -408,10 +397,10 @@
     <ID>TooManyFunctions:AppViewModelTestSupport.kt$FakeReaderSessionStore : ReaderSessionStoreReaderSessionHydrator</ID>
     <ID>TooManyFunctions:ComicArchiveCodecs.kt$com.example.unifiedreader.ComicArchiveCodecs.kt</ID>
     <ID>TooManyFunctions:ComicPageSourceCacheController.kt$CompositeComicPageSource : ComicPageSourceComicPageSourceCacheController</ID>
-    <ID>TooManyFunctions:DownloadedRemoteComicPageSource.kt$DownloadedRemoteComicPageSource : ComicPageSource</ID>
+    <ID>TooManyFunctions:ArchiveComicPageSource.kt$ArchiveComicPageSource : ComicPageSource</ID>
+    <ID>TooManyFunctions:DownloadedRemoteComicPageSource.kt$DownloadedRemoteComicPageSource : ArchiveComicPageSource</ID>
     <ID>TooManyFunctions:DownloadedRemoteCoverCacheBackfillSideEffect.kt$DownloadedRemoteCoverCacheBackfiller : DownloadedRemoteCoverBackfiller</ID>
     <ID>TooManyFunctions:GrimmoryMagicShelfClientAdapter.kt$GrimmoryMagicShelfClientAdapter : ServerShelfClient</ID>
-    <ID>TooManyFunctions:ImportedComicArchivePageSource.kt$LocalComicPageSource : ComicPageSource</ID>
     <ID>TooManyFunctions:KavitaCatalogFetch.kt$com.example.unifiedreader.KavitaCatalogFetch.kt</ID>
     <ID>TooManyFunctions:KavitaCatalogSyncService.kt$KavitaCatalogSyncService : KavitaCatalogSyncer</ID>
     <ID>TooManyFunctions:ListsRoute.kt$com.example.unifiedreader.ListsRoute.kt</ID>

@@ -149,7 +149,7 @@ class ImportedComicArchiveRepositoryTest {
             writeBytes(byteArrayOf(1))
         }
 
-        repository.trimReaderMemoryCaches(ReaderMemoryTrimRequest.ClearAll)
+        repository.comicPages.trimMemoryCaches(ReaderMemoryTrimRequest.ClearAll)
 
         assertTrue(!zipCacheFile.exists())
     }
@@ -561,7 +561,7 @@ class ImportedComicArchiveRepositoryTest {
         )
         val imported = repository.import(Uri.fromFile(comicFile))!!
 
-        val preview = repository.loadPagePreview(
+        val preview = repository.comicPages.loadPagePreview(
             item = imported,
             page = ComicPageSpec(
                 id = "001.png",

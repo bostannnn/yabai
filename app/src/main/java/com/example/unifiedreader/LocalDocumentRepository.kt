@@ -5,16 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import com.example.unifiedreader.core.database.dao.ImportedComicArchiveDao
 import com.example.unifiedreader.core.model.ReadableItem
-import com.example.unifiedreader.core.model.libraryDisplayLabel
 import com.example.unifiedreader.core.model.runSuspendCatching
-import com.example.unifiedreader.feature.reader.comics.ComicPageLoadPriority
-import com.example.unifiedreader.feature.reader.comics.ComicPageLoadResult
-import com.example.unifiedreader.feature.reader.comics.ComicPageMetadata
-import com.example.unifiedreader.feature.reader.comics.ComicPagePrefetchWindow
-import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewOptions
-import com.example.unifiedreader.feature.reader.comics.ComicPagePreviewResult
-import com.example.unifiedreader.feature.reader.comics.ComicPageSource
-import com.example.unifiedreader.feature.reader.comics.ComicPageSpec
 import com.example.unifiedreader.feature.reader.comics.PersistentComicPagePreviewStore
 import com.example.unifiedreader.feature.reader.core.ReaderWorkCoordinator
 import kotlinx.coroutines.CoroutineScope
@@ -34,7 +25,7 @@ class LocalDocumentRepository private constructor(
     private val onItemImported: (String) -> Unit,
     private val previewStore: PersistentComicPagePreviewStore?,
     private val readerWorkCoordinator: ReaderWorkCoordinator,
-) : LocalDocumentDataSource, LocalComicDocumentDataSource, LocalDocumentHydrator {
+) : LocalDocumentDataSource, LocalDocumentHydrator {
     private val coverWarmupSemaphore = Semaphore(permits = 3)
     private val coverMutationMutex = Mutex()
     private val hydrationMutex = Mutex()
@@ -44,12 +35,15 @@ class LocalDocumentRepository private constructor(
         importedComicArchiveDao = importedComicArchiveDao,
         persistedCoverUriResolver = coverSupport::resolvePersistedCoverUri,
     )
-    private val comicPageLoader = LocalComicPageLoader(
+
+    /** The pages of the imported comics. */
+    val comicPages = LocalComicPageSource(
         context = context,
         comicArchiveCodecs = comicArchiveCodecs,
         scope = scope,
         previewStore = previewStore,
         readerWorkCoordinator = readerWorkCoordinator,
+        findRecord = { itemId -> store.findRecord(itemId) },
     )
 
     constructor(
@@ -94,7 +88,7 @@ class LocalDocumentRepository private constructor(
         )
         val recordWithCover = coverMutationMutex.withLock {
             if (existingRecord != null) {
-                comicPageLoader.clear(record.id)
+                comicPages.clearItem(record.id)
                 previewStore?.clear()
             }
             val refreshedRecord = coverSupport.attach(recordWithAddedAt, forceRefresh = true)
@@ -117,7 +111,7 @@ class LocalDocumentRepository private constructor(
                     Intent.FLAG_GRANT_READ_URI_PERMISSION,
                 )
             }
-            comicPageLoader.clear(itemId)
+            comicPages.clearItem(itemId)
             coverSupport.clear(itemId)
             true
         }
@@ -126,172 +120,6 @@ class LocalDocumentRepository private constructor(
     override fun getPageCount(item: ReadableItem): Int = store.findRecord(item.id)?.pageCount ?: 0
 
     override fun getDocumentUri(item: ReadableItem): Uri? = store.findRecord(item.id)?.uri?.let(Uri::parse)
-
-    override fun getPages(item: ReadableItem): List<ComicPageSpec> {
-        val record = store.findRecord(item.id) ?: return emptyList()
-        return record.pageEntryNames.mapIndexed { index, entryName ->
-            ComicPageSpec(
-                id = entryName,
-                pageIndex = index,
-                contentDescription = "${item.libraryDisplayLabel()} page ${index + 1}",
-            )
-        }
-    }
-
-    override suspend fun loadPageMetadata(
-        item: ReadableItem,
-        page: ComicPageSpec,
-    ): ComicPageMetadata? {
-        val record = store.findRecord(item.id) ?: return null
-        return comicPageLoader.loadPageMetadata(
-            item = item,
-            record = record,
-            entryName = page.id,
-        )
-    }
-
-    override suspend fun loadPageImage(
-        item: ReadableItem,
-        page: ComicPageSpec,
-        priority: ComicPageLoadPriority,
-    ): ComicPageLoadResult {
-        val record = store.findRecord(item.id)
-            ?: return ComicPageLoadResult.Failure("Unable to find imported archive.")
-        return comicPageLoader.loadPageImage(
-            item = item,
-            record = record,
-            entryName = page.id,
-            priority = priority,
-        )
-    }
-
-    override suspend fun loadPagePreview(
-        item: ReadableItem,
-        page: ComicPageSpec,
-        options: ComicPagePreviewOptions,
-    ): ComicPagePreviewResult {
-        val record = store.findRecord(item.id)
-            ?: return ComicPagePreviewResult.Unavailable
-        return comicPageLoader.loadPagePreview(
-            item = item,
-            record = record,
-            entryName = page.id,
-            options = options,
-        )
-    }
-
-    override suspend fun loadPagePreviewMetadata(
-        item: ReadableItem,
-        page: ComicPageSpec,
-        options: ComicPagePreviewOptions,
-    ): ComicPageMetadata? {
-        val record = store.findRecord(item.id) ?: return null
-        return comicPageLoader.loadPageMetadata(
-            item = item,
-            record = record,
-            entryName = page.id,
-        )
-    }
-
-    override suspend fun loadCachedPagePreviewMetadata(
-        item: ReadableItem,
-        page: ComicPageSpec,
-        options: ComicPagePreviewOptions,
-    ): ComicPageMetadata? {
-        val record = store.findRecord(item.id) ?: return null
-        return comicPageLoader.cachedPageMetadata(
-            item = item,
-            record = record,
-            entryName = page.id,
-        )
-    }
-
-    override fun observePagePreviewVersion(
-        item: ReadableItem,
-        pages: List<ComicPageSpec>,
-        options: ComicPagePreviewOptions,
-    ): kotlinx.coroutines.flow.Flow<Long> {
-        val record = store.findRecord(item.id) ?: return kotlinx.coroutines.flow.flowOf(0L)
-        val entryNames = pages.map(ComicPageSpec::id)
-        return comicPageLoader.observePagePreviewVersion(
-            comicPageLoader.pagePreviewCacheKeys(
-                item = item,
-                record = record,
-                entryNames = entryNames,
-                options = options,
-            ),
-        )
-    }
-
-    override fun prefetchPagePreviews(
-        item: ReadableItem,
-        pages: List<ComicPageSpec>,
-        options: ComicPagePreviewOptions,
-        priorityPageIndex: Int?,
-    ) {
-        val record = store.findRecord(item.id) ?: return
-        if (pages.isEmpty()) return
-        val prefetchPages = pages.distinctBy(ComicPageSpec::pageIndex)
-        val entryNames = prefetchPages.mapNotNull { page ->
-            record.pageEntryNames.getOrNull(page.pageIndex)
-        }
-        if (entryNames.isEmpty()) return
-        val priorityEntryIndex = prefetchPages.indexOfFirst { page -> page.pageIndex == priorityPageIndex }
-            .takeIf { index -> index >= 0 }
-        comicPageLoader.prefetchPagePreviews(
-            item = item,
-            record = record,
-            entryNames = entryNames,
-            options = options,
-            priorityPageIndex = priorityEntryIndex,
-        )
-    }
-
-    override fun prefetchAround(
-        item: ReadableItem,
-        settledPageIndex: Int,
-        pageCount: Int,
-    ) {
-        val record = store.findRecord(item.id) ?: return
-        comicPageLoader.prefetchAround(
-            item = item,
-            record = record,
-            settledPageIndex = settledPageIndex,
-            pageCount = pageCount,
-        )
-    }
-
-    override fun prefetchAround(
-        item: ReadableItem,
-        settledPageIndex: Int,
-        pageCount: Int,
-        window: ComicPagePrefetchWindow,
-    ) {
-        val record = store.findRecord(item.id) ?: return
-        comicPageLoader.prefetchAround(
-            item = item,
-            record = record,
-            settledPageIndex = settledPageIndex,
-            pageCount = pageCount,
-            window = window,
-        )
-    }
-
-    override fun clearReaderMemoryCaches() {
-        comicPageLoader.clearAll()
-        ZipComicArchiveCodec.clearLocalArchiveCache(context)
-        RarComicArchiveCodec.clearLocalArchiveCache(context)
-    }
-
-    override fun trimReaderMemoryCaches(
-        request: ReaderMemoryTrimRequest,
-    ) {
-        comicPageLoader.trimMemoryCaches(request)
-        if (request.mode == ReaderMemoryTrimMode.ClearAll) {
-            ZipComicArchiveCodec.clearLocalArchiveCache(context)
-        }
-        RarComicArchiveCodec.clearLocalArchiveCache(context)
-    }
 
     private fun warmImportedCovers(
         itemIds: List<String>,
@@ -336,10 +164,3 @@ class LocalDocumentRepository private constructor(
         )
     }
 }
-
-private fun defaultComicArchiveCodecs(
-    context: Context,
-): List<ComicArchiveCodec> = listOf(
-    ZipComicArchiveCodec,
-    RarComicArchiveCodec(context),
-)

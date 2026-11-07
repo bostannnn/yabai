@@ -669,11 +669,6 @@ object AppModule {
     ): LocalDocumentDataSource = repository
 
     @Provides
-    fun provideLocalComicDocumentDataSource(
-        repository: LocalDocumentRepository,
-    ): LocalComicDocumentDataSource = repository
-
-    @Provides
     fun provideLocalDocumentHydrator(
         repository: LocalDocumentRepository,
     ): LocalDocumentHydrator = repository
@@ -721,8 +716,8 @@ object AppModule {
     @Provides
     @Singleton
     fun provideLocalComicPageSource(
-        localComicDocumentDataSource: LocalComicDocumentDataSource,
-    ): LocalComicPageSource = LocalComicPageSource(localComicDocumentDataSource)
+        repository: LocalDocumentRepository,
+    ): LocalComicPageSource = repository.comicPages
 
     @Provides
     @Singleton
