@@ -254,6 +254,11 @@ user's choice. The shared helpers and where they live:
   are unchanged (`kavita:progress:…`, `grimmory:progress:…`), so nothing already in the journal is duplicated.
 - All 1,923 tests, detekt, lint and the debug build pass.
 
+**Review of step 5 (2026-11-07):** three independent reads of 5.1–5.9 against the code they replaced found no
+regression in the running app. One latent gap from 5.8 was fixed: the PDF reader's lifecycle was keyed only on its
+journal tracker, so without a journal the next book in a series (opened in place) would not have restarted it; it is
+now keyed on the book too. The harmless differences each step notes above were confirmed.
+
 **Step 5 is done.** **Next:** step 6 (move behaviour out of `app`).
 
 ## Step 1. Decisions only the user can make (done, answers above)

@@ -275,7 +275,8 @@ fun PdfReaderScreen(
         },
     )
     val closeReader = rememberReaderSessionLifecycle(
-        key = tracker,
+        // The next book in a series replaces this one in place: restart for it, with or without a journal.
+        key = item.id to tracker,
         onStart = startReadingSession,
         onLeave = {
             flushReadingSession()
