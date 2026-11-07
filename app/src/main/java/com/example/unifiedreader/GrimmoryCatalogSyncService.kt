@@ -214,14 +214,14 @@ private class GrimmoryFetchedCatalog(
 
 data class GrimmoryCatalogSyncRequest(
     val displayName: String,
-    val baseUrl: String,
+    override val baseUrl: String,
     val backupBaseUrl: String? = null,
     val activeBaseUrl: String? = null,
-    val username: String,
+    override val username: String,
     val password: String? = null,
     val accessToken: String? = null,
     val refreshToken: String? = null,
-)
+) : SourceSyncRequest
 
 data class GrimmoryCatalogConnectionResult(
     val libraryCount: Int,

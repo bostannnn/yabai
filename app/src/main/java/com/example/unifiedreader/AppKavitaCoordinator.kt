@@ -4,7 +4,7 @@ import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
+import com.example.unifiedreader.feature.settings.RemoteSourceConnectionUiState
 import javax.inject.Inject
 
 class AppKavitaCoordinator @Inject constructor(
@@ -13,8 +13,8 @@ class AppKavitaCoordinator @Inject constructor(
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
 ) {
     fun refreshedConnectionState(
-        connection: KavitaConnectionUiState,
-    ): KavitaConnectionUiState = refreshedRemoteConnectionState(
+        connection: RemoteSourceConnectionUiState,
+    ): RemoteSourceConnectionUiState = refreshedRemoteConnectionState(
         connection = connection,
         baseUrl = connection.baseUrl,
         backupBaseUrl = connection.backupBaseUrl,
@@ -26,7 +26,7 @@ class AppKavitaCoordinator @Inject constructor(
     )
 
     internal fun prepareConnect(
-        connection: KavitaConnectionUiState,
+        connection: RemoteSourceConnectionUiState,
     ): KavitaSyncPreparation {
         return when (
             val connectInput = prepareRemoteConnectInput(
@@ -54,12 +54,12 @@ class AppKavitaCoordinator @Inject constructor(
                 },
             )
         ) {
-            is RemoteConnectionInputPreparation.Invalid -> KavitaSyncPreparation.Invalid(
+            is RemoteConnectionInputPreparation.Invalid -> SourceSyncPreparation.Invalid(
                 connection = connectInput.connection,
             )
             is RemoteConnectionInputPreparation.Ready -> {
                 val input = connectInput.input
-                KavitaSyncPreparation.Ready(
+                SourceSyncPreparation.Ready(
                     request = KavitaCatalogSyncRequest(
                         displayName = input.displayName,
                         baseUrl = input.baseUrl,
@@ -93,7 +93,7 @@ class AppKavitaCoordinator @Inject constructor(
     }
 
     internal fun prepareRefresh(
-        connection: KavitaConnectionUiState,
+        connection: RemoteSourceConnectionUiState,
     ): KavitaSyncPreparation {
         return when (
             val refreshInput = prepareRemoteRefreshInput(
@@ -118,13 +118,13 @@ class AppKavitaCoordinator @Inject constructor(
                 },
             )
         ) {
-            StoredSessionRefreshInputPreparation.MissingSession -> KavitaSyncPreparation.MissingSession
-            is StoredSessionRefreshInputPreparation.Invalid -> KavitaSyncPreparation.Invalid(
+            StoredSessionRefreshInputPreparation.MissingSession -> SourceSyncPreparation.MissingSession
+            is StoredSessionRefreshInputPreparation.Invalid -> SourceSyncPreparation.Invalid(
                 connection = refreshInput.connection,
             )
             is StoredSessionRefreshInputPreparation.Ready -> {
                 val savedSession = refreshInput.session
-                KavitaSyncPreparation.Ready(
+                SourceSyncPreparation.Ready(
                     request = KavitaCatalogSyncRequest(
                         displayName = savedSession.displayName,
                         baseUrl = savedSession.baseUrl,
@@ -148,10 +148,10 @@ class AppKavitaCoordinator @Inject constructor(
     }
 
     internal suspend fun executeSync(
-        preparation: KavitaSyncPreparation.Ready,
+        preparation: KavitaSyncReady,
         clearCoverState: suspend () -> Unit,
         onProgress: (KavitaSyncProgress) -> Unit = {},
-    ): KavitaSyncExecutionResult = runSuspendCatching {
+    ): SourceSyncExecutionResult = runSuspendCatching {
         val result = kavitaCatalogSyncer.sync(
             request = preparation.request,
             onProgress = onProgress,
@@ -168,7 +168,7 @@ class AppKavitaCoordinator @Inject constructor(
             sourceLabel = "Kavita",
             failures = result.progressPushFailures,
         )
-        KavitaSyncExecutionResult.Success(
+        SourceSyncExecutionResult.Success(
             libraryCount = result.libraryCount,
             itemCount = result.itemCount,
             supportedFormatCounts = result.supportedFormatCounts,
@@ -187,7 +187,7 @@ class AppKavitaCoordinator @Inject constructor(
         )
     }.getOrElse { throwable ->
         remoteSourceConnectivityPolicy.markFromFailure(SourceType.KAVITA, throwable)
-        KavitaSyncExecutionResult.Failure(
+        SourceSyncExecutionResult.Failure(
             message = "${preparation.failurePrefix}: ${throwable.userFacingMessage()}",
             connection = preparation.activeConnection.copy(
                 isConnecting = false,
@@ -200,10 +200,10 @@ class AppKavitaCoordinator @Inject constructor(
     }
 
     internal suspend fun executeFastSync(
-        preparation: KavitaSyncPreparation.Ready,
+        preparation: KavitaSyncReady,
         clearCoverState: suspend () -> Unit,
         onProgress: (KavitaSyncProgress) -> Unit = {},
-    ): KavitaSyncExecutionResult = runSuspendCatching {
+    ): SourceSyncExecutionResult = runSuspendCatching {
         val result = kavitaCatalogSyncer.fastSync(
             request = preparation.request,
             onProgress = onProgress,
@@ -222,7 +222,7 @@ class AppKavitaCoordinator @Inject constructor(
             sourceLabel = "Kavita",
             failures = result.progressPushFailures,
         )
-        KavitaSyncExecutionResult.Success(
+        SourceSyncExecutionResult.Success(
             libraryCount = result.libraryCount,
             itemCount = result.itemCount,
             supportedFormatCounts = result.supportedFormatCounts,
@@ -246,7 +246,7 @@ class AppKavitaCoordinator @Inject constructor(
         )
     }.getOrElse { throwable ->
         remoteSourceConnectivityPolicy.markFromFailure(SourceType.KAVITA, throwable)
-        KavitaSyncExecutionResult.Failure(
+        SourceSyncExecutionResult.Failure(
             message = "${preparation.failurePrefix}: ${throwable.userFacingMessage()}",
             connection = preparation.activeConnection.copy(
                 isConnecting = false,
@@ -259,8 +259,8 @@ class AppKavitaCoordinator @Inject constructor(
     }
 
     internal suspend fun executeConnect(
-        preparation: KavitaSyncPreparation.Ready,
-    ): KavitaConnectExecutionResult = runSuspendCatching {
+        preparation: KavitaSyncReady,
+    ): SourceConnectExecutionResult = runSuspendCatching {
         val result = kavitaCatalogSyncer.connect(
             request = preparation.request,
             onSessionRenewed = kavitaCredentialStore.renewedTokensSaver(preparation),
@@ -271,7 +271,7 @@ class AppKavitaCoordinator @Inject constructor(
             activeBaseUrl = result.activeBaseUrl,
         )
         remoteSourceConnectivityPolicy.markReachable(SourceType.KAVITA)
-        KavitaConnectExecutionResult.Success(
+        SourceConnectExecutionResult.Success(
             libraryCount = result.libraryCount,
             availableLibraries = result.libraries,
             connection = preparation.activeConnection.copy(
@@ -286,7 +286,7 @@ class AppKavitaCoordinator @Inject constructor(
         )
     }.getOrElse { throwable ->
         remoteSourceConnectivityPolicy.markFromFailure(SourceType.KAVITA, throwable)
-        KavitaConnectExecutionResult.Failure(
+        SourceConnectExecutionResult.Failure(
             message = "${preparation.failurePrefix}: ${throwable.userFacingMessage()}",
             connection = preparation.activeConnection.copy(
                 isConnecting = false,
@@ -311,47 +311,5 @@ class AppKavitaCoordinator @Inject constructor(
     }
 }
 
-internal sealed interface KavitaSyncPreparation {
-    data class Invalid(
-        val connection: KavitaConnectionUiState,
-    ) : KavitaSyncPreparation
-
-    data object MissingSession : KavitaSyncPreparation
-
-    data class Ready(
-        val request: KavitaCatalogSyncRequest,
-        val activeConnection: KavitaConnectionUiState,
-        val fallbackSession: KavitaStoredSession?,
-        val successConnectionMessage: String,
-        val failurePrefix: String,
-    ) : KavitaSyncPreparation
-}
-
-internal sealed interface KavitaSyncExecutionResult {
-    data class Success(
-        val libraryCount: Int,
-        val itemCount: Int,
-        val supportedFormatCounts: Map<FormatType, Int>,
-        val availableLibraries: List<Library>,
-        val hasCatalogChanges: Boolean = true,
-        val connection: KavitaConnectionUiState,
-    ) : KavitaSyncExecutionResult
-
-    data class Failure(
-        val message: String,
-        val connection: KavitaConnectionUiState,
-    ) : KavitaSyncExecutionResult
-}
-
-internal sealed interface KavitaConnectExecutionResult {
-    data class Success(
-        val libraryCount: Int,
-        val availableLibraries: List<Library>,
-        val connection: KavitaConnectionUiState,
-    ) : KavitaConnectExecutionResult
-
-    data class Failure(
-        val message: String,
-        val connection: KavitaConnectionUiState,
-    ) : KavitaConnectExecutionResult
-}
+internal typealias KavitaSyncPreparation = SourceSyncPreparation<KavitaCatalogSyncRequest, KavitaStoredSession>
+internal typealias KavitaSyncReady = SourceSyncPreparation.Ready<KavitaCatalogSyncRequest, KavitaStoredSession>

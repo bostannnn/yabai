@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.settings
 
+import com.example.unifiedreader.core.model.SourceType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -9,9 +10,9 @@ import org.junit.Test
 class ServerConnectionFormTest {
     @Test
     fun `remote source connection states use default server addresses`() {
-        val kavita = KavitaConnectionUiState()
-        val grimmory = GrimmoryConnectionUiState()
-        val stump = StumpConnectionUiState()
+        val kavita = RemoteSourceConnectionUiState(SourceType.KAVITA)
+        val grimmory = RemoteSourceConnectionUiState(SourceType.GRIMMORY)
+        val stump = RemoteSourceConnectionUiState(SourceType.STUMP)
 
         assertEquals("http://192.168.50.60:5000/", kavita.baseUrl)
         assertEquals("http://100.84.32.88:5000/", kavita.backupBaseUrl)

@@ -27,9 +27,7 @@ import com.example.unifiedreader.feature.reader.preferences.ComicReaderModePrefe
 import com.example.unifiedreader.feature.reader.preferences.ComicReadingDirectionPreferences
 import com.example.unifiedreader.feature.library.defaultLibrarySortMode
 import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
-import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
-import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
-import com.example.unifiedreader.feature.settings.StumpConnectionUiState
+import com.example.unifiedreader.feature.settings.RemoteSourceConnectionUiState
 import com.example.unifiedreader.feature.settings.ThemeMode
 
 internal data class AppCatalogSnapshot(
@@ -99,9 +97,9 @@ data class AppUiState(
     val themeMode: ThemeMode = ThemeMode.SystemDynamic,
     val comicReadingDirectionPreferences: ComicReadingDirectionPreferences = ComicReadingDirectionPreferences(),
     val comicReaderModePreferences: ComicReaderModePreferences = ComicReaderModePreferences(),
-    val kavitaConnection: KavitaConnectionUiState = KavitaConnectionUiState(),
-    val stumpConnection: StumpConnectionUiState = StumpConnectionUiState(),
-    val grimmoryConnection: GrimmoryConnectionUiState = GrimmoryConnectionUiState(),
+    val kavitaConnection: RemoteSourceConnectionUiState = RemoteSourceConnectionUiState(SourceType.KAVITA),
+    val stumpConnection: RemoteSourceConnectionUiState = RemoteSourceConnectionUiState(SourceType.STUMP),
+    val grimmoryConnection: RemoteSourceConnectionUiState = RemoteSourceConnectionUiState(SourceType.GRIMMORY),
     val selectedKavitaSeriesKey: String? = null,
     val selectedStumpSeriesKey: String? = null,
     val sourceItems: List<ReadableItem> = emptyList(),

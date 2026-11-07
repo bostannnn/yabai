@@ -2,7 +2,7 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
+import com.example.unifiedreader.feature.settings.RemoteSourceConnectionUiState
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,17 +26,18 @@ class AppGrimmoryCoordinatorTest {
             remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
         )
         val preparation = coordinator.prepareConnect(
-            GrimmoryConnectionUiState(
+            RemoteSourceConnectionUiState(
+                source = SourceType.GRIMMORY,
                 displayName = "Grimmory",
                 baseUrl = "https://grimmory.example",
                 username = "reader",
                 password = "secret",
             ),
-        ) as GrimmorySyncPreparation.Ready
+        ) as SourceSyncPreparation.Ready
 
         val result = coordinator.executeSync(preparation, clearCoverState = {})
 
-        assertTrue(result is GrimmorySyncExecutionResult.Failure)
+        assertTrue(result is SourceSyncExecutionResult.Failure)
         assertEquals(SourceConnectivityState.Online, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.GRIMMORY))
     }
 
@@ -59,19 +60,20 @@ class AppGrimmoryCoordinatorTest {
             remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
         )
         val preparation = coordinator.prepareConnect(
-            GrimmoryConnectionUiState(
+            RemoteSourceConnectionUiState(
+                source = SourceType.GRIMMORY,
                 displayName = "Grimmory",
                 baseUrl = "https://primary.grimmory.example",
                 backupBaseUrl = "https://backup.grimmory.example",
                 username = "reader",
                 password = "secret",
             ),
-        ) as GrimmorySyncPreparation.Ready
+        ) as SourceSyncPreparation.Ready
 
         val result = coordinator.executeConnect(preparation)
 
-        assertTrue(result is GrimmoryConnectExecutionResult.Success)
-        val success = result as GrimmoryConnectExecutionResult.Success
+        assertTrue(result is SourceConnectExecutionResult.Success)
+        val success = result as SourceConnectExecutionResult.Success
         assertEquals(3, success.libraryCount)
         assertEquals(
             "Connected to Grimmory. Tap Sync now to get your library.",
@@ -94,13 +96,14 @@ class AppGrimmoryCoordinatorTest {
             remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
         )
         val preparation = coordinator.prepareConnect(
-            GrimmoryConnectionUiState(
+            RemoteSourceConnectionUiState(
+                source = SourceType.GRIMMORY,
                 displayName = "Grimmory",
                 baseUrl = "https://grimmory.example",
                 username = "reader",
                 password = "secret",
             ),
-        ) as GrimmorySyncPreparation.Ready
+        ) as SourceSyncPreparation.Ready
 
         try {
             coordinator.executeConnect(preparation)
@@ -123,13 +126,14 @@ class AppGrimmoryCoordinatorTest {
             remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
         )
         val preparation = coordinator.prepareConnect(
-            GrimmoryConnectionUiState(
+            RemoteSourceConnectionUiState(
+                source = SourceType.GRIMMORY,
                 displayName = "Grimmory",
                 baseUrl = "https://grimmory.example",
                 username = "reader",
                 password = "secret",
             ),
-        ) as GrimmorySyncPreparation.Ready
+        ) as SourceSyncPreparation.Ready
 
         try {
             coordinator.executeSync(preparation, clearCoverState = {})

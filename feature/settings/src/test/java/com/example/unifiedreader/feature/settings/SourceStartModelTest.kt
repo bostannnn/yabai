@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.settings
 
+import com.example.unifiedreader.core.model.SourceType
 import java.util.Calendar
 import java.util.Locale
 import org.junit.Assert.assertEquals
@@ -10,7 +11,8 @@ class SourceStartModelTest {
 
     @Test
     fun `a running sync shows the step it is on`() {
-        val connection = KavitaConnectionUiState(
+        val connection = RemoteSourceConnectionUiState(
+            source = SourceType.KAVITA,
             hasStoredSession = true,
             isConnecting = true,
             activeAction = ServerConnectionAction.Sync,
@@ -25,7 +27,7 @@ class SourceStartModelTest {
 
     @Test
     fun `signed in before the sync starts already reads as getting the library`() {
-        val connection = KavitaConnectionUiState(hasStoredSession = true)
+        val connection = RemoteSourceConnectionUiState(source = SourceType.KAVITA, hasStoredSession = true)
 
         assertEquals(
             FirstSyncState(title = "Getting your library", detail = null, running = true),
@@ -36,7 +38,7 @@ class SourceStartModelTest {
     @Test
     fun `signed in, never synced and nothing running offers the sync instead of a bar that never fills`() {
         // The app was closed before the first sync, or after one that failed: the error didn't survive.
-        val connection = KavitaConnectionUiState(hasStoredSession = true)
+        val connection = RemoteSourceConnectionUiState(source = SourceType.KAVITA, hasStoredSession = true)
 
         assertEquals(
             FirstSyncState(title = "Your library hasn't synced yet", detail = null, running = false, notStarted = true),
@@ -46,7 +48,12 @@ class SourceStartModelTest {
 
     @Test
     fun `a failed sync shows the server's answer`() {
-        val connection = StumpConnectionUiState(hasStoredSession = true, isError = true, message = "Stump sync failed: timeout")
+        val connection = RemoteSourceConnectionUiState(
+            source = SourceType.STUMP,
+            hasStoredSession = true,
+            isError = true,
+            message = "Stump sync failed: timeout",
+        )
 
         assertEquals(
             FirstSyncState(title = "The library didn't sync", detail = "Stump sync failed: timeout", running = false, failed = true),
@@ -57,7 +64,8 @@ class SourceStartModelTest {
     @Test
     fun `a sync that saved the library but couldn't upload everything reads as here, with the warning`() {
         val syncedAt = Calendar.getInstance(Locale.US).apply { set(2026, Calendar.OCTOBER, 23, 14, 58) }.timeInMillis
-        val connection = GrimmoryConnectionUiState(
+        val connection = RemoteSourceConnectionUiState(
+            source = SourceType.GRIMMORY,
             hasStoredSession = true,
             isError = true,
             message = "Grimmory library synced. Some changes didn't upload to Grimmory and will go with the next sync (timeout).",
@@ -75,7 +83,10 @@ class SourceStartModelTest {
 
         assertEquals(
             FirstSyncState(title = "Your library is here", detail = "Synced today at 10:42", running = false),
-            firstSyncState(GrimmoryConnectionUiState(hasStoredSession = true), lastSyncedAtEpochMillis = syncedAt, nowEpochMillis = now),
+            firstSyncState(RemoteSourceConnectionUiState(
+                source = SourceType.GRIMMORY,
+                hasStoredSession = true,
+            ), lastSyncedAtEpochMillis = syncedAt, nowEpochMillis = now),
         )
     }
 }

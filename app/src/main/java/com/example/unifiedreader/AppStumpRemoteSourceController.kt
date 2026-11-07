@@ -1,160 +1,25 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.feature.settings.RemoteSourceConnectionUiState
 import com.example.unifiedreader.feature.settings.ServerConnectionAction
-import com.example.unifiedreader.feature.settings.StumpConnectionUiState
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
 
 class AppStumpRemoteSourceController @Inject constructor(
     private val stumpCoordinator: AppStumpCoordinator,
-    private val stumpCredentialStore: StumpCredentialStore,
-    private val remoteCoverController: RemoteCoverController,
-    private val comicPageSourceCacheController: ComicPageSourceCacheController,
-    private val remoteLibraryCacheStore: RemoteLibraryCacheStore,
-    private val sourceSyncTimes: SourceSyncTimeStore,
+    stumpCredentialStore: StumpCredentialStore,
+    remoteCoverController: RemoteCoverController,
+    comicPageSourceCacheController: ComicPageSourceCacheController,
+    remoteLibraryCacheStore: RemoteLibraryCacheStore,
+    sourceSyncTimes: SourceSyncTimeStore,
+) : RemoteSourceConnectionController<StumpCatalogSyncRequest, StumpStoredSession>(
+    source = SourceType.STUMP,
+    sessionFlow = stumpCredentialStore.sessionFlow,
+    remoteCoverController = remoteCoverController,
+    sourceSyncTimes = sourceSyncTimes,
+    libraryLists = RemoteSourceLibraryLists(remoteLibraryCacheStore, comicPageSourceCacheController),
 ) {
-    fun initialize(
-        updateState: AppUiStateUpdater,
-    ) {
-        updateState { state ->
-            state.copy(
-                stumpConnection = state.stumpConnection.withStoredSession(stumpCredentialStore.sessionFlow.value),
-            )
-        }
-    }
-
-    fun onDisplayNameChanged(
-        displayName: String,
-        updateState: AppUiStateUpdater,
-    ) {
-        updateConnectionInput(updateState) { connection ->
-            connection.copy(displayName = displayName)
-        }
-    }
-
-    fun onBaseUrlChanged(
-        baseUrl: String,
-        updateState: AppUiStateUpdater,
-    ) {
-        updateConnectionInput(updateState) { connection ->
-            connection.copy(
-                baseUrl = baseUrl,
-                availableLibraries = emptyList(),
-            )
-        }
-    }
-
-    fun onBackupBaseUrlChanged(
-        backupBaseUrl: String,
-        updateState: AppUiStateUpdater,
-    ) {
-        updateConnectionInput(updateState) { connection ->
-            connection.copy(
-                backupBaseUrl = backupBaseUrl,
-                availableLibraries = emptyList(),
-            )
-        }
-    }
-
-    fun onUsernameChanged(
-        username: String,
-        updateState: AppUiStateUpdater,
-    ) {
-        updateConnectionInput(updateState) { connection ->
-            connection.copy(
-                username = username,
-                availableLibraries = emptyList(),
-            )
-        }
-    }
-
-    fun onPasswordChanged(
-        password: String,
-        updateState: AppUiStateUpdater,
-    ) {
-        updateConnection(updateState) { connection ->
-            connection.copy(
-                password = password,
-                activeAction = null,
-                message = null,
-                isError = false,
-            )
-        }
-    }
-
-    fun connect(
-        stateProvider: AppUiStateProvider,
-        updateState: AppUiStateUpdater,
-        scope: CoroutineScope,
-    ) {
-        val state = stateProvider()
-        when (val preparation = stumpCoordinator.prepareConnect(state.stumpConnection)) {
-            is StumpSyncPreparation.Invalid -> {
-                updateState { current ->
-                    current.copy(
-                        stumpConnection = preparation.connection.copy(activeAction = null),
-                    )
-                }
-            }
-            StumpSyncPreparation.MissingSession -> Unit
-            is StumpSyncPreparation.Ready -> {
-                updateState { current ->
-                    current.copy(
-                        stumpConnection = preparation.activeConnection.copy(
-                            isConnecting = true,
-                            activeAction = ServerConnectionAction.Connect,
-                            syncProgressFraction = null,
-                            syncProgressLabel = null,
-                            message = "Connecting to Stump.",
-                            isError = false,
-                        ),
-                    )
-                }
-                startConnect(preparation, updateState, scope)
-            }
-        }
-    }
-
-    fun observeStoredSession(
-        scope: CoroutineScope,
-        stateProvider: AppUiStateProvider,
-        updateState: AppUiStateUpdater,
-    ) {
-        scope.launch {
-            stumpCredentialStore.sessionFlow.collectLatest { session ->
-                if (!stateProvider().stumpConnection.isConnecting) {
-                    updateConnection(updateState) { connection ->
-                        stumpCoordinator.refreshedConnectionState(
-                            connection.withStoredSession(session),
-                        )
-                    }
-                }
-                if (session == null) return@collectLatest
-                val cachedLibraries = remoteLibraryCacheStore.getCachedLibraries(
-                    sourceType = SourceType.STUMP,
-                    baseUrl = session.baseUrl,
-                    username = session.username,
-                )
-                if (cachedLibraries.isNotEmpty()) {
-                    updateConnection(updateState) { connection ->
-                        if (
-                            connection.hasStoredSession &&
-                            connection.baseUrl == session.baseUrl &&
-                            connection.username == session.username
-                        ) {
-                            connection.copy(availableLibraries = cachedLibraries)
-                        } else {
-                            connection
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     /**
      * Syncs the library. [inPlace] is the library's own refresh, which leaves you where you are;
      * otherwise (Settings' Sync now) the app opens the library when it is done.
@@ -165,176 +30,34 @@ class AppStumpRemoteSourceController @Inject constructor(
         scope: CoroutineScope,
         inPlace: Boolean = false,
     ) {
-        when (val preparation = stumpCoordinator.prepareRefresh(stateProvider().stumpConnection)) {
-            StumpSyncPreparation.MissingSession -> {
-                updateState { state ->
-                    state.copy(
-                        stumpConnection = state.stumpConnection.copy(
-                            message = "Connect to Stump before syncing the library.",
-                            activeAction = null,
-                            isError = true,
-                        ),
-                    )
-                }
-            }
-            is StumpSyncPreparation.Invalid -> {
-                updateState { state ->
-                    state.copy(
-                        stumpConnection = preparation.connection.copy(activeAction = null),
-                    )
-                }
-            }
-            is StumpSyncPreparation.Ready -> {
-                updateState { state ->
-                    state.copy(
-                        stumpConnection = preparation.activeConnection.copy(
-                            isConnecting = true,
-                            activeAction = ServerConnectionAction.Sync,
-                            syncProgressFraction = 0f,
-                            syncProgressLabel = "Preparing Stump sync...",
-                            message = "Syncing Stump library.",
-                            isError = false,
-                        ),
-                    )
-                }
-                startSync(preparation, updateState, scope, inPlace)
-            }
-        }
+        sync(ServerConnectionAction.Sync, stayInPlace = inPlace, stateProvider, updateState, scope)
     }
 
-    private fun startSync(
-        preparation: StumpSyncPreparation.Ready,
-        updateState: AppUiStateUpdater,
-        scope: CoroutineScope,
-        inPlace: Boolean,
-    ) {
-        scope.launch {
-            when (
-                val result = stumpCoordinator.executeSync(
-                    preparation = preparation,
-                    clearCoverState = ::resetCoverState,
-                    onProgress = { progress ->
-                        updateState { state ->
-                            state.copy(
-                                stumpConnection = state.stumpConnection.copy(
-                                    isConnecting = true,
-                                    activeAction = ServerConnectionAction.Sync,
-                                    syncProgressFraction = progress.fraction.coerceIn(0f, 1f),
-                                    syncProgressLabel = progress.message,
-                                    message = "Syncing Stump library.",
-                                    isError = false,
-                                ),
-                            )
-                        }
-                    },
-                )
-            ) {
-                is StumpSyncExecutionResult.Success -> {
-                    sourceSyncTimes.markSynced(SourceType.STUMP)
-                    remoteLibraryCacheStore.replaceCachedLibraries(
-                        sourceType = SourceType.STUMP,
-                        baseUrl = preparation.request.baseUrl,
-                        username = preparation.request.username,
-                        libraries = result.availableLibraries,
-                    )
-                    clearPageCache()
-                    updateState { state ->
-                        val syncedConnection = result.connection.copy(
-                            activeAction = null,
-                            availableLibraries = result.availableLibraries,
-                        )
-                        if (inPlace) {
-                            state.copy(stumpConnection = syncedConnection)
-                        } else {
-                            state.copy(
-                                topLevel = TopLevelDestination.Library,
-                                selectedSource = SourceType.STUMP,
-                                selectedItemId = null,
-                                activeReader = null,
-                                selectedKavitaSeriesKey = null,
-                                selectedStumpSeriesKey = null,
-                                stumpConnection = syncedConnection,
-                            )
-                        }
-                    }
-                }
-                is StumpSyncExecutionResult.Failure -> {
-                    updateState { state ->
-                        state.copy(
-                            stumpConnection = result.connection.copy(activeAction = null),
-                        )
-                    }
-                }
-            }
-        }
-    }
+    override fun prepareConnect(connection: RemoteSourceConnectionUiState) = stumpCoordinator.prepareConnect(connection)
 
-    private fun startConnect(
-        preparation: StumpSyncPreparation.Ready,
-        updateState: AppUiStateUpdater,
-        scope: CoroutineScope,
-    ) {
-        scope.launch {
-            when (val result = stumpCoordinator.executeConnect(preparation)) {
-                is StumpConnectExecutionResult.Success -> {
-                    remoteLibraryCacheStore.replaceCachedLibraries(
-                        sourceType = SourceType.STUMP,
-                        baseUrl = preparation.request.baseUrl,
-                        username = preparation.request.username,
-                        libraries = result.availableLibraries,
-                    )
-                    clearPageCache()
-                    updateState { state ->
-                        state.copy(
-                            stumpConnection = result.connection.copy(
-                                activeAction = null,
-                                availableLibraries = result.availableLibraries,
-                            ),
-                        )
-                    }
-                }
-                is StumpConnectExecutionResult.Failure -> {
-                    updateState { state ->
-                        state.copy(
-                            stumpConnection = result.connection.copy(activeAction = null),
-                        )
-                    }
-                }
-            }
-        }
-    }
+    override fun prepareRefresh(connection: RemoteSourceConnectionUiState) = stumpCoordinator.prepareRefresh(connection)
 
-    private fun clearPageCache() {
-        comicPageSourceCacheController.clearSourcePageCache(SourceType.STUMP)
-    }
+    override fun refreshedConnectionState(connection: RemoteSourceConnectionUiState) =
+        stumpCoordinator.refreshedConnectionState(connection)
 
-    private suspend fun resetCoverState() {
-        remoteCoverController.refreshSourceAfterCatalogSync(SourceType.STUMP)
-    }
+    override suspend fun executeConnect(preparation: StumpSyncReady) = stumpCoordinator.executeConnect(preparation)
 
-    private fun updateConnection(
-        updateState: AppUiStateUpdater,
-        transform: (StumpConnectionUiState) -> StumpConnectionUiState,
-    ) {
-        updateState { state ->
-            state.copy(
-                stumpConnection = transform(state.stumpConnection),
-            )
-        }
-    }
+    override suspend fun executeSync(
+        preparation: StumpSyncReady,
+        action: ServerConnectionAction,
+        clearCoverState: suspend () -> Unit,
+        onProgress: (SourceSyncProgress) -> Unit,
+    ): SourceSyncExecutionResult = stumpCoordinator.executeSync(
+        preparation = preparation,
+        clearCoverState = clearCoverState,
+        onProgress = { progress -> onProgress(SourceSyncProgress(progress.message, progress.fraction)) },
+    )
 
-    private fun updateConnectionInput(
-        updateState: AppUiStateUpdater,
-        transform: (StumpConnectionUiState) -> StumpConnectionUiState,
-    ) {
-        updateConnection(updateState) { connection ->
-            stumpCoordinator.refreshedConnectionState(
-                transform(connection).copy(
-                    activeAction = null,
-                    message = null,
-                    isError = false,
-                ),
-            )
-        }
-    }
+    override val syncStartProgress = SourceSyncProgress(message = "Preparing Stump sync...", fraction = 0f)
+
+    /** Stump reports a fraction for every step, so the bar follows it. */
+    override fun progressAfter(current: Float?, reported: Float?): Float? = reported?.coerceIn(0f, 1f) ?: current
+
+    override fun AppUiState.withoutOpenSeries(): AppUiState =
+        copy(selectedKavitaSeriesKey = null, selectedStumpSeriesKey = null)
 }

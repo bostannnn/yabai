@@ -60,9 +60,8 @@
     <ID>LongMethod:AppCatalogStateCoordinatorTest.kt$AppCatalogStateCoordinatorTest$@Test fun `series container scope change marks local availability pending`()</ID>
     <ID>LongMethod:AppCatalogStateCoordinatorTest.kt$AppCatalogStateCoordinatorTest$@Test fun `stale availability refresh does not overwrite newer local state`()</ID>
     <ID>LongMethod:AppCoverPreloadController.kt$AppCoverPreloadController$private fun startPreload( sourceType: SourceType, items: List&lt;ReadableItem&gt;, retryTargets: List&lt;RemoteCoverPreloadTarget&gt;?, updateState: AppUiStateUpdater, scope: CoroutineScope, )</ID>
-    <ID>LongMethod:AppGrimmoryCoordinator.kt$AppGrimmoryCoordinator$internal suspend fun executeSync( preparation: GrimmorySyncPreparation.Ready, clearCoverState: suspend () -&gt; Unit, onProgress: (GrimmorySyncProgress) -&gt; Unit = {}, // The library's refresh (GrimmoryCatalogSyncer.refresh) instead of the full sync. refresh: Boolean = false, ): GrimmorySyncExecutionResult</ID>
-    <ID>LongMethod:AppKavitaCoordinator.kt$AppKavitaCoordinator$internal fun prepareConnect( connection: KavitaConnectionUiState, ): KavitaSyncPreparation</ID>
-    <ID>LongMethod:AppKavitaRemoteSourceController.kt$AppKavitaRemoteSourceController$private fun startFastSync( preparation: KavitaSyncPreparation.Ready, stateProvider: AppUiStateProvider, updateState: AppUiStateUpdater, scope: CoroutineScope, preserveLibraryContext: Boolean, )</ID>
+    <ID>LongMethod:AppGrimmoryCoordinator.kt$AppGrimmoryCoordinator$internal suspend fun executeSync( preparation: GrimmorySyncReady, clearCoverState: suspend () -&gt; Unit, onProgress: (GrimmorySyncProgress) -&gt; Unit = {}, // The library's refresh (GrimmoryCatalogSyncer.refresh) instead of the full sync. refresh: Boolean = false, ): SourceSyncExecutionResult</ID>
+    <ID>LongMethod:AppKavitaCoordinator.kt$AppKavitaCoordinator$internal fun prepareConnect( connection: RemoteSourceConnectionUiState, ): KavitaSyncPreparation</ID>
     <ID>LongMethod:AppLibraryStateRecomputeCoordinator.kt$AppLibraryStateRecomputeCoordinator$fun updateState( currentState: AppUiState, transform: (AppUiState) -&gt; AppUiState, scope: CoroutineScope, publishState: (AppUiState) -&gt; Unit, )</ID>
     <ID>LongMethod:AppLibraryStateRecomputeCoordinatorTest.kt$AppLibraryStateRecomputeCoordinatorTest$@Test fun `first return from series preserves startup shelves after root identity refresh`()</ID>
     <ID>LongMethod:AppLibraryStateRecomputeCoordinatorTest.kt$AppLibraryStateRecomputeCoordinatorTest$@Test fun `returning from series publishes refreshed root shelves with grid`()</ID>
@@ -72,8 +71,7 @@
     <ID>LongMethod:AppPendingRemoteSync.kt$internal fun buildPendingRemoteSyncSummary( progressByItemId: Map&lt;String, ReaderProgressSnapshot&gt;, journalSnapshot: JournalSnapshot, catalogItems: List&lt;ReadableItem&gt;, reachabilityBySource: Map&lt;SourceType, SourceConnectivityState&gt;, attemptsBySource: Map&lt;SourceType, AppRemoteSyncAttempt&gt;, isCatalogComplete: Boolean = false, ): AppPendingRemoteSyncSummary</ID>
     <ID>LongMethod:AppProgressSyncStartupRetryCoordinator.kt$AppProgressSyncStartupRetryCoordinator$fun retryAfterHydration( scope: CoroutineScope, onSyncFailures: (List&lt;SourceProgressSyncFailure&gt;) -&gt; Unit, onSyncAttempt: RemoteSyncAttemptRecorder = { _, _, _ -&gt; }, )</ID>
     <ID>LongMethod:AppReaderCoordinator.kt$AppReaderCoordinator$fun onItemSelected( item: ReadableItem, updateState: AppUiStateUpdater, scope: CoroutineScope, refreshProgress: () -&gt; Unit, onSyncFailures: (List&lt;SourceProgressSyncFailure&gt;) -&gt; Unit, selectedReaderItem: ReadableItem? = null, openMode: ReaderOpenMode = ReaderOpenMode.Default, skipProgressSyncBeforeOpen: Boolean = false, )</ID>
-    <ID>LongMethod:AppStumpCoordinator.kt$AppStumpCoordinator$internal suspend fun executeSync( preparation: StumpSyncPreparation.Ready, clearCoverState: suspend () -&gt; Unit, onProgress: (StumpSyncProgress) -&gt; Unit = {}, ): StumpSyncExecutionResult</ID>
-    <ID>LongMethod:AppStumpRemoteSourceController.kt$AppStumpRemoteSourceController$private fun startSync( preparation: StumpSyncPreparation.Ready, updateState: AppUiStateUpdater, scope: CoroutineScope, inPlace: Boolean, )</ID>
+    <ID>LongMethod:AppStumpCoordinator.kt$AppStumpCoordinator$internal suspend fun executeSync( preparation: StumpSyncReady, clearCoverState: suspend () -&gt; Unit, onProgress: (StumpSyncProgress) -&gt; Unit = {}, ): SourceSyncExecutionResult</ID>
     <ID>LongMethod:AppViewModel.kt$AppViewModel$private fun observeAppState()</ID>
     <ID>LongMethod:AppViewModelTest.kt$AppViewModelTest$@Test fun `cached kavita cover is used immediately after startup and preserved on kavita sync`()</ID>
     <ID>LongMethod:AppViewModelTest.kt$AppViewModelTest$@Test fun `library sort modes order filtered visible items`()</ID>
@@ -384,15 +382,13 @@
     <ID>TooGenericExceptionCaught:RemoteDocumentReadCache.kt$RemoteDocumentReadCache$error: Throwable</ID>
     <ID>TooGenericExceptionCaught:RemoteServerAddressFailover.kt$throwable: Throwable</ID>
     <ID>TooManyFunctions:AppActiveRouteStore.kt$com.example.unifiedreader.AppActiveRouteStore.kt</ID>
-    <ID>TooManyFunctions:AppGrimmoryRemoteSourceController.kt$AppGrimmoryRemoteSourceController</ID>
-    <ID>TooManyFunctions:AppKavitaRemoteSourceController.kt$AppKavitaRemoteSourceController</ID>
+    <ID>TooManyFunctions:RemoteSourceConnectionController.kt$RemoteSourceConnectionController&lt;Request : SourceSyncRequest, Session : StoredSourceSession&gt;</ID>
     <ID>TooManyFunctions:AppListLibraryModes.kt$com.example.unifiedreader.AppListLibraryModes.kt</ID>
     <ID>TooManyFunctions:AppListsModule.kt$AppListsViewModel : ViewModel</ID>
     <ID>TooManyFunctions:AppModule.kt$AppModule</ID>
     <ID>TooManyFunctions:AppReaderCoordinator.kt$AppReaderCoordinator</ID>
     <ID>TooManyFunctions:AppRemoteDownloadController.kt$AppRemoteDownloadController</ID>
     <ID>TooManyFunctions:AppRemoteSourcesCoordinator.kt$AppRemoteSourcesCoordinator</ID>
-    <ID>TooManyFunctions:AppStumpRemoteSourceController.kt$AppStumpRemoteSourceController</ID>
     <ID>TooManyFunctions:AppViewModel.kt$AppViewModel : ViewModel</ID>
     <ID>TooManyFunctions:AppViewModelTestSupport.kt$FakeReaderSessionStore : ReaderSessionStoreReaderSessionHydrator</ID>
     <ID>TooManyFunctions:ComicArchiveCodecs.kt$com.example.unifiedreader.ComicArchiveCodecs.kt</ID>
@@ -418,7 +414,6 @@
     <ID>TooManyFunctions:RoomReaderSessionStore.kt$RoomReaderSessionStore : ReaderSessionStoreReaderSessionHydratorStartupReaderSessionCacheSeeder</ID>
     <ID>UnusedParameter:AppCatalogStateCoordinator.kt$AppCatalogStateCoordinator$stateProvider: AppUiStateProvider</ID>
     <ID>UnusedParameter:AppCoverPreloadController.kt$AppCoverPreloadController$stateProvider: AppUiStateProvider</ID>
-    <ID>UnusedParameter:AppKavitaRemoteSourceController.kt$AppKavitaRemoteSourceController$stateProvider: AppUiStateProvider</ID>
     <ID>UnusedParameter:AppPendingProgressFlushCoordinator.kt$AppPendingProgressFlushCoordinator$catalogItemsProvider: () -&gt; List&lt;ReadableItem&gt;</ID>
     <ID>UnusedParameter:AppRemoteDownloadController.kt$AppRemoteDownloadController$stateProvider: () -&gt; AppUiState</ID>
     <ID>UnusedParameter:AppRemoteDownloadController.kt$AppRemoteDownloadController$updateState: AppUiStateUpdater</ID>

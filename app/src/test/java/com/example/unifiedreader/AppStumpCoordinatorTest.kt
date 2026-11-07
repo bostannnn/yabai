@@ -2,7 +2,7 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.feature.settings.StumpConnectionUiState
+import com.example.unifiedreader.feature.settings.RemoteSourceConnectionUiState
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -23,17 +23,18 @@ class AppStumpCoordinatorTest {
             remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
         )
         val preparation = coordinator.prepareConnect(
-            StumpConnectionUiState(
+            RemoteSourceConnectionUiState(
+                source = SourceType.STUMP,
                 displayName = "Stump",
                 baseUrl = "https://stump.example",
                 username = "reader",
                 password = "secret",
             ),
-        ) as StumpSyncPreparation.Ready
+        ) as SourceSyncPreparation.Ready
 
         val result = coordinator.executeSync(preparation, clearCoverState = {})
 
-        assertTrue(result is StumpSyncExecutionResult.Failure)
+        assertTrue(result is SourceSyncExecutionResult.Failure)
         assertEquals(SourceConnectivityState.Online, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.STUMP))
     }
 
@@ -48,13 +49,14 @@ class AppStumpCoordinatorTest {
             remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
         )
         val preparation = coordinator.prepareConnect(
-            StumpConnectionUiState(
+            RemoteSourceConnectionUiState(
+                source = SourceType.STUMP,
                 displayName = "Stump",
                 baseUrl = "https://stump.example",
                 username = "reader",
                 password = "secret",
             ),
-        ) as StumpSyncPreparation.Ready
+        ) as SourceSyncPreparation.Ready
 
         try {
             coordinator.executeConnect(preparation)
@@ -77,13 +79,14 @@ class AppStumpCoordinatorTest {
             remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
         )
         val preparation = coordinator.prepareConnect(
-            StumpConnectionUiState(
+            RemoteSourceConnectionUiState(
+                source = SourceType.STUMP,
                 displayName = "Stump",
                 baseUrl = "https://stump.example",
                 username = "reader",
                 password = "secret",
             ),
-        ) as StumpSyncPreparation.Ready
+        ) as SourceSyncPreparation.Ready
 
         try {
             coordinator.executeSync(preparation, clearCoverState = {})

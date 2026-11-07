@@ -26,7 +26,7 @@ internal suspend fun SourceSessionStore<KavitaStoredSession>.saveRenewedTokens(
  * that signs in with the password saves its pair when it is done, as a new account it may be.
  */
 internal fun KavitaCredentialStore.renewedTokensSaver(
-    preparation: KavitaSyncPreparation.Ready,
+    preparation: KavitaSyncReady,
 ): suspend (KavitaSession) -> Unit {
     val runSession = preparation.fallbackSession?.takeIf { preparation.request.password == null }
         ?: return {}
@@ -40,7 +40,7 @@ internal fun KavitaCredentialStore.renewedTokensSaver(
  * renewal the reader or the covers made while it ran.
  */
 internal suspend fun KavitaCredentialStore.saveAfterRun(
-    preparation: KavitaSyncPreparation.Ready,
+    preparation: KavitaSyncReady,
     session: KavitaSession?,
     activeBaseUrl: String?,
 ) {

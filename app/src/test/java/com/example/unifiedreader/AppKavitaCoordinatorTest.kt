@@ -3,7 +3,7 @@ package com.example.unifiedreader
 import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.data.kavita.KavitaSession
-import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
+import com.example.unifiedreader.feature.settings.RemoteSourceConnectionUiState
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -24,17 +24,18 @@ class AppKavitaCoordinatorTest {
             remoteSourceConnectivityPolicy = remoteSourceConnectivityPolicy,
         )
         val preparation = coordinator.prepareConnect(
-            KavitaConnectionUiState(
+            RemoteSourceConnectionUiState(
+                source = SourceType.KAVITA,
                 displayName = "Kavita",
                 baseUrl = "https://kavita.example",
                 username = "reader",
                 password = "secret",
             ),
-        ) as KavitaSyncPreparation.Ready
+        ) as SourceSyncPreparation.Ready
 
         val result = coordinator.executeSync(preparation, clearCoverState = {})
 
-        assertTrue(result is KavitaSyncExecutionResult.Failure)
+        assertTrue(result is SourceSyncExecutionResult.Failure)
         assertEquals(SourceConnectivityState.Online, remoteSourceConnectivityPolicy.reachabilityFor(SourceType.KAVITA))
     }
 
@@ -52,13 +53,14 @@ class AppKavitaCoordinatorTest {
             remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
         )
         val preparation = coordinator.prepareConnect(
-            KavitaConnectionUiState(
+            RemoteSourceConnectionUiState(
+                source = SourceType.KAVITA,
                 displayName = "Kavita",
                 baseUrl = "https://kavita.example",
                 username = "reader",
                 password = "secret",
             ),
-        ) as KavitaSyncPreparation.Ready
+        ) as SourceSyncPreparation.Ready
         var coverResetCount = 0
 
         val result = coordinator.executeFastSync(
@@ -66,9 +68,9 @@ class AppKavitaCoordinatorTest {
             clearCoverState = { coverResetCount += 1 },
         )
 
-        assertTrue(result is KavitaSyncExecutionResult.Success)
+        assertTrue(result is SourceSyncExecutionResult.Success)
         assertEquals(0, coverResetCount)
-        assertEquals(false, (result as KavitaSyncExecutionResult.Success).hasCatalogChanges)
+        assertEquals(false, (result as SourceSyncExecutionResult.Success).hasCatalogChanges)
     }
 
     @Test
@@ -86,13 +88,14 @@ class AppKavitaCoordinatorTest {
             remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
         )
         val preparation = coordinator.prepareConnect(
-            KavitaConnectionUiState(
+            RemoteSourceConnectionUiState(
+                source = SourceType.KAVITA,
                 displayName = "Kavita",
                 baseUrl = "https://kavita.example",
                 username = "reader",
                 password = "secret",
             ),
-        ) as KavitaSyncPreparation.Ready
+        ) as SourceSyncPreparation.Ready
         var coverResetCount = 0
 
         val result = coordinator.executeFastSync(
@@ -100,9 +103,9 @@ class AppKavitaCoordinatorTest {
             clearCoverState = { coverResetCount += 1 },
         )
 
-        assertTrue(result is KavitaSyncExecutionResult.Success)
+        assertTrue(result is SourceSyncExecutionResult.Success)
         assertEquals(1, coverResetCount)
-        assertEquals(true, (result as KavitaSyncExecutionResult.Success).hasCatalogChanges)
+        assertEquals(true, (result as SourceSyncExecutionResult.Success).hasCatalogChanges)
     }
 
     @Test
@@ -120,7 +123,7 @@ class AppKavitaCoordinatorTest {
             kavitaCredentialStore = credentialStore,
             remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
         )
-        val preparation = coordinator.prepareRefresh(KavitaConnectionUiState()) as KavitaSyncPreparation.Ready
+        val preparation = coordinator.prepareRefresh(RemoteSourceConnectionUiState(SourceType.KAVITA)) as SourceSyncPreparation.Ready
         // The covers renew the pair while the sync runs.
         credentialStore.save(
             savedKavitaSession().copy(accessToken = "covers-access-token", refreshToken = "covers-refresh-token"),
@@ -128,7 +131,7 @@ class AppKavitaCoordinatorTest {
 
         val result = coordinator.executeFastSync(preparation, clearCoverState = {})
 
-        assertTrue(result is KavitaSyncExecutionResult.Success)
+        assertTrue(result is SourceSyncExecutionResult.Success)
         assertEquals("covers-access-token", credentialStore.sessionFlow.value?.accessToken)
         assertEquals("covers-refresh-token", credentialStore.sessionFlow.value?.refreshToken)
         assertEquals("https://kavita.example", credentialStore.sessionFlow.value?.activeBaseUrl)
@@ -149,11 +152,11 @@ class AppKavitaCoordinatorTest {
             kavitaCredentialStore = credentialStore,
             remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
         )
-        val preparation = coordinator.prepareRefresh(KavitaConnectionUiState()) as KavitaSyncPreparation.Ready
+        val preparation = coordinator.prepareRefresh(RemoteSourceConnectionUiState(SourceType.KAVITA)) as SourceSyncPreparation.Ready
 
         val result = coordinator.executeSync(preparation, clearCoverState = {})
 
-        assertTrue(result is KavitaSyncExecutionResult.Failure)
+        assertTrue(result is SourceSyncExecutionResult.Failure)
         val savedSession = credentialStore.sessionFlow.value
         assertEquals("renewed-access-token", savedSession?.accessToken)
         assertEquals("renewed-refresh-token", savedSession?.refreshToken)
@@ -174,13 +177,14 @@ class AppKavitaCoordinatorTest {
             remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
         )
         val preparation = coordinator.prepareConnect(
-            KavitaConnectionUiState(
+            RemoteSourceConnectionUiState(
+                source = SourceType.KAVITA,
                 displayName = "Kavita",
                 baseUrl = "https://kavita.example",
                 username = "reader",
                 password = "secret",
             ),
-        ) as KavitaSyncPreparation.Ready
+        ) as SourceSyncPreparation.Ready
 
         coordinator.executeConnect(preparation)
 
@@ -199,13 +203,14 @@ class AppKavitaCoordinatorTest {
             remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
         )
         val preparation = coordinator.prepareConnect(
-            KavitaConnectionUiState(
+            RemoteSourceConnectionUiState(
+                source = SourceType.KAVITA,
                 displayName = "Kavita",
                 baseUrl = "https://kavita.example",
                 username = "reader",
                 password = "secret",
             ),
-        ) as KavitaSyncPreparation.Ready
+        ) as SourceSyncPreparation.Ready
 
         try {
             coordinator.executeConnect(preparation)
@@ -228,13 +233,14 @@ class AppKavitaCoordinatorTest {
             remoteSourceConnectivityPolicy = RemoteSourceConnectivityPolicy(),
         )
         val preparation = coordinator.prepareConnect(
-            KavitaConnectionUiState(
+            RemoteSourceConnectionUiState(
+                source = SourceType.KAVITA,
                 displayName = "Kavita",
                 baseUrl = "https://kavita.example",
                 username = "reader",
                 password = "secret",
             ),
-        ) as KavitaSyncPreparation.Ready
+        ) as SourceSyncPreparation.Ready
 
         try {
             coordinator.executeSync(preparation, clearCoverState = {})

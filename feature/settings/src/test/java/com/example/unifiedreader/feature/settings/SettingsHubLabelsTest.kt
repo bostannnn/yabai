@@ -12,10 +12,12 @@ import org.junit.Test
 class SettingsHubLabelsTest {
     @Test
     fun `source status follows the stored session and connectivity`() {
-        val connected = KavitaConnectionUiState(hasStoredSession = true)
+        val connected = RemoteSourceConnectionUiState(source = SourceType.KAVITA, hasStoredSession = true)
         assertEquals(
             SourceHubStatus("Not connected", AppStatusTone.Neutral),
-            remoteSourceHubStatus(KavitaConnectionUiState(), SourceConnectivityState.Online, lastSyncedAtEpochMillis = null),
+            remoteSourceHubStatus(RemoteSourceConnectionUiState(
+                SourceType.KAVITA,
+            ), SourceConnectivityState.Online, lastSyncedAtEpochMillis = null),
         )
         assertEquals(
             SourceHubStatus("Connected", AppStatusTone.Good),
@@ -33,7 +35,7 @@ class SettingsHubLabelsTest {
 
     @Test
     fun `a connected source says when it last synced`() {
-        val connected = KavitaConnectionUiState(hasStoredSession = true)
+        val connected = RemoteSourceConnectionUiState(source = SourceType.KAVITA, hasStoredSession = true)
         val today = Calendar.getInstance(Locale.US).apply { timeInMillis = NOW; set(Calendar.HOUR_OF_DAY, 9); set(Calendar.MINUTE, 12) }
         assertEquals(
             SourceHubStatus("Synced 09:12", AppStatusTone.Good),
@@ -50,7 +52,11 @@ class SettingsHubLabelsTest {
         assertEquals(
             "Connecting",
             remoteSourceHubStatus(
-                StumpConnectionUiState(isConnecting = true, activeAction = ServerConnectionAction.Connect),
+                RemoteSourceConnectionUiState(
+                    source = SourceType.STUMP,
+                    isConnecting = true,
+                    activeAction = ServerConnectionAction.Connect,
+                ),
                 SourceConnectivityState.Online,
                 lastSyncedAtEpochMillis = null,
             ).label,
@@ -58,7 +64,12 @@ class SettingsHubLabelsTest {
         assertEquals(
             "Syncing",
             remoteSourceHubStatus(
-                StumpConnectionUiState(hasStoredSession = true, isConnecting = true, activeAction = ServerConnectionAction.FastSync),
+                RemoteSourceConnectionUiState(
+                    source = SourceType.STUMP,
+                    hasStoredSession = true,
+                    isConnecting = true,
+                    activeAction = ServerConnectionAction.FastSync,
+                ),
                 SourceConnectivityState.Online,
                 lastSyncedAtEpochMillis = NOW,
             ).label,
@@ -136,9 +147,13 @@ class SettingsHubLabelsTest {
     fun `the server row names the account and the backup address`() {
         assertEquals(
             "andrew · backup 100.84.32.88:5000",
-            serverAccountLine(KavitaConnectionUiState(username = "andrew", backupBaseUrl = "http://100.84.32.88:5000/")),
+            serverAccountLine(RemoteSourceConnectionUiState(
+                source = SourceType.KAVITA,
+                username = "andrew",
+                backupBaseUrl = "http://100.84.32.88:5000/",
+            )),
         )
-        assertEquals(null, serverAccountLine(KavitaConnectionUiState(username = "", backupBaseUrl = "")))
+        assertEquals(null, serverAccountLine(RemoteSourceConnectionUiState(source = SourceType.KAVITA, username = "", backupBaseUrl = "")))
     }
 }
 

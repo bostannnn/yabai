@@ -4,7 +4,7 @@ import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.feature.settings.StumpConnectionUiState
+import com.example.unifiedreader.feature.settings.RemoteSourceConnectionUiState
 import javax.inject.Inject
 
 class AppStumpCoordinator @Inject constructor(
@@ -13,8 +13,8 @@ class AppStumpCoordinator @Inject constructor(
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
 ) {
     fun refreshedConnectionState(
-        connection: StumpConnectionUiState,
-    ): StumpConnectionUiState = refreshedRemoteConnectionState(
+        connection: RemoteSourceConnectionUiState,
+    ): RemoteSourceConnectionUiState = refreshedRemoteConnectionState(
         connection = connection,
         baseUrl = connection.baseUrl,
         backupBaseUrl = connection.backupBaseUrl,
@@ -26,7 +26,7 @@ class AppStumpCoordinator @Inject constructor(
     )
 
     internal fun prepareConnect(
-        connection: StumpConnectionUiState,
+        connection: RemoteSourceConnectionUiState,
     ): StumpSyncPreparation {
         return when (
             val connectInput = prepareRemoteConnectInput(
@@ -47,12 +47,12 @@ class AppStumpCoordinator @Inject constructor(
                 missingCredentialMessage = "Enter the Stump password or use the saved server details.",
             )
         ) {
-            is RemoteConnectionInputPreparation.Invalid -> StumpSyncPreparation.Invalid(
+            is RemoteConnectionInputPreparation.Invalid -> SourceSyncPreparation.Invalid(
                 connection = connectInput.connection,
             )
             is RemoteConnectionInputPreparation.Ready -> {
                 val input = connectInput.input
-                StumpSyncPreparation.Ready(
+                SourceSyncPreparation.Ready(
                     request = StumpCatalogSyncRequest(
                         displayName = input.displayName,
                         baseUrl = input.baseUrl,
@@ -85,7 +85,7 @@ class AppStumpCoordinator @Inject constructor(
     }
 
     internal fun prepareRefresh(
-        connection: StumpConnectionUiState,
+        connection: RemoteSourceConnectionUiState,
     ): StumpSyncPreparation {
         return when (
             val refreshInput = prepareRemoteRefreshInput(
@@ -103,13 +103,13 @@ class AppStumpCoordinator @Inject constructor(
                 },
             )
         ) {
-            StoredSessionRefreshInputPreparation.MissingSession -> StumpSyncPreparation.MissingSession
-            is StoredSessionRefreshInputPreparation.Invalid -> StumpSyncPreparation.Invalid(
+            StoredSessionRefreshInputPreparation.MissingSession -> SourceSyncPreparation.MissingSession
+            is StoredSessionRefreshInputPreparation.Invalid -> SourceSyncPreparation.Invalid(
                 connection = refreshInput.connection,
             )
             is StoredSessionRefreshInputPreparation.Ready -> {
                 val savedSession = refreshInput.session
-                StumpSyncPreparation.Ready(
+                SourceSyncPreparation.Ready(
                     request = StumpCatalogSyncRequest(
                         displayName = savedSession.displayName,
                         baseUrl = savedSession.baseUrl,
@@ -132,10 +132,10 @@ class AppStumpCoordinator @Inject constructor(
     }
 
     internal suspend fun executeSync(
-        preparation: StumpSyncPreparation.Ready,
+        preparation: StumpSyncReady,
         clearCoverState: suspend () -> Unit,
         onProgress: (StumpSyncProgress) -> Unit = {},
-    ): StumpSyncExecutionResult = runSuspendCatching {
+    ): SourceSyncExecutionResult = runSuspendCatching {
         val result = stumpCatalogSyncer.sync(
             request = preparation.request,
             onProgress = onProgress,
@@ -175,7 +175,7 @@ class AppStumpCoordinator @Inject constructor(
             sourceLabel = "Stump",
             failures = result.progressPushFailures,
         )
-        StumpSyncExecutionResult.Success(
+        SourceSyncExecutionResult.Success(
             libraryCount = result.libraryCount,
             itemCount = result.itemCount,
             supportedFormatCounts = result.supportedFormatCounts,
@@ -193,7 +193,7 @@ class AppStumpCoordinator @Inject constructor(
         )
     }.getOrElse { throwable ->
         remoteSourceConnectivityPolicy.markFromFailure(SourceType.STUMP, throwable)
-        StumpSyncExecutionResult.Failure(
+        SourceSyncExecutionResult.Failure(
             message = "${preparation.failurePrefix}: ${throwable.userFacingMessage()}",
             connection = preparation.activeConnection.copy(
                 isConnecting = false,
@@ -206,8 +206,8 @@ class AppStumpCoordinator @Inject constructor(
     }
 
     internal suspend fun executeConnect(
-        preparation: StumpSyncPreparation.Ready,
-    ): StumpConnectExecutionResult = runSuspendCatching {
+        preparation: StumpSyncReady,
+    ): SourceConnectExecutionResult = runSuspendCatching {
         val result = stumpCatalogSyncer.connect(preparation.request)
         persistRemoteSession(
             sessionStore = stumpCredentialStore,
@@ -238,7 +238,7 @@ class AppStumpCoordinator @Inject constructor(
             },
         )
         remoteSourceConnectivityPolicy.markReachable(SourceType.STUMP)
-        StumpConnectExecutionResult.Success(
+        SourceConnectExecutionResult.Success(
             libraryCount = result.libraryCount,
             availableLibraries = result.libraries,
             connection = preparation.activeConnection.copy(
@@ -253,7 +253,7 @@ class AppStumpCoordinator @Inject constructor(
         )
     }.getOrElse { throwable ->
         remoteSourceConnectivityPolicy.markFromFailure(SourceType.STUMP, throwable)
-        StumpConnectExecutionResult.Failure(
+        SourceConnectExecutionResult.Failure(
             message = "${preparation.failurePrefix}: ${throwable.userFacingMessage()}",
             connection = preparation.activeConnection.copy(
                 isConnecting = false,
@@ -308,46 +308,5 @@ private fun Int.itemLabel(): String = when (this) {
     else -> "$this cached items"
 }
 
-internal sealed interface StumpSyncPreparation {
-    data class Invalid(
-        val connection: StumpConnectionUiState,
-    ) : StumpSyncPreparation
-
-    data object MissingSession : StumpSyncPreparation
-
-    data class Ready(
-        val request: StumpCatalogSyncRequest,
-        val activeConnection: StumpConnectionUiState,
-        val fallbackSession: StumpStoredSession?,
-        val successConnectionMessage: String,
-        val failurePrefix: String,
-    ) : StumpSyncPreparation
-}
-
-internal sealed interface StumpSyncExecutionResult {
-    data class Success(
-        val libraryCount: Int,
-        val itemCount: Int,
-        val supportedFormatCounts: Map<FormatType, Int>,
-        val availableLibraries: List<Library>,
-        val connection: StumpConnectionUiState,
-    ) : StumpSyncExecutionResult
-
-    data class Failure(
-        val message: String,
-        val connection: StumpConnectionUiState,
-    ) : StumpSyncExecutionResult
-}
-
-internal sealed interface StumpConnectExecutionResult {
-    data class Success(
-        val libraryCount: Int,
-        val availableLibraries: List<Library>,
-        val connection: StumpConnectionUiState,
-    ) : StumpConnectExecutionResult
-
-    data class Failure(
-        val message: String,
-        val connection: StumpConnectionUiState,
-    ) : StumpConnectExecutionResult
-}
+internal typealias StumpSyncPreparation = SourceSyncPreparation<StumpCatalogSyncRequest, StumpStoredSession>
+internal typealias StumpSyncReady = SourceSyncPreparation.Ready<StumpCatalogSyncRequest, StumpStoredSession>

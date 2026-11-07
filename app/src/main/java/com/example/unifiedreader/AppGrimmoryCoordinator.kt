@@ -3,7 +3,7 @@ package com.example.unifiedreader
 import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.core.model.FormatType
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
+import com.example.unifiedreader.feature.settings.RemoteSourceConnectionUiState
 import javax.inject.Inject
 
 class AppGrimmoryCoordinator @Inject constructor(
@@ -12,8 +12,8 @@ class AppGrimmoryCoordinator @Inject constructor(
     private val remoteSourceConnectivityPolicy: RemoteSourceConnectivityPolicy,
 ) {
     fun refreshedConnectionState(
-        connection: GrimmoryConnectionUiState,
-    ): GrimmoryConnectionUiState = refreshedRemoteConnectionState(
+        connection: RemoteSourceConnectionUiState,
+    ): RemoteSourceConnectionUiState = refreshedRemoteConnectionState(
         connection = connection,
         baseUrl = connection.baseUrl,
         backupBaseUrl = connection.backupBaseUrl,
@@ -25,7 +25,7 @@ class AppGrimmoryCoordinator @Inject constructor(
     )
 
     internal fun prepareConnect(
-        connection: GrimmoryConnectionUiState,
+        connection: RemoteSourceConnectionUiState,
     ): GrimmorySyncPreparation {
         return when (
             val connectInput = prepareRemoteConnectInput(
@@ -46,12 +46,12 @@ class AppGrimmoryCoordinator @Inject constructor(
                 missingCredentialMessage = "Enter the Grimmory password or use the saved server details.",
             )
         ) {
-            is RemoteConnectionInputPreparation.Invalid -> GrimmorySyncPreparation.Invalid(
+            is RemoteConnectionInputPreparation.Invalid -> SourceSyncPreparation.Invalid(
                 connection = connectInput.connection,
             )
             is RemoteConnectionInputPreparation.Ready -> {
                 val input = connectInput.input
-                GrimmorySyncPreparation.Ready(
+                SourceSyncPreparation.Ready(
                     request = GrimmoryCatalogSyncRequest(
                         displayName = input.displayName,
                         baseUrl = input.baseUrl,
@@ -84,7 +84,7 @@ class AppGrimmoryCoordinator @Inject constructor(
     }
 
     internal fun prepareRefresh(
-        connection: GrimmoryConnectionUiState,
+        connection: RemoteSourceConnectionUiState,
     ): GrimmorySyncPreparation {
         return when (
             val refreshInput = prepareRemoteRefreshInput(
@@ -102,13 +102,13 @@ class AppGrimmoryCoordinator @Inject constructor(
                 },
             )
         ) {
-            StoredSessionRefreshInputPreparation.MissingSession -> GrimmorySyncPreparation.MissingSession
-            is StoredSessionRefreshInputPreparation.Invalid -> GrimmorySyncPreparation.Invalid(
+            StoredSessionRefreshInputPreparation.MissingSession -> SourceSyncPreparation.MissingSession
+            is StoredSessionRefreshInputPreparation.Invalid -> SourceSyncPreparation.Invalid(
                 connection = refreshInput.connection,
             )
             is StoredSessionRefreshInputPreparation.Ready -> {
                 val savedSession = refreshInput.session
-                GrimmorySyncPreparation.Ready(
+                SourceSyncPreparation.Ready(
                     request = GrimmoryCatalogSyncRequest(
                         displayName = savedSession.displayName,
                         baseUrl = savedSession.baseUrl,
@@ -131,12 +131,12 @@ class AppGrimmoryCoordinator @Inject constructor(
     }
 
     internal suspend fun executeSync(
-        preparation: GrimmorySyncPreparation.Ready,
+        preparation: GrimmorySyncReady,
         clearCoverState: suspend () -> Unit,
         onProgress: (GrimmorySyncProgress) -> Unit = {},
         // The library's refresh (GrimmoryCatalogSyncer.refresh) instead of the full sync.
         refresh: Boolean = false,
-    ): GrimmorySyncExecutionResult = runSuspendCatching {
+    ): SourceSyncExecutionResult = runSuspendCatching {
         val result = if (refresh) {
             grimmoryCatalogSyncer.refresh(request = preparation.request, onProgress = onProgress)
         } else {
@@ -178,7 +178,7 @@ class AppGrimmoryCoordinator @Inject constructor(
             sourceLabel = "Grimmory",
             failures = result.progressPushFailures,
         )
-        GrimmorySyncExecutionResult.Success(
+        SourceSyncExecutionResult.Success(
             libraryCount = result.libraryCount,
             itemCount = result.itemCount,
             supportedFormatCounts = result.supportedFormatCounts,
@@ -195,7 +195,7 @@ class AppGrimmoryCoordinator @Inject constructor(
         )
     }.getOrElse { throwable ->
         remoteSourceConnectivityPolicy.markFromFailure(SourceType.GRIMMORY, throwable)
-        GrimmorySyncExecutionResult.Failure(
+        SourceSyncExecutionResult.Failure(
             message = "${preparation.failurePrefix}: ${throwable.userFacingMessage()}",
             connection = preparation.activeConnection.copy(
                 isConnecting = false,
@@ -208,8 +208,8 @@ class AppGrimmoryCoordinator @Inject constructor(
     }
 
     internal suspend fun executeConnect(
-        preparation: GrimmorySyncPreparation.Ready,
-    ): GrimmoryConnectExecutionResult = runSuspendCatching {
+        preparation: GrimmorySyncReady,
+    ): SourceConnectExecutionResult = runSuspendCatching {
         val result = grimmoryCatalogSyncer.connect(preparation.request)
         persistRemoteSession(
             sessionStore = grimmoryCredentialStore,
@@ -240,7 +240,7 @@ class AppGrimmoryCoordinator @Inject constructor(
             },
         )
         remoteSourceConnectivityPolicy.markReachable(SourceType.GRIMMORY)
-        GrimmoryConnectExecutionResult.Success(
+        SourceConnectExecutionResult.Success(
             libraryCount = result.libraryCount,
             connection = preparation.activeConnection.copy(
                 password = "",
@@ -252,7 +252,7 @@ class AppGrimmoryCoordinator @Inject constructor(
         )
     }.getOrElse { throwable ->
         remoteSourceConnectivityPolicy.markFromFailure(SourceType.GRIMMORY, throwable)
-        GrimmoryConnectExecutionResult.Failure(
+        SourceConnectExecutionResult.Failure(
             message = "${preparation.failurePrefix}: ${throwable.userFacingMessage()}",
             connection = preparation.activeConnection.copy(
                 isConnecting = false,
@@ -275,44 +275,5 @@ class AppGrimmoryCoordinator @Inject constructor(
     }
 }
 
-internal sealed interface GrimmorySyncPreparation {
-    data class Invalid(
-        val connection: GrimmoryConnectionUiState,
-    ) : GrimmorySyncPreparation
-
-    data object MissingSession : GrimmorySyncPreparation
-
-    data class Ready(
-        val request: GrimmoryCatalogSyncRequest,
-        val activeConnection: GrimmoryConnectionUiState,
-        val fallbackSession: GrimmoryStoredSession?,
-        val successConnectionMessage: String,
-        val failurePrefix: String,
-    ) : GrimmorySyncPreparation
-}
-
-internal sealed interface GrimmorySyncExecutionResult {
-    data class Success(
-        val libraryCount: Int,
-        val itemCount: Int,
-        val supportedFormatCounts: Map<FormatType, Int>,
-        val connection: GrimmoryConnectionUiState,
-    ) : GrimmorySyncExecutionResult
-
-    data class Failure(
-        val message: String,
-        val connection: GrimmoryConnectionUiState,
-    ) : GrimmorySyncExecutionResult
-}
-
-internal sealed interface GrimmoryConnectExecutionResult {
-    data class Success(
-        val libraryCount: Int,
-        val connection: GrimmoryConnectionUiState,
-    ) : GrimmoryConnectExecutionResult
-
-    data class Failure(
-        val message: String,
-        val connection: GrimmoryConnectionUiState,
-    ) : GrimmoryConnectExecutionResult
-}
+internal typealias GrimmorySyncPreparation = SourceSyncPreparation<GrimmoryCatalogSyncRequest, GrimmoryStoredSession>
+internal typealias GrimmorySyncReady = SourceSyncPreparation.Ready<GrimmoryCatalogSyncRequest, GrimmoryStoredSession>

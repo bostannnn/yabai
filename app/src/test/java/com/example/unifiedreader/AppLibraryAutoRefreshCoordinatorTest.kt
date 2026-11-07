@@ -2,10 +2,8 @@ package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
-import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
+import com.example.unifiedreader.feature.settings.RemoteSourceConnectionUiState
 import com.example.unifiedreader.feature.settings.ServerConnectionAction
-import com.example.unifiedreader.feature.settings.StumpConnectionUiState
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -57,7 +55,10 @@ class AppLibraryAutoRefreshCoordinatorTest {
 
     @Test
     fun `stump and local wait for a tap`() {
-        show(AppUiState(selectedSource = SourceType.STUMP, stumpConnection = StumpConnectionUiState(hasStoredSession = true)))
+        show(AppUiState(selectedSource = SourceType.STUMP, stumpConnection = RemoteSourceConnectionUiState(
+            source = SourceType.STUMP,
+            hasStoredSession = true,
+        )))
         show(AppUiState(selectedSource = SourceType.LOCAL))
         assertEquals(0, refreshes)
     }
@@ -65,10 +66,11 @@ class AppLibraryAutoRefreshCoordinatorTest {
     @Test
     fun `an offline, unconnected or busy server is left alone`() {
         show(grimmory().copy(sourceConnectivityBySource = mapOf(SourceType.GRIMMORY to SourceConnectivityState.Offline)))
-        show(grimmory().copy(grimmoryConnection = GrimmoryConnectionUiState(hasStoredSession = false)))
+        show(grimmory().copy(grimmoryConnection = RemoteSourceConnectionUiState(source = SourceType.GRIMMORY, hasStoredSession = false)))
         show(
             grimmory().copy(
-                grimmoryConnection = GrimmoryConnectionUiState(
+                grimmoryConnection = RemoteSourceConnectionUiState(
+                    source = SourceType.GRIMMORY,
                     hasStoredSession = true,
                     isConnecting = true,
                     activeAction = ServerConnectionAction.Sync,
@@ -91,12 +93,12 @@ class AppLibraryAutoRefreshCoordinatorTest {
 
     private fun grimmory() = AppUiState(
         selectedSource = SourceType.GRIMMORY,
-        grimmoryConnection = GrimmoryConnectionUiState(hasStoredSession = true),
+        grimmoryConnection = RemoteSourceConnectionUiState(source = SourceType.GRIMMORY, hasStoredSession = true),
     )
 
     private fun kavita() = AppUiState(
         selectedSource = SourceType.KAVITA,
-        kavitaConnection = KavitaConnectionUiState(hasStoredSession = true),
+        kavitaConnection = RemoteSourceConnectionUiState(source = SourceType.KAVITA, hasStoredSession = true),
     )
 
     private companion object {

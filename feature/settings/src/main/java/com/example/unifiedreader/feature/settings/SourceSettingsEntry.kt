@@ -1,29 +1,60 @@
 package com.example.unifiedreader.feature.settings
 
+import com.example.unifiedreader.core.model.Library
 import com.example.unifiedreader.core.model.SourceConnectivityState
 import com.example.unifiedreader.core.model.SourceType
 import com.example.unifiedreader.feature.settings.direction.ReadingDirectionLibraryUiState
 import com.example.unifiedreader.feature.settings.mode.ReaderModeLibraryUiState
 import com.example.unifiedreader.ui.components.AppStatusTone
 
-/** What the settings UI needs to know about one remote server's connection. */
-interface RemoteSourceConnectionUiState {
-    val displayName: String
-    val baseUrl: String
-    val backupBaseUrl: String
-    val username: String
-    val password: String
-    val hasStoredSession: Boolean
+/** One remote server's connection as the settings UI shows it: the form, the saved sign-in and any sync under way. */
+data class RemoteSourceConnectionUiState(
+    val source: SourceType,
+    val displayName: String = source.defaultServerName(),
+    val baseUrl: String = source.defaultServerUrl(),
+    val backupBaseUrl: String = source.defaultBackupServerUrl(),
+    val username: String = "",
+    val password: String = "",
+    /** The server's libraries after a sign-in; Kavita and Stump list them, Grimmory does not. */
+    val availableLibraries: List<Library> = emptyList(),
+    val hasStoredSession: Boolean = false,
     /** False until the stored session (or its absence) has loaded after launch. */
-    val isSessionKnown: Boolean
-    val isConnecting: Boolean
-    val activeAction: ServerConnectionAction?
-    val syncProgressFraction: Float?
-    val syncProgressLabel: String?
-    val coverPreload: CoverPreloadUiState
-    val message: String?
-    val isError: Boolean
+    val isSessionKnown: Boolean = false,
+    val isConnecting: Boolean = false,
+    val activeAction: ServerConnectionAction? = null,
+    val syncProgressFraction: Float? = null,
+    val syncProgressLabel: String? = null,
+    val coverPreload: CoverPreloadUiState = CoverPreloadUiState(),
+    val message: String? = null,
+    val isError: Boolean = false,
+) {
     val canSubmit: Boolean
+        get() = !isConnecting &&
+            displayName.isNotBlank() &&
+            baseUrl.isNotBlank() &&
+            username.isNotBlank() &&
+            (password.isNotBlank() || hasStoredSession)
+}
+
+private fun SourceType.defaultServerName(): String = when (this) {
+    SourceType.KAVITA -> "Kavita"
+    SourceType.STUMP -> "Stump"
+    SourceType.GRIMMORY -> "Grimmory"
+    SourceType.LOCAL -> ""
+}
+
+private fun SourceType.defaultServerUrl(): String = when (this) {
+    SourceType.KAVITA -> DefaultKavitaServerUrl
+    SourceType.STUMP -> DefaultStumpServerUrl
+    SourceType.GRIMMORY -> DefaultGrimmoryServerUrl
+    SourceType.LOCAL -> ""
+}
+
+private fun SourceType.defaultBackupServerUrl(): String = when (this) {
+    SourceType.KAVITA -> DefaultKavitaBackupServerUrl
+    SourceType.STUMP -> DefaultStumpBackupServerUrl
+    SourceType.GRIMMORY -> DefaultGrimmoryBackupServerUrl
+    SourceType.LOCAL -> ""
 }
 
 /** Everything a source page can do, bundled so the app wires one object per source. */

@@ -559,17 +559,17 @@ private class KavitaRecentUpdatesUnavailableException(
 
 data class KavitaCatalogSyncRequest(
     val displayName: String,
-    val baseUrl: String,
+    override val baseUrl: String,
     val backupBaseUrl: String? = null,
     val activeBaseUrl: String? = null,
-    val username: String,
+    override val username: String,
     val password: String? = null,
     val accessToken: String? = null,
     val refreshToken: String? = null,
     val apiKey: String? = null,
     val pullUnchangedProgressDuringFastSync: Boolean = false,
     val pullJournalDuringFastSync: Boolean = false,
-)
+) : SourceSyncRequest
 
 data class KavitaCatalogConnectionResult(
     val libraryCount: Int,

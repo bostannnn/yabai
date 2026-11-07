@@ -159,7 +159,30 @@ user's choice. The shared helpers and where they live:
   **Not checked:** a downloaded Kavita, Stump or Grimmory comic (the emulator has none); its 10 page-source tests
   pass.
 
-**Next:** 5.3 (source connection controllers and UI state).
+**Step 5.3 built (2026-11-07), server connection controllers and UI state.**
+- **UI state:** `RemoteSourceConnectionUiState` (feature:settings) is now one data class keyed by `source`, which picks
+  the default name and URLs. It replaces the interface and `Kavita`/`Stump`/`GrimmoryConnectionUiState`.
+  `availableLibraries` stays empty for Grimmory. The three `withStoredSession` helpers are one.
+- **Result types:** `SourceSyncPreparation<Request, Session>`, `SourceSyncExecutionResult` and
+  `SourceConnectExecutionResult` (`SourceSyncResults.kt`) replace the nine per-server sealed types.
+  `KavitaSyncPreparation`/`KavitaSyncReady` (and Stump's and Grimmory's) are typealiases. The three catalog sync
+  requests implement `SourceSyncRequest` (base URL and username, the library cache's key).
+- **Controller:** `RemoteSourceConnectionController` holds the form edits, connect, `observeStoredSession`
+  and sync. A subclass gives its coordinator calls, where the bar starts, its messages and which series to close.
+  Kavita and Stump pass `RemoteSourceLibraryLists` (library cache + page cache); Grimmory passes none.
+  `App{Kavita,Stump,Grimmory}RemoteSourceController` are now 60–80 lines each, keeping their public calls
+  (`refresh`, Kavita's `fastRefresh`).
+- **One behaviour change:** Kavita and Stump now ignore Connect or Sync while one is already running, as Grimmory
+  did; before, a second one could interleave its progress and save over the first.
+- About 1,430 lines removed, 730 added. detekt: the three controllers' `TooManyFunctions` entries became one for
+  the base class; three coordinator `LongMethod` entries were renamed for their new parameter types; stale
+  controller entries were dropped.
+- All tests, detekt, lint and the debug build pass. **Emulator:** Settings shows Grimmory's saved sign-in and
+  Kavita and Stump as not connected; Kavita's page has the right defaults; a sign-in to a dead local address
+  (`10.0.2.2:9`, test values) showed "Connecting", then the failure, and re-enabled Connect; no crash.
+  **Not checked:** a real sign-in or sync against any server.
+
+**Next:** 5.4 (progress push loop and token refresh).
 
 ## Step 1. Decisions only the user can make (done, answers above)
 

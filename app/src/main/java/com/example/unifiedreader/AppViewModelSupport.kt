@@ -3,71 +3,17 @@ package com.example.unifiedreader
 import com.example.unifiedreader.data.kavita.KavitaSession
 import com.example.unifiedreader.data.grimmory.GrimmorySession
 import com.example.unifiedreader.data.stump.StumpSession
-import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
-import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
-import com.example.unifiedreader.feature.settings.StumpConnectionUiState
+import com.example.unifiedreader.feature.settings.RemoteSourceConnectionUiState
 
 internal typealias AppUiStateProvider = () -> AppUiState
 internal typealias AppUiStateUpdater = ((AppUiState) -> AppUiState) -> Unit
 
-// The withStoredSession below leave the message and whether it is an error as they were: the session is
+// withStoredSession leaves the message and whether it is an error as they were: the session is
 // saved again on its own (a token renewal, a new network), and an error that turned plain on that hid a
 // failed first sync behind a bar that never filled.
-internal fun GrimmoryConnectionUiState.withStoredSession(
-    session: GrimmoryStoredSession?,
-): GrimmoryConnectionUiState = if (session == null) {
-    copy(
-        hasStoredSession = false,
-        isSessionKnown = true,
-        activeAction = null,
-        syncProgressFraction = null,
-        syncProgressLabel = null,
-    )
-} else {
-    copy(
-        displayName = session.displayName,
-        baseUrl = session.baseUrl,
-        backupBaseUrl = session.backupBaseUrl.orEmpty(),
-        username = session.username,
-        password = "",
-        hasStoredSession = true,
-        isSessionKnown = true,
-        activeAction = null,
-        syncProgressFraction = null,
-        syncProgressLabel = null,
-    )
-}
-
-internal fun KavitaConnectionUiState.withStoredSession(
-    session: KavitaStoredSession?,
-): KavitaConnectionUiState = if (session == null) {
-    copy(
-        availableLibraries = emptyList(),
-        hasStoredSession = false,
-        isSessionKnown = true,
-        activeAction = null,
-        syncProgressFraction = null,
-        syncProgressLabel = null,
-    )
-} else {
-    copy(
-        displayName = session.displayName,
-        baseUrl = session.baseUrl,
-        backupBaseUrl = session.backupBaseUrl.orEmpty(),
-        username = session.username,
-        password = "",
-        availableLibraries = emptyList(),
-        hasStoredSession = true,
-        isSessionKnown = true,
-        activeAction = null,
-        syncProgressFraction = null,
-        syncProgressLabel = null,
-    )
-}
-
-internal fun StumpConnectionUiState.withStoredSession(
-    session: StumpStoredSession?,
-): StumpConnectionUiState = if (session == null) {
+internal fun RemoteSourceConnectionUiState.withStoredSession(
+    session: StoredSourceSession?,
+): RemoteSourceConnectionUiState = if (session == null) {
     copy(
         availableLibraries = emptyList(),
         hasStoredSession = false,

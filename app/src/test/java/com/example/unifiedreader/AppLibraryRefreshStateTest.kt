@@ -1,10 +1,8 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
-import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
+import com.example.unifiedreader.feature.settings.RemoteSourceConnectionUiState
 import com.example.unifiedreader.feature.settings.ServerConnectionAction
-import com.example.unifiedreader.feature.settings.StumpConnectionUiState
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -12,9 +10,9 @@ class AppLibraryRefreshStateTest {
     @Test
     fun `refresh library shows on every connected server and not on local`() {
         val connected = AppUiState(
-            kavitaConnection = KavitaConnectionUiState(hasStoredSession = true),
-            stumpConnection = StumpConnectionUiState(hasStoredSession = true),
-            grimmoryConnection = GrimmoryConnectionUiState(hasStoredSession = true),
+            kavitaConnection = RemoteSourceConnectionUiState(source = SourceType.KAVITA, hasStoredSession = true),
+            stumpConnection = RemoteSourceConnectionUiState(source = SourceType.STUMP, hasStoredSession = true),
+            grimmoryConnection = RemoteSourceConnectionUiState(source = SourceType.GRIMMORY, hasStoredSession = true),
         )
         listOf(SourceType.KAVITA, SourceType.STUMP, SourceType.GRIMMORY).forEach { source ->
             assertEquals(
@@ -30,7 +28,8 @@ class AppLibraryRefreshStateTest {
     fun `the ring shows while any sync of the library runs, not while it connects`() {
         fun grimmoryDoing(action: ServerConnectionAction) = AppUiState(
             selectedSource = SourceType.GRIMMORY,
-            grimmoryConnection = GrimmoryConnectionUiState(
+            grimmoryConnection = RemoteSourceConnectionUiState(
+                source = SourceType.GRIMMORY,
                 hasStoredSession = true,
                 isConnecting = true,
                 activeAction = action,

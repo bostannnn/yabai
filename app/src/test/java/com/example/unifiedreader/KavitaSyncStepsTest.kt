@@ -1,6 +1,7 @@
 package com.example.unifiedreader
 
-import com.example.unifiedreader.feature.settings.KavitaConnectionUiState
+import com.example.unifiedreader.core.model.SourceType
+import com.example.unifiedreader.feature.settings.RemoteSourceConnectionUiState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -30,7 +31,8 @@ class KavitaSyncStepsTest {
 
     @Test
     fun `saving the stored session again keeps a failed sync's error`() {
-        val failed = KavitaConnectionUiState(
+        val failed = RemoteSourceConnectionUiState(
+            source = SourceType.KAVITA,
             message = "Unable to sync Kavita: Server error",
             isError = true,
         )

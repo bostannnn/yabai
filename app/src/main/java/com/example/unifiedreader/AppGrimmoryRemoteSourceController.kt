@@ -1,129 +1,23 @@
 package com.example.unifiedreader
 
 import com.example.unifiedreader.core.model.SourceType
-import com.example.unifiedreader.feature.settings.GrimmoryConnectionUiState
+import com.example.unifiedreader.feature.settings.RemoteSourceConnectionUiState
 import com.example.unifiedreader.feature.settings.ServerConnectionAction
-import com.example.unifiedreader.feature.settings.syncProgressFillAfter
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 
 class AppGrimmoryRemoteSourceController @Inject constructor(
     private val grimmoryCoordinator: AppGrimmoryCoordinator,
-    private val grimmoryCredentialStore: GrimmoryCredentialStore,
-    private val remoteCoverController: RemoteCoverController,
-    private val sourceSyncTimes: SourceSyncTimeStore,
+    grimmoryCredentialStore: GrimmoryCredentialStore,
+    remoteCoverController: RemoteCoverController,
+    sourceSyncTimes: SourceSyncTimeStore,
+) : RemoteSourceConnectionController<GrimmoryCatalogSyncRequest, GrimmoryStoredSession>(
+    source = SourceType.GRIMMORY,
+    sessionFlow = grimmoryCredentialStore.sessionFlow,
+    remoteCoverController = remoteCoverController,
+    sourceSyncTimes = sourceSyncTimes,
+    libraryLists = null,
 ) {
-    fun initialize(
-        updateState: AppUiStateUpdater,
-    ) {
-        updateState { state ->
-            state.copy(
-                grimmoryConnection = state.grimmoryConnection.withStoredSession(grimmoryCredentialStore.sessionFlow.value),
-            )
-        }
-    }
-
-    fun onDisplayNameChanged(
-        displayName: String,
-        updateState: AppUiStateUpdater,
-    ) {
-        updateConnectionInput(updateState) { connection ->
-            connection.copy(displayName = displayName)
-        }
-    }
-
-    fun onBaseUrlChanged(
-        baseUrl: String,
-        updateState: AppUiStateUpdater,
-    ) {
-        updateConnectionInput(updateState) { connection ->
-            connection.copy(baseUrl = baseUrl)
-        }
-    }
-
-    fun onBackupBaseUrlChanged(
-        backupBaseUrl: String,
-        updateState: AppUiStateUpdater,
-    ) {
-        updateConnectionInput(updateState) { connection ->
-            connection.copy(backupBaseUrl = backupBaseUrl)
-        }
-    }
-
-    fun onUsernameChanged(
-        username: String,
-        updateState: AppUiStateUpdater,
-    ) {
-        updateConnectionInput(updateState) { connection ->
-            connection.copy(username = username)
-        }
-    }
-
-    fun onPasswordChanged(
-        password: String,
-        updateState: AppUiStateUpdater,
-    ) {
-        updateConnection(updateState) { connection ->
-            connection.copy(
-                password = password,
-                activeAction = null,
-                message = null,
-                isError = false,
-            )
-        }
-    }
-
-    fun connect(
-        stateProvider: AppUiStateProvider,
-        updateState: AppUiStateUpdater,
-        scope: CoroutineScope,
-    ) {
-        // One sign-in or sync at a time: a second would interleave its progress and save over the first.
-        if (stateProvider().grimmoryConnection.isConnecting) return
-        when (val preparation = grimmoryCoordinator.prepareConnect(stateProvider().grimmoryConnection)) {
-            is GrimmorySyncPreparation.Invalid -> {
-                updateState { state ->
-                    state.copy(
-                        grimmoryConnection = preparation.connection.copy(activeAction = null),
-                    )
-                }
-            }
-            GrimmorySyncPreparation.MissingSession -> Unit
-            is GrimmorySyncPreparation.Ready -> {
-                updateState { state ->
-                    state.copy(
-                        grimmoryConnection = preparation.activeConnection.copy(
-                            isConnecting = true,
-                            activeAction = ServerConnectionAction.Connect,
-                            message = "Connecting to Grimmory.",
-                            isError = false,
-                        ),
-                    )
-                }
-                startConnect(preparation, updateState, scope)
-            }
-        }
-    }
-
-    fun observeStoredSession(
-        scope: CoroutineScope,
-        stateProvider: AppUiStateProvider,
-        updateState: AppUiStateUpdater,
-    ) {
-        scope.launch {
-            grimmoryCredentialStore.sessionFlow.collect { session ->
-                if (!stateProvider().grimmoryConnection.isConnecting) {
-                    updateConnection(updateState) { connection ->
-                        grimmoryCoordinator.refreshedConnectionState(
-                            connection.withStoredSession(session),
-                        )
-                    }
-                }
-            }
-        }
-    }
-
     /**
      * Syncs the library; both kinds save only the books that changed. [inPlace] is the library's own
      * refresh: it loads reading history for the books read since the last sync and leaves you where
@@ -135,157 +29,31 @@ class AppGrimmoryRemoteSourceController @Inject constructor(
         scope: CoroutineScope,
         inPlace: Boolean = false,
     ) {
-        if (stateProvider().grimmoryConnection.isConnecting) return
         val action = if (inPlace) ServerConnectionAction.FastSync else ServerConnectionAction.Sync
-        when (val preparation = grimmoryCoordinator.prepareRefresh(stateProvider().grimmoryConnection)) {
-            GrimmorySyncPreparation.MissingSession -> {
-                updateState { state ->
-                    state.copy(
-                        grimmoryConnection = state.grimmoryConnection.copy(
-                            message = "Connect to Grimmory before syncing the library.",
-                            activeAction = null,
-                            isError = true,
-                        ),
-                    )
-                }
-            }
-            is GrimmorySyncPreparation.Invalid -> {
-                updateState { state ->
-                    state.copy(
-                        grimmoryConnection = preparation.connection.copy(activeAction = null),
-                    )
-                }
-            }
-            is GrimmorySyncPreparation.Ready -> {
-                updateState { state ->
-                    state.copy(
-                        grimmoryConnection = preparation.activeConnection.copy(
-                            isConnecting = true,
-                            activeAction = action,
-                            syncProgressFraction = GrimmorySyncSteps.connecting.fraction,
-                            syncProgressLabel = GrimmorySyncSteps.connecting.message,
-                            message = "Syncing Grimmory library.",
-                            isError = false,
-                        ),
-                    )
-                }
-                startSync(preparation, updateState, scope, inPlace)
-            }
-        }
+        sync(action, stayInPlace = inPlace, stateProvider, updateState, scope)
     }
 
-    private fun startSync(
-        preparation: GrimmorySyncPreparation.Ready,
-        updateState: AppUiStateUpdater,
-        scope: CoroutineScope,
-        inPlace: Boolean,
-    ) {
-        val action = if (inPlace) ServerConnectionAction.FastSync else ServerConnectionAction.Sync
-        scope.launch {
-            when (
-                val result = grimmoryCoordinator.executeSync(
-                    preparation = preparation,
-                    clearCoverState = ::resetCoverState,
-                    refresh = inPlace,
-                    onProgress = { progress ->
-                        updateState { state ->
-                            state.copy(
-                                grimmoryConnection = state.grimmoryConnection.copy(
-                                    isConnecting = true,
-                                    activeAction = action,
-                                    syncProgressFraction = syncProgressFillAfter(
-                                        current = state.grimmoryConnection.syncProgressFraction,
-                                        reported = progress.fraction,
-                                    ),
-                                    syncProgressLabel = progress.message,
-                                    message = "Syncing Grimmory library.",
-                                    isError = false,
-                                ),
-                            )
-                        }
-                    },
-                )
-            ) {
-                is GrimmorySyncExecutionResult.Success -> {
-                    sourceSyncTimes.markSynced(SourceType.GRIMMORY)
-                    updateState { state ->
-                        val syncedConnection = result.connection.copy(activeAction = null)
-                        if (inPlace) {
-                            state.copy(grimmoryConnection = syncedConnection)
-                        } else {
-                            state.copy(
-                                topLevel = TopLevelDestination.Library,
-                                selectedSource = SourceType.GRIMMORY,
-                                selectedItemId = null,
-                                activeReader = null,
-                                grimmoryConnection = syncedConnection,
-                            )
-                        }
-                    }
-                }
-                is GrimmorySyncExecutionResult.Failure -> {
-                    updateState { state ->
-                        state.copy(
-                            grimmoryConnection = result.connection.copy(activeAction = null),
-                        )
-                    }
-                }
-            }
-        }
-    }
+    override fun prepareConnect(connection: RemoteSourceConnectionUiState) = grimmoryCoordinator.prepareConnect(connection)
 
-    private fun startConnect(
-        preparation: GrimmorySyncPreparation.Ready,
-        updateState: AppUiStateUpdater,
-        scope: CoroutineScope,
-    ) {
-        scope.launch {
-            when (val result = grimmoryCoordinator.executeConnect(preparation)) {
-                is GrimmoryConnectExecutionResult.Success -> {
-                    updateState { state ->
-                        state.copy(
-                            grimmoryConnection = result.connection.copy(activeAction = null),
-                        )
-                    }
-                }
-                is GrimmoryConnectExecutionResult.Failure -> {
-                    updateState { state ->
-                        state.copy(
-                            grimmoryConnection = result.connection.copy(activeAction = null),
-                        )
-                    }
-                }
-            }
-        }
-    }
+    override fun prepareRefresh(connection: RemoteSourceConnectionUiState) = grimmoryCoordinator.prepareRefresh(connection)
 
-    private fun updateConnection(
-        updateState: AppUiStateUpdater,
-        transform: (GrimmoryConnectionUiState) -> GrimmoryConnectionUiState,
-    ) {
-        updateState { state ->
-            state.copy(
-                grimmoryConnection = transform(state.grimmoryConnection),
-            )
-        }
-    }
+    override fun refreshedConnectionState(connection: RemoteSourceConnectionUiState) =
+        grimmoryCoordinator.refreshedConnectionState(connection)
 
-    private fun updateConnectionInput(
-        updateState: AppUiStateUpdater,
-        transform: (GrimmoryConnectionUiState) -> GrimmoryConnectionUiState,
-    ) {
-        updateConnection(updateState) { connection ->
-            grimmoryCoordinator.refreshedConnectionState(
-                transform(connection).copy(
-                    activeAction = null,
-                    message = null,
-                    isError = false,
-                ),
-            )
-        }
-    }
+    override suspend fun executeConnect(preparation: GrimmorySyncReady) = grimmoryCoordinator.executeConnect(preparation)
 
-    private suspend fun resetCoverState() {
-        remoteCoverController.refreshSourceAfterCatalogSync(SourceType.GRIMMORY)
-    }
+    override suspend fun executeSync(
+        preparation: GrimmorySyncReady,
+        action: ServerConnectionAction,
+        clearCoverState: suspend () -> Unit,
+        onProgress: (SourceSyncProgress) -> Unit,
+    ): SourceSyncExecutionResult = grimmoryCoordinator.executeSync(
+        preparation = preparation,
+        clearCoverState = clearCoverState,
+        refresh = action == ServerConnectionAction.FastSync,
+        onProgress = { progress -> onProgress(SourceSyncProgress(progress.message, progress.fraction)) },
+    )
+
+    override val syncStartProgress =
+        SourceSyncProgress(GrimmorySyncSteps.connecting.message, GrimmorySyncSteps.connecting.fraction)
 }
