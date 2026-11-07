@@ -197,7 +197,21 @@ user's choice. The shared helpers and where they live:
 - **Seen, not part of this step:** lint warns twice (`UseKtx`) on `EncryptedSourceSessionStore.kt` from `8d2b885d`;
   warnings don't fail the build.
 
-**Next:** 5.5 (cover repositories).
+**Step 5.5 built (2026-11-07), cover repositories.**
+- `SourceCoverRepository<Session, Api>` (app) holds the cache lookup, the download into the cache through the
+  saved sign-in with address failover, warming and clearing. A subclass names its cache files, sets the session's
+  active address and downloads one cover's bytes.
+- `KavitaCoverRepository` (141 → 55 lines), `StumpCoverRepository` (161 → 70) and `GrimmoryCoverRepository`
+  (135 → 55) are subclasses; their `*CoverDataSource` interfaces and Hilt wiring are unchanged.
+- `remoteCacheFileName`/`remoteLegacyCacheFileNames` replace the byte-identical Kavita and Stump versions. Grimmory's
+  pass its file id as `fileKey`, so every cache file keeps its name and no cover is downloaded again.
+- One small change: a cover is now downloaded first and then written to the cache, instead of downloaded while the
+  file was open. A sign-in renewal retries only the download.
+- All tests (cover repositories, cache file names, cover backfill), detekt, lint and the debug build pass.
+  **Emulator:** the offline Grimmory library looks the same with and without the change (main's build installed
+  for comparison; covers not in the cache stay blank in both). **Not checked:** downloading a cover from a server.
+
+**Next:** 5.6 (credential stores).
 
 ## Step 1. Decisions only the user can make (done, answers above)
 

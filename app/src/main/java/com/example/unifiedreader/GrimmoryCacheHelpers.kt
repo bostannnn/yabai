@@ -67,26 +67,9 @@ private fun String.toCoverCacheIdentity(): String = runCatching {
 internal fun ReadableItem.grimmoryCacheFileName(
     extension: String,
     coverUrl: String? = this.coverUrl,
-): String = listOfNotNull(
-    id.toSafeFileSegment(),
-    remoteFileId?.toSafeFileSegment(),
-    coverIdentityFileSegment(coverUrl),
-).joinToString(separator = "-").plus(".$extension")
+): String = remoteCacheFileName(extension = extension, coverUrl = coverUrl, fileKey = remoteFileId)
 
 internal fun ReadableItem.grimmoryLegacyCacheFileNames(
     extension: String,
     session: StoredSourceSession? = null,
-): List<String> {
-    val alternateAddressFileNames = alternateAddressCoverCacheFileNames(
-        extension = extension,
-        session = session,
-        cacheFileName = ReadableItem::grimmoryCacheFileName,
-    )
-    if (coverIdentityFileSegment() != null) return alternateAddressFileNames
-    return alternateAddressFileNames + listOf(
-        listOfNotNull(
-            id.toSafeFileSegment(),
-            remoteFileId?.toSafeFileSegment(),
-        ).joinToString(separator = "-").plus(".$extension"),
-    )
-}
+): List<String> = remoteLegacyCacheFileNames(extension = extension, session = session, fileKey = remoteFileId)

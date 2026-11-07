@@ -20,8 +20,8 @@ class RemoteCoverCacheFileNameTest {
         )
 
         assertNotEquals(
-            first.kavitaCacheFileName("cover"),
-            second.kavitaCacheFileName("cover"),
+            first.remoteCacheFileName("cover"),
+            second.remoteCacheFileName("cover"),
         )
     }
 
@@ -35,15 +35,15 @@ class RemoteCoverCacheFileNameTest {
         )
 
         assertEquals(
-            first.kavitaCacheFileName("cover"),
-            second.kavitaCacheFileName("cover"),
+            first.remoteCacheFileName("cover"),
+            second.remoteCacheFileName("cover"),
         )
     }
 
     @Test
     fun `remote cover cache file name stores hashed cover identity`() {
         val sourceUrl = "https://kavita.example/api/Image/chapter-cover?chapterId=1&apiKey=secret-token"
-        val fileName = item(coverUrl = sourceUrl).kavitaCacheFileName("cover")
+        val fileName = item(coverUrl = sourceUrl).remoteCacheFileName("cover")
 
         assertTrue(fileName.contains("-cover-"))
         assertFalse(fileName.contains("secret-token"))
@@ -57,16 +57,16 @@ class RemoteCoverCacheFileNameTest {
         )
         val itemWithoutCoverIdentity = item(coverUrl = null)
 
-        assertTrue(itemWithCoverIdentity.kavitaLegacyCacheFileNames("cover").isEmpty())
-        assertTrue(itemWithCoverIdentity.stumpLegacyCacheFileNames("cover").isEmpty())
+        assertTrue(itemWithCoverIdentity.remoteLegacyCacheFileNames("cover").isEmpty())
+        assertTrue(itemWithCoverIdentity.remoteLegacyCacheFileNames("cover").isEmpty())
         assertTrue(itemWithCoverIdentity.grimmoryLegacyCacheFileNames("cover").isEmpty())
         assertEquals(
             listOf("kavita_item_1.cover"),
-            itemWithoutCoverIdentity.kavitaLegacyCacheFileNames("cover"),
+            itemWithoutCoverIdentity.remoteLegacyCacheFileNames("cover"),
         )
         assertEquals(
             listOf("kavita_item_1.cover"),
-            itemWithoutCoverIdentity.stumpLegacyCacheFileNames("cover"),
+            itemWithoutCoverIdentity.remoteLegacyCacheFileNames("cover"),
         )
         assertEquals(
             listOf("kavita_item_1.cover"),

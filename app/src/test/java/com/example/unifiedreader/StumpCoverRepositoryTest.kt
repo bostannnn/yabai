@@ -63,17 +63,17 @@ class StumpCoverRepositoryTest {
             remoteFileType = "series-legacy",
             coverUrl = "https://stump.example/api/v1/media/issue-legacy/thumbnail",
         )
-        val legacyFile = File(File(context.cacheDir, "stump-covers"), item.stumpCacheFileName("cover")).apply {
+        val legacyFile = File(File(context.cacheDir, "stump-covers"), item.remoteCacheFileName("cover")).apply {
             parentFile?.mkdirs()
             writeBytes(validCoverBytes())
         }
-        val expectedPersistentFile = File(File(context.filesDir, "stump-covers"), item.stumpCacheFileName("cover"))
+        val expectedPersistentFile = File(File(context.filesDir, "stump-covers"), item.remoteCacheFileName("cover"))
         val expectedThumbnailFile = File(
             File(
                 context.filesDir,
                 thumbnailDirectoryName(STUMP_COVER_DIRECTORY_NAME, LibraryCoverVariant.Grid),
             ),
-            thumbnailFileName(item.stumpCacheFileName("cover"), LibraryCoverVariant.Grid),
+            thumbnailFileName(item.remoteCacheFileName("cover"), LibraryCoverVariant.Grid),
         )
 
         val cachedUri = repository.getCoverUri(item, LibraryCoverImageVariant.Grid)
@@ -104,7 +104,7 @@ class StumpCoverRepositoryTest {
         )
         val cachedOriginalFile = File(
             File(context.filesDir, STUMP_COVER_DIRECTORY_NAME),
-            item.stumpCacheFileName("cover"),
+            item.remoteCacheFileName("cover"),
         ).apply {
             parentFile?.mkdirs()
             writeBytes(validCoverBytes())
@@ -114,7 +114,7 @@ class StumpCoverRepositoryTest {
                 context.filesDir,
                 thumbnailDirectoryName(STUMP_COVER_DIRECTORY_NAME, LibraryCoverVariant.Grid),
             ),
-            thumbnailFileName(item.stumpCacheFileName("cover"), LibraryCoverVariant.Grid),
+            thumbnailFileName(item.remoteCacheFileName("cover"), LibraryCoverVariant.Grid),
         )
 
         store.warmStorageDirectoryIndex(storageDirectoryName = STUMP_COVER_DIRECTORY_NAME)

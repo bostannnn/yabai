@@ -77,7 +77,7 @@ class DownloadedRemoteCoverCacheBackfillSideEffectTest {
 
         val cachedCover = File(
             File(context.filesDir, KAVITA_COVER_DIRECTORY_NAME),
-            item.kavitaCacheFileName("cover"),
+            item.remoteCacheFileName("cover"),
         )
         assertTrue(cachedCover.isFile)
         assertTrue(cachedCover.length() > 0L)
@@ -122,7 +122,7 @@ class DownloadedRemoteCoverCacheBackfillSideEffectTest {
 
         val cachedCover = File(
             File(context.filesDir, KAVITA_COVER_DIRECTORY_NAME),
-            item.kavitaCacheFileName("cover"),
+            item.remoteCacheFileName("cover"),
         )
         assertTrue(cachedCover.isFile)
         assertTrue(cachedCover.length() > 0L)
@@ -168,7 +168,7 @@ class DownloadedRemoteCoverCacheBackfillSideEffectTest {
         val effect = DownloadedRemoteCoverCacheBackfillSideEffect(backfiller)
         val cachedCover = File(
             File(context.filesDir, KAVITA_COVER_DIRECTORY_NAME),
-            item.kavitaCacheFileName("cover"),
+            item.remoteCacheFileName("cover"),
         )
 
         val backfillJob = async {

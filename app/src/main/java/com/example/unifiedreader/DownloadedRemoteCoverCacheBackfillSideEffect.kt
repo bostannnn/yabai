@@ -221,8 +221,8 @@ class DownloadedRemoteCoverCacheBackfiller @Inject constructor(
                 storageDirectoryName = KAVITA_COVER_DIRECTORY_NAME,
                 legacyDirectoryName = KAVITA_LEGACY_COVER_DIRECTORY_NAME,
             ),
-            baseFileName = kavitaCacheFileName("cover"),
-            legacyBaseFileNames = kavitaLegacyCacheFileNames(
+            baseFileName = remoteCacheFileName("cover"),
+            legacyBaseFileNames = remoteLegacyCacheFileNames(
                 extension = "cover",
                 session = kavitaCredentialStore.activeSessionFor(this),
             ),
@@ -232,8 +232,8 @@ class DownloadedRemoteCoverCacheBackfiller @Inject constructor(
                 storageDirectoryName = STUMP_COVER_DIRECTORY_NAME,
                 legacyDirectoryName = STUMP_LEGACY_COVER_DIRECTORY_NAME,
             ),
-            baseFileName = stumpCacheFileName("cover"),
-            legacyBaseFileNames = stumpLegacyCacheFileNames(
+            baseFileName = remoteCacheFileName("cover"),
+            legacyBaseFileNames = remoteLegacyCacheFileNames(
                 extension = "cover",
                 session = stumpCredentialStore.activeSessionFor(this),
             ),

@@ -73,7 +73,7 @@ class KavitaCoverRepositoryTest {
         )
         val cachedOriginalFile = File(
             File(context.filesDir, KAVITA_COVER_DIRECTORY_NAME),
-            item.kavitaCacheFileName("cover"),
+            item.remoteCacheFileName("cover"),
         ).apply {
             parentFile?.mkdirs()
             writeBytes(validCoverBytes())
@@ -83,7 +83,7 @@ class KavitaCoverRepositoryTest {
                 context.filesDir,
                 thumbnailDirectoryName(KAVITA_COVER_DIRECTORY_NAME, LibraryCoverVariant.Grid),
             ),
-            thumbnailFileName(item.kavitaCacheFileName("cover"), LibraryCoverVariant.Grid),
+            thumbnailFileName(item.remoteCacheFileName("cover"), LibraryCoverVariant.Grid),
         )
 
         store.warmStorageDirectoryIndex(storageDirectoryName = KAVITA_COVER_DIRECTORY_NAME)
@@ -184,7 +184,7 @@ class KavitaCoverRepositoryTest {
         )
         val cachedPrimaryFile = File(
             File(context.filesDir, KAVITA_COVER_DIRECTORY_NAME),
-            primaryItem.kavitaCacheFileName("cover"),
+            primaryItem.remoteCacheFileName("cover"),
         ).apply {
             parentFile?.mkdirs()
             writeBytes(validCoverBytes())
