@@ -218,12 +218,10 @@
     <ID>MagicNumber:UnifiedReaderTheme.kt$0xFFFF5CA8</ID>
     <ID>MatchingDeclarationName:AppLaunchSplashTheme.kt$AppLaunchSplash</ID>
     <ID>MatchingDeclarationName:ImportedComicArchiveBootstrapper.kt$LocalDocumentBootstrapper</ID>
-    <ID>MatchingDeclarationName:KavitaCredentialStore.kt$SharedPreferencesKavitaCredentialStore : KavitaCredentialStore</ID>
     <ID>MatchingDeclarationName:LibrarySearchPanelHost.kt$LibrarySearchPanelController</ID>
     <ID>MatchingDeclarationName:RemoteServerAddressFailover.kt$RemoteServerAddressResult&lt;T&gt;</ID>
     <ID>MatchingDeclarationName:SourceStartRoute.kt$SourceStartRequest</ID>
     <ID>MatchingDeclarationName:SourceSyncTimes.kt$SourceSyncTimeStore</ID>
-    <ID>MatchingDeclarationName:StumpCredentialStore.kt$SharedPreferencesStumpCredentialStore : StumpCredentialStore</ID>
     <ID>MaxLineLength:AddToListHost.kt$.</ID>
     <ID>MaxLineLength:AddToListHost.kt$kavitaConnected &amp;&amp; items.all { item -&gt; item.sourceType == SourceType.KAVITA &amp;&amp; !item.isKavitaSeriesContainer() } -&gt; SourceType.KAVITA</ID>
     <ID>MaxLineLength:AppKavitaCoordinatorTest.kt$AppKavitaCoordinatorTest$session = KavitaSession(accessToken = "login-access-token", refreshToken = "login-refresh-token", apiKey = "login-api-key")</ID>

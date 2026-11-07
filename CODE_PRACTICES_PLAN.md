@@ -211,7 +211,20 @@ user's choice. The shared helpers and where they live:
   **Emulator:** the offline Grimmory library looks the same with and without the change (main's build installed
   for comparison; covers not in the cache stay blank in both). **Not checked:** downloading a cover from a server.
 
-**Next:** 5.6 (credential stores).
+**Step 5.6 built (2026-11-07), credential stores.**
+- `EncryptedCredentialStore<S>` (app) reads and writes the seven fields every saved sign-in has, under the same keys
+  as before, and forwards `sessionFlow`, `save` and `clear` to `EncryptedSourceSessionStore`. A subclass builds its
+  session from those fields and adds its own: Kavita its API key; Grimmory treats a missing refresh token as no
+  sign-in, as before.
+- `SharedPreferences{Kavita,Stump,Grimmory}CredentialStore` are now about 30 lines each and `internal` (the shared
+  session interface is internal; nothing outside `app` used them). Kavita's and Stump's files were renamed to match
+  their class; their two `MatchingDeclarationName` baseline entries were dropped.
+- Preference file names and keys are unchanged, so saved sign-ins load as before.
+- New `KavitaCredentialStoreTest` (the API key round trip, a sign-in missing its token). All tests, detekt, lint and
+  the debug build pass. **Emulator:** the saved Grimmory sign-in (a local stand-in at `10.0.2.2:6062`, user
+  `tester`) loaded after the change. **Not checked:** saving a new sign-in in the app (needs a server).
+
+**Next:** 5.7 (`withActiveBaseUrl` copies).
 
 ## Step 1. Decisions only the user can make (done, answers above)
 
