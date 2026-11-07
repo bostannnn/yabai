@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -16,14 +15,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntSize
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
-import com.example.unifiedreader.feature.reader.core.ReaderActiveSessionTracker
+import com.example.unifiedreader.feature.reader.core.ReaderLeave
+import com.example.unifiedreader.feature.reader.core.rememberReaderActiveSessionTracker
+import com.example.unifiedreader.feature.reader.core.rememberReaderSessionLifecycle
 import com.example.unifiedreader.feature.reader.core.ReaderOpenMode
 import com.example.unifiedreader.feature.reader.core.ReaderOpenStatus
 import com.example.unifiedreader.feature.reader.core.ReaderOpeningStep
@@ -36,7 +35,6 @@ import com.example.unifiedreader.feature.reader.preferences.ComicReaderMode
 import com.example.unifiedreader.feature.reader.preferences.InMemoryReaderPageNumberPreferencesStore
 import com.example.unifiedreader.feature.reader.preferences.ReaderPageNumberPreferencesStore
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
-import com.example.unifiedreader.ui.components.AppScreenBackHandler
 import com.example.unifiedreader.ui.theme.UnifiedReaderThemeTokens
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
@@ -125,15 +123,11 @@ fun ComicsReaderScreen(
     )
     val currentPageProgress = (readerState.currentPage + 1).toFloat() / pages.size.toFloat()
     val lifecycleOwner = LocalLifecycleOwner.current
-    val readingSessionTracker = remember(item.id, journalReadingSessionRecorder, lifecycleOwner) {
-        journalReadingSessionRecorder?.let { recorder ->
-            ReaderActiveSessionTracker(
-                item = item,
-                recorder = recorder,
-                scope = lifecycleOwner.lifecycleScope,
-            )
-        }
-    }
+    val readingSessionTracker = rememberReaderActiveSessionTracker(
+        item = item,
+        recorder = journalReadingSessionRecorder,
+        scope = lifecycleOwner.lifecycleScope,
+    )
     var progressRestoreCompleted by remember(item.id) { mutableStateOf(false) }
     var preferencesRestoreCompleted by remember(item.id) { mutableStateOf(false) }
     var loadedVisiblePageIndexes by remember(item.id, pages) { mutableStateOf<Set<Int>>(emptySet()) }
@@ -248,26 +242,6 @@ fun ComicsReaderScreen(
             }
         },
     )
-    val closeReader by rememberUpdatedState(
-        newValue = {
-            traceComicReaderSection("ComicsReader.close") {
-                flushReadingSession()
-                if (latestProgressHydrated &&
-                    latestProgressRestoreCompleted &&
-                    latestPreferencesHydrated &&
-                    latestPreferencesRestoreCompleted
-                ) {
-                    persistProgress()
-                    persistResumePosition()
-                }
-                if (latestPreferencesHydrated && latestPreferencesRestoreCompleted) {
-                    persistReaderPreferences()
-                }
-                flushPendingProgressWrites()
-                onBack()
-            }
-        },
-    )
     val restoredPage = savedPagesByItemId[item.id]
     LaunchedEffect(item.id, progressHydrated, restoredPage, pages.size) {
         if (!progressHydrated) {
@@ -375,43 +349,16 @@ fun ComicsReaderScreen(
         persistReaderPreferences()
     }
 
-    DisposableEffect(lifecycleOwner, item.id) {
-        readingSessionTracker?.start(
-            page = readerState.currentPage + 1,
-            percent = currentPageProgress.toDouble(),
-        )
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_START -> {
-                    readingSessionTracker?.start(
-                        page = readerState.currentPage + 1,
-                        percent = currentPageProgress.toDouble(),
-                    )
-                }
-                Lifecycle.Event.ON_STOP -> {
-                    traceComicReaderSection("ComicsReader.lifecycleStop") {
-                        flushReadingSession()
-                        if (latestProgressHydrated &&
-                            latestProgressRestoreCompleted &&
-                            latestPreferencesHydrated &&
-                            latestPreferencesRestoreCompleted
-                        ) {
-                            persistProgress()
-                            persistResumePosition()
-                        }
-                        if (latestPreferencesHydrated && latestPreferencesRestoreCompleted) {
-                            persistReaderPreferences()
-                        }
-                        flushPendingProgressWrites()
-                    }
-                }
-                else -> Unit
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            traceComicReaderSection("ComicsReader.dispose") {
-                lifecycleOwner.lifecycle.removeObserver(observer)
+    val closeReader = rememberReaderSessionLifecycle(
+        key = item.id,
+        onStart = {
+            readingSessionTracker?.start(
+                page = readerState.currentPage + 1,
+                percent = currentPageProgress.toDouble(),
+            )
+        },
+        onLeave = { reason ->
+            traceComicReaderSection(reason.comicsTraceName()) {
                 flushReadingSession()
                 if (latestProgressHydrated &&
                     latestProgressRestoreCompleted &&
@@ -426,9 +373,9 @@ fun ComicsReaderScreen(
                 }
                 flushPendingProgressWrites()
             }
-        }
-    }
-    AppScreenBackHandler(onBack = closeReader)
+        },
+        onBack = onBack,
+    )
 
     BoxWithConstraints(
         modifier = Modifier
@@ -581,3 +528,9 @@ fun ComicsReaderScreen(
 
 private const val InitialPreviewLoadingDelayMillis = 2_500L
 private const val ComicOpeningTimeoutMillis = 6_000L
+
+private fun ReaderLeave.comicsTraceName(): String = when (this) {
+    ReaderLeave.Close -> "ComicsReader.close"
+    ReaderLeave.Stop -> "ComicsReader.lifecycleStop"
+    ReaderLeave.Dispose -> "ComicsReader.dispose"
+}

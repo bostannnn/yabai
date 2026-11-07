@@ -46,9 +46,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.core.model.ReadableItem
@@ -57,7 +54,8 @@ import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.core.model.primaryAuthor
 import com.example.unifiedreader.core.model.runSuspendCatching
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
-import com.example.unifiedreader.feature.reader.core.ReaderActiveSessionTracker
+import com.example.unifiedreader.feature.reader.core.rememberReaderActiveSessionTracker
+import com.example.unifiedreader.feature.reader.core.rememberReaderSessionLifecycle
 import com.example.unifiedreader.feature.reader.core.ReaderDocumentState
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
 import com.example.unifiedreader.feature.reader.core.ReaderOpenFailure
@@ -81,7 +79,6 @@ import com.example.unifiedreader.feature.reader.preferences.InMemoryReaderPageNu
 import com.example.unifiedreader.feature.reader.preferences.ReaderPageNumberPreferencesStore
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
 import com.example.unifiedreader.ui.components.AppCircularProgress
-import com.example.unifiedreader.ui.components.AppScreenBackHandler
 import java.util.LinkedHashMap
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CancellationException
@@ -104,7 +101,6 @@ fun PdfReaderScreen(
     onCompletionRequested: () -> Unit = {},
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     val tokens = readerOverlayTokens()
     val overlayState = rememberReaderOverlayState(
@@ -205,15 +201,11 @@ fun PdfReaderScreen(
         status = pdfOpenStatus(documentInfo, documentState, pageState, firstPageShown, item),
         retry = { openAttempt++ },
     )
-    val tracker = remember(item.id, journalReadingSessionRecorder) {
-        journalReadingSessionRecorder?.let { recorder ->
-            ReaderActiveSessionTracker(
-                item = item,
-                recorder = recorder,
-                scope = scope,
-            )
-        }
-    }
+    val tracker = rememberReaderActiveSessionTracker(
+        item = item,
+        recorder = journalReadingSessionRecorder,
+        scope = scope,
+    )
     LaunchedEffect(pageCount, initialRestoreCompleted) {
         if (pageCount > 0 && initialRestoreCompleted) {
             tracker?.start(
@@ -272,14 +264,6 @@ fun PdfReaderScreen(
             sessionStore?.requestFlushPendingWrites()
         },
     )
-    val closeReader by rememberUpdatedState(
-        newValue = {
-            flushReadingSession()
-            persistPdfProgress()
-            flushSessionStoreWrites()
-            onBack()
-        },
-    )
     val startReadingSession by rememberUpdatedState(
         newValue = {
             if (latestPageCount > 0 && latestInitialRestoreCompleted) {
@@ -290,28 +274,16 @@ fun PdfReaderScreen(
             }
         },
     )
-    DisposableEffect(lifecycleOwner, item.id, tracker) {
-        startReadingSession()
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_START -> startReadingSession()
-                Lifecycle.Event.ON_STOP -> {
-                    flushReadingSession()
-                    persistPdfProgress()
-                    flushSessionStoreWrites()
-                }
-                else -> Unit
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
+    val closeReader = rememberReaderSessionLifecycle(
+        key = tracker,
+        onStart = startReadingSession,
+        onLeave = {
             flushReadingSession()
             persistPdfProgress()
             flushSessionStoreWrites()
-        }
-    }
-    AppScreenBackHandler(onBack = closeReader)
+        },
+        onBack = onBack,
+    )
 
     val safePageIndex = currentPageIndex.coerceIn(0, (pageCount - 1).coerceAtLeast(0))
     val pageNumbersVisible by pageNumberPreferences.isVisibleFlow.collectAsStateWithLifecycle()

@@ -24,8 +24,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -34,7 +32,8 @@ import com.example.unifiedreader.core.model.ReadableItem
 import com.example.unifiedreader.core.model.SyncState
 import com.example.unifiedreader.core.model.primaryAuthor
 import com.example.unifiedreader.feature.reader.core.ImmersiveReaderOverlay
-import com.example.unifiedreader.feature.reader.core.ReaderActiveSessionTracker
+import com.example.unifiedreader.feature.reader.core.rememberReaderActiveSessionTracker
+import com.example.unifiedreader.feature.reader.core.rememberReaderSessionLifecycle
 import com.example.unifiedreader.feature.reader.core.ReaderChapterPosition
 import com.example.unifiedreader.feature.reader.core.ReaderDocumentState
 import com.example.unifiedreader.feature.reader.core.ReaderLocator
@@ -51,7 +50,6 @@ import com.example.unifiedreader.feature.reader.core.rememberReaderDocument
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import com.example.unifiedreader.feature.reader.preferences.ReaderDisplayPreferences
 import com.example.unifiedreader.journal.JournalReadingSessionRecorder
-import com.example.unifiedreader.ui.components.AppScreenBackHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.example.unifiedreader.feature.translation.ReaderTranslationOverlay
@@ -212,15 +210,11 @@ fun EpubReaderScreen(
         key = "epub-overlay-${item.id}",
         initiallyVisible = true,
     )
-    val readingSessionTracker = remember(item.id, journalReadingSessionRecorder, lifecycleOwner) {
-        journalReadingSessionRecorder?.let { recorder ->
-            ReaderActiveSessionTracker(
-                item = item,
-                recorder = recorder,
-                scope = lifecycleOwner.lifecycleScope,
-            )
-        }
-    }
+    val readingSessionTracker = rememberReaderActiveSessionTracker(
+        item = item,
+        recorder = journalReadingSessionRecorder,
+        scope = lifecycleOwner.lifecycleScope,
+    )
     // Try again asks for the file again.
     var openAttempt by remember(item.id) { mutableIntStateOf(0) }
     val documentState by rememberReaderDocument(item, documentUri, documentUriProvider, openAttempt)
@@ -313,18 +307,6 @@ fun EpubReaderScreen(
             sessionStore.requestFlushPendingWrites()
         },
     )
-    val closeReader by rememberUpdatedState(
-        newValue = {
-            readingSessionTracker?.flushAndReset(
-                page = currentPage.takeIf { it > 0 },
-                percent = currentProgress,
-                pageCount = pageCount.takeIf { it > 0 },
-            )
-            persistReaderState()
-            flushSessionStoreWrites()
-            onBack()
-        },
-    )
     val persistFinishedProgress by rememberUpdatedState(
         newValue = {
             val terminalPage = pageCount.takeIf { it > 0 } ?: currentPage.takeIf { it > 0 }
@@ -350,36 +332,21 @@ fun EpubReaderScreen(
             )
         },
     )
-    DisposableEffect(lifecycleOwner, item.id) {
-        readingSessionTracker?.start(
-            page = currentPage.takeIf { it > 0 },
-            percent = currentProgress,
-        )
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_START -> {
-                    readingSessionTracker?.start(
-                        page = currentPage.takeIf { it > 0 },
-                        percent = currentProgress,
-                    )
-                }
-                Lifecycle.Event.ON_STOP -> {
-                    flushReadingSession()
-                    persistReaderState()
-                    flushSessionStoreWrites()
-                }
-                else -> Unit
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
+    val closeReader = rememberReaderSessionLifecycle(
+        key = item.id,
+        onStart = {
+            readingSessionTracker?.start(
+                page = currentPage.takeIf { it > 0 },
+                percent = currentProgress,
+            )
+        },
+        onLeave = {
             flushReadingSession()
             persistReaderState()
             flushSessionStoreWrites()
-        }
-    }
-    AppScreenBackHandler(onBack = closeReader)
+        },
+        onBack = onBack,
+    )
 
     val publicationState by produceState<EpubPublicationState>(
         initialValue = EpubPublicationState.Loading,

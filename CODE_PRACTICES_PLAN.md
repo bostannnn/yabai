@@ -232,7 +232,20 @@ user's choice. The shared helpers and where they live:
   lambda: 26 identical copies in 20 files are gone, and `SourceCoverRepository` lost its abstract method.
 - Nothing a reader sees changes. All tests, detekt, lint and the debug build pass.
 
-**Next:** 5.8 (reader session lifecycle).
+**Step 5.8 built (2026-11-07), reader session lifecycle.**
+- `rememberReaderSessionLifecycle(key, onStart, onLeave, onBack)` (feature:reader-core, `ReaderSessionLifecycle.kt`)
+  starts the reading session when the reader appears and on each return to the front, runs `onLeave` on stop, on
+  leaving the screen and on Back, installs the Back handler, and returns the close action for the reader's own back
+  button. `ReaderLeave` (Close/Stop/Dispose) tells `onLeave` why; the comic reader keeps its three trace names with it.
+- `rememberReaderActiveSessionTracker(item, recorder, scope)` replaces the three `remember { ReaderActiveSessionTracker }`.
+- `EpubReaderEntry`, `PdfReaderEntry` and `ComicsReaderEntry` each write their leave steps once instead of three
+  times (close, stop, dispose). reader-core now depends on `lifecycle-runtime-compose`.
+- About 165 lines removed, 60 added in the readers. All tests, detekt, lint and the debug build pass.
+- **Emulator:** a comic, an EPUB and a PDF from the local library were each paged, sent home, brought back (same
+  page), and closed with Back. Each position was saved (Star Courier p. 6 of 8, The Salt Orchard chapter 2, Field-Notes
+  p. 3 of 12) and the journal recorded all three reading sessions.
+
+**Next:** 5.9 (finished-progress journal event).
 
 ## Step 1. Decisions only the user can make (done, answers above)
 

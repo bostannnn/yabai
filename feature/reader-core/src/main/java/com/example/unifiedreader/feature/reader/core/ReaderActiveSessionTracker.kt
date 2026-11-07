@@ -54,3 +54,6 @@ class ReaderActiveSessionTracker(
         fromPercent = percent
     }
 }
+
+/** Why a reader is leaving: closed with Back, sent to the background, or taken off the screen. */
+enum class ReaderLeave { Close, Stop, Dispose }
