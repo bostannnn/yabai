@@ -28,9 +28,6 @@ class KavitaProgressSyncService @Inject constructor(
             sessionStore = kavitaCredentialStore,
             session = session,
             createApi = kavitaApiFactory::create,
-            withActiveBaseUrl = { currentSession, activeBaseUrl ->
-                currentSession.copy(activeBaseUrl = activeBaseUrl)
-            },
         ) { api, activeSession ->
             sessionRequestRunner.run(
                 api = api,
@@ -70,9 +67,6 @@ class KavitaProgressSyncService @Inject constructor(
             sessionStore = kavitaCredentialStore,
             session = session,
             createApi = kavitaApiFactory::create,
-            withActiveBaseUrl = { currentSession, activeBaseUrl ->
-                currentSession.copy(activeBaseUrl = activeBaseUrl)
-            },
         ) { api, activeSession ->
             val tokens = KavitaRunTokens(
                 api = api,

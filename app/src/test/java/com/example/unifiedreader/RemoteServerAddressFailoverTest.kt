@@ -66,9 +66,6 @@ class RemoteServerAddressFailoverTest {
             sessionStore = store,
             session = initialSession,
             createApi = ::FailoverTestApi,
-            withActiveBaseUrl = { session, activeBaseUrl ->
-                session.copy(activeBaseUrl = activeBaseUrl)
-            },
         ) { api, _ ->
             if (api.baseUrl == "https://primary.example.com") {
                 throw IOException("primary unavailable")
@@ -180,7 +177,8 @@ private data class FailoverTestSession(
     override val activeBaseUrl: String? = null,
     override val username: String,
     override val sourceType: SourceType = SourceType.KAVITA,
-) : StoredSourceSession {
+) : AddressedSession<FailoverTestSession> {
+    override fun withActiveBaseUrl(activeBaseUrl: String) = copy(activeBaseUrl = activeBaseUrl)
 }
 
 private class FailoverTestSessionStore(

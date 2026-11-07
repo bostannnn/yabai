@@ -119,9 +119,6 @@ class KavitaRemoteSourceHealthCheck @Inject constructor(
             sessionStore = kavitaCredentialStore,
             session = session,
             createApi = kavitaApiFactory::create,
-            withActiveBaseUrl = { currentSession, activeBaseUrl ->
-                currentSession.copy(activeBaseUrl = activeBaseUrl)
-            },
         ) { api, activeSession ->
             try {
                 api.getLibraries(activeSession.accessToken)
@@ -152,9 +149,6 @@ class StumpRemoteSourceHealthCheck @Inject constructor(
             sessionStore = stumpCredentialStore,
             session = session,
             createApi = stumpApiFactory::create,
-            withActiveBaseUrl = { currentSession, activeBaseUrl ->
-                currentSession.copy(activeBaseUrl = activeBaseUrl)
-            },
         ) { api, activeSession ->
             val refreshToken = activeSession.refreshToken?.takeIf(String::isNotBlank)
                 ?: throw StumpUnauthorizedException()
@@ -182,9 +176,6 @@ class GrimmoryRemoteSourceHealthCheck @Inject constructor(
             sessionStore = grimmoryCredentialStore,
             session = session,
             createApi = grimmoryApiFactory::create,
-            withActiveBaseUrl = { currentSession, activeBaseUrl ->
-                currentSession.copy(activeBaseUrl = activeBaseUrl)
-            },
         ) { api, activeSession ->
             val refreshedSession = api.refreshSession(activeSession.refreshToken)
             grimmoryCredentialStore.save(

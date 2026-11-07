@@ -51,11 +51,10 @@ internal fun Throwable.rethrowIfServerAddressUnreachable() {
     if (isRemoteServerAddressRetryableFailure()) throw this
 }
 
-internal suspend fun <Session : StoredSourceSession, Api, T> runWithStoredSessionAddressFailover(
+internal suspend fun <Session : AddressedSession<Session>, Api, T> runWithStoredSessionAddressFailover(
     sessionStore: SourceSessionStore<Session>,
     session: Session,
     createApi: (String) -> Api,
-    withActiveBaseUrl: (Session, String) -> Session,
     block: suspend (api: Api, session: Session) -> T,
 ): T {
     val result = runWithServerAddressFailover(
@@ -63,12 +62,12 @@ internal suspend fun <Session : StoredSourceSession, Api, T> runWithStoredSessio
         backupBaseUrl = session.backupBaseUrl,
         activeBaseUrl = session.activeBaseUrl,
     ) { selectedBaseUrl ->
-        val activeSession = withActiveBaseUrl(session, selectedBaseUrl)
+        val activeSession = session.withActiveBaseUrl(selectedBaseUrl)
         block(createApi(selectedBaseUrl), activeSession)
     }
     val currentSession = sessionStore.sessionFlow.value ?: session
     if (currentSession.activeBaseUrl != result.activeBaseUrl) {
-        sessionStore.save(withActiveBaseUrl(currentSession, result.activeBaseUrl))
+        sessionStore.save(currentSession.withActiveBaseUrl(result.activeBaseUrl))
     }
     return result.value
 }

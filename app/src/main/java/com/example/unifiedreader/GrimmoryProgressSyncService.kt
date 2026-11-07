@@ -27,9 +27,6 @@ class GrimmoryProgressSyncService @Inject constructor(
             sessionStore = grimmoryCredentialStore,
             session = session,
             createApi = grimmoryApiFactory::create,
-            withActiveBaseUrl = { currentSession, activeBaseUrl ->
-                currentSession.copy(activeBaseUrl = activeBaseUrl)
-            },
         ) { api, activeSession ->
             sessionRequestRunner.run(
                 api = api,
@@ -65,9 +62,6 @@ class GrimmoryProgressSyncService @Inject constructor(
             sessionStore = grimmoryCredentialStore,
             session = session,
             createApi = grimmoryApiFactory::create,
-            withActiveBaseUrl = { currentSession, activeBaseUrl ->
-                currentSession.copy(activeBaseUrl = activeBaseUrl)
-            },
         ) { api, activeSession ->
             val result = pushDirtyGrimmoryProgress(
                 api = api,

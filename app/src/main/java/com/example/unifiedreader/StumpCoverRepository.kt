@@ -35,8 +35,6 @@ class StumpCoverRepository @Inject constructor(
     override fun ReadableItem.legacyCoverCacheFileNames(session: StumpStoredSession?): List<String> =
         remoteLegacyCacheFileNames(extension = "cover", session = session)
 
-    override fun StumpStoredSession.withActiveBaseUrl(activeBaseUrl: String) = copy(activeBaseUrl = activeBaseUrl)
-
     /** A series uses its own thumbnail; a book its cover link, or its thumbnail when the link fails or is missing. */
     override suspend fun downloadCover(api: StumpApi, session: StumpStoredSession, item: ReadableItem): ByteArray =
         sessionRequestRunner.run(api = api, session = session) { accessToken ->

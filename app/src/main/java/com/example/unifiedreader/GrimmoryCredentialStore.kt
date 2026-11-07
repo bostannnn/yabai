@@ -22,8 +22,10 @@ data class GrimmoryStoredSession(
     override val username: String,
     override val accessToken: String,
     override val refreshToken: String,
-) : AccessTokenStoredSession {
+) : AccessTokenStoredSession, AddressedSession<GrimmoryStoredSession> {
     override val sourceType = com.example.unifiedreader.core.model.SourceType.GRIMMORY
+
+    override fun withActiveBaseUrl(activeBaseUrl: String) = copy(activeBaseUrl = activeBaseUrl)
 }
 
 interface GrimmoryCredentialStore : SourceSessionStore<GrimmoryStoredSession>

@@ -27,9 +27,6 @@ class StumpProgressSyncService @Inject constructor(
             sessionStore = stumpCredentialStore,
             session = session,
             createApi = stumpApiFactory::create,
-            withActiveBaseUrl = { currentSession, activeBaseUrl ->
-                currentSession.copy(activeBaseUrl = activeBaseUrl)
-            },
         ) { api, activeSession ->
             sessionRequestRunner.run(
                 api = api,
@@ -67,9 +64,6 @@ class StumpProgressSyncService @Inject constructor(
             sessionStore = stumpCredentialStore,
             session = session,
             createApi = stumpApiFactory::create,
-            withActiveBaseUrl = { currentSession, activeBaseUrl ->
-                currentSession.copy(activeBaseUrl = activeBaseUrl)
-            },
         ) { api, activeSession ->
             val result = pushDirtyStumpProgress(
                 api = api,

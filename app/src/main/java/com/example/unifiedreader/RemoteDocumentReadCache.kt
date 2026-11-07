@@ -47,9 +47,6 @@ class RemoteDocumentReadCache @Inject constructor(
                         sessionStore = grimmoryCredentialStore,
                         session = session,
                         createApi = grimmoryApiFactory::create,
-                        withActiveBaseUrl = { currentSession, activeBaseUrl ->
-                            currentSession.copy(activeBaseUrl = activeBaseUrl)
-                        },
                     ) { api, activeSession ->
                         grimmoryRequestRunner.run(
                             api = api,

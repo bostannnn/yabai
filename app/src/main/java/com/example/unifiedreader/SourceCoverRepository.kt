@@ -13,7 +13,7 @@ import com.example.unifiedreader.feature.library.covers.RemoteCoverStorageDirect
  * sign-in (trying the backup address when the main one is unreachable) and clearing are the same for every server.
  * A subclass names its cache files and downloads one cover's bytes.
  */
-abstract class SourceCoverRepository<Session : StoredSourceSession, Api> internal constructor(
+abstract class SourceCoverRepository<Session : AddressedSession<Session>, Api> internal constructor(
     final override val sourceType: SourceType,
     private val storage: RemoteCoverStorageDirectory,
     private val credentialStore: SourceSessionStore<Session>,
@@ -27,9 +27,6 @@ abstract class SourceCoverRepository<Session : StoredSourceSession, Api> interna
 
     /** Older names the same cover may be cached under. */
     internal abstract fun ReadableItem.legacyCoverCacheFileNames(session: Session?): List<String>
-
-    /** The session with [activeBaseUrl] as the address in use. */
-    internal abstract fun Session.withActiveBaseUrl(activeBaseUrl: String): Session
 
     /** Downloads [item]'s cover, renewing the sign-in if it has expired. */
     internal abstract suspend fun downloadCover(api: Api, session: Session, item: ReadableItem): ByteArray
@@ -70,7 +67,6 @@ abstract class SourceCoverRepository<Session : StoredSourceSession, Api> interna
                 sessionStore = credentialStore,
                 session = session,
                 createApi = createApi,
-                withActiveBaseUrl = { currentSession, activeBaseUrl -> currentSession.withActiveBaseUrl(activeBaseUrl) },
             ) { api, activeSession ->
                 val bytes = downloadCover(api, activeSession, item)
                 writeFileAtomically(

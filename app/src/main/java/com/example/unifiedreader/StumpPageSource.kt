@@ -40,9 +40,6 @@ class StumpPageSource(
             sessionStore = stumpCredentialStore,
             session = session,
             createApi = stumpApiFactory::create,
-            withActiveBaseUrl = { currentSession, activeBaseUrl ->
-                currentSession.copy(activeBaseUrl = activeBaseUrl)
-            },
         ) { api, activeSession ->
             sessionRequestRunner.run(
                 api = api,

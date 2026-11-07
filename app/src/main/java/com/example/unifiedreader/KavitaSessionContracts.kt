@@ -11,8 +11,10 @@ data class KavitaStoredSession(
     override val accessToken: String,
     override val refreshToken: String?,
     val apiKey: String?,
-) : AccessTokenStoredSession {
+) : AccessTokenStoredSession, AddressedSession<KavitaStoredSession> {
     override val sourceType: SourceType = SourceType.KAVITA
+
+    override fun withActiveBaseUrl(activeBaseUrl: String) = copy(activeBaseUrl = activeBaseUrl)
 }
 
 interface KavitaCredentialStore : SourceSessionStore<KavitaStoredSession>

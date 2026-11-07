@@ -224,7 +224,15 @@ user's choice. The shared helpers and where they live:
   the debug build pass. **Emulator:** the saved Grimmory sign-in (a local stand-in at `10.0.2.2:6062`, user
   `tester`) loaded after the change. **Not checked:** saving a new sign-in in the app (needs a server).
 
-**Next:** 5.7 (`withActiveBaseUrl` copies).
+**Step 5.7 built (2026-11-07), `withActiveBaseUrl`.**
+- `AddressedSession<Self>` (`SourceSessionContracts.kt`) is a saved sign-in that can switch its address in use:
+  `withActiveBaseUrl(url)`. `KavitaStoredSession`, `StumpStoredSession` and `GrimmoryStoredSession` implement it
+  with one line each.
+- `runWithStoredSessionAddressFailover` takes sessions of that kind and no longer needs a `withActiveBaseUrl`
+  lambda: 26 identical copies in 20 files are gone, and `SourceCoverRepository` lost its abstract method.
+- Nothing a reader sees changes. All tests, detekt, lint and the debug build pass.
+
+**Next:** 5.8 (reader session lifecycle).
 
 ## Step 1. Decisions only the user can make (done, answers above)
 

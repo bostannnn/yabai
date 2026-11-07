@@ -22,9 +22,6 @@ class KavitaJournalSessionClientAdapter @Inject constructor(
             sessionStore = kavitaCredentialStore,
             session = session,
             createApi = kavitaApiFactory::create,
-            withActiveBaseUrl = { currentSession, activeBaseUrl ->
-                currentSession.copy(activeBaseUrl = activeBaseUrl)
-            },
         ) { api, activeSession ->
             kavitaSessionRequestRunner.run(
                 api = api,

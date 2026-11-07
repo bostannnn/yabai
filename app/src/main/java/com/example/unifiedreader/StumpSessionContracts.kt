@@ -10,8 +10,10 @@ data class StumpStoredSession(
     override val username: String,
     override val accessToken: String,
     override val refreshToken: String?,
-) : AccessTokenStoredSession {
+) : AccessTokenStoredSession, AddressedSession<StumpStoredSession> {
     override val sourceType: SourceType = SourceType.STUMP
+
+    override fun withActiveBaseUrl(activeBaseUrl: String) = copy(activeBaseUrl = activeBaseUrl)
 }
 
 interface StumpCredentialStore : SourceSessionStore<StumpStoredSession>

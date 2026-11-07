@@ -25,9 +25,6 @@ class GrimmoryJournalSessionClientAdapter @Inject constructor(
             sessionStore = grimmoryCredentialStore,
             session = session,
             createApi = grimmoryApiFactory::create,
-            withActiveBaseUrl = { currentSession, activeBaseUrl ->
-                currentSession.copy(activeBaseUrl = activeBaseUrl)
-            },
         ) { api, activeSession ->
             grimmorySessionRequestRunner.run(
                 api = api,

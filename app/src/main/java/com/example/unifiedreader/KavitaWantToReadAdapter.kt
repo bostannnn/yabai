@@ -30,9 +30,6 @@ class KavitaWantToReadAdapter @Inject constructor(
             sessionStore = kavitaCredentialStore,
             session = session,
             createApi = kavitaApiFactory::create,
-            withActiveBaseUrl = { currentSession, activeBaseUrl ->
-                currentSession.copy(activeBaseUrl = activeBaseUrl)
-            },
         ) { api, activeSession ->
             sessionRequestRunner.run(api = api, session = activeSession) { accessToken, _ ->
                 block(api.lists, accessToken)

@@ -13,6 +13,12 @@ interface StoredSourceSession {
     val username: String
 }
 
+/** A saved sign-in that can switch which of its addresses (main or backup) is in use. */
+interface AddressedSession<Self : AddressedSession<Self>> : StoredSourceSession {
+    /** This sign-in with [activeBaseUrl] as the address in use. */
+    fun withActiveBaseUrl(activeBaseUrl: String): Self
+}
+
 interface SourceSessionStore<T : StoredSourceSession> {
     val sessionFlow: StateFlow<T?>
 

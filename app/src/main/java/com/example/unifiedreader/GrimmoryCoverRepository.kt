@@ -36,8 +36,6 @@ class GrimmoryCoverRepository @Inject constructor(
     override fun ReadableItem.legacyCoverCacheFileNames(session: GrimmoryStoredSession?): List<String> =
         grimmoryLegacyCacheFileNames(extension = "cover", session = session)
 
-    override fun GrimmoryStoredSession.withActiveBaseUrl(activeBaseUrl: String) = copy(activeBaseUrl = activeBaseUrl)
-
     override suspend fun downloadCover(api: GrimmoryApi, session: GrimmoryStoredSession, item: ReadableItem): ByteArray =
         sessionRequestRunner.run(api = api, session = session) { accessToken ->
             api.downloadBookCover(

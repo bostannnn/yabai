@@ -100,9 +100,6 @@ class GrimmoryMagicShelfClientAdapter @Inject constructor(
             sessionStore = grimmoryCredentialStore,
             session = session,
             createApi = grimmoryApiFactory::create,
-            withActiveBaseUrl = { currentSession, activeBaseUrl ->
-                currentSession.copy(activeBaseUrl = activeBaseUrl)
-            },
         ) { api, activeSession ->
             sessionRequestRunner.run(api = api, session = activeSession) { accessToken ->
                 block(api, accessToken)

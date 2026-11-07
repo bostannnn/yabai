@@ -36,8 +36,6 @@ class KavitaCoverRepository @Inject constructor(
     override fun ReadableItem.legacyCoverCacheFileNames(session: KavitaStoredSession?): List<String> =
         remoteLegacyCacheFileNames(extension = "cover", session = session)
 
-    override fun KavitaStoredSession.withActiveBaseUrl(activeBaseUrl: String) = copy(activeBaseUrl = activeBaseUrl)
-
     override suspend fun downloadCover(api: KavitaApi, session: KavitaStoredSession, item: ReadableItem): ByteArray =
         sessionRequestRunner.run(api = api, session = session) { accessToken, apiKey ->
             val coverUrl = rewriteRemoteAssetUrlForActiveServer(url = item.coverUrl, session = session)
