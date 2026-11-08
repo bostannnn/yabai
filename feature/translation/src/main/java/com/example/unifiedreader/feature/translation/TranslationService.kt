@@ -25,7 +25,17 @@ data class TranslationState(
     val preferences: TranslationPreferences = TranslationPreferences(),
     val deviceLanguage: String? = null,
     val deepL: DeepLState = DeepLState(),
+    /** False until your choices (Translate with among them) have been read. */
+    val preferencesLoaded: Boolean = false,
 ) {
+    /**
+     * Whether a card may translate: the tablet's languages, your choices and your DeepL key are
+     * all known. Before that, Translate with would read as This tablet and the tablet would
+     * answer a word you meant for DeepL.
+     */
+    val ready: Boolean
+        get() = loaded && preferencesLoaded && deepL.loaded
+
     /** Translate with, as it applies: DeepL only with a key. */
     val provider: TranslationProvider
         get() = when {
@@ -69,7 +79,8 @@ class TranslationService internal constructor(
     } else {
         null
     }
-    private val mutableState = MutableStateFlow(TranslationState())
+    // Without DeepL in the build there is no key to wait for.
+    private val mutableState = MutableStateFlow(TranslationState(deepL = DeepLState(loaded = deepL == null)))
     val state: StateFlow<TranslationState> = mutableState.asStateFlow()
     private var started = false
     private var readingPreferences = false
@@ -83,7 +94,7 @@ class TranslationService internal constructor(
         readingPreferences = true
         scope.launch {
             preferencesStore.preferences.collect { preferences ->
-                mutableState.update { state -> state.copy(preferences = preferences) }
+                mutableState.update { state -> state.copy(preferences = preferences, preferencesLoaded = true) }
             }
         }
         deepL?.let { account ->

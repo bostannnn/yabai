@@ -16,6 +16,8 @@ data class DeepLState(
     val isFree: Boolean = false,
     /** This month's characters; null until DeepL has been asked. */
     val usage: DeepLUsage? = null,
+    /** False until the saved key, or that there is none, has been read. */
+    val loaded: Boolean = false,
 )
 
 /**
@@ -36,7 +38,7 @@ class DeepLAccount internal constructor(
         scope.launch {
             keyStore.key.collect { saved ->
                 key = saved
-                mutableState.update { state -> if (saved == null) DeepLState() else state.withKey(saved) }
+                mutableState.update { state -> if (saved == null) DeepLState(loaded = true) else state.withKey(saved) }
             }
         }
     }
@@ -60,7 +62,7 @@ class DeepLAccount internal constructor(
         scope.launch {
             keyStore.clear()
             key = null
-            mutableState.value = DeepLState()
+            mutableState.value = DeepLState(loaded = true)
             onPicked(TranslationProvider.Device)
         }
     }
@@ -81,7 +83,7 @@ class DeepLAccount internal constructor(
     }
 
     private fun DeepLState.withKey(key: String) =
-        copy(hasKey = true, keyHint = keyHint(key), isFree = DeepLClient.isFreeKey(key))
+        copy(hasKey = true, keyHint = keyHint(key), isFree = DeepLClient.isFreeKey(key), loaded = true)
 
     internal companion object {
         /** A free key's hint keeps its ":fx" ending, so it reads as one. */

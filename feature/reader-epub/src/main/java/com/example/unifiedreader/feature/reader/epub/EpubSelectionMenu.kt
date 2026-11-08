@@ -6,13 +6,20 @@ import android.content.Context
 import android.view.ActionMode
 import android.view.Menu
 import android.view.MenuItem
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import com.example.unifiedreader.feature.translation.ReaderTextSelection
 import com.example.unifiedreader.feature.translation.TranslationSession
 import com.example.unifiedreader.feature.translation.TranslationState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.shared.ExperimentalReadiumApi
@@ -105,8 +112,9 @@ internal class EpubSelectionActionModeCallback(
 
 /**
  * Turns the toolbar's signals into the translation card's: Translate opens it, a changed
- * selection (once a handle rests) updates it, and a selection that is gone, or a card that
- * closed, clears the other side. Kept out of the navigator host, which is long enough.
+ * selection (once no finger is on the page and the selection rests) updates it, and a
+ * selection that is gone, or a card that closed, clears the other side. Kept out of the
+ * navigator host, which is long enough.
  */
 internal class EpubSelectionFollower(
     private val scope: CoroutineScope,
@@ -117,6 +125,16 @@ internal class EpubSelectionFollower(
     private var followJob: Job? = null
     private var clearJob: Job? = null
     private var wasShown = false
+    private val fingerOnPage = MutableStateFlow(false)
+
+    /**
+     * A finger is on the page or has left it ([observeEpubPageTouches]). A long press that drags
+     * the selection on keeps its finger on the page, and the card must not open or move under it.
+     * Handles live in their own windows, so their drags never show here.
+     */
+    fun pageTouched(down: Boolean) {
+        fingerOnPage.value = down
+    }
 
     fun translate() {
         scope.withCurrentSelection(navigator(), bookLanguage) { selection -> translation()?.onTranslate?.invoke(selection) }
@@ -125,9 +143,20 @@ internal class EpubSelectionFollower(
     fun selectionChanged() {
         clearJob?.cancel()
         if (translation()?.openOnSelect != true) return
-        // Wait for the handle to rest, so the card doesn't chase every step.
+        // Wait for the finger to leave the page and the selection to rest, so the card neither
+        // covers the text being selected nor chases every step.
         followJob?.cancel()
-        followJob = scope.withCurrentSelection(navigator(), bookLanguage, follows = true, delayMillis = FollowDelayMillis) { selection ->
+        followJob = scope.withCurrentSelection(
+            navigator(),
+            bookLanguage,
+            follows = true,
+            waitBeforeReading = {
+                do {
+                    fingerOnPage.first { down -> !down }
+                    delay(FollowDelayMillis)
+                } while (fingerOnPage.value)
+            },
+        ) { selection ->
             translation()?.onFollow?.invoke(selection)
         }
     }
@@ -164,18 +193,19 @@ internal class EpubSelectionFollower(
 /**
  * Reads what is selected now, with its place on screen in window pixels, then runs [block].
  * [follows]: the card follows this selection, so it stays selected at any length.
+ * [waitBeforeReading] runs first (the follower waits there for the finger and the selection to rest).
  */
 @OptIn(ExperimentalReadiumApi::class)
 internal fun CoroutineScope.withCurrentSelection(
     navigator: EpubNavigatorFragment?,
     bookLanguage: String?,
     follows: Boolean = false,
-    delayMillis: Long = 0,
+    waitBeforeReading: suspend () -> Unit = {},
     block: (ReaderTextSelection) -> Unit,
 ): Job? {
     val fragment = navigator ?: return null
     return launch {
-        if (delayMillis > 0) delay(delayMillis)
+        waitBeforeReading()
         val selection = fragment.currentSelection() ?: return@launch
         val text = selection.locator.text.highlight?.takeIf { it.isNotBlank() } ?: return@launch
         val origin = IntArray(2).also { fragment.view?.getLocationInWindow(it) }
@@ -200,3 +230,22 @@ internal fun Context.copyToClipboard(text: String) {
     val clipboard = getSystemService(ClipboardManager::class.java) ?: return
     clipboard.setPrimaryClip(ClipData.newPlainText(null, text))
 }
+
+/**
+ * Tells [follower] when a finger is on the page, without taking any touch from the page: it
+ * looks first ([PointerEventPass.Initial]) and consumes nothing.
+ */
+internal fun Modifier.observeEpubPageTouches(follower: EpubSelectionFollower): Modifier =
+    pointerInput(follower) {
+        awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            follower.pageTouched(true)
+            try {
+                do {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                } while (event.changes.any { change -> change.pressed })
+            } finally {
+                follower.pageTouched(false)
+            }
+        }
+    }

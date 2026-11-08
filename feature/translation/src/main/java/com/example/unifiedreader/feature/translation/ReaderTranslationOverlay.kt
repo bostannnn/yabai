@@ -117,6 +117,10 @@ private fun TranslationCard(
         anchor = translation.selection.bounds?.translate(-origin),
         onDismissRequest = actions.onClose,
         modifier = modifier,
+        // A card that follows the selection leaves the page its touches: a handle missed by a
+        // little, or a long press on another word, must reach the text, not close the card.
+        // Tapping the page clears the selection, which closes the card.
+        dismissOnOutsideTap = !translation.selection.followsSelection,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             TranslationLanguageRow(translation, state, actions, showClose = true)
