@@ -47,6 +47,26 @@ class EpubFootnotesTest {
     }
 
     @Test
+    fun `calibre references and star notes are shown, their back-links navigate`() {
+        // The shape of a Calibre conversion: an empty anchor before the entry, a back-link as its marker.
+        val chapter = page(
+            """<p>A study.<sup><a id="fm1ref1"></a><a href="../Text/part0005.html#ref1fm1">1</a></sup></p>
+               <h3>References</h3>
+               <p class="ref-entry"><span><a id="ref1fm1"></a><a href="#fm1ref1">1.</a> Antonuccio, D. O. (1995).</span></p>""",
+        )
+        assertEquals("1. Antonuccio, D. O. (1995).", extractEpubNoteText(chapter, targetId = "ref1fm1"))
+        assertNull(extractEpubNoteText(chapter, targetId = "fm1ref1"))
+
+        val starNote = page(
+            """<p class="source1"><span><a id="fn1fm1"></a><a href="#fm1fn1">*</a>No current treatment is a panacea.</span></p>""",
+        )
+        assertEquals("*No current treatment is a panacea.", extractEpubNoteText(starNote, targetId = "fn1fm1"))
+
+        // A number against the first word is not a marker.
+        assertNull(extractEpubNoteText(page("""<p id="intro">3D printing changed the workshop.</p>"""), targetId = "intro"))
+    }
+
+    @Test
     fun `web links open in another app and other schemes are ignored`() {
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
 

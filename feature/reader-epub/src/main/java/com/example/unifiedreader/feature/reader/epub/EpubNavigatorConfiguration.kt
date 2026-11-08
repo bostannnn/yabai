@@ -5,12 +5,15 @@ import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.navigator.epub.css.FontStyle
 import org.readium.r2.navigator.epub.css.FontWeight
 import org.readium.r2.navigator.preferences.FontFamily
+import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.DelicateReadiumApi
 import org.readium.r2.shared.ExperimentalReadiumApi
 
 @OptIn(ExperimentalReadiumApi::class, DelicateReadiumApi::class)
 internal fun epubNavigatorFragmentConfiguration(
     selectionActionModeCallback: ActionMode.Callback? = null,
+    // A tapped link to an anchor in the page's own file (EpubSameFileLinks.kt); called off the main thread.
+    onSameFileLink: ((Link) -> Unit)? = null,
 ): EpubNavigatorFragment.Configuration =
     EpubNavigatorFragment.Configuration(
         shouldApplyInsetsPadding = false,
@@ -24,6 +27,11 @@ internal fun epubNavigatorFragmentConfiguration(
         useReadiumCssFontSize = false
         servedAssets += "fonts/.*"
         addBundledReaderFontDeclarations()
+        onSameFileLink?.let { onLink ->
+            registerJavascriptInterface(EpubSameFileLinkBridgeName) { resource ->
+                EpubSameFileLinkBridge(resource = resource.url(), onLink = onLink)
+            }
+        }
     }
 
 private const val SelectionBackgroundProperty = "--RS__selectionBackgroundColor"
