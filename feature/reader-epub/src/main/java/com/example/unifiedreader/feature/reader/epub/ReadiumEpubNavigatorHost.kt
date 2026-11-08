@@ -49,6 +49,7 @@ import org.readium.r2.shared.publication.epub.EpubLayout
 import org.readium.r2.shared.publication.presentation.presentation
 import org.readium.r2.shared.publication.services.locateProgression
 import org.readium.r2.shared.util.AbsoluteUrl
+import org.readium.r2.shared.util.Url
 
 @Composable
 @OptIn(ExperimentalReadiumApi::class)
@@ -205,6 +206,38 @@ internal fun ReadiumEpubNavigatorHost(
             )
             latestOnLocationChanged.value(locator, page, atBookEnd)
         }
+        // A link with an anchor: its target shows as a note card when it is a note, and the page
+        // turns to it otherwise. [endnoteLink] is set when the note lives in another file.
+        fun openAnchorLink(link: Link, endnoteLink: Link?) {
+            footnoteNavigationJobs.toList().forEach { job -> job.cancel() }
+            footnoteNavigationJobs.clear()
+            val job = footnoteNavigationScope.launch {
+                val footnote = withContext(Dispatchers.IO) {
+                    publication.extractEpubFootnoteOrNull(link = link)
+                }
+                val activeNavigator =
+                    fragmentManager.findFragmentByTag(fragmentTag) as? EpubNavigatorFragment
+                if (activeNavigator !== navigatorFragment || activeNavigator?.isAdded != true) {
+                    return@launch
+                }
+                if (footnote != null) {
+                    latestOnFootnoteActivated.value(footnote.copy(endnoteLink = endnoteLink))
+                } else {
+                    activeNavigator.go(link, animated = false)
+                }
+            }
+            footnoteNavigationJobs += job
+            job.invokeOnCompletion {
+                footnoteNavigationJobs -= job
+            }
+        }
+        // The file whose page last got the same-file link script (EpubSameFileLinks.kt).
+        var sameFileLinksHref: Url? = null
+        fun installSameFileLinks() {
+            footnoteNavigationScope.launch {
+                navigatorFragment?.evaluateJavascript(EpubSameFileLinksScript)
+            }
+        }
         val fragmentFactory = navigatorFactory.createFragmentFactory(
             initialLocator = resumePoint.startLocator(initialLocator),
             initialPreferences = preferences.toNavigatorPreferences(),
@@ -229,27 +262,7 @@ internal fun ReadiumEpubNavigatorHost(
                         return false
                     }
                     if (link.url().fragment == null) return true
-                    footnoteNavigationJobs.toList().forEach { job -> job.cancel() }
-                    footnoteNavigationJobs.clear()
-                    val job = footnoteNavigationScope.launch {
-                        val footnote = withContext(Dispatchers.IO) {
-                            publication.extractEpubFootnoteOrNull(link = link)
-                        }
-                        val activeNavigator =
-                            fragmentManager.findFragmentByTag(fragmentTag) as? EpubNavigatorFragment
-                        if (activeNavigator !== navigatorFragment || activeNavigator?.isAdded != true) {
-                            return@launch
-                        }
-                        if (footnote != null) {
-                            latestOnFootnoteActivated.value(footnote.copy(endnoteLink = endnoteLink))
-                        } else {
-                            activeNavigator.go(link, animated = false)
-                        }
-                    }
-                    footnoteNavigationJobs += job
-                    job.invokeOnCompletion {
-                        footnoteNavigationJobs -= job
-                    }
+                    openAnchorLink(link, endnoteLink)
                     return false
                 }
 
@@ -264,6 +277,10 @@ internal fun ReadiumEpubNavigatorHost(
                     locator: Locator,
                 ) {
                     bookEndCheckJob?.cancel()
+                    if (locator.href != sameFileLinksHref) {
+                        sameFileLinksHref = locator.href
+                        installSameFileLinks()
+                    }
                     val isLastResource = publication.readingOrderIndexOf(locator) == publication.readingOrder.lastIndex
                     val checksScrollEnd = isScrollMode && isLastResource
                     // Only a resource's last spread can end on Readium's blank column.
@@ -300,6 +317,7 @@ internal fun ReadiumEpubNavigatorHost(
                 }
 
                 override fun onPageLoaded() {
+                    installSameFileLinks()
                     activity.lifecycleScope.launch {
                         navigatorFragment?.let { fragment ->
                             applyEpubViewportPadding(
@@ -327,6 +345,9 @@ internal fun ReadiumEpubNavigatorHost(
                         }
                     },
                 ),
+                onSameFileLink = { link ->
+                    footnoteNavigationScope.launch { openAnchorLink(link, endnoteLink = null) }
+                },
             ),
         )
         val fragment = fragmentFactory.instantiate(

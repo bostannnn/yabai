@@ -16,8 +16,9 @@ import org.w3c.dom.Element
 // and carries no anchor text: the target opens as a note popup only when it is a note, and anything
 // else navigates, such as the book's own table of contents, appendix and Notes chapter.
 
-// A note's text starts with its marker: "12. ...", "[3] ...", "* ...".
-private val EpubNoteTextMarkerPattern = Regex("""^[\[(]?(\d{1,3}|[*†‡§¶]{1,3})[\])]?[.:]?\s""")
+// A note's text starts with its marker: "12. ...", "[3] ...", "* ...". A symbol may also sit right
+// against the first word ("*No current treatment ..."); a number may not, or "3D printing" would be a note.
+private val EpubNoteTextMarkerPattern = Regex("""^[\[(]?(\d{1,3}|[*†‡§¶]{1,3})[\])]?(?:[.:]?\s|(?<=[*†‡§¶])(?=\p{L}))""")
 
 // "fn12", "n3", "_ftn4", "endnote_7"; a back-link id such as "fnref12" or "_ftnref4" is not one.
 private val EpubNumberedNoteIdPattern = Regex(
@@ -88,8 +89,9 @@ private fun extractNoteTextFromDocument(
     html: String,
     targetId: String,
 ): String? {
-    // The parser refuses any DOCTYPE (no external entities), and nearly every EPUB 3 file has
-    // `<!DOCTYPE html>`, so drop it; &nbsp; is the one HTML entity books commonly use.
+    // A DOCTYPE could declare entities, and nearly every EPUB 3 file has `<!DOCTYPE html>`, so drop
+    // it before parsing (the JVM's parser also refuses any left); &nbsp; is the one HTML entity books
+    // commonly use.
     val xml = html
         .replace(Regex("<!DOCTYPE[^>]*>", RegexOption.IGNORE_CASE), "")
         .replace("&nbsp;", "&#160;")
@@ -179,12 +181,23 @@ private fun Element.findElementById(
 }
 
 private fun secureDocumentBuilderFactory(): DocumentBuilderFactory =
-    DocumentBuilderFactory.newInstance().apply {
-        isNamespaceAware = true
-        isXIncludeAware = false
-        isExpandEntityReferences = false
-        setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
-        setFeature("http://xml.org/sax/features/external-general-entities", false)
-        setFeature("http://xml.org/sax/features/external-parameter-entities", false)
-        setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
-    }
+    DocumentBuilderFactory.newInstance().hardenedForBookPages()
+
+/**
+ * Turns off what a book page must not reach (DTDs, external entities, XInclude) wherever the parser
+ * supports switching it. Android's own parser throws on these switches, even on
+ * `setXIncludeAware(false)`, which made every note check on a device fail, so an unsupported switch
+ * is skipped. The page reaches the parser without its DOCTYPE, so it can't declare entities on
+ * either parser; one with an internal subset leaves its tail behind and fails to parse.
+ */
+internal fun DocumentBuilderFactory.hardenedForBookPages(): DocumentBuilderFactory = apply {
+    isNamespaceAware = true
+    isExpandEntityReferences = false
+    runCatching { isXIncludeAware = false }
+    listOf(
+        "http://apache.org/xml/features/disallow-doctype-decl" to true,
+        "http://xml.org/sax/features/external-general-entities" to false,
+        "http://xml.org/sax/features/external-parameter-entities" to false,
+        "http://apache.org/xml/features/nonvalidating/load-external-dtd" to false,
+    ).forEach { (feature, value) -> runCatching { setFeature(feature, value) } }
+}
