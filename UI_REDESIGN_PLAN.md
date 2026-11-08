@@ -1595,6 +1595,26 @@ on a spread and at 412 dp phone width. All unit tests pass (1498, both lines). N
 - [x] Tablet (0.19.0, 2026-10-25, see "Tablet pass over 9.1-9.8"): Black, Sepia, Grey and Dusk on a real spread,
       one colour edge to edge (read off the screen), the 56 dp strips, a number under each page, the book and
       chapter heads (none on a chapter's first spread), the settings in words.
+- [x] Tap zones and margins (2026-11-09, asked for after reading on the tablet: "I want to open the menu, it turns
+      the page"). Found: every side zone was a quarter of the width (PDF 28%), so on a landscape spread (1292 dp,
+      pages 646 dp) the zone ended at the middle of each page; a spread had 53 dp outer edges and a 106 dp middle
+      (Readium pads both sides of each column alike); and the reader sizes text with the web view's text zoom,
+      which Readium's 40 rem line-length cap ignores, so 140% text kept 640 px lines and the same wide sides.
+  - Tap zones, all three readers: a quarter of the width, at most 160 dp (`readerTapSide`, `ReaderTapZoneMaxWidth`
+    in reader-core); phones keep their quarter, tablets turn within an inch of the edge and open the menu anywhere
+    else. Taps on the EPUB strips around the text follow the same zones across the whole width.
+  - Spreads with book margins (`usesEpubSpreadMargins`, from a 1088 dp window so Readium keeps two columns): Readium
+    pads each page by 32 px × Margins (`EpubSpreadPageGutterPx`, its `pageGutter`) and the reader paints a strip of
+    the same width beside each outer edge (`epubSpreadSideStrip`), so an outer edge is twice a page's inner side and
+    the middle equals one outer edge: 32 / 64 / 128 dp at Narrow / Normal / Wide. Page numbers and heads centre
+    over the pages inside the strips.
+  - The line-length cap grows with Text size above 100% (`buildEpubViewportPaddingScript(textScale)`, 40 rem ×
+    size); smaller text keeps 40 rem. Portrait at 100% is unchanged (about 70 characters a line, 177 dp sides on
+    the tablet's 914 dp).
+  - Seen on a private emulator (`yabai_margins_35`, Mircea Eliade's «Майтрейи»): 64 / 64 / 64 dp across a 1280 dp
+    spread (before: about 50 / 120 / 50 on the shared one), numbers and heads centred, side-strip taps turning a whole
+    spread, taps 200 and 267 dp from the edge opening the menu, 140% text running to 40 dp sides at 800 dp. Not seen:
+    page curl on a spread with strips, comics and PDF on a device, the tablet.
 
 ### 9.7 Opening a book and reader errors `[~]` (opening, picked Maybe)
 

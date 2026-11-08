@@ -3,6 +3,7 @@ package com.example.unifiedreader.feature.reader.epub
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -128,6 +129,8 @@ internal fun BoxScope.EpubPageNumbers(
     numbers: List<ReaderPageNumber>,
     color: Color,
     height: Dp,
+    // A spread's outer strips: the numbers centre under the pages between them.
+    sideInset: Dp,
 ) {
     ReaderPageNumbers(
         numbers = numbers,
@@ -135,12 +138,13 @@ internal fun BoxScope.EpubPageNumbers(
         modifier = Modifier
             .align(Alignment.BottomCenter)
             .fillMaxWidth()
+            .padding(horizontal = sideInset)
             .height(height)
             .testTag(EpubPageNumbersTag),
     )
 }
 
-// Readium lays a spread out as two equal columns across the page view.
+// Readium lays a spread out as two equal columns across its view, inside any side strips.
 private const val LeftPageCenter = 0.25f
 private const val RightPageCenter = 0.75f
 

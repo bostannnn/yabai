@@ -15,17 +15,10 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.IntSize
+import com.example.unifiedreader.feature.reader.core.ReaderTapZoneMaxWidth
 import com.example.unifiedreader.feature.reader.core.detectReaderZoomGestures
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
-
-private const val NavigationZoneFraction = 0.25f
-
-internal enum class ReaderTapAction {
-    Previous,
-    Next,
-    ToggleOverlay,
-}
 
 internal fun Modifier.comicGestureModifier(
     gestureKey: String,
@@ -53,6 +46,7 @@ internal fun Modifier.comicGestureModifier(
                     resolveReaderTapAction(
                         tapX = tapOffset.x,
                         containerWidth = containerSize.width.toFloat(),
+                        maxZoneWidth = ReaderTapZoneMaxWidth.toPx(),
                         readingDirection = readingDirection,
                         isZoomed = viewportState.isZoomed,
                     )
@@ -167,26 +161,6 @@ internal fun Modifier.comicGestureModifier(
         translationX = viewportState.offset.x
         translationY = viewportState.offset.y
     }
-
-internal fun resolveReaderTapAction(
-    tapX: Float,
-    containerWidth: Float,
-    readingDirection: ComicReadingDirection,
-    isZoomed: Boolean,
-): ReaderTapAction {
-    if (containerWidth <= 0f || isZoomed) {
-        return ReaderTapAction.ToggleOverlay
-    }
-    val isLeftZone = tapX <= containerWidth * NavigationZoneFraction
-    val isRightZone = tapX >= containerWidth * (1f - NavigationZoneFraction)
-    return when {
-        isLeftZone && readingDirection == ComicReadingDirection.RTL -> ReaderTapAction.Next
-        isLeftZone -> ReaderTapAction.Previous
-        isRightZone && readingDirection == ComicReadingDirection.RTL -> ReaderTapAction.Previous
-        isRightZone -> ReaderTapAction.Next
-        else -> ReaderTapAction.ToggleOverlay
-    }
-}
 
 private val IntSize.center: Offset
     get() = Offset(width / 2f, height / 2f)

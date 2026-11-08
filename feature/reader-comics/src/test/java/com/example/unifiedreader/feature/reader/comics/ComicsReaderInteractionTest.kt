@@ -453,6 +453,7 @@ class ComicsReaderInteractionTest {
             resolveReaderTapAction(
                 tapX = 10f,
                 containerWidth = 100f,
+                maxZoneWidth = 1000f,
                 readingDirection = ComicReadingDirection.LTR,
                 isZoomed = false,
             ),
@@ -462,6 +463,7 @@ class ComicsReaderInteractionTest {
             resolveReaderTapAction(
                 tapX = 50f,
                 containerWidth = 100f,
+                maxZoneWidth = 1000f,
                 readingDirection = ComicReadingDirection.LTR,
                 isZoomed = false,
             ),
@@ -471,6 +473,7 @@ class ComicsReaderInteractionTest {
             resolveReaderTapAction(
                 tapX = 95f,
                 containerWidth = 100f,
+                maxZoneWidth = 1000f,
                 readingDirection = ComicReadingDirection.LTR,
                 isZoomed = false,
             ),
@@ -484,6 +487,7 @@ class ComicsReaderInteractionTest {
             resolveReaderTapAction(
                 tapX = 10f,
                 containerWidth = 100f,
+                maxZoneWidth = 1000f,
                 readingDirection = ComicReadingDirection.RTL,
                 isZoomed = false,
             ),
@@ -493,6 +497,7 @@ class ComicsReaderInteractionTest {
             resolveReaderTapAction(
                 tapX = 95f,
                 containerWidth = 100f,
+                maxZoneWidth = 1000f,
                 readingDirection = ComicReadingDirection.RTL,
                 isZoomed = false,
             ),
@@ -506,6 +511,7 @@ class ComicsReaderInteractionTest {
             resolveReaderTapAction(
                 tapX = 5f,
                 containerWidth = 100f,
+                maxZoneWidth = 1000f,
                 readingDirection = ComicReadingDirection.LTR,
                 isZoomed = true,
             ),
@@ -515,6 +521,7 @@ class ComicsReaderInteractionTest {
             resolveReaderTapAction(
                 tapX = 5f,
                 containerWidth = 0f,
+                maxZoneWidth = 1000f,
                 readingDirection = ComicReadingDirection.LTR,
                 isZoomed = false,
             ),

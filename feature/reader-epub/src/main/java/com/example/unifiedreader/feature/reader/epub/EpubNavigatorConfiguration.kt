@@ -4,6 +4,7 @@ import android.view.ActionMode
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.navigator.epub.css.FontStyle
 import org.readium.r2.navigator.epub.css.FontWeight
+import org.readium.r2.navigator.epub.css.Length
 import org.readium.r2.navigator.preferences.FontFamily
 import org.readium.r2.shared.DelicateReadiumApi
 import org.readium.r2.shared.ExperimentalReadiumApi
@@ -11,6 +12,8 @@ import org.readium.r2.shared.ExperimentalReadiumApi
 @OptIn(ExperimentalReadiumApi::class, DelicateReadiumApi::class)
 internal fun epubNavigatorFragmentConfiguration(
     selectionActionModeCallback: ActionMode.Callback? = null,
+    // Set on a spread with book margins (usesEpubSpreadMargins); null keeps Readium's gutter for the width.
+    pageGutterPx: Double? = null,
 ): EpubNavigatorFragment.Configuration =
     EpubNavigatorFragment.Configuration(
         shouldApplyInsetsPadding = false,
@@ -19,6 +22,7 @@ internal fun epubNavigatorFragmentConfiguration(
         // Readium's selection fill is opaque pale blue on every page colour; ours lets the page show through.
         // Readium's own colour type is opaque only, so the value goes in as raw CSS.
         readiumCssRsProperties = readiumCssRsProperties.copy(
+            pageGutter = pageGutterPx?.let(Length::Px) ?: readiumCssRsProperties.pageGutter,
             overrides = readiumCssRsProperties.overrides + (SelectionBackgroundProperty to EpubSelectionHighlight.css),
         )
         useReadiumCssFontSize = false

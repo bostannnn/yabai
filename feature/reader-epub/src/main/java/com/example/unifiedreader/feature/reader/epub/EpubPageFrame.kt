@@ -74,6 +74,7 @@ internal fun BoxScope.EpubPageHeads(
     heads: List<String>,
     color: Color,
     height: Dp,
+    sideInset: Dp,
     isRightToLeft: Boolean,
 ) {
     if (heads.isEmpty()) return
@@ -81,6 +82,7 @@ internal fun BoxScope.EpubPageHeads(
         modifier = Modifier
             .align(Alignment.TopCenter)
             .fillMaxWidth()
+            .padding(horizontal = sideInset)
             .height(height)
             .testTag(EpubPageHeadsTag),
         verticalAlignment = Alignment.CenterVertically,
@@ -125,6 +127,8 @@ internal fun BoxScope.EpubPageFrameLabels(
     layoutMode: EpubReaderLayoutMode,
     pageColor: ReaderPageColor,
     stripHeight: Dp,
+    // The page-colour strip beside each outer edge of a spread: the labels centre over the pages inside it.
+    sideStrip: Dp,
 ) {
     val color = pageColor.colors.number
     EpubPageNumbers(
@@ -136,6 +140,7 @@ internal fun BoxScope.EpubPageFrameLabels(
         ),
         color = color,
         height = stripHeight,
+        sideInset = sideStrip,
     )
     val chapterTitle = remember(tocEntries, location.currentHref, location.currentProgress) {
         tocEntries.currentEpubChapterTitle(currentProgress = location.currentProgress, currentHref = location.currentHref)
@@ -150,6 +155,7 @@ internal fun BoxScope.EpubPageFrameLabels(
         ),
         color = color,
         height = stripHeight,
+        sideInset = sideStrip,
         isRightToLeft = publication.metadata.readingProgression == ReadingProgression.RTL,
     )
 }

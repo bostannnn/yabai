@@ -65,6 +65,7 @@ import com.example.unifiedreader.feature.reader.core.ReaderPageNumber
 import com.example.unifiedreader.feature.reader.core.ReaderPageNumberPills
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionStore
+import com.example.unifiedreader.feature.reader.core.ReaderTapSide
 import com.example.unifiedreader.feature.reader.core.ReaderZoomLayout
 import com.example.unifiedreader.feature.reader.core.ReaderZoomViewportState
 import com.example.unifiedreader.feature.reader.core.ReportReaderOpening
@@ -73,6 +74,7 @@ import com.example.unifiedreader.feature.reader.core.openingStep
 import com.example.unifiedreader.feature.reader.core.readerFileMissingFailure
 import com.example.unifiedreader.feature.reader.core.readerOpenFailureOf
 import com.example.unifiedreader.feature.reader.core.readerOverlayTokens
+import com.example.unifiedreader.feature.reader.core.readerTapSide
 import com.example.unifiedreader.feature.reader.core.rememberReaderDocument
 import com.example.unifiedreader.feature.reader.core.rememberReaderOverlayState
 import com.example.unifiedreader.feature.reader.preferences.InMemoryReaderPageNumberPreferencesStore
@@ -422,11 +424,10 @@ private fun PdfPageViewport(
             .pointerInput(pageState.cacheKey, viewportSize) {
                 detectTapGestures(
                     onTap = { tapOffset ->
-                        when {
-                            viewportState.isZoomed -> onToggleOverlay()
-                            tapOffset.x < size.width * PDF_EDGE_TAP_FRACTION -> onPrevious()
-                            tapOffset.x > size.width * (1f - PDF_EDGE_TAP_FRACTION) -> onNext()
-                            else -> onToggleOverlay()
+                        when (if (viewportState.isZoomed) ReaderTapSide.Middle else readerTapSide(tapOffset.x, size.width.toFloat())) {
+                            ReaderTapSide.Left -> onPrevious()
+                            ReaderTapSide.Right -> onNext()
+                            ReaderTapSide.Middle -> onToggleOverlay()
                         }
                     },
                     onDoubleTap = { tapOffset ->
@@ -798,4 +799,3 @@ private const val PDF_RENDER_LONG_EDGE_PX = 2200
 private const val PDF_RENDER_MEDIUM_LONG_EDGE_PX = 3200
 private const val PDF_RENDER_MAX_LONG_EDGE_PX = 4096
 private const val PDF_RENDER_REQUEST_DEBOUNCE_MILLIS = 180L
-private const val PDF_EDGE_TAP_FRACTION = 0.28f

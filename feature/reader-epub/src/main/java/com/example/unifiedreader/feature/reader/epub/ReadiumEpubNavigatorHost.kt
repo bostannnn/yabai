@@ -17,11 +17,15 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.FragmentContainerView
 import androidx.lifecycle.lifecycleScope
 import com.example.unifiedreader.core.model.ReadableItem
+import com.example.unifiedreader.feature.reader.core.ReaderTapSide
+import com.example.unifiedreader.feature.reader.core.ReaderTapZoneMaxWidth
+import com.example.unifiedreader.feature.reader.core.readerTapSide
 import com.example.unifiedreader.feature.reader.core.curl.PageCurlTapTurner
 import com.example.unifiedreader.feature.reader.core.curl.PageCurlTarget
 import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
@@ -88,6 +92,14 @@ internal fun ReadiumEpubNavigatorHost(
     val viewportVerticalInsetPx = with(LocalDensity.current) {
         viewportSpacing.containerInset.roundToPx()
     }
+    val spreadSideStrip = publication.epubSpreadSideStrip(preferences)
+    val sideStripPx = with(LocalDensity.current) { spreadSideStrip.roundToPx() }
+    val latestSideStripPx = rememberUpdatedState(sideStripPx)
+    // Readium's own gutter is fixed when the navigator is made, so a spread gains or loses its margins with a new one.
+    val usesSpreadMargins = spreadSideStrip > 0.dp
+    val pageTaps = remember(publication) { EpubPageTaps() }
+    val textScale = preferences.fontSize.takeIf { preferences.typographyMode == EpubTypographyMode.Custom } ?: 1.0
+    val latestTextScale = rememberUpdatedState(textScale)
     val fragmentManager = activity.supportFragmentManager
     // The strips around the text and the view behind Readium's page: one colour with the page.
     val surfaceBackground = preferences.theme.colors.page
@@ -153,7 +165,7 @@ internal fun ReadiumEpubNavigatorHost(
                             id = containerId
                             setBackgroundColor(surfaceBackground.toArgb())
                         },
-                        epubNavigatorContainerLayoutParams(viewportVerticalInsetPx),
+                        epubNavigatorContainerLayoutParams(viewportVerticalInsetPx, sideStripPx),
                     )
                 }
             },
@@ -161,12 +173,10 @@ internal fun ReadiumEpubNavigatorHost(
                 container.setBackgroundColor(surfaceBackground.toArgb())
                 container.updateEpubNavigatorContainer(
                     verticalInsetPx = viewportVerticalInsetPx,
+                    sideInsetPx = sideStripPx,
                     backgroundColor = surfaceBackground.toArgb(),
                 )
-                container.updateEpubGutterTapListener(
-                    verticalInsetPx = viewportVerticalInsetPx,
-                    onSurfaceTap = latestOnSurfaceTap.value,
-                )
+                container.updateEpubStripTapListener(onTap = pageTaps::onTap)
             },
         )
     }
@@ -177,6 +187,7 @@ internal fun ReadiumEpubNavigatorHost(
         navigatorFactory,
         containerId,
         fragmentTag,
+        usesSpreadMargins,
     ) {
         var navigatorFragment: EpubNavigatorFragment? = null
         val footnoteNavigationJobs = mutableSetOf<Job>()
@@ -294,6 +305,7 @@ internal fun ReadiumEpubNavigatorHost(
                                 navigator = fragment,
                                 publication = publication,
                                 paddingPx = viewportSpacing.contentPaddingPx,
+                                textScale = latestTextScale.value,
                             )
                             curlHost.refreshColumns()
                         }
@@ -301,7 +313,8 @@ internal fun ReadiumEpubNavigatorHost(
                 }
             },
             configuration = epubNavigatorFragmentConfiguration(
-                EpubSelectionActionModeCallback(
+                pageGutterPx = EpubSpreadPageGutterPx.takeIf { usesSpreadMargins },
+                selectionActionModeCallback = EpubSelectionActionModeCallback(
                     delegate = curlHost.selectionActionModeCallback,
                     canTranslate = { latestTranslation.value?.openOnSelect == false },
                     onTranslate = selectionFollower::translate,
@@ -330,36 +343,27 @@ internal fun ReadiumEpubNavigatorHost(
                 if (!curlTapTurner.turn(target)) slide()
             }
         }
+        fun handlePageTap(side: ReaderTapSide): Boolean {
+            when (resolveEpubTapAction(side, fragment.settings.value.readingProgression)) {
+                EpubTapAction.Previous -> turnByTap(PageCurlTarget.Previous) { fragment.goBackward(animated = true) }
+                EpubTapAction.Next -> if (isAtBookEnd) {
+                    latestOnEndNavigationRequested.value()
+                } else {
+                    turnByTap(PageCurlTarget.Next) { fragment.goForward(animated = true) }
+                }
+                EpubTapAction.ToggleOverlay -> latestOnSurfaceTap.value()
+            }
+            return true
+        }
+        pageTaps.handler = ::handlePageTap
         val tapZoneListener = object : InputListener {
             override fun onTap(event: TapEvent): Boolean {
                 val viewWidth = fragment.publicationView.width.toFloat()
                 if (viewWidth <= 0f) return false
-                return when (
-                    resolveEpubTapAction(
-                        tapX = event.point.x,
-                        containerWidth = viewWidth,
-                        readingProgression = fragment.settings.value.readingProgression,
-                    )
-                ) {
-                    EpubTapAction.Previous -> {
-                        turnByTap(PageCurlTarget.Previous) { fragment.goBackward(animated = true) }
-                        true
-                    }
-
-                    EpubTapAction.Next -> {
-                        if (isAtBookEnd) {
-                            latestOnEndNavigationRequested.value()
-                        } else {
-                            turnByTap(PageCurlTarget.Next) { fragment.goForward(animated = true) }
-                        }
-                        true
-                    }
-
-                    EpubTapAction.ToggleOverlay -> {
-                        latestOnSurfaceTap.value()
-                        true
-                    }
-                }
+                // Readium's point is in its own view; the zones span the strips beside it too.
+                val strip = latestSideStripPx.value
+                val maxZoneWidth = ReaderTapZoneMaxWidth.value * fragment.resources.displayMetrics.density
+                return handlePageTap(readerTapSide(event.point.x + strip, viewWidth + 2 * strip, maxZoneWidth))
             }
         }
         fragment.addInputListener(tapZoneListener)
@@ -368,6 +372,7 @@ internal fun ReadiumEpubNavigatorHost(
             .commitNowAllowingStateLoss()
 
         onDispose {
+            pageTaps.handler = null
             curlHost.navigator = null
             bookEndCheckJob?.cancel()
             footnoteNavigationJobs.toList().forEach { job -> job.cancel() }
@@ -402,6 +407,7 @@ internal fun ReadiumEpubNavigatorHost(
                 navigator = it,
                 publication = publication,
                 paddingPx = viewportSpacing.contentPaddingPx,
+                textScale = textScale,
             )
         }
     }
@@ -436,5 +442,14 @@ internal fun ReadiumEpubNavigatorHost(
             }
         }
         onNavigationRequestConsumed()
+    }
+}
+
+/** The tap handling of the current navigator, for taps on the strips around it, which Readium never sees. */
+private class EpubPageTaps {
+    var handler: ((ReaderTapSide) -> Boolean)? = null
+
+    fun onTap(side: ReaderTapSide) {
+        handler?.invoke(side)
     }
 }

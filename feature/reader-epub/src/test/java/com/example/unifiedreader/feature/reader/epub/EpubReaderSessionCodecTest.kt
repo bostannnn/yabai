@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.toArgb
 import com.example.unifiedreader.core.model.LocatorType
 import com.example.unifiedreader.feature.reader.core.ReaderProgressSnapshot
 import com.example.unifiedreader.feature.reader.core.ReaderSessionSnapshot
+import com.example.unifiedreader.feature.reader.core.ReaderTapSide
 import com.example.unifiedreader.feature.reader.core.curl.PageTurnStyle
 import com.example.unifiedreader.ui.theme.ReaderPageColor
 import org.junit.Assert.assertEquals
@@ -363,6 +364,13 @@ class EpubReaderSessionCodecTest {
     }
 
     @Test
+    fun `viewport padding script widens the line-length cap with the text size`() {
+        assertTrue(buildEpubViewportPaddingScript(0).contains("'--RS__maxLineLength', '40.00rem', 'important'"))
+        assertTrue(buildEpubViewportPaddingScript(0, textScale = 1.4).contains("'--RS__maxLineLength', '56.00rem', 'important'"))
+        assertTrue(buildEpubViewportPaddingScript(0, textScale = 0.8).contains("'--RS__maxLineLength', '40.00rem', 'important'"))
+    }
+
+    @Test
     fun `viewport padding script clamps negative padding to zero`() {
         val script = buildEpubViewportPaddingScript(-8)
 
@@ -370,50 +378,15 @@ class EpubReaderSessionCodecTest {
     }
 
     @Test
-    fun `tap action uses edge zones for ltr reading`() {
-        assertEquals(
-            EpubTapAction.Previous,
-            resolveEpubTapAction(
-                tapX = 10f,
-                containerWidth = 100f,
-                readingProgression = ReadingProgression.LTR,
-            ),
-        )
-        assertEquals(
-            EpubTapAction.ToggleOverlay,
-            resolveEpubTapAction(
-                tapX = 50f,
-                containerWidth = 100f,
-                readingProgression = ReadingProgression.LTR,
-            ),
-        )
-        assertEquals(
-            EpubTapAction.Next,
-            resolveEpubTapAction(
-                tapX = 95f,
-                containerWidth = 100f,
-                readingProgression = ReadingProgression.LTR,
-            ),
-        )
+    fun `tap action turns at the sides and opens the menu in the middle`() {
+        assertEquals(EpubTapAction.Previous, resolveEpubTapAction(ReaderTapSide.Left, ReadingProgression.LTR))
+        assertEquals(EpubTapAction.ToggleOverlay, resolveEpubTapAction(ReaderTapSide.Middle, ReadingProgression.LTR))
+        assertEquals(EpubTapAction.Next, resolveEpubTapAction(ReaderTapSide.Right, ReadingProgression.LTR))
     }
 
     @Test
-    fun `tap action mirrors edge zones for rtl reading`() {
-        assertEquals(
-            EpubTapAction.Next,
-            resolveEpubTapAction(
-                tapX = 10f,
-                containerWidth = 100f,
-                readingProgression = ReadingProgression.RTL,
-            ),
-        )
-        assertEquals(
-            EpubTapAction.Previous,
-            resolveEpubTapAction(
-                tapX = 95f,
-                containerWidth = 100f,
-                readingProgression = ReadingProgression.RTL,
-            ),
-        )
+    fun `tap action mirrors the sides for rtl reading`() {
+        assertEquals(EpubTapAction.Next, resolveEpubTapAction(ReaderTapSide.Left, ReadingProgression.RTL))
+        assertEquals(EpubTapAction.Previous, resolveEpubTapAction(ReaderTapSide.Right, ReadingProgression.RTL))
     }
 }

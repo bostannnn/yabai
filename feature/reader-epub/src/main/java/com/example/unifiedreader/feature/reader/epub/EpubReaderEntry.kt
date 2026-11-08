@@ -55,7 +55,6 @@ import kotlinx.coroutines.withContext
 import com.example.unifiedreader.feature.translation.ReaderTranslationOverlay
 import com.example.unifiedreader.feature.translation.TranslationService
 import com.example.unifiedreader.feature.translation.rememberTranslationSession
-import org.readium.r2.navigator.preferences.ReadingProgression
 import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.Publication
@@ -464,6 +463,7 @@ fun EpubReaderScreen(
                             layoutMode = layoutMode,
                             pageColor = theme,
                             stripHeight = viewportSpacing.containerInset,
+                            sideStrip = state.publication.epubSpreadSideStrip(readerPreferences),
                         )
                     }
                 } else {
@@ -702,31 +702,6 @@ fun EpubReaderScreen(
     }
 }
 
-internal enum class EpubTapAction {
-    Previous,
-    Next,
-    ToggleOverlay,
-}
-
-internal fun resolveEpubTapAction(
-    tapX: Float,
-    containerWidth: Float,
-    readingProgression: ReadingProgression,
-): EpubTapAction {
-    if (containerWidth <= 0f) {
-        return EpubTapAction.ToggleOverlay
-    }
-    val isLeftZone = tapX <= containerWidth * EpubNavigationZoneFraction
-    val isRightZone = tapX >= containerWidth * (1f - EpubNavigationZoneFraction)
-    return when {
-        isLeftZone && readingProgression == ReadingProgression.RTL -> EpubTapAction.Next
-        isLeftZone -> EpubTapAction.Previous
-        isRightZone && readingProgression == ReadingProgression.RTL -> EpubTapAction.Previous
-        isRightZone -> EpubTapAction.Next
-        else -> EpubTapAction.ToggleOverlay
-    }
-}
-
 private fun Publication.readingOrderPositionFor(
     locator: Locator,
 ): Int? = readingOrderIndexOf(locator)?.plus(1)
@@ -790,8 +765,6 @@ internal data class EpubTocNavigationRequest(
     override val id: Int,
     val link: Link,
 ) : EpubNavigationRequest
-
-private const val EpubNavigationZoneFraction = 0.25f
 
 private fun defaultEpubLayoutMode(
     isLandscape: Boolean,
