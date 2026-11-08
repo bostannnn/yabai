@@ -7,9 +7,15 @@ import com.example.unifiedreader.core.model.writeFileAtomically
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.Dispatchers
+import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlinx.coroutines.withContext
 
+/**
+ * Writes the cached copy of a downloaded cover at a [LibraryCoverVariant]'s size. The copy keeps the cover's own
+ * proportions: it is scaled to fit within the variant, never cropped to 2:3 and never enlarged. Cropping to the
+ * grid's slot is the screen's job, and only when covers show "All the same"; "As printed" needs the real shape.
+ */
 @Singleton
 class LibraryCoverThumbnailGenerator @Inject constructor(
     private val appDispatchers: AppDispatchers,
@@ -41,18 +47,13 @@ class LibraryCoverThumbnailGenerator @Inject constructor(
             },
         ) ?: return@withContext null
 
-        val cropped = decoded.centerCropToAspectRatio(
-            targetWidth = variant.width,
-            targetHeight = variant.height,
-        )
         // Never enlarge. A cover smaller than the variant keeps its own size and is scaled on screen: the same
         // detail, without a resample and a JPEG pass that only make a small cover look like a large one.
-        val scaled = if (cropped.width <= variant.width || cropped.height <= variant.height) {
-            cropped
-        } else {
-            Bitmap.createScaledBitmap(cropped, variant.width, variant.height, true)
-        }
-        if (cropped !== decoded) {
+        val scaled = decoded.scaleToFit(
+            maxWidth = variant.width,
+            maxHeight = variant.height,
+        )
+        if (scaled !== decoded) {
             decoded.recycle()
         }
 
@@ -74,32 +75,16 @@ class LibraryCoverThumbnailGenerator @Inject constructor(
         destinationFile.takeIf { file -> file.isFile && file.length() > 0L }
     }
 
-    private fun Bitmap.centerCropToAspectRatio(
-        targetWidth: Int,
-        targetHeight: Int,
+    /** This bitmap scaled down to fit within [maxWidth] x [maxHeight] in its own proportions, or itself if it fits. */
+    private fun Bitmap.scaleToFit(
+        maxWidth: Int,
+        maxHeight: Int,
     ): Bitmap {
-        val sourceRatio = width.toFloat() / height.toFloat()
-        val targetRatio = targetWidth.toFloat() / targetHeight.toFloat()
-        val cropWidth: Int
-        val cropHeight: Int
-        val cropX: Int
-        val cropY: Int
-        if (sourceRatio > targetRatio) {
-            cropHeight = height
-            cropWidth = (height * targetRatio).toInt()
-            cropX = ((width - cropWidth) / 2).coerceAtLeast(0)
-            cropY = 0
-        } else {
-            cropWidth = width
-            cropHeight = (width / targetRatio).toInt()
-            cropX = 0
-            cropY = ((height - cropHeight) / 2).coerceAtLeast(0)
-        }
-        return if (cropWidth == width && cropHeight == height) {
-            this
-        } else {
-            Bitmap.createBitmap(this, cropX, cropY, cropWidth, cropHeight)
-        }
+        if (width <= maxWidth && height <= maxHeight) return this
+        val scale = min(maxWidth.toFloat() / width.toFloat(), maxHeight.toFloat() / height.toFloat())
+        val scaledWidth = (width * scale).roundToInt().coerceIn(1, maxWidth)
+        val scaledHeight = (height * scale).roundToInt().coerceIn(1, maxHeight)
+        return Bitmap.createScaledBitmap(this, scaledWidth, scaledHeight, true)
     }
 
     private fun calculateInSampleSize(
@@ -108,6 +93,7 @@ class LibraryCoverThumbnailGenerator @Inject constructor(
         targetWidth: Int,
         targetHeight: Int,
     ): Int {
+        // Halve while both sides stay at or above the target, so the fit below only ever scales down a little.
         var sampleSize = 1
         var currentWidth = sourceWidth
         var currentHeight = sourceHeight

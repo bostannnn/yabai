@@ -182,7 +182,7 @@ class RemoteCoverCacheResolver @Inject constructor(
             storageDirectoryName = storage.storageDirectoryName,
             legacyDirectoryName = storage.legacyDirectoryName,
         )
-        variants
+        val thumbnailDirectories = variants
             .map { variant ->
                 thumbnailDirectoryName(
                     storageDirectoryName = storage.storageDirectoryName,
@@ -190,9 +190,14 @@ class RemoteCoverCacheResolver @Inject constructor(
                 )
             }
             .distinct()
-            .forEach { directoryName ->
-                coverStore.warmStorageDirectoryIndex(directoryName)
-            }
+        // Thumbnails of an earlier file key (cropped to 2:3 before v3) are never read again: drop them.
+        coverStore.deleteStorageDirectoriesWithPrefix(
+            prefix = thumbnailDirectoryPrefix(storage.storageDirectoryName),
+            keep = thumbnailDirectories,
+        )
+        thumbnailDirectories.forEach { directoryName ->
+            coverStore.warmStorageDirectoryIndex(directoryName)
+        }
     }
 
     suspend fun clearCachedCovers(

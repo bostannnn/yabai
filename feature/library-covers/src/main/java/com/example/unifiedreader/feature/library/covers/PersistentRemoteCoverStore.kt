@@ -122,6 +122,26 @@ class PersistentRemoteCoverStore @Inject constructor(
         }
     }
 
+    /**
+     * Deletes the storage directories that start with [prefix] and are not in [keep]: the thumbnail folders of a
+     * file key that is no longer written, whose copies would otherwise stay on disk unused.
+     */
+    suspend fun deleteStorageDirectoriesWithPrefix(
+        prefix: String,
+        keep: Collection<String>,
+    ) {
+        withContext(appDispatchers.io) {
+            context.applicationContext.filesDir.listFiles()
+                .orEmpty()
+                .filter { file -> file.isDirectory && file.name.startsWith(prefix) && file.name !in keep }
+                .forEach { directory ->
+                    directory.deleteRecursively()
+                    indexedPersistentFilesByDirectory.remove(directory.name)
+                    warmedStorageDirectories.remove(directory.name)
+                }
+        }
+    }
+
     suspend fun moveLegacyCoverIfPresent(
         storageDirectoryName: String,
         fileName: String,

@@ -30,10 +30,32 @@ class RemoteCoverCacheResolverTest {
     fun tearDown() {
         File(context.filesDir, STORAGE.storageDirectoryName).deleteRecursively()
         File(context.cacheDir, requireNotNull(STORAGE.legacyDirectoryName)).deleteRecursively()
-        File(
+        context.filesDir.listFiles()
+            .orEmpty()
+            .filter { file -> file.name.startsWith(thumbnailDirectoryPrefix(STORAGE.storageDirectoryName)) }
+            .forEach(File::deleteRecursively)
+    }
+
+    @Test
+    fun `warmCacheIndexes drops the thumbnail folders of an earlier file key and keeps the current ones`() = runTest {
+        val outdatedDirectory = File(context.filesDir, thumbnailDirectoryPrefix(STORAGE.storageDirectoryName) + "grid-v2")
+            .apply {
+                mkdirs()
+                File(this, "old-cover-grid-v2.jpg").writeBytes(validCoverBytes())
+            }
+        val currentDirectory = File(
             context.filesDir,
             thumbnailDirectoryName(STORAGE.storageDirectoryName, LibraryCoverVariant.Grid),
-        ).deleteRecursively()
+        ).apply {
+            mkdirs()
+            File(this, "cover-${LibraryCoverVariant.Grid.fileKey}.jpg").writeBytes(validCoverBytes())
+        }
+
+        resolver.warmCacheIndexes(STORAGE)
+
+        assertFalse(outdatedDirectory.exists())
+        assertTrue(currentDirectory.isDirectory)
+        assertEquals(1, currentDirectory.listFiles().orEmpty().size)
     }
 
     @Test

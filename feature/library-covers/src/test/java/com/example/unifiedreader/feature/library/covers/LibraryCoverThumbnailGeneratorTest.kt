@@ -1,5 +1,6 @@
 package com.example.unifiedreader.feature.library.covers
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.test.core.app.ApplicationProvider
@@ -14,91 +15,52 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class LibraryCoverThumbnailGeneratorTest {
+    private val context = ApplicationProvider.getApplicationContext<Context>()
+
     @Test
-    fun `ensureThumbnail writes fixed size thumbnail`() = runTest {
-        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val source = File(context.cacheDir, "thumbnail-source.png")
-        val destination = File(context.cacheDir, "thumbnail-dest.jpg")
-        val bitmap = Bitmap.createBitmap(900, 1400, Bitmap.Config.ARGB_8888)
-        try {
-            source.outputStream().use { output ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
-            }
-        } finally {
-            bitmap.recycle()
-        }
+    fun `ensureThumbnail scales a 2 by 3 cover to the variant`() = runTest {
+        val decoded = generate(sourceWidth = 1000, sourceHeight = 1500, variant = LibraryCoverVariant.Grid)
 
-        val output = LibraryCoverThumbnailGenerator(AppDispatchers()).ensureThumbnail(
-            sourceFile = source,
-            destinationFile = destination,
-            variant = LibraryCoverVariant.Grid,
-        )
-
-        assertTrue(output?.isFile == true)
-        val decoded = BitmapFactory.decodeFile(destination.absolutePath)
         assertEquals(LibraryCoverVariant.Grid.width, decoded.width)
         assertEquals(LibraryCoverVariant.Grid.height, decoded.height)
     }
 
     @Test
-    fun `ensureThumbnail writes large grid thumbnail`() = runTest {
-        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val source = File(context.cacheDir, "thumbnail-large-source.png")
-        val destination = File(context.cacheDir, "thumbnail-large-dest.jpg")
-        val bitmap = Bitmap.createBitmap(1200, 1800, Bitmap.Config.ARGB_8888)
-        try {
-            source.outputStream().use { output ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
-            }
-        } finally {
-            bitmap.recycle()
-        }
+    fun `ensureThumbnail keeps a wider cover's proportions instead of cropping it`() = runTest {
+        // A squarer cover (4:5) fits the variant's width and comes out shorter than the slot: no centre crop to 2:3.
+        val decoded = generate(sourceWidth = 1200, sourceHeight = 1500, variant = LibraryCoverVariant.GridLarge)
 
-        val output = LibraryCoverThumbnailGenerator(AppDispatchers()).ensureThumbnail(
-            sourceFile = source,
-            destinationFile = destination,
-            variant = LibraryCoverVariant.GridLarge,
-        )
-
-        assertTrue(output?.isFile == true)
-        val decoded = BitmapFactory.decodeFile(destination.absolutePath)
         assertEquals(LibraryCoverVariant.GridLarge.width, decoded.width)
-        assertEquals(LibraryCoverVariant.GridLarge.height, decoded.height)
+        assertEquals(900, decoded.height)
     }
 
     @Test
-    fun `ensureThumbnail writes extra large grid thumbnail`() = runTest {
-        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val source = File(context.cacheDir, "thumbnail-extra-large-source.png")
-        val destination = File(context.cacheDir, "thumbnail-extra-large-dest.jpg")
-        val bitmap = Bitmap.createBitmap(1600, 2400, Bitmap.Config.ARGB_8888)
-        try {
-            source.outputStream().use { output ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
-            }
-        } finally {
-            bitmap.recycle()
-        }
+    fun `ensureThumbnail keeps a taller cover's proportions instead of cropping it`() = runTest {
+        // A tall cover (1:2) fits the variant's height and comes out narrower than the slot.
+        val decoded = generate(sourceWidth = 1600, sourceHeight = 3200, variant = LibraryCoverVariant.GridExtraLarge)
 
-        val output = LibraryCoverThumbnailGenerator(AppDispatchers()).ensureThumbnail(
-            sourceFile = source,
-            destinationFile = destination,
-            variant = LibraryCoverVariant.GridExtraLarge,
-        )
-
-        assertTrue(output?.isFile == true)
-        val decoded = BitmapFactory.decodeFile(destination.absolutePath)
-        assertEquals(LibraryCoverVariant.GridExtraLarge.width, decoded.width)
         assertEquals(LibraryCoverVariant.GridExtraLarge.height, decoded.height)
+        assertEquals(720, decoded.width)
     }
 
     @Test
-    fun `ensureThumbnail crops a smaller cover without enlarging it`() = runTest {
-        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val source = File(context.cacheDir, "thumbnail-small-source.png")
-        val destination = File(context.cacheDir, "thumbnail-small-dest.jpg")
-        // The shape and size of a Grimmory thumbnail.
-        val bitmap = Bitmap.createBitmap(250, 350, Bitmap.Config.ARGB_8888)
+    fun `ensureThumbnail keeps a smaller cover as it is`() = runTest {
+        // The shape and size of a Grimmory thumbnail: neither enlarged nor cropped.
+        val decoded = generate(sourceWidth = 250, sourceHeight = 350, variant = LibraryCoverVariant.GridLarge)
+
+        assertEquals(250, decoded.width)
+        assertEquals(350, decoded.height)
+    }
+
+    private suspend fun generate(
+        sourceWidth: Int,
+        sourceHeight: Int,
+        variant: LibraryCoverVariant,
+    ): Bitmap {
+        val source = File(context.cacheDir, "thumbnail-source-$sourceWidth-$sourceHeight.png")
+        val destination = File(context.cacheDir, "thumbnail-dest-$sourceWidth-$sourceHeight-${variant.fileKey}.jpg")
+        destination.delete()
+        val bitmap = Bitmap.createBitmap(sourceWidth, sourceHeight, Bitmap.Config.ARGB_8888)
         try {
             source.outputStream().use { output ->
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
@@ -110,12 +72,10 @@ class LibraryCoverThumbnailGeneratorTest {
         val output = LibraryCoverThumbnailGenerator(AppDispatchers()).ensureThumbnail(
             sourceFile = source,
             destinationFile = destination,
-            variant = LibraryCoverVariant.GridLarge,
+            variant = variant,
         )
 
         assertTrue(output?.isFile == true)
-        val decoded = BitmapFactory.decodeFile(destination.absolutePath)
-        assertEquals(233, decoded.width)
-        assertEquals(350, decoded.height)
+        return BitmapFactory.decodeFile(destination.absolutePath)
     }
 }
