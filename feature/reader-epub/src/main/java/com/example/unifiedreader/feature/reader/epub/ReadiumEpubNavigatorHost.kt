@@ -143,6 +143,7 @@ internal fun ReadiumEpubNavigatorHost(
         AndroidView(
             modifier = Modifier
                 .fillMaxSize()
+                .observeEpubPageTouches(selectionFollower)
                 .testTag(EpubReaderSurfaceTag),
             factory = { context ->
                 FrameLayout(context).apply {

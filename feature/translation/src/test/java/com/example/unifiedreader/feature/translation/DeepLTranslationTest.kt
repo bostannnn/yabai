@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.TestScope
@@ -30,10 +31,24 @@ import org.junit.Test
 class DeepLTranslationTest {
     private class TabletEngine(val onTablet: Set<String>) : TranslationEngine {
         override val supportedLanguages = setOf("en", "ru", "de", "he")
+        val translated = mutableListOf<String>()
         override suspend fun downloadedLanguages(): Set<String> = onTablet
         override suspend fun download(tag: String) = Unit
         override suspend fun delete(tag: String) = Unit
-        override suspend fun translate(text: String, from: String, to: String): String = "tablet:$text"
+        override suspend fun translate(text: String, from: String, to: String): String {
+            translated += text
+            return "tablet:$text"
+        }
+    }
+
+    /** A saved key the keystore hasn't handed over yet: [key] has no value until [read]. */
+    private class SlowKeyStore : DeepLKeyStore {
+        override val key = MutableSharedFlow<String?>(replay = 1)
+        fun read(saved: String?) {
+            key.tryEmit(saved)
+        }
+        override suspend fun save(key: String) = Unit
+        override suspend fun clear() = Unit
     }
 
     private class MemoryStore(initial: TranslationPreferences) : TranslationPreferencesStore {
@@ -208,5 +223,25 @@ class DeepLTranslationTest {
         assertNull(setup.keys.key.value)
         assertFalse(setup.service.state.value.deepL.hasKey)
         assertEquals(TranslationProvider.Device, setup.preferences.flow.value.provider)
+    }
+
+    @Test
+    fun `a card waits for the saved DeepL key instead of asking the tablet`() = runTest(UnconfinedTestDispatcher()) {
+        val engine = TabletEngine(setOf("en", "ru"))
+        val keys = SlowKeyStore()
+        val preferences = MemoryStore(TranslationPreferences(targetLanguage = "ru", provider = TranslationProvider.DeepL))
+        val service = TranslationService(engine, preferences, backgroundScope, deepL(), keys) { Locale.ENGLISH }
+        val session = TranslationSession(service, TestScope(UnconfinedTestDispatcher(testScheduler)).backgroundScope)
+
+        session.open(word)
+        // The tablet's languages are known, the key isn't yet: nothing is translated.
+        assertTrue(service.state.value.loaded)
+        assertNull(session.current.value)
+
+        keys.read("k:fx")
+        val done = session.settled() as TranslationPhase.Done
+        assertEquals(TranslationProvider.DeepL, done.by)
+        assertEquals("deepl:word", done.translation)
+        assertTrue(engine.translated.isEmpty())
     }
 }

@@ -93,9 +93,10 @@ class TranslationSession(
     private fun show(selection: ReaderTextSelection) {
         work?.cancel()
         work = scope.launch {
-            // The tablet's languages load once; until then the pair can't be judged.
+            // The tablet's languages, your choices and your DeepL key load once; until then
+            // neither the pair nor who translates can be judged.
             service.state.collect { state ->
-                if (!state.loaded) return@collect
+                if (!state.ready) return@collect
                 val (from, to) = TranslationLanguages.resolvePair(
                     pickedFrom = pickedFrom,
                     bookLanguage = service.normalize(selection.bookLanguage),

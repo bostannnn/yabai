@@ -7,6 +7,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
@@ -14,9 +16,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.unit.Constraints
@@ -30,9 +35,13 @@ import kotlin.math.roundToInt
 /**
  * A small card that opens at something on screen rather than at an edge: a word you selected
  * in a book. It sits under [anchor] with a 12 gap, or over it when there isn't room below, and
- * stays inside the window's gutter. A tap anywhere else or Back calls [onDismissRequest]; the
- * card has no scrim, so what it points at stays readable. Without an anchor it sits in the
- * middle of the slot.
+ * stays inside the window's gutter. A tap anywhere else or Back calls [onDismissRequest] (a drag
+ * isn't a tap); the card has no scrim, so what it points at stays readable. Without an anchor it
+ * sits in the middle of the slot.
+ *
+ * [dismissOnOutsideTap] false passes every touch outside the card to what is under it, for a card
+ * that follows something the page owns (a text selection): the page's own tap closes it then,
+ * and a long press or a drag on the page works as if the card weren't there.
  *
  * The caller places it in a full-size slot whose coordinates [anchor] is in (pixels).
  */
@@ -42,15 +51,23 @@ fun AppAnchoredCard(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
     maxWidth: Dp = AppAnchoredCardDefaults.maxWidth,
+    dismissOnOutsideTap: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     BackHandler(onBack = onDismissRequest)
     val visible = remember { MutableTransitionState(false).apply { targetState = true } }
     val gutter = appGutter()
+    val latestDismiss by rememberUpdatedState(onDismissRequest)
     Box(
         modifier = modifier
             .fillMaxSize()
-            .pointerInput(Unit) { detectTapGestures { onDismissRequest() } },
+            .then(
+                if (dismissOnOutsideTap) {
+                    Modifier.pointerInput(Unit) { detectStillTap { latestDismiss() } }
+                } else {
+                    Modifier
+                },
+            ),
     ) {
         Layout(
             content = {
@@ -88,6 +105,24 @@ fun AppAnchoredCard(
             layout(constraints.maxWidth, constraints.maxHeight) {
                 placeable.place(position)
             }
+        }
+    }
+}
+
+/** A tap that stays put: a finger that moves past the touch slop before lifting is a drag, not a tap. */
+private suspend fun PointerInputScope.detectStillTap(onTap: () -> Unit) {
+    awaitEachGesture {
+        val down = awaitFirstDown()
+        var moved = false
+        var change = down
+        // Until the finger lifts, or something else takes the gesture.
+        while (change.pressed && !change.isConsumed) {
+            change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: return@awaitEachGesture
+            if ((change.position - down.position).getDistance() > viewConfiguration.touchSlop) moved = true
+        }
+        if (!change.pressed && !change.isConsumed && !moved) {
+            change.consume()
+            onTap()
         }
     }
 }

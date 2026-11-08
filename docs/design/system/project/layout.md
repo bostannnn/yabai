@@ -41,6 +41,8 @@ The emulator's 800 dp portrait is Medium; the tablet's 914 dp portrait and its l
 
 Reader bars and the page frame are their own system (UI plan 8.7 and 9.6): they float 8 (Compact) or 12 from the window over the page and do not take the gutter.
 
+The EPUB page frame (UI plan 9.6) is two strips in the page colour, 56 tall on tablets and 40 on Compact, with every label in `label-medium`, the number colour and tabular figures: the chapter line centred in the top strip, the page number centred in the bottom one (one under each page of a spread), and the page turns left in the chapter at the bottom strip's outer corner, 48 in from the page edge (the end corner, the start one in a right-to-left book; on a spread, under the last page). It reads "6 left in chapter", "6 left" when the window is Compact, and "End of chapter" on the chapter's last page. It counts page turns, a spread being one, not the page number's positions: exact while the chapter is the open file, estimated at the open file's pages per position for the chapter's later files. Nothing shows there in scroll mode or in a book without contents, and it shows and hides with the page number.
+
 ## Rows
 
 One row family, `AppSettingsRow`: leading icon (optional), title in `row-title`, a supporting line in `body-medium` `on-surface-variant`, and one trailing thing (a chevron, a switch, a value, a button, a drag handle). Minimum height `row-height` 64; a value row inside a sheet (a filter facet, a font) is 52. The chevron is always `NavigateNext`. A list of books (journal, downloads, a journal day) uses `AppBookRow`: a 40 wide cover, the title at 15 SemiBold, one line under it at 13.

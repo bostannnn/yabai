@@ -1595,6 +1595,11 @@ on a spread and at 412 dp phone width. All unit tests pass (1498, both lines). N
 - [x] Tablet (0.19.0, 2026-10-25, see "Tablet pass over 9.1-9.8"): Black, Sepia, Grey and Dusk on a real spread,
       one colour edge to edge (read off the screen), the 56 dp strips, a number under each page, the book and
       chapter heads (none on a chapter's first spread), the settings in words.
+- [x] Pages left in the chapter (2026-11-09, asked by the user, picked B of three: joined to the number, the
+      bottom corner, the chapter line): the bottom strip's outer corner, as `layout.md` describes it
+      (`epubChapterPagesLeft`, `EpubChapterPagesLeft`). EPUB only: a PDF has no contents in the app and a comic's
+      issue is its chapter. Joined to the number was too long for a phone and had to pick a page on a spread; the
+      chapter line is hidden on a chapter's first page, where the count matters most.
 - [x] Tap zones and margins (2026-11-09, asked for after reading on the tablet: "I want to open the menu, it turns
       the page"). Found: every side zone was a quarter of the width (PDF 28%), so on a landscape spread (1292 dp,
       pages 646 dp) the zone ended at the middle of each page; a spread had 53 dp outer edges and a 106 dp middle

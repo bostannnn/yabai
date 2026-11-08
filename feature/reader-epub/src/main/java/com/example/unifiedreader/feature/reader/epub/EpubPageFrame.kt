@@ -107,22 +107,26 @@ internal fun BoxScope.EpubPageHeads(
     }
 }
 
-/** Where the reader is, as the page's frame labels need it. [resourcePageIndex] 0 is a chapter's first page. */
+/** Where the reader is, as the page's frame labels need it. [resourcePage] index 0 is a chapter's first page. */
 internal data class EpubFrameLocation(
     val currentHref: String?,
     val currentProgress: Double,
     val currentPage: Int,
     val pageCount: Int,
     val secondSpreadPage: Int?,
-    val resourcePageIndex: Int,
+    val resourcePage: EpubResourcePage,
 )
 
-/** The page number in the bottom strip and the chapter line in the top one, in the page's number colour. */
+/**
+ * The page number in the bottom strip with the pages left in the chapter at its corner, and the
+ * chapter line in the top one, in the page's number colour.
+ */
 @Composable
 internal fun BoxScope.EpubPageFrameLabels(
     publication: Publication,
     bookTitle: String,
     tocEntries: List<EpubTocEntry>,
+    resourcePositions: List<EpubResourcePositions>,
     location: EpubFrameLocation,
     layoutMode: EpubReaderLayoutMode,
     pageColor: ReaderPageColor,
@@ -142,6 +146,26 @@ internal fun BoxScope.EpubPageFrameLabels(
         height = stripHeight,
         sideInset = sideStrip,
     )
+    val isRightToLeft = publication.metadata.readingProgression == ReadingProgression.RTL
+    val isScrolled = layoutMode == EpubReaderLayoutMode.Scroll
+    val chapterPagesLeft = remember(tocEntries, resourcePositions, location) {
+        if (isScrolled) return@remember null
+        epubChapterPagesLeft(
+            resourcePage = location.resourcePage,
+            resource = resourcePositions.epubResourceAt(location.currentPage),
+            currentPosition = location.currentPage,
+            chapterEndPosition = tocEntries.epubChapterEndPosition(location.currentProgress, location.currentHref, location.pageCount),
+        )
+    }
+    if (chapterPagesLeft != null) {
+        EpubChapterPagesLeft(
+            pagesLeft = chapterPagesLeft,
+            short = currentAppWindowWidth() == AppWindowWidth.Compact,
+            color = color,
+            height = stripHeight,
+            isRightToLeft = isRightToLeft,
+        )
+    }
     val chapterTitle = remember(tocEntries, location.currentHref, location.currentProgress) {
         tocEntries.currentEpubChapterTitle(currentProgress = location.currentProgress, currentHref = location.currentHref)
     }
@@ -151,16 +175,16 @@ internal fun BoxScope.EpubPageFrameLabels(
             chapterTitle = chapterTitle,
             isSpread = publication.isEpubReflowableSpread(layoutMode),
             // A scrolled chapter has no pages; its line stays.
-            isChapterStart = layoutMode != EpubReaderLayoutMode.Scroll && location.resourcePageIndex == 0,
+            isChapterStart = !isScrolled && location.resourcePage.pageIndex == 0,
         ),
         color = color,
         height = stripHeight,
         sideInset = sideStrip,
-        isRightToLeft = publication.metadata.readingProgression == ReadingProgression.RTL,
+        isRightToLeft = isRightToLeft,
     )
 }
 
-// Keeps a long chapter title inside the page's side margins.
-private val EpubPageHeadSideInset = 48.dp
+// Keeps a long chapter title, and the pages left in the chapter, inside the page's side margins.
+internal val EpubPageHeadSideInset = 48.dp
 
 internal const val EpubPageHeadsTag = "epub-page-heads"
