@@ -176,8 +176,8 @@ fun EpubReaderScreen(
     // The chapter the reader is in, saved with the session so the library can name it.
     var currentChapter by remember(item.id) { mutableStateOf<ReaderChapterPosition?>(null) }
     var secondSpreadPage by remember(item.id) { mutableStateOf<Int?>(null) }
-    // The navigator's page inside its file; 0 is a chapter's first page.
-    var resourcePageIndex by remember(item.id) { mutableIntStateOf(-1) }
+    // The navigator's page inside its file, of how many; 0 is a chapter's first page.
+    var framePage by remember(item.id) { mutableStateOf(EpubResourcePage(pageIndex = -1, totalPages = null)) }
     val pageNumbersVisible by displayPreferences.pageNumbers.isVisibleFlow.collectAsStateWithLifecycle()
     var hasAutoRequestedCompletion by rememberSaveable(item.id) {
         mutableStateOf(false)
@@ -460,7 +460,8 @@ fun EpubReaderScreen(
                             publication = state.publication,
                             bookTitle = item.title,
                             tocEntries = bookProgress.tocEntries,
-                            location = EpubFrameLocation(currentHref, currentProgress, currentPage, pageCount, secondSpreadPage, resourcePageIndex),
+                            resourcePositions = bookProgress.resourcePositions,
+                            location = EpubFrameLocation(currentHref, currentProgress, currentPage, pageCount, secondSpreadPage, framePage),
                             layoutMode = layoutMode,
                             pageColor = theme,
                             stripHeight = viewportSpacing.containerInset,
@@ -515,7 +516,7 @@ fun EpubReaderScreen(
                             if (reportedPage > 0) {
                                 currentPage = reportedPage
                             }
-                            resourcePageIndex = resourcePage.pageIndex
+                            framePage = resourcePage
                             if (readerTouched) positionMovedSinceOpen = true
                             if (resourcePage.totalPages != null) {
                                 secondSpreadPage = state.publication
